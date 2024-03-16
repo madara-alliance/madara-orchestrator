@@ -4,6 +4,11 @@
 // The stone prover itself doesn't really have any documentation either, and it doesn't seem
 // to use the public input or the private input in a meaningful way within the codebase that's
 // opensourced.
+//
+// NOTE: The following types are loosely based on the types expected by the stone prover
+// because that's the only prover implementation we have access to right now. If another
+// implementation needs to be added, those types should be adapted to the common denominator
+// between the different prover implementations.
 
 use std::{fmt, str::FromStr};
 
