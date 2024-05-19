@@ -317,4 +317,40 @@ mod tests {
         let expected = FieldElement::from_dec_str(expected.as_str()).unwrap();
         assert_eq!(da_word, expected);
     }
+
+    #[rstest]
+    #[case(false, 1, 1, "18446744073709551617")]
+    #[case(false, 1, 0, "18446744073709551616")]
+    #[case(false, 0, 6, "6")]
+    #[case(true, 1, 0, "340282366920938463481821351505477763072")]
+    fn test_state_update_to_blob_data(
+        #[case] class_flag: bool,
+        #[case] new_nonce: u64,
+        #[case] num_changes: u64,
+        #[case] expected: String,
+    ) {
+        // @note: not yet done
+        let new_nonce = if new_nonce > 0 { Some(FieldElement::from(new_nonce)) } else { None };
+        let da_word = da_word(class_flag, new_nonce, num_changes);
+        let expected = FieldElement::from_dec_str(expected.as_str()).unwrap();
+        assert_eq!(da_word, expected);
+    }
+
+    #[rstest]
+    #[case(false, 1, 1, "18446744073709551617")]
+    #[case(false, 1, 0, "18446744073709551616")]
+    #[case(false, 0, 6, "6")]
+    #[case(true, 1, 0, "340282366920938463481821351505477763072")]
+    fn test_fft_transformation(
+        #[case] class_flag: bool,
+        #[case] new_nonce: u64,
+        #[case] num_changes: u64,
+        #[case] expected: String,
+    ) {
+        // @note: not yet done
+        let new_nonce = if new_nonce > 0 { Some(FieldElement::from(new_nonce)) } else { None };
+        let da_word = da_word(class_flag, new_nonce, num_changes);
+        let expected = FieldElement::from_dec_str(expected.as_str()).unwrap();
+        assert_eq!(da_word, expected);
+    }
 }
