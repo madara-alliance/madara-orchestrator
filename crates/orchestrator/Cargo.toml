@@ -4,7 +4,9 @@ version.workspace = true
 edition.workspace = true
 
 [dependencies]
+tracing-subscriber = { workspace = true, features = ["env-filter"] }
 async-trait = { workspace = true }
+thiserror = { workspace = true }
 axum = { workspace = true, features = ["macros"] }
 axum-macros = { workspace = true }
 color-eyre = { workspace = true }
@@ -18,10 +20,12 @@ rstest = { workspace = true }
 serde = { workspace = true }
 serde_json = { workspace = true }
 starknet = { workspace = true }
-thiserror = { workspace = true }
+num-bigint = { workspace = true }
+num-traits = { workspace = true }
+num = { workspace = true }
+lazy_static = { workspace = true }
 tokio = { workspace = true, features = ["sync", "macros", "rt-multi-thread"] }
 tracing = { workspace = true }
-tracing-subscriber = { workspace = true, features = ["env-filter"] }
 url = { workspace = true }
 uuid = { workspace = true, features = ["v4", "serde"] }
 
