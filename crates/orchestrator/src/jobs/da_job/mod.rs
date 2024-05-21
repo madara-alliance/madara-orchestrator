@@ -230,7 +230,7 @@ async fn state_update_to_blob_data(
         let mut nonce = nonces.remove(&addr);
 
         // @note: if nonce is null and there is some len of writes, make an api call to get the contract nonce for the block
-        if (nonce.is_none() && writes.len() > 0) {
+        if (nonce.is_none() && writes.len() > 0 && addr != FieldElement::ONE) {
             let get_current_nonce = config.starknet_client().get_nonce(BlockId::Number(block_no), addr).await?;
             nonce = Some(get_current_nonce);
         }
