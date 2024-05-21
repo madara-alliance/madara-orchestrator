@@ -3,7 +3,8 @@ use crate::config::Config;
 use crate::jobs::types::{JobItem, JobStatus, JobType, JobVerificationStatus};
 use crate::jobs::Job;
 use async_trait::async_trait;
-use color_eyre::eyre::eyre;
+use axum::routing::get;
+use color_eyre::eyre::{eyre, Ok};
 use color_eyre::Result;
 use lazy_static::lazy_static;
 use num_bigint::{BigUint, ToBigUint};
@@ -70,7 +71,7 @@ impl Job for DaJob {
             MaybePendingStateUpdate::Update(state_update) => state_update,
         };
         // constructing the data from the rpc
-        let blob_data = state_update_to_blob_data(block_no, state_update);
+        let blob_data = state_update_to_blob_data(block_no, state_update, config).await?;
         // transforming the data so that we can apply FFT on this.
         // @note: we can skip this step if in the above step we return vec<BigUint> directly
         let blob_data_biguint = convert_to_biguint(blob_data.clone());
@@ -194,7 +195,11 @@ fn data_to_blobs(blob_size: u64, block_data: Vec<BigUint>) -> Vec<Vec<u8>> {
     return blobs;
 }
 
-fn state_update_to_blob_data(block_no: u64, state_update: StateUpdate) -> Vec<FieldElement> {
+async fn state_update_to_blob_data(
+    block_no: u64,
+    state_update: StateUpdate,
+    config: &Config,
+) -> Result<Vec<FieldElement>> {
     let state_diff = state_update.state_diff;
     let mut blob_data: Vec<FieldElement> = vec![
         // TODO: confirm first three fields
@@ -222,7 +227,13 @@ fn state_update_to_blob_data(block_no: u64, state_update: StateUpdate) -> Vec<Fi
     for (addr, writes) in storage_diffs {
         let class_flag = deployed_contracts.get(&addr).or_else(|| replaced_classes.get(&addr));
 
-        let nonce = nonces.remove(&addr);
+        let mut nonce = nonces.remove(&addr);
+
+        // @note: if nonce is null and there is some len of writes, make an api call to get the contract nonce for the block
+        if (nonce.is_none() && writes.len() > 0) {
+            let get_current_nonce = config.starknet_client().get_nonce(BlockId::Number(block_no), addr).await?;
+            nonce = Some(get_current_nonce);
+        }
         let da_word = da_word(class_flag.is_some(), nonce, writes.len() as u64);
         // @note: it can be improved if the first push to the data is of block number and hash
         // @note: ONE address is special address which for now has 1 value and that is current
@@ -253,7 +264,7 @@ fn state_update_to_blob_data(block_no: u64, state_update: StateUpdate) -> Vec<Fi
         blob_data.push(*compiled_class_hash);
     }
 
-    blob_data
+    Ok(blob_data)
 }
 
 /// DA word encoding:
