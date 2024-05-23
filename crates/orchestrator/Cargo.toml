@@ -28,6 +28,9 @@ tokio = { workspace = true, features = ["sync", "macros", "rt-multi-thread"] }
 tracing = { workspace = true }
 url = { workspace = true }
 uuid = { workspace = true, features = ["v4", "serde"] }
+majin-blob-types = "0.1.0"
+majin-blob-core = "0.1.0"
+
 
 [features]
 default = ["ethereum", "with_mongodb", "with_sqs"]

@@ -310,6 +310,8 @@ fn da_word(class_flag: bool, nonce_change: Option<FieldElement>, num_changes: u6
 #[cfg(test)]
 mod tests {
     use super::*;
+    use majin_blob_core::blob;
+    use majin_blob_types::serde;
     use rstest::rstest;
 
     #[rstest]
@@ -348,20 +350,22 @@ mod tests {
     }
 
     #[rstest]
-    #[case(false, 1, 1, "18446744073709551617")]
-    #[case(false, 1, 0, "18446744073709551616")]
-    #[case(false, 0, 6, "6")]
-    #[case(true, 1, 0, "340282366920938463481821351505477763072")]
-    fn test_fft_transformation(
-        #[case] class_flag: bool,
-        #[case] new_nonce: u64,
-        #[case] num_changes: u64,
-        #[case] expected: String,
-    ) {
-        // @note: not yet done
-        let new_nonce = if new_nonce > 0 { Some(FieldElement::from(new_nonce)) } else { None };
-        let da_word = da_word(class_flag, new_nonce, num_changes);
-        let expected = FieldElement::from_dec_str(expected.as_str()).unwrap();
-        assert_eq!(da_word, expected);
+    #[case("src/jobs/test_utils/test_blob_631861.txt")]
+    #[case("src/jobs/test_utils/test_blob_638353.txt")]
+    #[case("src/jobs/test_utils/test_blob_639404.txt")]
+    #[case("src/jobs/test_utils/test_blob_640641.txt")]
+    #[case("src/jobs/test_utils/test_blob_640644.txt")]
+    #[case("src/jobs/test_utils/test_blob_640646.txt")]
+    #[case("src/jobs/test_utils/test_blob_640647.txt")]
+    fn test_fft_transformation(#[case] file_to_check: &str) {
+        // parsing the blob hex to the bigUints
+        let original_blob_data = serde::parse_file_to_blob_data(file_to_check);
+        // converting the data to it's original format
+        let ifft_blob_data = blob::recover(original_blob_data.clone());
+        // applying the fft function again on the original format
+        let fft_blob_data = fft_transformation(ifft_blob_data);
+
+        // ideally the data after fft transformation and the data before ifft should be same.
+        assert_eq!(fft_blob_data, original_blob_data);
     }
 }
