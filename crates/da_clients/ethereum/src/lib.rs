@@ -36,7 +36,6 @@ impl DaClient for EthereumDaClient {
     async fn publish_state_diff(&self, _state_diff: Vec<Vec<u8>>) -> Result<String> {
         dotenv().ok();
         let provider = &self.provider;
-        // check that the _State_diff has length <= self.max_blob, and throw the error otherwise. (Can be handled on the prior function as well)
         let trusted_setup = KzgSettings::load_trusted_setup_file(Path::new("./trusted_setup.txt"))?;
         let wallet: LocalWallet = env::var("PK").expect("PK must be set").parse()?;
         let addr = wallet.address();
@@ -45,6 +44,7 @@ impl DaClient for EthereumDaClient {
             prepare_sidecar(&_state_diff, &trusted_setup).await?;
         let sidecar = BlobTransactionSidecar::new(sidecar_blobs, sidecar_commitments, sidecar_proofs);
 
+        // chain id should be an env variable
         let tx = TxEip4844 {
             chain_id: 17000, // Holesky 17000 sepolia 11155111
             nonce: 1,
@@ -62,23 +62,12 @@ impl DaClient for EthereumDaClient {
         let mut variant2 = TxEip4844Variant::from(txsidecar);
 
         // Sign and submit
-        // let mut variant = TxEip4844Variant::from((tx, sidecar));
         let signature = wallet.sign_transaction(&mut variant2).await?;
         let tx_signed = variant2.into_signed(signature);
         let tx_envelope: TxEnvelope = tx_signed.into();
         let encoded = tx_envelope.encoded_2718();
 
         let pending_tx = provider.send_raw_transaction(&encoded).await?;
-        println!("{:?} ", pending_tx);
-        println!("Pending transaction...{:?}", pending_tx.tx_hash());
-
-        // // Wait for the transaction to be included.
-        // let receipt = pending_tx.get_receipt().await?;
-        // println!(
-        //     "Transaction included in block: {:?} and tx is {:?}",
-        //     receipt.block_number.expect("Failed to get block number").to_string(),
-        //     receipt.transaction_hash.expect("Failed to get block number").to_string()
-        // );
 
         Ok(pending_tx.tx_hash().to_string())
     }
