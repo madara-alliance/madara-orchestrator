@@ -1593,6 +1593,8 @@ dependencies = [
  "libc",
  "serde",
 ]
+
+[[package]]
 name = "castaway"
 version = "0.1.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -2196,7 +2198,7 @@ dependencies = [
  "da-client-interface",
  "dotenv",
  "reqwest 0.12.4",
- "rstest",
+ "rstest 0.18.2",
  "starknet",
  "tokio",
  "tokio-test",
@@ -3006,7 +3008,7 @@ checksum = "70206fc6890eaca9fde8a0bf71caa2ddfc9fe045ac9e5c70df101a7dbde866e0"
 dependencies = [
  "bytes",
  "http-body-util",
- "hyper 1.2.0",
+ "hyper 1.3.0",
  "hyper-util",
  "native-tls",
  "tokio",
@@ -3490,8 +3492,7 @@ dependencies = [
 [[package]]
 name = "majin-blob-core"
 version = "0.1.3"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "ac03da49bb3bd577d2405828d22805d6e704e95b5956a301a09a9c5a3c00a2b1"
+source = "git+https://github.com/Mohiiit/majin-blob?branch=mohit/dev#9ab8987c82e53c2a39f6ee121a48b8a68d524588"
 dependencies = [
  "lazy_static",
  "majin-blob-eip-4844",
@@ -3505,8 +3506,7 @@ dependencies = [
 [[package]]
 name = "majin-blob-eip-4844"
 version = "0.1.3"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "2b87d07ad7e41e527d45a75784c653a0397af45ff782fdf23c8e14c1f426739c"
+source = "git+https://github.com/Mohiiit/majin-blob?branch=mohit/dev#9ab8987c82e53c2a39f6ee121a48b8a68d524588"
 dependencies = [
  "lazy_static",
  "num-bigint",
@@ -3518,12 +3518,12 @@ dependencies = [
 [[package]]
 name = "majin-blob-types"
 version = "0.1.3"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "1d5b9714bbb5b587334d2e1617edae60c2a83392ce102dfef46257fb9e8a3acf"
+source = "git+https://github.com/Mohiiit/majin-blob?branch=mohit/dev#9ab8987c82e53c2a39f6ee121a48b8a68d524588"
 dependencies = [
  "majin-blob-eip-4844",
  "num-bigint",
  "num-traits",
+ "rstest 0.19.0",
  "serde",
  "serde_json",
 ]
@@ -3908,18 +3908,18 @@ dependencies = [
  "dotenvy",
  "ethereum-da-client",
  "futures",
+ "httpmock",
+ "hyper 0.14.28",
  "lazy_static",
  "majin-blob-core",
  "majin-blob-types",
- "httpmock",
- "hyper 0.14.28",
  "mockall",
  "mongodb",
  "num",
  "num-bigint",
  "num-traits",
  "omniqueue",
- "rstest",
+ "rstest 0.18.2",
  "serde",
  "serde_json",
  "starknet",
@@ -4585,7 +4585,7 @@ dependencies = [
  "http 1.1.0",
  "http-body 1.0.0",
  "http-body-util",
- "hyper 1.2.0",
+ "hyper 1.3.0",
  "hyper-tls 0.6.0",
  "hyper-util",
  "ipnet",
@@ -4665,7 +4665,19 @@ checksum = "97eeab2f3c0a199bc4be135c36c924b6590b88c377d416494288c14f2db30199"
 dependencies = [
  "futures",
  "futures-timer",
- "rstest_macros",
+ "rstest_macros 0.18.2",
+ "rustc_version 0.4.0",
+]
+
+[[package]]
+name = "rstest"
+version = "0.19.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "9d5316d2a1479eeef1ea21e7f9ddc67c191d497abc8fc3ba2467857abbb68330"
+dependencies = [
+ "futures",
+ "futures-timer",
+ "rstest_macros 0.19.0",
  "rustc_version 0.4.0",
 ]
 
@@ -4674,6 +4686,23 @@ name = "rstest_macros"
 version = "0.18.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "d428f8247852f894ee1be110b375111b586d4fa431f6c46e64ba5a0dcccbe605"
+dependencies = [
+ "cfg-if",
+ "glob",
+ "proc-macro2",
+ "quote",
+ "regex",
+ "relative-path",
+ "rustc_version 0.4.0",
+ "syn 2.0.58",
+ "unicode-ident",
+]
+
+[[package]]
+name = "rstest_macros"
+version = "0.19.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "04a9df72cc1f67020b0d63ad9bfe4a323e459ea7eb68e03bd9824db49f9a4c25"
 dependencies = [
  "cfg-if",
  "glob",

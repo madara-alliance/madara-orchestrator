@@ -13,6 +13,8 @@ path = "src/main.rs"
 
 [dependencies]
 
+majin-blob-types = { git = "https://github.com/Mohiiit/majin-blob", branch = "mohit/dev" }
+majin-blob-core = { git = "https://github.com/Mohiiit/majin-blob", branch = "mohit/dev" }
 num-bigint = { workspace = true }
 tracing-subscriber = { workspace = true, features = ["env-filter"] }
 async-trait = { workspace = true }
@@ -38,9 +40,8 @@ tokio = { workspace = true, features = ["sync", "macros", "rt-multi-thread"] }
 tracing = { workspace = true }
 url = { workspace = true }
 uuid = { workspace = true, features = ["v4", "serde"] }
-majin-blob-types = "0.1.0"
-majin-blob-core = "0.1.0"
-
+# majin-blob-types = "0.1.0"
+# majin-blob-core = "0.1.0"
 
 [features]
 default = ["ethereum", "with_mongodb", "with_sqs"]

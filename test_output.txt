@@ -1,0 +1,48 @@
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 1 filtered out; finished in 0.00s
+
+
+running 1 test
+test jobs::da_job::tests::test_state_update_to_blob_data::case_1 ... FAILED
+
+failures:
+
+---- jobs::da_job::tests::test_state_update_to_blob_data::case_1 stdout ----
+test 1
+test 2
+test 4
+test 5
+test 4
+test 5
+test 4
+test 5
+test 5
+test 4
+test 5
+test 4
+test 5
+test 4
+test 5
+test 4
+test 5
+Failed to get nonce: data did not match any variant of untagged enum JsonRpcResponse
+thread 'jobs::da_job::tests::test_state_update_to_blob_data::case_1' panicked at crates/orchestrator/src/jobs/da_job/mod.rs:383:14:
+issue while converting state update to blob data: data did not match any variant of untagged enum JsonRpcResponse
+
+Location:
+    crates/orchestrator/src/jobs/da_job/mod.rs:249:34
+note: run with `RUST_BACKTRACE=1` environment variable to display a backtrace
+
+
+failures:
+    jobs::da_job::tests::test_state_update_to_blob_data::case_1
+
+test result: FAILED. 0 passed; 1 failed; 0 ignored; 0 measured; 27 filtered out; finished in 4.48s
+

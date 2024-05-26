@@ -44,7 +44,7 @@ impl DaClient for EthereumDaClient {
             prepare_sidecar(&_state_diff, &trusted_setup).await?;
         let sidecar = BlobTransactionSidecar::new(sidecar_blobs, sidecar_commitments, sidecar_proofs);
 
-        // chain id should be an env variable
+        // chain id should be an env variable or should be in config?
         let tx = TxEip4844 {
             chain_id: 17000, // Holesky 17000 sepolia 11155111
             nonce: 1,

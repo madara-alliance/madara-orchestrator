@@ -11,9 +11,10 @@ use num_bigint::{BigUint, ToBigUint};
 use num_traits::Num;
 use num_traits::{One, Zero};
 use std::ops::{Add, Mul, Rem};
+use std::result::Result::{Err, Ok as OtherOk};
 use std::str::FromStr;
 
-use starknet::core::types::{BlockId, FieldElement, MaybePendingStateUpdate, StateUpdate, StorageEntry};
+use starknet::core::types::{BlockId, FieldElement, MaybePendingStateUpdate, StateDiff, StateUpdate, StorageEntry};
 use starknet::providers::Provider;
 use std::collections::HashMap;
 use tracing::log;
@@ -230,9 +231,17 @@ async fn state_update_to_blob_data(
         let mut nonce = nonces.remove(&addr);
 
         // @note: if nonce is null and there is some len of writes, make an api call to get the contract nonce for the block
+
         if (nonce.is_none() && writes.len() > 0 && addr != FieldElement::ONE) {
-            let get_current_nonce = config.starknet_client().get_nonce(BlockId::Number(block_no), addr).await?;
-            nonce = Some(get_current_nonce);
+            let get_current_nonce_result = config.starknet_client().get_nonce(BlockId::Number(block_no), addr).await;
+
+            nonce = match get_current_nonce_result {
+                OtherOk(get_current_nonce) => Some(get_current_nonce),
+                Err(e) => {
+                    log::error!("Failed to get nonce: {}", e);
+                    return Err(eyre!("Failed to get nonce: {}", e));
+                }
+            };
         }
         let da_word = da_word(class_flag.is_some(), nonce, writes.len() as u64);
         // @note: it can be improved if the first push to the data is of block number and hash
@@ -255,7 +264,6 @@ async fn state_update_to_blob_data(
             blob_data.push(entry.value);
         }
     }
-
     // Handle declared classes
     blob_data.push(FieldElement::from(declared_classes.len()));
 
@@ -310,9 +318,18 @@ fn da_word(class_flag: bool, nonce_change: Option<FieldElement>, num_changes: u6
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::tests::common::init_config;
+    use da_client_interface::{DaVerificationStatus, MockDaClient};
     use majin_blob_core::blob;
-    use majin_blob_types::serde;
+    use majin_blob_types::{
+        serde,
+        state_diffs::{ContractUpdate, DataJson, StorageUpdate, UnorderedEq},
+    };
+    // use majin_blob_types::serde;
     use rstest::rstest;
+    use std::collections::HashSet;
+    use std::fs::File;
+    use std::io::{self, BufRead, BufReader, Write};
 
     #[rstest]
     #[case(false, 1, 1, "18446744073709551617")]
@@ -331,22 +348,60 @@ mod tests {
         assert_eq!(da_word, expected);
     }
 
+    fn write_biguint_to_file(numbers: &Vec<BigUint>, file_path: &str) {
+        let mut file = File::create(file_path).expect("not able to create the files");
+        for number in numbers {
+            writeln!(file, "{}", number).expect("unable to write to the file");
+        }
+    }
+
     #[rstest]
-    #[case(false, 1, 1, "18446744073709551617")]
-    #[case(false, 1, 0, "18446744073709551616")]
-    #[case(false, 0, 6, "6")]
-    #[case(true, 1, 0, "340282366920938463481821351505477763072")]
-    fn test_state_update_to_blob_data(
-        #[case] class_flag: bool,
-        #[case] new_nonce: u64,
-        #[case] num_changes: u64,
-        #[case] expected: String,
-    ) {
+    // #[case(631861, "src/jobs/test_utils/test_blob_631861.txt")]
+    // #[case(638353, "src/jobs/test_utils/test_blob_638353.txt")]
+    // #[case(639404, "src/jobs/test_utils/test_blob_639404.txt")]
+    #[case(640641, "src/jobs/test_utils/test_blob_640641.txt")]
+    #[tokio::test]
+    async fn test_state_update_to_blob_data(#[case] block_no: u64, #[case] file_path: &str) {
         // @note: not yet done
-        let new_nonce = if new_nonce > 0 { Some(FieldElement::from(new_nonce)) } else { None };
-        let da_word = da_word(class_flag, new_nonce, num_changes);
-        let expected = FieldElement::from_dec_str(expected.as_str()).unwrap();
-        assert_eq!(da_word, expected);
+        let config = init_config(
+            Some(format!("https://starknet-mainnet.infura.io/v3/3753abe17c124d088f4e68d58f257452")),
+            None,
+            None,
+            None,
+        )
+        .await;
+        let state_update = config.starknet_client().get_state_update(BlockId::Number(block_no)).await.expect("issue");
+
+        let state_update = match state_update {
+            MaybePendingStateUpdate::PendingUpdate(_) => StateUpdate {
+                block_hash: FieldElement::default(),
+                new_root: FieldElement::default(),
+                old_root: FieldElement::default(),
+                state_diff: StateDiff {
+                    storage_diffs: vec![],
+                    deprecated_declared_classes: vec![],
+                    declared_classes: vec![],
+                    deployed_contracts: vec![],
+                    replaced_classes: vec![],
+                    nonces: vec![],
+                },
+            },
+            MaybePendingStateUpdate::Update(state_update) => state_update,
+        };
+        let blob_data = state_update_to_blob_data(block_no, state_update, &config)
+            .await
+            .expect("issue while converting state update to blob data");
+
+        let blob_data_biguint = convert_to_biguint(blob_data);
+
+        let block_data_state_diffs = serde::parse_state_diffs(blob_data_biguint.as_slice());
+
+        let original_blob_data = serde::parse_file_to_blob_data(file_path);
+        // converting the data to it's original format
+        let recovered_blob_data = blob::recover(original_blob_data.clone());
+        let blob_data_state_diffs = serde::parse_state_diffs(recovered_blob_data.as_slice());
+
+        assert!(block_data_state_diffs.unordered_eq(&blob_data_state_diffs), "value of data json should be identical");
     }
 
     #[rstest]
@@ -367,34 +422,5 @@ mod tests {
 
         // ideally the data after fft transformation and the data before ifft should be same.
         assert_eq!(fft_blob_data, original_blob_data);
-    }
-    use serde_json::Error;
-    use std::fs::{read_to_string, File};
-    use std::io::{self, BufRead};
-
-    #[test]
-    #[ignore]
-    fn state_update_to_blob_data_works() {
-        let state_update_path = "test-utils/stateUpdate.json".to_owned();
-        let contents = read_to_string(state_update_path).expect("Couldn't find or load that file.");
-
-        let v: Result<StateUpdate, Error> = serde_json::from_str(contents.as_str());
-
-        let state_update: StateUpdate = match v {
-            Ok(state_update) => state_update,
-            Err(e) => panic!("Couldn't parse the JSON file: {}", e),
-        };
-
-        let blob_data = state_update_to_blob_data(630872, state_update);
-        assert_eq!(blob_data.len(), 4906, "Blob data length must be 4906"); // //! Length was 2375
-
-        let file = File::open("test-utils/blobStateDiffs.txt").expect("Failed to open file");
-        let reader = io::BufReader::new(file);
-
-        // Iterate over both the file lines and the vector simultaneously, with index for comparison
-        for (index, line_result) in reader.lines().enumerate() {
-            let line = line_result.expect("Failed to read line");
-            assert_eq!(blob_data[index].to_string().as_str(), line, "Line {} does not match", index + 1);
-        }
     }
 }
