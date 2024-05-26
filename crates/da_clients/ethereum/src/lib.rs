@@ -29,19 +29,20 @@ pub mod config;
 pub struct EthereumDaClient {
     #[allow(dead_code)]
     provider: RootProvider<Ethereum, Http<Client>>,
+    wallet: LocalWallet,
+    trusted_setup: KzgSettings,
 }
 
 #[async_trait]
 impl DaClient for EthereumDaClient {
-    async fn publish_state_diff(&self, _state_diff: Vec<Vec<u8>>) -> Result<String> {
+    async fn publish_state_diff(&self, state_diff: Vec<Vec<u8>>) -> Result<String> {
         dotenv().ok();
         let provider = &self.provider;
-        let trusted_setup = KzgSettings::load_trusted_setup_file(Path::new("./trusted_setup.txt"))?;
-        let wallet: LocalWallet = env::var("PK").expect("PK must be set").parse()?;
+        let trusted_setup = &self.trusted_setup;
+        let wallet = &self.wallet;
         let addr = wallet.address();
 
-        let (sidecar_blobs, sidecar_commitments, sidecar_proofs) =
-            prepare_sidecar(&_state_diff, &trusted_setup).await?;
+        let (sidecar_blobs, sidecar_commitments, sidecar_proofs) = prepare_sidecar(&state_diff, &trusted_setup).await?;
         let sidecar = BlobTransactionSidecar::new(sidecar_blobs, sidecar_commitments, sidecar_proofs);
 
         // chain id should be an env variable or should be in config?
@@ -58,12 +59,12 @@ impl DaClient for EthereumDaClient {
             max_fee_per_blob_gas: 7300000_535,
             input: bytes!(),
         };
-        let txsidecar = TxEip4844WithSidecar { tx: tx.clone(), sidecar: sidecar.clone() };
-        let mut variant2 = TxEip4844Variant::from(txsidecar);
+        let tx_sidecar = TxEip4844WithSidecar { tx: tx.clone(), sidecar: sidecar.clone() };
+        let mut variant = TxEip4844Variant::from(tx_sidecar);
 
         // Sign and submit
-        let signature = wallet.sign_transaction(&mut variant2).await?;
-        let tx_signed = variant2.into_signed(signature);
+        let signature = wallet.sign_transaction(&mut variant).await?;
+        let tx_signed = variant.into_signed(signature);
         let tx_envelope: TxEnvelope = tx_signed.into();
         let encoded = tx_envelope.encoded_2718();
 
@@ -87,11 +88,14 @@ impl DaClient for EthereumDaClient {
 
 impl From<EthereumDaConfig> for EthereumDaClient {
     fn from(config: EthereumDaConfig) -> Self {
-        // let provider = RpcClient::builder().reqwest_http();
         let client =
             RpcClient::new_http(Url::from_str(config.rpc_url.as_str()).expect("Failed to parse ETHEREUM_RPC_URL"));
         let provider = ProviderBuilder::<_, Ethereum>::new().on_client(client);
-        EthereumDaClient { provider }
+        let wallet: LocalWallet = env::var("PK").expect("PK must be set").parse().expect("issue while parsing");
+        // let wallet: LocalWallet = config.private_key.as_str().parse();
+        let trusted_setup = KzgSettings::load_trusted_setup_file(Path::new("./trusted_setup.txt"))
+            .expect("issue while loading the trusted setup");
+        EthereumDaClient { provider, wallet, trusted_setup }
     }
 }
 

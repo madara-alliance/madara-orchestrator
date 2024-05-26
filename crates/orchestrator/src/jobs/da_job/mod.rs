@@ -1,5 +1,4 @@
 use crate::config::Config;
-// use crate::jobs::constants::{BLOB_LEN, BLS_MODULUS, GENERATOR};
 use crate::jobs::types::{JobItem, JobStatus, JobType, JobVerificationStatus};
 use crate::jobs::Job;
 use async_trait::async_trait;
@@ -20,25 +19,25 @@ use std::collections::HashMap;
 use tracing::log;
 use uuid::Uuid;
 
-// @note: can be remo
-pub const BLOB_LEN: usize = 4096;
-// lazy_static! {
-//     /// EIP-4844 BLS12-381 modulus.
-//     ///
-//     /// As defined in https://eips.ethereum.org/EIPS/eip-4844
+lazy_static! {
+    /// EIP-4844 BLS12-381 modulus.
+    ///
+    /// As defined in https://eips.ethereum.org/EIPS/eip-4844
 
-//     /// Generator of the group of evaluation points (EIP-4844 parameter).
-//     pub static ref GENERATOR: BigUint = BigUint::from_str(
-//         "39033254847818212395286706435128746857159659164139250548781411570340225835782",
-//     )
-//     .unwrap();
+    /// Generator of the group of evaluation points (EIP-4844 parameter).
+    pub static ref GENERATOR: BigUint = BigUint::from_str(
+        "39033254847818212395286706435128746857159659164139250548781411570340225835782",
+    )
+    .unwrap();
 
-//     pub static ref BLS_MODULUS: BigUint = BigUint::from_str(
-//         "52435875175126190479447740508185965837690552500527637822603658699938581184513",
-//     )
-//     .unwrap();
-//     pub static ref TWO: BigUint = 2u32.to_biguint().unwrap();
-// }
+    pub static ref BLS_MODULUS: BigUint = BigUint::from_str(
+        "52435875175126190479447740508185965837690552500527637822603658699938581184513",
+    )
+    .unwrap();
+    pub static ref TWO: BigUint = 2u32.to_biguint().unwrap();
+
+    pub static ref BLOB_LEN: usize = 4096;
+}
 
 pub struct DaJob;
 
@@ -83,7 +82,8 @@ impl Job for DaJob {
         let max_blob_per_txn = config.da_client().max_blob_per_txn().await;
 
         // converting BigUints to Vec<u8>, one Vec<u8> represents one blob data
-        let blob_array = data_to_blobs(max_bytes_per_blob, transformed_data);
+        let blob_array =
+            data_to_blobs(max_bytes_per_blob, transformed_data).expect("error while converting blob data to vec<u8>");
         let current_blob_length: u64 = blob_array.len().try_into().unwrap();
 
         // there is a limit on number of blobs per txn, checking that here
@@ -121,13 +121,7 @@ impl Job for DaJob {
 }
 
 fn fft_transformation(elements: Vec<BigUint>) -> Vec<BigUint> {
-    // @note: this should be in constants ideally
-    let BLS_MODULUS: BigUint =
-        BigUint::from_str("52435875175126190479447740508185965837690552500527637822603658699938581184513").unwrap();
-    let GENERATOR: BigUint =
-        BigUint::from_str("39033254847818212395286706435128746857159659164139250548781411570340225835782").unwrap();
-
-    let xs: Vec<BigUint> = (0..BLOB_LEN)
+    let xs: Vec<BigUint> = (0..*BLOB_LEN)
         .map(|i| {
             let bin = format!("{:012b}", i);
             let bin_rev = bin.chars().rev().collect::<String>();
@@ -139,38 +133,38 @@ fn fft_transformation(elements: Vec<BigUint>) -> Vec<BigUint> {
 
     for i in 0..n {
         for j in (0..n).rev() {
-            transform[i] = (transform[i].clone().mul(&xs[i]).add(&elements[j])).rem(&BLS_MODULUS);
+            transform[i] = (transform[i].clone().mul(&xs[i]).add(&elements[j])).rem(&*BLS_MODULUS);
         }
     }
     transform
 }
 
 fn convert_to_biguint(elements: Vec<FieldElement>) -> Vec<BigUint> {
-    let mut biguint_vec = Vec::with_capacity(4096);
+    // Initialize the vector with 4096 BigUint zeros
+    let mut biguint_vec = vec![BigUint::zero(); 4096];
 
-    // Iterate over the first 4096 elements of the input vector or until we reach 4096 elements
-    for i in 0..4096 {
-        if let Some(element) = elements.get(i) {
-            // Convert FieldElement to [u8; 32]
-            let bytes: [u8; 32] = element.to_bytes_be();
+    // Iterate over the elements and replace the zeros in the biguint_vec
+    for (i, element) in elements.iter().take(4096).enumerate() {
+        // Convert FieldElement to [u8; 32]
+        let bytes: [u8; 32] = element.to_bytes_be();
 
-            // Convert [u8; 32] to BigUint
-            let biguint = BigUint::from_bytes_be(&bytes);
+        // Convert [u8; 32] to BigUint
+        let biguint = BigUint::from_bytes_be(&bytes);
 
-            biguint_vec.push(biguint);
-        } else {
-            // If we run out of elements, push a zero BigUint
-            biguint_vec.push(BigUint::zero());
-        }
+        // Replace the zero with the converted value
+        biguint_vec[i] = biguint;
     }
 
     biguint_vec
 }
 
-fn data_to_blobs(blob_size: u64, block_data: Vec<BigUint>) -> Vec<Vec<u8>> {
+fn data_to_blobs(blob_size: u64, block_data: Vec<BigUint>) -> Result<Vec<Vec<u8>>> {
     // Validate blob size
     if blob_size < 32 {
-        panic!("Blob size must be at least 32 bytes to accommodate a single FieldElement/BigUint");
+        return Err(eyre!(
+            "Blob size must be at least 32 bytes to accommodate a single FieldElement/BigUint, but was {}",
+            blob_size,
+        ));
     }
 
     let mut blobs: Vec<Vec<u8>> = Vec::new();
@@ -193,7 +187,7 @@ fn data_to_blobs(blob_size: u64, block_data: Vec<BigUint>) -> Vec<Vec<u8>> {
         println!("Warning: Remaining {} bytes not forming a complete blob were padded", remaining_bytes);
     }
 
-    return blobs;
+    Ok(blobs)
 }
 
 async fn state_update_to_blob_data(
@@ -203,7 +197,6 @@ async fn state_update_to_blob_data(
 ) -> Result<Vec<FieldElement>> {
     let state_diff = state_update.state_diff;
     let mut blob_data: Vec<FieldElement> = vec![
-        // TODO: confirm first three fields
         FieldElement::from(state_diff.storage_diffs.len()),
         // @note: won't need this if while producing the block we are attaching the block number
         // and the block hash
@@ -359,7 +352,7 @@ mod tests {
     // #[case(631861, "src/jobs/test_utils/test_blob_631861.txt")]
     // #[case(638353, "src/jobs/test_utils/test_blob_638353.txt")]
     // #[case(639404, "src/jobs/test_utils/test_blob_639404.txt")]
-    #[case(640641, "src/jobs/test_utils/test_blob_640641.txt")]
+    #[case(640641, "src/jobs/da_job/test_data/test_blob_640641.txt")]
     #[tokio::test]
     async fn test_state_update_to_blob_data(#[case] block_no: u64, #[case] file_path: &str) {
         // @note: not yet done
@@ -405,13 +398,13 @@ mod tests {
     }
 
     #[rstest]
-    #[case("src/jobs/test_utils/test_blob_631861.txt")]
-    #[case("src/jobs/test_utils/test_blob_638353.txt")]
-    #[case("src/jobs/test_utils/test_blob_639404.txt")]
-    #[case("src/jobs/test_utils/test_blob_640641.txt")]
-    #[case("src/jobs/test_utils/test_blob_640644.txt")]
-    #[case("src/jobs/test_utils/test_blob_640646.txt")]
-    #[case("src/jobs/test_utils/test_blob_640647.txt")]
+    #[case("src/jobs/da_job/test_data/test_blob_631861.txt")]
+    #[case("src/jobs/da_job/test_data/test_blob_638353.txt")]
+    #[case("src/jobs/da_job/test_data/test_blob_639404.txt")]
+    #[case("src/jobs/da_job/test_data/test_blob_640641.txt")]
+    #[case("src/jobs/da_job/test_data/test_blob_640644.txt")]
+    #[case("src/jobs/da_job/test_data/test_blob_640646.txt")]
+    #[case("src/jobs/da_job/test_data/test_blob_640647.txt")]
     fn test_fft_transformation(#[case] file_to_check: &str) {
         // parsing the blob hex to the bigUints
         let original_blob_data = serde::parse_file_to_blob_data(file_to_check);
