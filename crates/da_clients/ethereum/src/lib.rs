@@ -27,6 +27,10 @@ impl DaClient for EthereumDaClient {
     async fn verify_inclusion(&self, _external_id: &str) -> Result<DaVerificationStatus> {
         todo!()
     }
+
+    async fn register_proof(&self, _proof: Vec<FieldElement>) -> Result<String> {
+        unimplemented!()
+    }
 }
 
 impl From<EthereumDaConfig> for EthereumDaClient {

@@ -3658,6 +3658,7 @@ dependencies = [
  "mockall",
  "mongodb",
  "omniqueue",
+ "reqwest",
  "rstest",
  "serde",
  "serde_json",

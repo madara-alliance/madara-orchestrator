@@ -33,6 +33,7 @@ tracing = { workspace = true }
 tracing-subscriber = { workspace = true, features = ["env-filter"] }
 url = { workspace = true }
 uuid = { workspace = true, features = ["v4", "serde"] }
+reqwest = { version = "0.11", features = ["blocking"] }
 
 [features]
 default = ["ethereum", "with_mongodb", "with_sqs"]
