@@ -47,13 +47,13 @@ impl Job for RegisterProofJob {
             proof_data_vec.push(FieldElement::from_dec_str(s).expect("Invalid FieldElement"));
         });
 
-        let external_id = _config.da_client().register_proof(proof_data_vec).await?;
+        let external_id = _config.settlement_client().register_proof(proof_data_vec).await?;
 
         Ok(external_id)
     }
 
     async fn verify_job(&self, _config: &Config, _job: &JobItem) -> Result<JobVerificationStatus> {
-        Ok(_config.da_client().verify_inclusion(_job.external_id.unwrap_string()?).await?.into())
+        Ok(_config.settlement_client().verify_inclusion(_job.external_id.unwrap_string()?).await?.into())
     }
 
     fn max_process_attempts(&self) -> u64 {

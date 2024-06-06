@@ -22,9 +22,6 @@ pub trait DaClient: Send + Sync {
     async fn publish_state_diff(&self, state_diff: Vec<FieldElement>) -> Result<String>;
     /// Should verify the inclusion of the state diff in the DA layer and return the status
     async fn verify_inclusion(&self, external_id: &str) -> Result<DaVerificationStatus>;
-    /// Should register the proof on the base layer and return an external id
-    /// which can be used to track the status.
-    async fn register_proof(&self, proof: Vec<FieldElement>) -> Result<String>;
 }
 
 /// Trait for every new DaConfig to implement
