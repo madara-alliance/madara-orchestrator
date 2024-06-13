@@ -2,19 +2,18 @@ use crate::config::Config;
 use crate::jobs::types::{JobItem, JobStatus, JobType, JobVerificationStatus};
 use crate::jobs::Job;
 use async_trait::async_trait;
-use axum::routing::get;
 use color_eyre::eyre::{eyre, Ok};
 use color_eyre::Result;
 use lazy_static::lazy_static;
 use num_bigint::{BigUint, ToBigUint};
 use num_traits::Num;
-use num_traits::{One, Zero};
+use num_traits::Zero;
 use std::ops::{Add, Mul, Rem};
 use std::result::Result::{Err, Ok as OtherOk};
 use std::str::FromStr;
 
-use serde::{Deserialize, Serialize};
-use starknet::core::types::{BlockId, FieldElement, MaybePendingStateUpdate, StateDiff, StateUpdate, StorageEntry};
+//
+use starknet::core::types::{BlockId, FieldElement, MaybePendingStateUpdate, StateUpdate, StorageEntry};
 use starknet::providers::Provider;
 use std::collections::HashMap;
 use tracing::log;
@@ -226,7 +225,7 @@ async fn state_update_to_blob_data(
 
         // @note: if nonce is null and there is some len of writes, make an api call to get the contract nonce for the block
 
-        if (nonce.is_none() && writes.len() > 0 && addr != FieldElement::ONE) {
+        if nonce.is_none() && writes.len() > 0 && addr != FieldElement::ONE {
             let get_current_nonce_result = config.starknet_client().get_nonce(BlockId::Number(block_no), addr).await;
 
             nonce = match get_current_nonce_result {
@@ -243,7 +242,7 @@ async fn state_update_to_blob_data(
         //        block number and hash
         // @note: ONE special address can be used to mark the range of block, if in future
         //        the team wants to submit multiple blocks in a sinle blob etc.
-        if (addr == FieldElement::ONE && da_word == FieldElement::ONE) {
+        if addr == FieldElement::ONE && da_word == FieldElement::ONE {
             continue;
         }
         blob_data.push(addr);
@@ -277,21 +276,21 @@ fn da_word(class_flag: bool, nonce_change: Option<FieldElement>, num_changes: u6
     let mut binary_string = "0".repeat(127);
 
     // class flag of one bit
-    if (class_flag) {
+    if class_flag {
         binary_string += "1"
     } else {
         binary_string += "0"
     }
 
     // checking for nonce here
-    if let Some(new_nonce) = nonce_change {
+    if let Some(_new_nonce) = nonce_change {
         let bytes: [u8; 32] = nonce_change.unwrap().to_bytes_be();
         let biguint = BigUint::from_bytes_be(&bytes);
         let binary_string_local = format!("{:b}", biguint);
         let padded_binary_string = format!("{:0>64}", binary_string_local);
         binary_string += &padded_binary_string;
     } else {
-        let mut binary_string_local = "0".repeat(64);
+        let binary_string_local = "0".repeat(64);
         binary_string += &binary_string_local;
     }
 
@@ -312,24 +311,18 @@ fn da_word(class_flag: bool, nonce_change: Option<FieldElement>, num_changes: u6
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::tests::common::{constants::ETHEREUM_MAX_BLOB_PER_TXN, init_config};
-    use da_client_interface::{DaVerificationStatus, MockDaClient};
+    use crate::tests::common::init_config;
+    use ::serde::{Deserialize, Serialize};
     use httpmock::prelude::*;
     use majin_blob_core::blob;
-    use majin_blob_types::{
-        serde,
-        state_diffs::{ContractUpdate, DataJson, StorageUpdate, UnorderedEq},
-    };
+    use majin_blob_types::{serde, state_diffs::UnorderedEq};
     // use majin_blob_types::serde;
     use rstest::rstest;
 
     use serde_json::json;
-    use std::collections::HashSet;
     use std::fs;
     use std::fs::File;
     use std::io::Read;
-    use std::io::{self, BufRead, BufReader, Write};
-    use std::path::Path;
 
     #[rstest]
     #[case(false, 1, 1, "18446744073709551617")]

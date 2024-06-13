@@ -5,7 +5,7 @@ use alloy::consensus::{
 };
 use alloy::eips::{eip2718::Encodable2718, eip2930::AccessList, eip4844::BYTES_PER_BLOB};
 use alloy::network::{Ethereum, TxSigner};
-use alloy::primitives::{bytes, FixedBytes, U256};
+use alloy::primitives::{bytes, FixedBytes, TxHash, U256, U64};
 use alloy::providers::{Provider, ProviderBuilder, RootProvider};
 use alloy::rpc::client::RpcClient;
 use alloy::signers::wallet::LocalWallet;
@@ -13,12 +13,8 @@ use alloy::transports::http::Http;
 use async_trait::async_trait;
 
 use color_eyre::Result;
-// use reqwest::async_impl::client::Client;
 use mockall::{automock, predicate::*};
 use reqwest::Client;
-use starknet::core::types::FieldElement;
-use starknet::core::types::FromByteArrayError;
-use std::future::IntoFuture;
 use std::str::FromStr;
 use url::Url;
 
@@ -51,17 +47,20 @@ impl DaClient for EthereumDaClient {
         let eip1559_est = provider.estimate_eip1559_fees(None).await?;
         let chain_id: u64 = provider.get_chain_id().await?.to_string().parse()?;
 
+        let max_fee_per_blob_gas: u128 = provider.get_blob_base_fee().await?.to_string().parse()?;
+        let max_priority_fee_per_gas: u128 = provider.get_max_priority_fee_per_gas().await?.to_string().parse()?;
+
         let tx = TxEip4844 {
             chain_id,
             nonce: 0, // can be block number
             gas_limit: 30_000_000,
             max_fee_per_gas: eip1559_est.max_fee_per_gas.to_string().parse()?,
-            max_priority_fee_per_gas: eip1559_est.max_priority_fee_per_gas.to_string().parse()?,
-            to: addr,
+            max_priority_fee_per_gas,
+            to: addr, // maybe to the L1 contract for verification??
             value: U256::from(0),
             access_list: AccessList(vec![]),
             blob_versioned_hashes: sidecar.versioned_hashes().collect(),
-            max_fee_per_blob_gas: 7300000_535,
+            max_fee_per_blob_gas,
             input: bytes!(),
         };
         let tx_sidecar = TxEip4844WithSidecar { tx: tx.clone(), sidecar: sidecar.clone() };
@@ -78,8 +77,18 @@ impl DaClient for EthereumDaClient {
         Ok(pending_tx.tx_hash().to_string())
     }
 
-    async fn verify_inclusion(&self, _external_id: &str) -> Result<DaVerificationStatus> {
-        todo!()
+    async fn verify_inclusion(&self, external_id: &str) -> Result<DaVerificationStatus> {
+        let provider = &self.provider;
+        let tx_hash: TxHash = external_id.parse().unwrap();
+        let txn_response = provider.get_transaction_receipt(tx_hash).await?;
+
+        match txn_response {
+            None => Ok(DaVerificationStatus::Pending),
+            Some(receipt) => match receipt.status_code {
+                Some(status) if status == U64::from(1) => Ok(DaVerificationStatus::Verified),
+                _ => Ok(DaVerificationStatus::Rejected),
+            },
+        }
     }
 
     async fn max_blob_per_txn(&self) -> u64 {
@@ -132,11 +141,8 @@ async fn prepare_sidecar(
 #[cfg(test)]
 mod tests {
     use super::*;
-    use rstest::rstest;
     use std::fs::File;
     use std::io::{self, BufRead};
-    use std::io::{BufReader, Read};
-    use tokio_test;
 
     #[tokio::test]
     async fn test_kzg() {
@@ -162,7 +168,7 @@ mod tests {
         let data_v8 = hex_string_to_u8_vec(&data).expect("error creating hex string from data");
 
         // creation of sidecar
-        let (sidecar_blobs, sidecar_commitments, sidecar_proofs) =
+        let (_sidecar_blobs, sidecar_commitments, sidecar_proofs) =
             prepare_sidecar(&[data_v8], &trusted_setup).await.expect("Error creating the sidecar blobs");
 
         // blob commitment from L1
@@ -201,7 +207,7 @@ mod tests {
         Ok(result)
     }
 
-    fn vec_u8_to_hex_string(data: &[u8]) -> String {
+    fn _vec_u8_to_hex_string(data: &[u8]) -> String {
         let hex_chars: Vec<String> = data.iter().map(|byte| format!("{:02X}", byte)).collect();
         hex_chars.join("")
     }
