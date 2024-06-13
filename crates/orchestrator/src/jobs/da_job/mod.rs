@@ -13,6 +13,7 @@ use std::ops::{Add, Mul, Rem};
 use std::result::Result::{Err, Ok as OtherOk};
 use std::str::FromStr;
 
+use serde::{Deserialize, Serialize};
 use starknet::core::types::{BlockId, FieldElement, MaybePendingStateUpdate, StateDiff, StateUpdate, StorageEntry};
 use starknet::providers::Provider;
 use std::collections::HashMap;
@@ -311,8 +312,9 @@ fn da_word(class_flag: bool, nonce_change: Option<FieldElement>, num_changes: u6
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::tests::common::init_config;
+    use crate::tests::common::{constants::ETHEREUM_MAX_BLOB_PER_TXN, init_config};
     use da_client_interface::{DaVerificationStatus, MockDaClient};
+    use httpmock::prelude::*;
     use majin_blob_core::blob;
     use majin_blob_types::{
         serde,
@@ -320,9 +322,14 @@ mod tests {
     };
     // use majin_blob_types::serde;
     use rstest::rstest;
+
+    use serde_json::json;
     use std::collections::HashSet;
+    use std::fs;
     use std::fs::File;
+    use std::io::Read;
     use std::io::{self, BufRead, BufReader, Write};
+    use std::path::Path;
 
     #[rstest]
     #[case(false, 1, 1, "18446744073709551617")]
@@ -341,46 +348,39 @@ mod tests {
         assert_eq!(da_word, expected);
     }
 
-    fn write_biguint_to_file(numbers: &Vec<BigUint>, file_path: &str) {
-        let mut file = File::create(file_path).expect("not able to create the files");
-        for number in numbers {
-            writeln!(file, "{}", number).expect("unable to write to the file");
-        }
-    }
-
     #[rstest]
-    // #[case(631861, "src/jobs/test_utils/test_blob_631861.txt")]
-    // #[case(638353, "src/jobs/test_utils/test_blob_638353.txt")]
-    // #[case(639404, "src/jobs/test_utils/test_blob_639404.txt")]
-    #[case(640641, "src/jobs/da_job/test_data/test_blob_640641.txt")]
+    #[case(
+        631861,
+        "src/jobs/da_job/test_data/state_update_from_block_631861.txt",
+        "src/jobs/da_job/test_data/test_blob_631861.txt",
+        "src/jobs/da_job/test_data/nonces_from_block_631861.txt"
+    )]
+    #[case(
+        638353,
+        "src/jobs/da_job/test_data/state_update_from_block_638353.txt",
+        "src/jobs/da_job/test_data/test_blob_638353.txt",
+        "src/jobs/da_job/test_data/nonces_from_block_638353.txt"
+    )]
+    #[case(
+        640641,
+        "src/jobs/da_job/test_data/state_update_from_block_640641.txt",
+        "src/jobs/da_job/test_data/test_blob_640641.txt",
+        "src/jobs/da_job/test_data/nonces_from_block_640641.txt"
+    )]
     #[tokio::test]
-    async fn test_state_update_to_blob_data(#[case] block_no: u64, #[case] file_path: &str) {
-        // @note: not yet done
-        let config = init_config(
-            Some(format!("https://starknet-mainnet.infura.io/v3/3753abe17c124d088f4e68d58f257452")),
-            None,
-            None,
-            None,
-        )
-        .await;
-        let state_update = config.starknet_client().get_state_update(BlockId::Number(block_no)).await.expect("issue");
+    async fn test_state_update_to_blob_data(
+        #[case] block_no: u64,
+        #[case] state_update_file_path: &str,
+        #[case] file_path: &str,
+        #[case] nonce_file_path: &str,
+    ) {
+        let server = MockServer::start();
 
-        let state_update = match state_update {
-            MaybePendingStateUpdate::PendingUpdate(_) => StateUpdate {
-                block_hash: FieldElement::default(),
-                new_root: FieldElement::default(),
-                old_root: FieldElement::default(),
-                state_diff: StateDiff {
-                    storage_diffs: vec![],
-                    deprecated_declared_classes: vec![],
-                    declared_classes: vec![],
-                    deployed_contracts: vec![],
-                    replaced_classes: vec![],
-                    nonces: vec![],
-                },
-            },
-            MaybePendingStateUpdate::Update(state_update) => state_update,
-        };
+        let config = init_config(Some(format!("http://localhost:{}", server.port())), None, None, None).await;
+
+        get_nonce_attached(&server, nonce_file_path);
+
+        let state_update = read_state_update_from_file(state_update_file_path).expect("issue while reading");
         let blob_data = state_update_to_blob_data(block_no, state_update, &config)
             .await
             .expect("issue while converting state update to blob data");
@@ -415,5 +415,58 @@ mod tests {
 
         // ideally the data after fft transformation and the data before ifft should be same.
         assert_eq!(fft_blob_data, original_blob_data);
+    }
+
+    pub fn read_state_update_from_file(file_path: &str) -> Result<StateUpdate> {
+        // let file_path = format!("state_update_block_no_{}.txt", block_no);
+        let mut file = File::open(&file_path)?;
+        let mut json = String::new();
+        file.read_to_string(&mut json)?;
+        let state_update: StateUpdate = serde_json::from_str(&json)?;
+        Ok(state_update)
+    }
+
+    #[derive(Serialize, Deserialize, Debug)]
+    struct NonceAddress {
+        nonce: String,
+        address: String,
+    }
+
+    pub fn get_nonce_attached(server: &MockServer, file_path: &str) {
+        // Read the file
+        let file_content = fs::read_to_string(file_path).expect("Unable to read file");
+
+        // Parse the JSON content into a vector of NonceAddress
+        let nonce_addresses: Vec<NonceAddress> =
+            serde_json::from_str(&file_content).expect("JSON was not well-formatted");
+
+        // Set up mocks for each entry
+        for entry in nonce_addresses {
+            let address = entry.address.clone();
+            let nonce = entry.nonce.clone();
+            let response = json!({ "id": 1,"jsonrpc":"2.0","result": nonce });
+            let field_element =
+                FieldElement::from_dec_str(&address).expect("issue while converting the hex to field").to_bytes_be();
+            let hex_field_element = vec_u8_to_hex_string(&field_element);
+
+            server.mock(|when, then| {
+                when.path("/").body_contains("starknet_getNonce").body_contains(hex_field_element);
+                then.status(200).body(serde_json::to_vec(&response).unwrap());
+            });
+        }
+    }
+
+    fn vec_u8_to_hex_string(data: &[u8]) -> String {
+        let hex_chars: Vec<String> = data.iter().map(|byte| format!("{:02x}", byte)).collect();
+
+        let mut new_hex_chars = hex_chars.join("");
+        new_hex_chars = new_hex_chars.trim_start_matches('0').to_string();
+
+        // Handle the case where the trimmed string is empty (e.g., data was all zeros)
+        if new_hex_chars.is_empty() {
+            "0x0".to_string()
+        } else {
+            format!("0x{}", new_hex_chars)
+        }
     }
 }

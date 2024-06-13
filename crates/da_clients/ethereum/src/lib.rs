@@ -14,6 +14,7 @@ use async_trait::async_trait;
 
 use color_eyre::Result;
 // use reqwest::async_impl::client::Client;
+use mockall::{automock, predicate::*};
 use reqwest::Client;
 use starknet::core::types::FieldElement;
 use starknet::core::types::FromByteArrayError;
@@ -33,6 +34,7 @@ pub struct EthereumDaClient {
     trusted_setup: KzgSettings,
 }
 
+#[automock]
 #[async_trait]
 impl DaClient for EthereumDaClient {
     async fn publish_state_diff(&self, state_diff: Vec<Vec<u8>>) -> Result<String> {
