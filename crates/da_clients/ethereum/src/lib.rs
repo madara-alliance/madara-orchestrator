@@ -41,7 +41,7 @@ impl DaClient for EthereumDaClient {
         let wallet = &self.wallet;
         let addr = wallet.address();
 
-        let (sidecar_blobs, sidecar_commitments, sidecar_proofs) = prepare_sidecar(&state_diff, &trusted_setup).await?;
+        let (sidecar_blobs, sidecar_commitments, sidecar_proofs) = prepare_sidecar(&state_diff, trusted_setup).await?;
         let sidecar = BlobTransactionSidecar::new(sidecar_blobs, sidecar_commitments, sidecar_proofs);
 
         let eip1559_est = provider.estimate_eip1559_fees(None).await?;
@@ -122,7 +122,7 @@ async fn prepare_sidecar(
     let mut sidecar_proofs = vec![];
 
     for blob_data in state_diff {
-        let mut fixed_size_blob: [u8; BYTES_PER_BLOB as usize] = [0; BYTES_PER_BLOB as usize];
+        let mut fixed_size_blob: [u8; BYTES_PER_BLOB] = [0; BYTES_PER_BLOB];
         fixed_size_blob.copy_from_slice(blob_data.as_slice());
 
         let blob = Blob::new(fixed_size_blob);

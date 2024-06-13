@@ -225,7 +225,7 @@ async fn state_update_to_blob_data(
 
         // @note: if nonce is null and there is some len of writes, make an api call to get the contract nonce for the block
 
-        if nonce.is_none() && writes.len() > 0 && addr != FieldElement::ONE {
+        if nonce.is_none() && !writes.is_empty() && addr != FieldElement::ONE {
             let get_current_nonce_result = config.starknet_client().get_nonce(BlockId::Number(block_no), addr).await;
 
             nonce = match get_current_nonce_result {
@@ -303,9 +303,7 @@ fn da_word(class_flag: bool, nonce_change: Option<FieldElement>, num_changes: u6
     // Now convert the BigUint to a decimal string
     let decimal_string = biguint.to_str_radix(10);
 
-    let word = FieldElement::from_dec_str(&decimal_string).expect("issue while converting to fieldElement");
-
-    word
+    FieldElement::from_dec_str(&decimal_string).expect("issue while converting to fieldElement")
 }
 
 #[cfg(test)]
