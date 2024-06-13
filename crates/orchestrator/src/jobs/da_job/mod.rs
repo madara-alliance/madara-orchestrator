@@ -410,7 +410,7 @@ mod tests {
 
     pub fn read_state_update_from_file(file_path: &str) -> Result<StateUpdate> {
         // let file_path = format!("state_update_block_no_{}.txt", block_no);
-        let mut file = File::open(&file_path)?;
+        let mut file = File::open(file_path)?;
         let mut json = String::new();
         file.read_to_string(&mut json)?;
         let state_update: StateUpdate = serde_json::from_str(&json)?;

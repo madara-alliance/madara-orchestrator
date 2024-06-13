@@ -158,10 +158,8 @@ mod tests {
         let file = File::open(file_path).expect("Unable to load the file for hex");
         let reader = io::BufReader::new(file);
         let mut data = String::new();
-        for line in reader.lines() {
-            if let Ok(line) = line {
-                data.push_str(&line);
-            }
+        for line in reader.lines().map_while(Result::ok) {
+            data.push_str(&line);
         }
 
         // create vec<u8> from the hex string
