@@ -18,6 +18,7 @@ use mockall::{automock, predicate::*};
 use reqwest::Client;
 use starknet::core::types::FieldElement;
 use starknet::core::types::FromByteArrayError;
+use std::future::IntoFuture;
 use std::str::FromStr;
 use url::Url;
 
@@ -47,13 +48,15 @@ impl DaClient for EthereumDaClient {
         let (sidecar_blobs, sidecar_commitments, sidecar_proofs) = prepare_sidecar(&state_diff, &trusted_setup).await?;
         let sidecar = BlobTransactionSidecar::new(sidecar_blobs, sidecar_commitments, sidecar_proofs);
 
-        // chain id should be an env variable or should be in config?
+        let eip1559_est = provider.estimate_eip1559_fees(None).await?;
+        let chain_id: u64 = provider.get_chain_id().await?.to_string().parse()?;
+
         let tx = TxEip4844 {
-            chain_id: 17000, // Holesky 17000 sepolia 11155111
-            nonce: 1,
+            chain_id,
+            nonce: 0, // can be block number
             gas_limit: 30_000_000,
-            max_fee_per_gas: 10000000100, //estimation.max_fee_per_gas.to_string().parse()?,
-            max_priority_fee_per_gas: 200000010,
+            max_fee_per_gas: eip1559_est.max_fee_per_gas.to_string().parse()?,
+            max_priority_fee_per_gas: eip1559_est.max_priority_fee_per_gas.to_string().parse()?,
             to: addr,
             value: U256::from(0),
             access_list: AccessList(vec![]),
