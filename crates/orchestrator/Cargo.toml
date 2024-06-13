@@ -13,10 +13,6 @@ path = "src/main.rs"
 
 [dependencies]
 
-majin-blob-types = { git = "https://github.com/AbdelStark/majin-blob", branch = "main" }
-majin-blob-core = { git = "https://github.com/AbdelStark/majin-blob", branch = "main" }
-num-bigint = { workspace = true }
-tracing-subscriber = { workspace = true, features = ["env-filter"] }
 async-trait = { workspace = true }
 axum = { workspace = true, features = ["macros"] }
 axum-macros = { workspace = true }
@@ -25,19 +21,23 @@ da-client-interface = { workspace = true }
 dotenvy = { workspace = true }
 ethereum-da-client = { workspace = true, optional = true }
 futures = { workspace = true }
+lazy_static = { workspace = true }
+majin-blob-core = { git = "https://github.com/AbdelStark/majin-blob", branch = "main" }
+majin-blob-types = { git = "https://github.com/AbdelStark/majin-blob", branch = "main" }
 mockall = "0.12.1"
 mongodb = { workspace = true, features = ["bson-uuid-1"], optional = true }
+num = { workspace = true }
+num-bigint = { workspace = true }
+num-traits = { workspace = true }
 omniqueue = { workspace = true, optional = true }
 serde = { workspace = true }
 serde_json = { workspace = true }
 starknet = { workspace = true }
-num-traits = { workspace = true }
-num = { workspace = true }
-lazy_static = { workspace = true }
 starknet-core = "0.9.0"
 thiserror = { workspace = true }
 tokio = { workspace = true, features = ["sync", "macros", "rt-multi-thread"] }
 tracing = { workspace = true }
+tracing-subscriber = { workspace = true, features = ["env-filter"] }
 url = { workspace = true }
 uuid = { workspace = true, features = ["v4", "serde"] }
 
