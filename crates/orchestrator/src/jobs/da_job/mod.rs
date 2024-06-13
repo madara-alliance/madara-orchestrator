@@ -89,11 +89,11 @@ impl Job for DaJob {
         // there is a limit on number of blobs per txn, checking that here
         if current_blob_length > max_blob_per_txn {
             return Err(eyre!(
-                "Cannot process block {} for job id {} as number of blobs allowd are {} but it contains {} blobs",
-                block_no,
-                job.id,
+                "Exceeded the maximum number of blobs per transaction: allowed {}, found {} for block {} and job id {}",
                 max_blob_per_txn,
-                current_blob_length
+                current_blob_length,
+                block_no,
+                job.id
             ));
         }
 
