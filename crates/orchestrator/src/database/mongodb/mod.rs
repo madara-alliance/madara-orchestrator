@@ -5,11 +5,11 @@ use async_trait::async_trait;
 use color_eyre::eyre::eyre;
 use color_eyre::Result;
 use mongodb::bson::Document;
-use mongodb::options::UpdateOptions;
+use mongodb::options::{FindOneOptions, UpdateOptions};
 use mongodb::{
     bson::doc,
     options::{ClientOptions, ServerApi, ServerApiVersion},
-    Client, Collection,
+    Client, Collection, Cursor,
 };
 use std::collections::HashMap;
 use uuid::Uuid;
@@ -114,5 +114,24 @@ impl Database for MongoDb {
         };
         self.update_job_optimistically(job, update).await?;
         Ok(())
+    }
+
+    async fn get_latest_job_by_type(&self, job_type: JobType) -> Result<Option<JobItem>> {
+        let filter = doc! {
+            "job_type": mongodb::bson::to_bson(&job_type)?,
+        };
+        let find_options = FindOneOptions::builder().sort(doc! { "internal_id": -1 }).build();
+        Ok(self
+            .get_job_collection()
+            .find_one(filter, find_options)
+            .await
+            .expect("Failed to fetch latest job by given job type"))
+    }
+
+    async fn get_all_jobs(&self, job_type: JobType) -> Result<Cursor<JobItem>> {
+        let filter = doc! {
+            "job_type": mongodb::bson::to_bson(&job_type)?,
+        };
+        Ok(self.get_job_collection().find(filter, None).await.expect("Failed to fetch jobs with given  job type"))
     }
 }

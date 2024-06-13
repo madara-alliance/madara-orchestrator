@@ -12,6 +12,7 @@ name = "orchestrator"
 path = "src/main.rs"
 
 [dependencies]
+arc-swap = { workspace = true }
 async-trait = { workspace = true }
 axum = { workspace = true, features = ["macros"] }
 axum-macros = { workspace = true }
