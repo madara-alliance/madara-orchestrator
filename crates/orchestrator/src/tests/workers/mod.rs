@@ -60,11 +60,10 @@ async fn test_snos_worker(#[case] db_val: bool) -> Result<(), Box<dyn Error>> {
     }
 
     // Queue function call simulations
-    queue.expect_send_message_to_queue().returning(|_, _, _| Ok(())).withf(
-        |queue, _payload, _delay| {
-            queue == JOB_PROCESSING_QUEUE
-        }
-    );
+    queue
+        .expect_send_message_to_queue()
+        .returning(|_, _, _| Ok(()))
+        .withf(|queue, _payload, _delay| queue == JOB_PROCESSING_QUEUE);
 
     // mock block number (madara) : 5
     let rpc_response_block_number = block;
@@ -72,7 +71,6 @@ async fn test_snos_worker(#[case] db_val: bool) -> Result<(), Box<dyn Error>> {
     let config =
         init_config(Some(format!("http://localhost:{}", server.port())), Some(db), Some(queue), Some(da_client)).await;
     config_force_init(config).await;
-
 
     // mocking block call
     let rpc_block_call_mock = server.mock(|when, then| {
