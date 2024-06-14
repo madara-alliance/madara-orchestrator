@@ -30,15 +30,15 @@ async fn test_snos_worker(#[case] db_val: bool) -> Result<(), Box<dyn Error>> {
 
     // Mocking db function expectations
     if !db_val {
-        db.expect_get_latest_job_by_type().times(1).with(eq(JobType::SnosRun)).returning(|_| Ok(None));
+        db.expect_get_latest_job_by_type_and_internal_id().times(1).with(eq(JobType::SnosRun)).returning(|_| Ok(None));
         start_job_index = 1;
         block = 5;
     } else {
         let uuid_temp = Uuid::new_v4();
 
-        db.expect_get_latest_job_by_type()
+        db.expect_get_latest_job_by_type_and_internal_id()
             .with(eq(JobType::SnosRun))
-            .returning(move |_| Ok(Some(get_job_item_mock_by_id("1".to_string(), uuid_temp.clone()))));
+            .returning(move |_| Ok(Some(get_job_item_mock_by_id("1".to_string(), uuid_temp))));
         block = 6;
         start_job_index = 2;
     }
@@ -56,7 +56,7 @@ async fn test_snos_worker(#[case] db_val: bool) -> Result<(), Box<dyn Error>> {
         db.expect_create_job()
             .times(1)
             .withf(move |item| item.internal_id == i.clone().to_string())
-            .returning(move |_| Ok(get_job_item_mock_by_id(i.clone().to_string(), uuid.clone())));
+            .returning(move |_| Ok(get_job_item_mock_by_id(i.clone().to_string(), uuid)));
     }
 
     // Queue function call simulations
