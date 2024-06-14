@@ -9,7 +9,7 @@ use mongodb::options::{FindOneOptions, UpdateOptions};
 use mongodb::{
     bson::doc,
     options::{ClientOptions, ServerApi, ServerApiVersion},
-    Client, Collection, Cursor,
+    Client, Collection,
 };
 use std::collections::HashMap;
 use uuid::Uuid;
@@ -126,12 +126,5 @@ impl Database for MongoDb {
             .find_one(filter, find_options)
             .await
             .expect("Failed to fetch latest job by given job type"))
-    }
-
-    async fn get_all_jobs(&self, job_type: JobType) -> Result<Cursor<JobItem>> {
-        let filter = doc! {
-            "job_type": mongodb::bson::to_bson(&job_type)?,
-        };
-        Ok(self.get_job_collection().find(filter, None).await.expect("Failed to fetch jobs with given  job type"))
     }
 }

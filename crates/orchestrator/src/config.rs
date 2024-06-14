@@ -95,6 +95,7 @@ pub async fn config() -> Guard<Arc<Config>> {
 /// However, when running tests, we often want to reinitialize because we want to clear the DB and
 /// set it up again for reuse in new tests. By calling `config_force_init` we replace the already
 /// stored config inside `ArcSwap` with the new configuration and pool settings.
+#[cfg(test)]
 pub async fn config_force_init(config: Config) {
     match CONFIG.get() {
         Some(arc) => arc.store(Arc::new(config)),

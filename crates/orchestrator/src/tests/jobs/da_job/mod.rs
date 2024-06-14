@@ -8,6 +8,7 @@ use serde_json::json;
 
 use super::super::common::{default_job_item, init_config};
 use starknet_core::types::{FieldElement, MaybePendingStateUpdate, StateDiff};
+use tracing::log;
 use uuid::Uuid;
 
 use crate::jobs::types::ExternalId;
@@ -54,6 +55,8 @@ async fn test_process_job() {
     let internal_id = "1";
     da_client.expect_publish_state_diff().times(1).returning(|_| Ok(internal_id.to_string()));
     let config = init_config(Some(format!("http://localhost:{}", server.port())), None, None, Some(da_client)).await;
+
+    log::info!("this is the port {}", server.port());
 
     let state_update = MaybePendingStateUpdate::Update(StateUpdate {
         block_hash: FieldElement::default(),

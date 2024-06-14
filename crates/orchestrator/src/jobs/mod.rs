@@ -170,7 +170,7 @@ pub async fn verify_job(id: Uuid) -> Result<()> {
 fn get_job_handler(job_type: &JobType) -> Box<dyn Job> {
     match job_type {
         JobType::DataSubmission => Box::new(da_job::DaJob),
-        JobType::SnosRun => Box::new(da_job::DaJob),
+        JobType::SnosRun => Box::new(snos_job::SnosJob),
         _ => unimplemented!("Job type not implemented yet."),
     }
 }

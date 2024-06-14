@@ -34,6 +34,7 @@ tracing = { workspace = true }
 tracing-subscriber = { workspace = true, features = ["env-filter"] }
 url = { workspace = true }
 uuid = { workspace = true, features = ["v4", "serde"] }
+async-std = "1.12.0"
 
 [features]
 default = ["ethereum", "with_mongodb", "with_sqs"]

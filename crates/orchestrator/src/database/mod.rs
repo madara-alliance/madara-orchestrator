@@ -1,5 +1,4 @@
 use crate::jobs::types::{JobItem, JobStatus, JobType};
-use ::mongodb::Cursor;
 use async_trait::async_trait;
 use color_eyre::Result;
 use mockall::automock;
@@ -35,7 +34,6 @@ pub trait Database: Send + Sync {
 
     async fn update_metadata(&self, job: &JobItem, metadata: HashMap<String, String>) -> Result<()>;
     async fn get_latest_job_by_type(&self, job_type: JobType) -> Result<Option<JobItem>>;
-    async fn get_all_jobs(&self, job_type: JobType) -> Result<Cursor<JobItem>>;
 }
 
 pub trait DatabaseConfig {

@@ -40,7 +40,7 @@ async fn main() {
 
 async fn start_cron(worker: Box<dyn Worker>, interval: u64) {
     loop {
-        worker.run_worker().await;
+        worker.run_worker().await.expect("Error in running the worker.");
         tokio::time::sleep(tokio::time::Duration::from_secs(interval)).await;
     }
 }
