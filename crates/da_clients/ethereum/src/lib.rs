@@ -5,7 +5,7 @@ use alloy::consensus::{
 };
 use alloy::eips::{eip2718::Encodable2718, eip2930::AccessList, eip4844::BYTES_PER_BLOB};
 use alloy::network::{Ethereum, TxSigner};
-use alloy::primitives::{bytes, FixedBytes, TxHash, U256, U64};
+use alloy::primitives::{bytes, Address, FixedBytes, TxHash, U256, U64};
 use alloy::providers::{Provider, ProviderBuilder, RootProvider};
 use alloy::rpc::client::RpcClient;
 use alloy::signers::wallet::LocalWallet;
@@ -34,7 +34,7 @@ pub struct EthereumDaClient {
 #[automock]
 #[async_trait]
 impl DaClient for EthereumDaClient {
-    async fn publish_state_diff(&self, state_diff: Vec<Vec<u8>>) -> Result<String> {
+    async fn publish_state_diff(&self, state_diff: Vec<Vec<u8>>, to: &[u8; 32]) -> Result<String> {
         dotenv().ok();
         let provider = &self.provider;
         let trusted_setup = &self.trusted_setup;
@@ -50,13 +50,16 @@ impl DaClient for EthereumDaClient {
         let max_fee_per_blob_gas: u128 = provider.get_blob_base_fee().await?.to_string().parse()?;
         let max_priority_fee_per_gas: u128 = provider.get_max_priority_fee_per_gas().await?.to_string().parse()?;
 
+        let nonce = provider.get_transaction_count(addr, None).await?.to_string().parse()?;
+        let to = FixedBytes(*to);
+
         let tx = TxEip4844 {
             chain_id,
-            nonce: 0, // can be block number
+            nonce,
             gas_limit: 30_000_000,
             max_fee_per_gas: eip1559_est.max_fee_per_gas.to_string().parse()?,
             max_priority_fee_per_gas,
-            to: addr, // maybe to the L1 contract for verification??
+            to: Address::from_word(to),
             value: U256::from(0),
             access_list: AccessList(vec![]),
             blob_versioned_hashes: sidecar.versioned_hashes().collect(),

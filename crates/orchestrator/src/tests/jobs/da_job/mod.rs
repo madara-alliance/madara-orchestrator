@@ -56,7 +56,7 @@ async fn test_process_job() {
     let mut da_client = MockDaClient::new();
     let internal_id = "1";
 
-    da_client.expect_publish_state_diff().times(1).returning(|_| Ok(internal_id.to_string()));
+    da_client.expect_publish_state_diff().times(1).returning(|_, _| Ok(internal_id.to_string()));
     da_client.expect_max_bytes_per_blob().times(1).returning(move || ETHEREUM_MAX_BYTES_PER_BLOB);
     da_client.expect_max_blob_per_txn().times(1).returning(move || ETHEREUM_MAX_BLOB_PER_TXN);
 

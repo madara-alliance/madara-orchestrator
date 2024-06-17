@@ -98,7 +98,8 @@ impl Job for DaJob {
         }
 
         // making the txn to the DA layer
-        let external_id = config.da_client().publish_state_diff(blob_array).await?;
+        // TODO: move the core contract address to the config
+        let external_id = config.da_client().publish_state_diff(blob_array, &[0; 32]).await?;
 
         Ok(external_id)
     }
