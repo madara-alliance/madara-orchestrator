@@ -11,7 +11,6 @@ use super::super::common::{
     default_job_item, init_config,
 };
 use starknet_core::types::{FieldElement, MaybePendingStateUpdate, StateDiff};
-use tracing::log;
 use uuid::Uuid;
 
 use crate::jobs::types::ExternalId;
