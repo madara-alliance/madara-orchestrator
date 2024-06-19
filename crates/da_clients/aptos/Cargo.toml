@@ -1,0 +1,28 @@
+[package]
+name = "aptos-da-client"
+version.workspace = true
+edition.workspace = true
+authors.workspace = true
+
+[dependencies]
+color-eyre = "0.6.3"
+dotenv = "0.15.0"
+c-kzg = "1.0.2"
+
+serde = { workspace = true }
+da-client-interface = { workspace = true }
+async-trait = { workspace = true}
+utils = { workspace = true }
+aptos-sdk = { workspace = true }
+url = "2.5.0"
+
+alloy = { git = "https://github.com/alloy-rs/alloy", rev = "68952c0", features = [
+    "consensus",
+    "providers",
+    "rpc-client",
+    "transport-http",
+    "network",
+    "eips",
+    "signers",
+    "signer-wallet",
+] }

@@ -5,7 +5,7 @@ members = [
   "crates/da_clients/da-client-interface",
   "crates/da_clients/ethereum",
   "crates/utils",
-  "crates/settlement_clients/settlement-client-interface",
+  "crates/settlement_clients/settlement-client-interface", "crates/da_clients/aptos",
 ]
 
 [workspace.package]
@@ -20,6 +20,7 @@ authors = ["Apoorv Sadana <@apoorvsadana>"]
 
 num = { version = "0.4.1" }
 ethereum-da-client = { path = "crates/da_clients/ethereum" }
+aptos-da-client = { path = "crates/da_clients/aptos"}
 async-trait = { version = "0.1.77" }
 da-client-interface = { path = "crates/da_clients/da-client-interface" }
 axum = { version = "0.7.4" }
@@ -45,3 +46,8 @@ utils = { path = "crates/utils" }
 arc-swap = { version = "1.7.1" }
 num-traits = "0.2"
 lazy_static = "1.4.0"
+aptos-sdk = { git = "https://github.com/Tranduy1dol/aptos-core", branch="zeroize_v1.7" }
+
+[patch.crates-io]
+merlin = { git = "https://github.com/aptos-labs/merlin", branch = "main"}
+x25519-dalek = { git = "https://github.com/Tranduy1dol/x25519-dalek", branch = "zeroize_v1.7" }

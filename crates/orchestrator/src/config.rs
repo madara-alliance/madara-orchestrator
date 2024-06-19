@@ -10,6 +10,8 @@ use da_client_interface::DaConfig;
 use dotenvy::dotenv;
 use ethereum_da_client::config::EthereumDaConfig;
 use ethereum_da_client::EthereumDaClient;
+use aptos_da_client::config::AptosDaConfig;
+use aptos_da_client::AptosDaClient;
 use starknet::providers::jsonrpc::HttpTransport;
 use starknet::providers::{JsonRpcClient, Url};
 use std::sync::Arc;
@@ -111,6 +113,10 @@ fn build_da_client() -> Box<dyn DaClient + Send + Sync> {
         "ethereum" => {
             let config = EthereumDaConfig::new_from_env();
             Box::new(EthereumDaClient::from(config))
+        },
+        "aptos" => {
+            let config = AptosDaConfig::new_from_env();
+            Box::new(AptosDaClient::from(config))
         }
         _ => panic!("Unsupported DA layer"),
     }
