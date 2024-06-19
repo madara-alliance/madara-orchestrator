@@ -39,16 +39,6 @@ async fn test_proving_worker(#[case] incomplete_runs: bool) -> Result<(), Box<dy
         let num_vec: Vec<i32> = vec![1, 2, 4, 5];
 
         for i in num_vec {
-            // Getting jobs for check expectations
-            // db.expect_get_job_by_internal_id_and_type()
-            //     .times(1)
-            //     .with(eq(i.clone().to_string()), eq(JobType::ProofCreation))
-            //     .returning(|_, _| Ok(None));
-            //
-            // db.expect_create_job()
-            //     .times(1)
-            //     .withf(move |item| item.internal_id == i.clone().to_string())
-            //     .returning(move |_| Ok(get_job_item_mock_by_id(i)));
             db_checks(i, &mut db);
         }
     }else{
@@ -59,16 +49,6 @@ async fn test_proving_worker(#[case] incomplete_runs: bool) -> Result<(), Box<dy
             .returning(|| Ok(get_job_item_mock_by_id_vec(5)));
 
         for i in 1..5 + 1 {
-            // Getting jobs for check expectations
-            // db.expect_get_job_by_internal_id_and_type()
-            //     .times(1)
-            //     .with(eq(i.clone().to_string()), eq(JobType::ProofCreation))
-            //     .returning(|_, _| Ok(None));
-            //
-            // db.expect_create_job()
-            //     .times(1)
-            //     .withf(move |item| item.internal_id == i.clone().to_string())
-            //     .returning(move |_| Ok(get_job_item_mock_by_id(i)));
             db_checks(i, &mut db);
         }
     }
