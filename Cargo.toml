@@ -1,15 +1,15 @@
 [workspace]
 resolver = "2"
 members = [
-  "crates/orchestrator",
-  "crates/da_clients/da-client-interface",
-  "crates/da_clients/ethereum",
-  "crates/prover_services/prover_client_interface",
-  "crates/prover_services/gps_fact_checker",
-  "crates/prover_services/sharp_service",
-  "crates/utils",
-  "crates/settlement_clients/settlement-client-interface",
-  "e2e-tests",
+    "crates/orchestrator",
+    "crates/da-clients/da-client-interface",
+    "crates/da-clients/ethereum",
+    "crates/prover-services/prover-client-interface",
+    "crates/prover-services/gps-fact-checker",
+    "crates/prover-services/sharp-service",
+    "crates/utils",
+    "crates/settlement-clients/settlement-client-interface",
+    "e2e-tests",
 ]
 
 [workspace.package]
@@ -58,8 +58,8 @@ testcontainers = "0.18.0"
 
 # Cairo VM
 cairo-vm = { git = "https://github.com/lambdaclass/cairo-vm", features = [
-  "extensive_hints",
-  "cairo-1-hints",
+    "extensive_hints",
+    "cairo-1-hints",
 ] }
 
 # Sharp (Starkware)
@@ -70,10 +70,10 @@ madara-prover-common = { git = "https://github.com/Moonsong-Labs/madara-prover-a
 madara-prover-rpc-client = { git = "https://github.com/Moonsong-Labs/madara-prover-api", branch = "od/use-latest-cairo-vm" }
 
 # Project
-da-client-interface = { path = "crates/da_clients/da-client-interface" }
-ethereum-da-client = { path = "crates/da_clients/ethereum" }
+da-client-interface = { path = "crates/da-clients/da-client-interface" }
+ethereum-da-client = { path = "crates/da-clients/ethereum" }
 utils = { path = "crates/utils" }
-prover-client-interface = { path = "crates/prover_services/prover_client_interface" }
-gps-fact-checker = { path = "crates/prover_services/gps_fact_checker" }
-sharp-service = { path = "crates/prover_services/sharp_service" }
+prover-client-interface = { path = "crates/prover-services/prover-client-interface" }
+gps-fact-checker = { path = "crates/prover-services/gps-fact-checker" }
+sharp-service = { path = "crates/prover-services/sharp-service" }
 orchestrator = { path = "crates/orchestrator" }
