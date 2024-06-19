@@ -4,9 +4,11 @@ use crate::jobs::types::{JobItem, JobStatus, JobType};
 use async_trait::async_trait;
 use color_eyre::eyre::eyre;
 use color_eyre::Result;
-use mongodb::bson::Document;
+use futures::TryStreamExt;
+use mongodb::bson::{Bson, Document};
 use mongodb::options::{FindOneOptions, UpdateOptions};
 use mongodb::{
+    bson,
     bson::doc,
     options::{ClientOptions, ServerApi, ServerApiVersion},
     Client, Collection,
@@ -126,5 +128,54 @@ impl Database for MongoDb {
             .find_one(filter, find_options)
             .await
             .expect("Failed to fetch latest job by given job type"))
+    }
+
+    async fn get_successful_snos_jobs_without_proving(&self) -> Result<Vec<JobItem>> {
+        let filter = vec![
+            // Stage 1: Match successful SNOS job runs
+            doc! {
+                "$match": {
+                    "job_type": "SnosRun",
+                    "status": "Completed",
+                }
+            },
+            // Stage 2: Lookup to find corresponding proving jobs
+            doc! {
+                "$lookup": {
+                    "from": "jobs",
+                    "let": { "internal_id": "$internal_id" },
+                    "pipeline": [
+                        {
+                            "$match": {
+                                "$expr": {
+                                    "$and": [
+                                        { "$eq": ["$job_type", "ProofCreation"] },
+                                        { "$eq": ["$internal_id", "$$internal_id"] }
+                                    ]
+                                }
+                            }
+                        }
+                    ],
+                    "as": "proving_jobs"
+                }
+            },
+            // Stage 3: Filter out SNOS runs that have corresponding proving jobs
+            doc! {
+                "$match": {
+                    "proving_jobs": { "$eq": [] }
+                }
+            },
+        ];
+
+        let mut cursor = self.get_job_collection().aggregate(filter, None).await?;
+        let mut vec_jobs: Vec<JobItem> = Vec::new();
+        while let Some(val) = cursor.try_next().await? {
+            match bson::from_bson(Bson::Document(val)) {
+                Ok(job_item) => vec_jobs.push(job_item),
+                Err(e) => eprintln!("Failed to deserialize JobItem: {:?}", e),
+            }
+        }
+
+        Ok(vec_jobs)
     }
 }

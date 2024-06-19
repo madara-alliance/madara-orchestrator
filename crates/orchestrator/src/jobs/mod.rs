@@ -12,6 +12,7 @@ use uuid::Uuid;
 
 pub mod constants;
 pub mod da_job;
+pub mod proving_job;
 mod register_proof_job;
 pub mod snos_job;
 mod state_update_job;
@@ -171,6 +172,7 @@ fn get_job_handler(job_type: &JobType) -> Box<dyn Job> {
     match job_type {
         JobType::DataSubmission => Box::new(da_job::DaJob),
         JobType::SnosRun => Box::new(snos_job::SnosJob),
+        JobType::ProofCreation => Box::new(proving_job::ProvingJob),
         _ => unimplemented!("Job type not implemented yet."),
     }
 }

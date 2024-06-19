@@ -34,6 +34,8 @@ pub trait Database: Send + Sync {
 
     async fn update_metadata(&self, job: &JobItem, metadata: HashMap<String, String>) -> Result<()>;
     async fn get_latest_job_by_type_and_internal_id(&self, job_type: JobType) -> Result<Option<JobItem>>;
+
+    async fn get_successful_snos_jobs_without_proving(&self) -> Result<Vec<JobItem>>;
 }
 
 pub trait DatabaseConfig {
