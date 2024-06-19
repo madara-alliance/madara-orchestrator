@@ -1,15 +1,15 @@
 [workspace]
 resolver = "2"
 members = [
-    "crates/orchestrator",
-    "crates/da-clients/da-client-interface",
-    "crates/da-clients/ethereum",
-    "crates/prover-services/prover-client-interface",
-    "crates/prover-services/gps-fact-checker",
-    "crates/prover-services/sharp-service",
-    "crates/utils",
-    "crates/settlement-clients/settlement-client-interface",
-    "e2e-tests",
+  "crates/orchestrator",
+  "crates/da-clients/da-client-interface",
+  "crates/da-clients/ethereum",
+  "crates/prover-services/prover-client-interface",
+  "crates/prover-services/gps-fact-checker",
+  "crates/prover-services/sharp-service",
+  "crates/utils",
+  "crates/settlement-clients/settlement-client-interface",
+  "e2e-tests",
 ]
 
 [workspace.package]
@@ -58,8 +58,8 @@ testcontainers = "0.18.0"
 
 # Cairo VM
 cairo-vm = { git = "https://github.com/lambdaclass/cairo-vm", features = [
-    "extensive_hints",
-    "cairo-1-hints",
+  "extensive_hints",
+  "cairo-1-hints",
 ] }
 
 # Sharp (Starkware)
