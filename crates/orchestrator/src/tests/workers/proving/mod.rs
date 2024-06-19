@@ -11,8 +11,6 @@ use mockall::predicate::eq;
 use rstest::rstest;
 use std::collections::HashMap;
 use std::error::Error;
-use tracing::log;
-use tracing::log::log;
 use uuid::Uuid;
 
 #[rstest]
@@ -41,7 +39,7 @@ async fn test_proving_worker(#[case] incomplete_runs: bool) -> Result<(), Box<dy
         for i in num_vec {
             db_checks(i, &mut db);
         }
-    }else{
+    } else {
         // Mocking db call for getting successful snos jobs
         db.expect_get_successful_snos_jobs_without_proving()
             .times(1)
