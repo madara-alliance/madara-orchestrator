@@ -4,7 +4,9 @@ use crate::database::{Database, DatabaseConfig};
 use crate::queue::sqs::SqsQueue;
 use crate::queue::QueueProvider;
 use crate::utils::env_utils::get_env_var_or_panic;
-use da_client_interface::{DaClient, DaConfig};
+use arc_swap::{ArcSwap, Guard};
+use da_client_interface::DaClient;
+use da_client_interface::DaConfig;
 use dotenvy::dotenv;
 use ethereum_da_client::config::EthereumDaConfig;
 use ethereum_da_client::EthereumDaClient;
@@ -26,7 +28,35 @@ pub struct Config {
     queue: Box<dyn QueueProvider>,
 }
 
+/// Initializes the app config
+pub async fn init_config() -> Config {
+    dotenv().ok();
+
+    // init starknet client
+    let provider = JsonRpcClient::new(HttpTransport::new(
+        Url::parse(get_env_var_or_panic("MADARA_RPC_URL").as_str()).expect("Failed to parse URL"),
+    ));
+
+    // init database
+    let database = Box::new(MongoDb::new(MongoDbConfig::new_from_env()).await);
+
+    // init the queue
+    let queue = Box::new(SqsQueue {});
+
+    Config { starknet_client: Arc::new(provider), da_client: build_da_client(), database, queue }
+}
+
 impl Config {
+    /// Create a new config
+    pub fn new(
+        starknet_client: Arc<JsonRpcClient<HttpTransport>>,
+        da_client: Box<dyn DaClient>,
+        database: Box<dyn Database>,
+        queue: Box<dyn QueueProvider>,
+    ) -> Self {
+        Self { starknet_client, da_client, database, queue }
+    }
+
     /// Returns the starknet client
     pub fn starknet_client(&self) -> &Arc<JsonRpcClient<HttpTransport>> {
         &self.starknet_client
@@ -50,29 +80,29 @@ impl Config {
 
 /// The app config. It can be accessed from anywhere inside the service.
 /// It's initialized only once.
-pub static CONFIG: OnceCell<Config> = OnceCell::const_new();
-
-/// Initializes the app config
-async fn init_config() -> Config {
-    dotenv().ok();
-
-    // init starknet client
-    let provider = JsonRpcClient::new(HttpTransport::new(
-        Url::parse(get_env_var_or_panic("MADARA_RPC_URL").as_str()).expect("Failed to parse URL"),
-    ));
-
-    // init database
-    let database = Box::new(MongoDb::new(MongoDbConfig::new_from_env()).await);
-
-    // init the queue
-    let queue = Box::new(SqsQueue {});
-
-    Config { starknet_client: Arc::new(provider), da_client: build_da_client(), database, queue }
-}
+/// We are using `ArcSwap` as it allow us to replace the new `Config` with
+/// a new one which is required when running test cases. This approach was
+/// inspired from here - https://github.com/matklad/once_cell/issues/127
+pub static CONFIG: OnceCell<ArcSwap<Config>> = OnceCell::const_new();
 
 /// Returns the app config. Initializes if not already done.
-pub async fn config() -> &'static Config {
-    CONFIG.get_or_init(init_config).await
+pub async fn config() -> Guard<Arc<Config>> {
+    let cfg = CONFIG.get_or_init(|| async { ArcSwap::from_pointee(init_config().await) }).await;
+    cfg.load()
+}
+
+/// OnceCell only allows us to initialize the config once and that's how it should be on production.
+/// However, when running tests, we often want to reinitialize because we want to clear the DB and
+/// set it up again for reuse in new tests. By calling `config_force_init` we replace the already
+/// stored config inside `ArcSwap` with the new configuration and pool settings.
+#[cfg(test)]
+pub async fn config_force_init(config: Config) {
+    match CONFIG.get() {
+        Some(arc) => arc.store(Arc::new(config)),
+        None => {
+            CONFIG.get_or_init(|| async { ArcSwap::from_pointee(config) }).await;
+        }
+    }
 }
 
 /// Builds the DA client based on the environment variable DA_LAYER

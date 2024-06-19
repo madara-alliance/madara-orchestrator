@@ -7,7 +7,7 @@ use std::collections::HashMap;
 use uuid::Uuid;
 
 /// An external id.
-#[derive(Serialize, Deserialize, Debug, Clone)]
+#[derive(Serialize, Deserialize, Debug, Clone, PartialEq)]
 #[serde(untagged)]
 pub enum ExternalId {
     /// A string.
@@ -66,19 +66,21 @@ fn unwrap_external_id_failed(expected: &str, got: &ExternalId) -> color_eyre::ey
     eyre!("wrong ExternalId type: expected {}, got {:?}", expected, got)
 }
 
-#[derive(Serialize, Deserialize, Debug, Clone)]
+#[derive(Serialize, Deserialize, Debug, Clone, PartialEq)]
 pub enum JobType {
+    /// Running SNOS for a block
+    SnosRun,
     /// Submitting DA data to the DA layer
     DataSubmission,
     /// Getting a proof from the proving service
     ProofCreation,
     /// Verifying the proof on the base layer
-    ProofVerification,
+    ProofRegistration,
     /// Updaing the state root on the base layer
     StateUpdation,
 }
 
-#[derive(Serialize, Deserialize, Debug, Clone)]
+#[derive(Serialize, Deserialize, Debug, Clone, PartialEq, PartialOrd)]
 pub enum JobStatus {
     /// An acknowledgement that the job has been received by the
     /// orchestrator and is waiting to be processed
@@ -96,7 +98,7 @@ pub enum JobStatus {
     VerificationFailed,
 }
 
-#[derive(Serialize, Deserialize, Debug, Clone)]
+#[derive(Serialize, Deserialize, Debug, Clone, PartialEq)]
 pub struct JobItem {
     /// an uuid to identify a job
     #[serde(with = "uuid_1_as_binary")]
