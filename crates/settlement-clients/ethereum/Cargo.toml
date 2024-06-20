@@ -26,6 +26,7 @@ serde = { version = "1.0.196", default-features = false, features = ["derive"] }
 tokio = { workspace = true }
 url = { workspace = true }
 utils = { workspace = true }
+starknet-core-contract-client = { workspace = true }
 
 [dev-dependencies]
 tokio-test = "*"

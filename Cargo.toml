@@ -84,3 +84,5 @@ prover-client-interface = { path = "crates/prover-services/prover-client-interfa
 gps-fact-checker = { path = "crates/prover-services/gps-fact-checker" }
 sharp-service = { path = "crates/prover-services/sharp-service" }
 orchestrator = { path = "crates/orchestrator" }
+
+starknet-core-contract-client = { git = "https://github.com/keep-starknet-strange/zaun", branch = "main" }

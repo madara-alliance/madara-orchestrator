@@ -35,7 +35,6 @@ pub struct Config {
     /// The service that produces proof and registers it onchain
     prover_client: Box<dyn ProverClient>,
     /// Settlement client
-    #[allow(unused)]
     settlement_client: Box<dyn SettlementClient>,
     /// The database client
     database: Box<dyn Database>,
@@ -62,7 +61,7 @@ pub async fn init_config() -> Config {
     let settlement_client = build_settlement_client();
 
     let settings_provider = DefaultSettingsProvider {};
-    let prover_client = create_prover_service(&settings_provider);
+    let prover_client = build_prover_service(&settings_provider);
 
     Config::new(Arc::new(provider), da_client, prover_client, settlement_client, database, queue)
 }
@@ -149,25 +148,25 @@ fn build_da_client() -> Box<dyn DaClient + Send + Sync> {
     }
 }
 
-/// Creates prover service based on the environment variable PROVER_SERVICE
-fn create_prover_service(settings_provider: &impl SettingsProvider) -> Box<dyn ProverClient> {
+/// Builds the prover service based on the environment variable PROVER_SERVICE
+fn build_prover_service(settings_provider: &impl SettingsProvider) -> Box<dyn ProverClient> {
     match get_env_var_or_panic("PROVER_SERVICE").as_str() {
         "sharp" => Box::new(SharpProverService::with_settings(settings_provider)),
         _ => panic!("Unsupported prover service"),
     }
 }
 
-/// Builds the Settlment client depending on the env variable SETTLEMENT_CLIENT
+/// Builds the settlement client depending on the env variable SETTLEMENT_LAYER
 fn build_settlement_client() -> Box<dyn SettlementClient + Send + Sync> {
-    match get_env_var_or_panic("SETTLEMENT_CLIENT").as_str() {
+    match get_env_var_or_panic("SETTLEMENT_LAYER").as_str() {
         "ethereum" => {
-            let _ = EthereumSettlementConfig::new_from_env();
-            Box::new(EthereumSettlementClient {})
+            let config = EthereumSettlementConfig::new_from_env();
+            Box::new(EthereumSettlementClient::from(config))
         }
         "starknet" => {
-            let _ = StarknetSettlementConfig::new_from_env();
-            Box::new(StarknetSettlementClient {})
+            let config = StarknetSettlementConfig::new_from_env();
+            Box::new(StarknetSettlementClient::from(config))
         }
-        _ => panic!("Unsupported settlement client"),
+        _ => panic!("Unsupported Settlement layer"),
     }
 }
