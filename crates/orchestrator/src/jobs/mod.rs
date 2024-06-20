@@ -14,7 +14,6 @@ use crate::queue::job_queue::{add_job_to_process_queue, add_job_to_verification_
 
 pub mod constants;
 pub mod da_job;
-pub mod prover_job;
 pub mod proving_job;
 pub mod register_proof_job;
 pub mod snos_job;
