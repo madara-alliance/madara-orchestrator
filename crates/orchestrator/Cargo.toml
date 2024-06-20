@@ -35,6 +35,9 @@ omniqueue = { workspace = true, optional = true }
 prover-client-interface = { workspace = true }
 serde = { workspace = true }
 serde_json = { workspace = true }
+settlement-client-interface = { workspace = true }
+ethereum-settlement-client = { workspace = true }
+starknet-settlement-client = { workspace = true }
 sharp-service = { workspace = true }
 starknet = { workspace = true }
 starknet-core = "0.9.0"

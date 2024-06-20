@@ -1,0 +1,24 @@
+{
+  "folders": [
+    {
+      "path": ".",
+      "name": "."
+    },
+    {
+      "path": "crates/da-clients",
+      "name": "da-clients"
+    },
+    {
+      "path": "crates/orchestrator",
+      "name": "orchestrator"
+    },
+    {
+      "path": "crates/settlement-clients",
+      "name": "settlement-clients"
+    },
+    {
+      "path": "crates/utils",
+      "name": "utils"
+    }
+  ]
+}

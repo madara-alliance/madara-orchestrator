@@ -5,10 +5,15 @@ use da_client_interface::{DaClient, DaConfig};
 use dotenvy::dotenv;
 use ethereum_da_client::config::EthereumDaConfig;
 use ethereum_da_client::EthereumDaClient;
+use ethereum_settlement_client::config::EthereumSettlementConfig;
+use ethereum_settlement_client::EthereumSettlementClient;
 use prover_client_interface::ProverClient;
+use settlement_client_interface::{SettlementClient, SettlementConfig};
 use sharp_service::SharpProverService;
 use starknet::providers::jsonrpc::HttpTransport;
 use starknet::providers::{JsonRpcClient, Url};
+use starknet_settlement_client::config::StarknetSettlementConfig;
+use starknet_settlement_client::StarknetSettlementClient;
 use tokio::sync::OnceCell;
 use utils::env_utils::get_env_var_or_panic;
 use utils::settings::default::DefaultSettingsProvider;
@@ -29,6 +34,9 @@ pub struct Config {
     da_client: Box<dyn DaClient>,
     /// The service that produces proof and registers it onchain
     prover_client: Box<dyn ProverClient>,
+    /// Settlement client
+    #[allow(unused)]
+    settlement_client: Box<dyn SettlementClient>,
     /// The database client
     database: Box<dyn Database>,
     /// The queue provider
@@ -50,10 +58,13 @@ pub async fn init_config() -> Config {
     // init the queue
     let queue = Box::new(SqsQueue {});
 
-    let settings_provider = DefaultSettingsProvider {};
-    let prover = create_prover_service(&settings_provider);
+    let da_client = build_da_client();
+    let settlement_client = build_settlement_client();
 
-    Config { starknet_client: Arc::new(provider), da_client: build_da_client(), prover_client: prover, database, queue }
+    let settings_provider = DefaultSettingsProvider {};
+    let prover_client = create_prover_service(&settings_provider);
+
+    Config::new(Arc::new(provider), da_client, prover_client, settlement_client, database, queue)
 }
 
 impl Config {
@@ -62,10 +73,11 @@ impl Config {
         starknet_client: Arc<JsonRpcClient<HttpTransport>>,
         da_client: Box<dyn DaClient>,
         prover_client: Box<dyn ProverClient>,
+        settlement_client: Box<dyn SettlementClient>,
         database: Box<dyn Database>,
         queue: Box<dyn QueueProvider>,
     ) -> Self {
-        Self { starknet_client, da_client, prover_client, database, queue }
+        Self { starknet_client, da_client, prover_client, settlement_client, database, queue }
     }
 
     /// Returns the starknet client
@@ -81,6 +93,11 @@ impl Config {
     /// Returns the proving service
     pub fn prover_client(&self) -> &dyn ProverClient {
         self.prover_client.as_ref()
+    }
+
+    /// Returns the settlement client
+    pub fn settlement_client(&self) -> &dyn SettlementClient {
+        self.settlement_client.as_ref()
     }
 
     /// Returns the database client
@@ -137,5 +154,20 @@ fn create_prover_service(settings_provider: &impl SettingsProvider) -> Box<dyn P
     match get_env_var_or_panic("PROVER_SERVICE").as_str() {
         "sharp" => Box::new(SharpProverService::with_settings(settings_provider)),
         _ => panic!("Unsupported prover service"),
+    }
+}
+
+/// Builds the Settlment client depending on the env variable SETTLEMENT_CLIENT
+fn build_settlement_client() -> Box<dyn SettlementClient + Send + Sync> {
+    match get_env_var_or_panic("SETTLEMENT_CLIENT").as_str() {
+        "ethereum" => {
+            let _ = EthereumSettlementConfig::new_from_env();
+            Box::new(EthereumSettlementClient {})
+        }
+        "starknet" => {
+            let _ = StarknetSettlementConfig::new_from_env();
+            Box::new(StarknetSettlementClient {})
+        }
+        _ => panic!("Unsupported settlement client"),
     }
 }

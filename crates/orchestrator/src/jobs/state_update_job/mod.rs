@@ -23,6 +23,7 @@ impl Job for StateUpdateJob {
             internal_id,
             job_type: JobType::ProofRegistration,
             status: JobStatus::Created,
+            // TODO
             external_id: String::new().into(),
             // metadata must contain the blocks for which state update will be performed
             // we don't do one job per state update as that makes nonce management complicated
@@ -37,20 +38,23 @@ impl Job for StateUpdateJob {
         todo!()
     }
 
-    async fn verify_job(&self, _config: &Config, _job: &JobItem) -> Result<JobVerificationStatus> {
-        // verify that the proof transaction has been included on chain
-        todo!()
+    /// Verify that the proof transaction has been included on chain
+    async fn verify_job(&self, config: &Config, job: &JobItem) -> Result<JobVerificationStatus> {
+        let external_id: String = job.external_id.unwrap_string()?.into();
+        let settlement_client = config.settlement_client();
+        let inclusion_status = settlement_client.verify_inclusion(&external_id).await?;
+        Ok(inclusion_status.into())
     }
 
     fn max_process_attempts(&self) -> u64 {
-        todo!()
+        1
     }
 
     fn max_verification_attempts(&self) -> u64 {
-        todo!()
+        1
     }
 
     fn verification_polling_delay_seconds(&self) -> u64 {
-        todo!()
+        60
     }
 }
