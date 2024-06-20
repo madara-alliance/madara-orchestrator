@@ -3,7 +3,6 @@ use crate::jobs::create_job;
 use crate::jobs::types::JobType;
 use crate::workers::Worker;
 use async_trait::async_trait;
-use std::collections::HashMap;
 use std::error::Error;
 
 pub struct ProvingWorker;
@@ -17,7 +16,7 @@ impl Worker for ProvingWorker {
         let successful_snos_jobs = config.database().get_successful_snos_jobs_without_proving().await?;
 
         for job in successful_snos_jobs {
-            create_job(JobType::ProofCreation, job.internal_id.to_string(), HashMap::new()).await?
+            create_job(JobType::ProofCreation, job.internal_id.to_string(), job.metadata).await?
         }
 
         Ok(())
