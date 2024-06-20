@@ -24,6 +24,7 @@ dotenvy = { workspace = true }
 ethereum-da-client = { workspace = true, optional = true }
 futures = { workspace = true }
 lazy_static = { workspace = true }
+log = "0.4.21"
 majin-blob-core = { git = "https://github.com/AbdelStark/majin-blob", branch = "main" }
 majin-blob-types = { git = "https://github.com/AbdelStark/majin-blob", branch = "main" }
 mockall = "0.12.1"
@@ -45,7 +46,6 @@ tracing-subscriber = { workspace = true, features = ["env-filter"] }
 url = { workspace = true }
 utils = { workspace = true }
 uuid = { workspace = true, features = ["v4", "serde"] }
-log = "0.4.21"
 
 [features]
 default = ["ethereum", "with_mongodb", "with_sqs"]
