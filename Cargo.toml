@@ -24,8 +24,7 @@ authors = ["Apoorv Sadana <@apoorvsadana>"]
 [workspace.dependencies]
 num = { version = "0.4.1" }
 async-trait = { version = "0.1.77" }
-alloy = { git = "https://github.com/alloy-rs/alloy", rev = "7373f6db761d5a19888e3a0c527e8a3ca31e7a1e" }
-alloy-primitives = "0.7.4"
+alloy = { version = "0.1.2", features = ["full"] }
 axum = { version = "0.7.4" }
 axum-macros = "0.4.1"
 color-eyre = "0.6.2"
@@ -84,5 +83,3 @@ prover-client-interface = { path = "crates/prover-services/prover-client-interfa
 gps-fact-checker = { path = "crates/prover-services/gps-fact-checker" }
 sharp-service = { path = "crates/prover-services/sharp-service" }
 orchestrator = { path = "crates/orchestrator" }
-
-starknet-core-contract-client = { git = "https://github.com/keep-starknet-strange/zaun", branch = "main" }

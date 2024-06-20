@@ -1,18 +1,36 @@
+pub mod clients;
 pub mod config;
+pub mod interfaces;
+pub mod types;
 
-use alloy::{rpc::client::RpcClient, transports::http::Http};
+use alloy::{
+    network::EthereumWallet,
+    primitives::{Address, B160},
+    providers::{ProviderBuilder, RootProvider},
+    rpc::client::RpcClient,
+    signers::{
+        k256::ecdsa::{SigningKey, VerifyingKey},
+        local::PrivateKeySigner,
+    },
+    transports::http::Http,
+};
 use async_trait::async_trait;
 use config::EthereumSettlementConfig;
 use mockall::{automock, predicate::*};
 use reqwest::Client;
 use settlement_client_interface::{SettlementClient, SettlementVerificationStatus};
-use starknet_core_contract_client::clients::StarknetValidityContractClient;
+use std::sync::Arc;
+use utils::env_utils::get_env_var_or_panic;
 
 use color_eyre::Result;
 
+use crate::clients::StarknetValidityContractClient;
+use crate::types::LocalWalletSignerMiddleware;
+
 #[allow(dead_code)]
 pub struct EthereumSettlementClient {
-    provider: RpcClient<Http<Client>>,
+    core_contract_client: StarknetValidityContractClient,
+    memory_pages_contract: String,
 }
 
 #[automock]
@@ -53,7 +71,16 @@ impl SettlementClient for EthereumSettlementClient {
 
 impl From<EthereumSettlementConfig> for EthereumSettlementClient {
     fn from(config: EthereumSettlementConfig) -> Self {
-        let provider = RpcClient::builder().reqwest_http(config.rpc_url);
-        EthereumSettlementClient { provider }
+        // TODO: VERY INSECURE ⚠⚠⚠⚠⚠
+        let private_key = get_env_var_or_panic("PK");
+        let signer: PrivateKeySigner = private_key.parse().expect("Failed to parse private key");
+        let wallet = EthereumWallet::from(signer);
+        let provider = ProviderBuilder::new().with_recommended_fillers().wallet(wallet).on_http(config.rpc_url);
+        let core_contract_client = StarknetValidityContractClient::new(
+            B160::from_slice(config.core_contract.as_bytes()).0.into(),
+            Arc::new(provider),
+        );
+
+        EthereumSettlementClient { memory_pages_contract: config.memory_pages_contract, core_contract_client }
     }
 }

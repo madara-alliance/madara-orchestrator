@@ -4,16 +4,7 @@ version.workspace = true
 edition.workspace = true
 
 [dependencies]
-alloy = { git = "https://github.com/alloy-rs/alloy", rev = "68952c0", features = [
-  "consensus",
-  "providers",
-  "rpc-client",
-  "transport-http",
-  "network",
-  "eips",
-  "signers",
-  "signer-wallet",
-] }
+alloy = { workspace = true, features = ["full"] }
 async-trait = { workspace = true }
 c-kzg = "1.0.0"
 color-eyre = { workspace = true }
@@ -26,7 +17,6 @@ serde = { version = "1.0.196", default-features = false, features = ["derive"] }
 tokio = { workspace = true }
 url = { workspace = true }
 utils = { workspace = true }
-starknet-core-contract-client = { workspace = true }
 
 [dev-dependencies]
 tokio-test = "*"

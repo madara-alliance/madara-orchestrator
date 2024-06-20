@@ -44,6 +44,7 @@ impl Job for StateUpdateJob {
         let _settlement_client = config.settlement_client();
         // For each block, get the program output (from the PIE?) and the
         for _block_nbr in block_numbers.iter() {
+            // TODO: get the proof for the current block number from S3/test data
             // if DA in calldata => settlement_client::update_state_calldata
             // if DA in blob/atl DA => settlement_client::update_state_blobs
         }
