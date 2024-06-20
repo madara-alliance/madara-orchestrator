@@ -29,9 +29,9 @@ impl SettlementClient for StarknetSettlementClient {
     #[allow(unused)]
     async fn update_state_calldata(
         &self,
-        program_output: Vec<u8>,
-        onchain_data_hash: u8,
-        onchain_data_size: u8,
+        program_output: Vec<Vec<u8>>,
+        onchain_data_hash: Vec<u8>,
+        onchain_data_size: usize,
     ) -> Result<String> {
         // TODO: We need to figure out how to calculate onchain_data_hash and onchain_data_size here
         Ok("external_id".to_string())

@@ -15,14 +15,14 @@ use alloy::{
     transports::http::Http,
 };
 use async_trait::async_trait;
+use color_eyre::Result;
 use config::EthereumSettlementConfig;
 use mockall::{automock, predicate::*};
 use reqwest::Client;
 use settlement_client_interface::{SettlementClient, SettlementVerificationStatus};
+use snos::io::output::StarknetOsOutput;
 use std::sync::Arc;
 use utils::env_utils::get_env_var_or_panic;
-
-use color_eyre::Result;
 
 use crate::clients::StarknetValidityContractClient;
 use crate::types::LocalWalletSignerMiddleware;
@@ -47,9 +47,9 @@ impl SettlementClient for EthereumSettlementClient {
     #[allow(unused)]
     async fn update_state_calldata(
         &self,
-        program_output: Vec<u8>,
-        onchain_data_hash: u8,
-        onchain_data_size: u8,
+        program_output: Vec<Vec<u8>>,
+        onchain_data_hash: Vec<u8>,
+        onchain_data_size: usize,
     ) -> Result<String> {
         // TODO: We need to figure out how to calculate onchain_data_hash and onchain_data_size here
         Ok("external_id".to_string())

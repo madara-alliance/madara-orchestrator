@@ -31,6 +31,7 @@ sol! {
         function stateBlockHash() external view returns (uint256);
 
         function updateState(uint256[] calldata programOutput, uint256 onchainDataHash, uint256 onchainDataSize) external onlyOperator;
+        function updateStateKzgDA(uint256[] calldata programOutput, bytes calldata kzgProof) external onlyOperator;
     }
 }
 
@@ -42,6 +43,12 @@ pub trait StarknetValidityContractTrait {
         program_output: Vec<U256>,
         onchain_data_hash: U256,
         onchain_data_size: U256,
+    ) -> Result<TransactionReceipt, RpcError<TransportErrorKind>>;
+
+    async fn update_state_kzg(
+        &self,
+        program_output: Vec<U256>,
+        kzg_proof: Vec<u8>,
     ) -> Result<TransactionReceipt, RpcError<TransportErrorKind>>;
 }
 
@@ -73,6 +80,24 @@ where
             .await
             .unwrap();
         let builder = self.as_ref().updateState(program_output, onchain_data_hash, onchain_data_size);
+        builder.from(from_address).nonce(2).gas(gas).gas_price(base_fee).send().await.unwrap().get_receipt().await
+    }
+
+    async fn update_state_kzg(
+        &self,
+        program_output: Vec<U256>,
+        kzg_proof: Vec<u8>,
+    ) -> Result<TransactionReceipt, RpcError<TransportErrorKind>> {
+        let base_fee = self.as_ref().provider().as_ref().get_gas_price().await.unwrap();
+        let from_address = self.as_ref().provider().as_ref().get_accounts().await.unwrap()[0];
+        let gas = self
+            .as_ref()
+            .updateStateKzgDA(program_output.clone(), kzg_proof.clone().into())
+            .from(from_address)
+            .estimate_gas()
+            .await
+            .unwrap();
+        let builder = self.as_ref().updateStateKzgDA(program_output, kzg_proof.into());
         builder.from(from_address).nonce(2).gas(gas).gas_price(base_fee).send().await.unwrap().get_receipt().await
     }
 }

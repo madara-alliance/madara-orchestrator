@@ -41,6 +41,7 @@ starknet-settlement-client = { workspace = true }
 sharp-service = { workspace = true }
 starknet = { workspace = true }
 starknet-core = "0.9.0"
+snos = { workspace = true }
 thiserror = { workspace = true }
 tokio = { workspace = true, features = ["sync", "macros", "rt-multi-thread"] }
 tracing = { workspace = true }

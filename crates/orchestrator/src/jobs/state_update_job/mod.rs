@@ -3,6 +3,8 @@ use std::collections::HashMap;
 use async_trait::async_trait;
 use color_eyre::eyre::eyre;
 use color_eyre::Result;
+use starknet::providers::Provider;
+use starknet_core::types::{BlockId, MaybePendingStateUpdate};
 use uuid::Uuid;
 
 use crate::config::Config;
@@ -35,18 +37,43 @@ impl Job for StateUpdateJob {
 
     async fn process_job(&self, config: &Config, job: &JobItem) -> Result<String> {
         // Read the metadata to get the blocks for which state update will be performed.
+        // TODO(akhercha): assert that this is the way to use metadata + block nbrs to process
         let blocks_to_settle = job.metadata.get(JOB_METADATA_STATE_UPDATE_BLOCKS_TO_SETTLE_KEY).ok_or_else(|| {
             eyre!(eyre!("Blocks number to settle must be specified (prover job #{})", job.internal_id))
         })?;
-        // TODO(akhercha): assert that this is the way to use metadata + block nbrs to process
         // Assume that blocks nbrs are formatted "2,3,4,5,6" ?
         let block_numbers: Vec<String> = blocks_to_settle.split(',').map(String::from).collect();
-        let _settlement_client = config.settlement_client();
+        let starnet_client = config.starknet_client();
+        let settlement_client = config.settlement_client();
         // For each block, get the program output (from the PIE?) and the
-        for _block_nbr in block_numbers.iter() {
+        for block_no in block_numbers.iter() {
+            let block_no = block_no.parse::<u64>()?;
+            let state_update = starnet_client.get_state_update(BlockId::Number(block_no)).await?;
+            let state_update = match state_update {
+                MaybePendingStateUpdate::PendingUpdate(_) => {
+                    return Err(eyre!(
+                        "Cannot process block {} for job id {} as it's still in pending state",
+                        block_no,
+                        job.id
+                    ));
+                }
+                MaybePendingStateUpdate::Update(state_update) => state_update,
+            };
+            let state_diff = state_update.state_diff;
             // TODO: get the proof for the current block number from S3/test data
-            // if DA in calldata => settlement_client::update_state_calldata
-            // if DA in blob/atl DA => settlement_client::update_state_blobs
+
+            // TODO: create env variable to switch between where to update state
+            let x = true;
+            match x {
+                true => {
+                    // In this case program_output does not contain state diffs
+                    // settlement_client.update_state_blobs(program_output, kzg_proof)
+                }
+                false => {
+                    // In this case we have state diffs as part of the program_output
+                    // settlement_client.update_state_calldata(program_output, onchain_data_hash, onchain_data_size)
+                }
+            }
         }
         todo!()
     }

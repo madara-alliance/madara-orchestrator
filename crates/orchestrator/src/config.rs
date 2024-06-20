@@ -38,7 +38,6 @@ pub struct Config {
     settlement_client: Box<dyn SettlementClient>,
     /// The database client
     database: Box<dyn Database>,
-    /// The queue provider
     queue: Box<dyn QueueProvider>,
 }
 
