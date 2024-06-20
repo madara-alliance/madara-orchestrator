@@ -12,7 +12,6 @@ use mongodb::{
     options::{ClientOptions, ServerApi, ServerApiVersion},
     Client, Collection,
 };
-use std::collections::HashMap;
 use uuid::Uuid;
 
 use crate::database::mongodb::config::MongoDbConfig;
