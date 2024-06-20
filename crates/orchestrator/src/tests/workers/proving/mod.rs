@@ -58,7 +58,7 @@ async fn test_proving_worker(#[case] incomplete_runs: bool) -> Result<(), Box<dy
         .withf(|queue, _payload, _delay| queue == JOB_PROCESSING_QUEUE);
 
     let config =
-        init_config(Some(format!("http://localhost:{}", server.port())), Some(db), Some(queue), Some(da_client)).await;
+        init_config(Some(format!("http://localhost:{}", server.port())), Some(db), Some(queue), Some(da_client), None).await;
     config_force_init(config).await;
 
     let proving_worker = ProvingWorker {};
