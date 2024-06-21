@@ -2949,7 +2949,7 @@ dependencies = [
 [[package]]
 name = "cairo-type-derive"
 version = "0.1.0"
-source = "git+https://github.com/keep-starknet-strange/snos#11814f3bb8c8d9b926125aa339ed2926ebc01722"
+source = "git+https://github.com/Moonsong-Labs/snos?branch=od/os-output-serde#809b3b2ad74ebde7ec48bddc10317809f8098c90"
 dependencies = [
  "proc-macro2",
  "quote",
@@ -8117,7 +8117,7 @@ dependencies = [
 [[package]]
 name = "snos"
 version = "0.1.0"
-source = "git+https://github.com/keep-starknet-strange/snos#11814f3bb8c8d9b926125aa339ed2926ebc01722"
+source = "git+https://github.com/Moonsong-Labs/snos?branch=od/os-output-serde#809b3b2ad74ebde7ec48bddc10317809f8098c90"
 dependencies = [
  "anyhow",
  "assert_matches",

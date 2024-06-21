@@ -60,12 +60,12 @@ impl Job for StateUpdateJob {
                 MaybePendingStateUpdate::Update(state_update) => state_update,
             };
             let state_diff = state_update.state_diff;
-            // TODO: get the proof for the current block number from S3/test data
-            let kzg_proof = String::from("something from s3/or txt_file");
             // TODO: create env variable to switch between where to update state
             let x = true;
             match x {
                 true => {
+                    // TODO: get the proof for the current block number from S3/test data
+                    let kzg_proof = String::from("something from s3/or txt_file");
                     // In this case program_output does not contain state diffs
                     // settlement_client.update_state_blobs(program_output, kzg_proof)
                 }
