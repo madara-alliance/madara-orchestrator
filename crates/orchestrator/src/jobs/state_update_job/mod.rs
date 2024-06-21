@@ -7,9 +7,6 @@ use color_eyre::Result;
 use snos::io::output::StarknetOsOutput;
 use starknet::providers::Provider;
 use starknet_core::types::{BlockId, MaybePendingStateUpdate};
-use std::path::Path;
-use tokio::fs::File;
-use tokio::io::AsyncReadExt;
 use uuid::Uuid;
 
 use crate::config::Config;
@@ -85,16 +82,17 @@ impl Job for StateUpdateJob {
 
 impl StateUpdateJob {
     /// Retrieves the SNOS output for the corresponding block.
+    /// TODO: remove the fetch_snos_from_tests argument once we have proper fetching
     async fn get_snos_for_block(&self, block_no: u64, fetch_snos_from_tests: Option<bool>) -> StarknetOsOutput {
         let fetch_from_tests = fetch_snos_from_tests.unwrap_or(false);
         match fetch_from_tests {
             true => {
-                let file_path = format!("./test_data/{}/snos_output_block.json", block_no);
-                if !utils::io::file_exists(&file_path) {
+                let snos_path = format!("./test_data/{}/snos_output_block.json", block_no);
+                if !utils::io::file_exists(&snos_path) {
                     panic!("SNOS file not found for block number {}", block_no);
                 }
-                let contents = utils::io::read_file_to_string(&file_path).await.expect("Failed to read file");
-                serde_json::from_str(&contents).expect("Failed to deserialize JSON into SNOS")
+                let snos_str = utils::io::read_file_to_string(&snos_path).await.expect("Failed to read file");
+                serde_json::from_str(&snos_str).expect("Failed to deserialize JSON into SNOS")
             }
             false => unimplemented!("can't fetch SNOS from DB/S3"),
         }
