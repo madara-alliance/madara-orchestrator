@@ -55,7 +55,7 @@ impl Job for StateUpdateJob {
         // For each block, either update using calldata or blobs
         for block_no in block_numbers.iter() {
             let block_no = block_no.parse::<u64>()?;
-            let snos = self.get_snos_for_block(block_no, Some(fetch_from_tests)).await;
+            let snos = self.fetch_snos_for_block(block_no, Some(fetch_from_tests)).await;
             self.update_state_for_block(config, block_no, snos, Some(fetch_from_tests)).await?;
         }
         Ok(blocks_to_settle.to_string())
@@ -85,15 +85,15 @@ impl Job for StateUpdateJob {
 impl StateUpdateJob {
     /// Retrieves the SNOS output for the corresponding block.
     /// TODO: remove the fetch_from_tests argument once we have proper fetching (db/s3)
-    async fn get_snos_for_block(&self, block_no: u64, fetch_from_tests: Option<bool>) -> StarknetOsOutput {
+    async fn fetch_snos_for_block(&self, block_no: u64, fetch_from_tests: Option<bool>) -> StarknetOsOutput {
         let fetch_from_tests = fetch_from_tests.unwrap_or(false);
         match fetch_from_tests {
             true => {
-                let snos_path = format!("./test_data/{}/snos_output_block.json", block_no);
+                let snos_path = format!("./test_data/{}/snos_output.json", block_no);
                 if !utils::io::file_exists(&snos_path) {
                     panic!("SNOS file not found for block number {}", block_no);
                 }
-                let snos_str = utils::io::read_file_to_string(&snos_path).await.expect("Failed to read file");
+                let snos_str = utils::io::read_file_to_string(&snos_path).await.expect("Failed to snos json file");
                 serde_json::from_str(&snos_str).expect("Failed to deserialize JSON into SNOS")
             }
             false => unimplemented!("can't fetch SNOS from DB/S3"),
@@ -102,7 +102,7 @@ impl StateUpdateJob {
 
     /// Retrieves the KZG Proof for the corresponding block.
     /// TODO: remove the fetch_from_tests argument once we have proper fetching (db/s3)
-    async fn get_kzg_proof_for_block(&self, block_no: u64, fetch_from_tests: Option<bool>) -> String {
+    async fn fetch_kzg_proof_for_block(&self, block_no: u64, fetch_from_tests: Option<bool>) -> String {
         let fetch_from_tests = fetch_from_tests.unwrap_or(false);
         match fetch_from_tests {
             true => {
@@ -110,9 +110,9 @@ impl StateUpdateJob {
                 if !utils::io::file_exists(&kzg_path) {
                     panic!("KZG proof file not found for block number {}", block_no);
                 }
-                utils::io::read_file_to_string(&kzg_path).await.expect("Failed to read file")
+                utils::io::read_file_to_string(&kzg_path).await.expect("Failed to KZG txt file")
             }
-            false => unimplemented!("can't fetch SNOS from DB/S3"),
+            false => unimplemented!("can't fetch KZG Proof from DB/S3"),
         }
     }
 
@@ -137,7 +137,7 @@ impl StateUpdateJob {
             let _state_diff = state_update.state_diff;
             settlement_client.update_state_calldata(vec![], vec![], 0).await?;
         } else if snos.use_kzg_da == Felt252::ONE {
-            let _kzg_proof = self.get_kzg_proof_for_block(block_no, fetch_from_tests).await;
+            let _kzg_proof = self.fetch_kzg_proof_for_block(block_no, fetch_from_tests).await;
             settlement_client.update_state_blobs(vec![], vec![]).await?;
         } else {
             panic!("SNOS error: [use_kzg_da] should be either 0 or 1.");
