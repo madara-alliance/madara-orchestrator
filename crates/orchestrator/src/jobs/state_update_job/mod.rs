@@ -61,7 +61,7 @@ impl Job for StateUpdateJob {
             };
             let state_diff = state_update.state_diff;
             // TODO: get the proof for the current block number from S3/test data
-            let kzg_proof = String::from("something_from_s3/txt_file");
+            let kzg_proof = String::from("something from s3/or txt_file");
             // TODO: create env variable to switch between where to update state
             let x = true;
             match x {
