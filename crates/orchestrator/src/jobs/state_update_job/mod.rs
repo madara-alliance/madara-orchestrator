@@ -127,17 +127,18 @@ impl StateUpdateJob {
         let settlement_client = config.settlement_client();
         if snos.use_kzg_da == Felt252::ZERO {
             let state_update = starknet_client.get_state_update(BlockId::Number(block_no)).await?;
-            let state_update = match state_update {
+            let _state_update = match state_update {
                 MaybePendingStateUpdate::PendingUpdate(_) => {
                     return Err(eyre!("Cannot update state for block {} as it's still in pending state", block_no));
                 }
                 MaybePendingStateUpdate::Update(state_update) => state_update,
             };
-            let _state_diff = state_update.state_diff;
+            // TODO: how to build the required arguments?
             settlement_client.update_state_calldata(vec![], vec![], 0).await?;
         } else if snos.use_kzg_da == Felt252::ONE {
-            let _kzg_proof = self.fetch_kzg_proof_for_block(block_no, fetch_from_tests).await;
-            settlement_client.update_state_blobs(vec![], vec![]).await?;
+            let kzg_proof = self.fetch_kzg_proof_for_block(block_no, fetch_from_tests).await;
+            // TODO: how to build program output?
+            settlement_client.update_state_blobs(vec![], kzg_proof.into_bytes()).await?;
         } else {
             panic!("SNOS error: [use_kzg_da] should be either 0 or 1.");
         }
