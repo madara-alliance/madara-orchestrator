@@ -17,6 +17,8 @@ use crate::utils;
 
 pub struct StateUpdateJob;
 
+pub const METADATA_FETCH_FROM_TESTS: &str = "FETCH_FROM_TESTS";
+
 #[async_trait]
 impl Job for StateUpdateJob {
     async fn create_job(
@@ -48,13 +50,13 @@ impl Job for StateUpdateJob {
 
         // TODO: remove when SNOS is correctly stored in DB/S3
         // Test metadata to fetch the snos output from the test folder
-        let fetch_snos_from_tests = job.metadata.get("FETCH_SNOS_FROM_TESTS").map_or(false, |value| value == "TRUE");
+        let fetch_from_tests = job.metadata.get(METADATA_FETCH_FROM_TESTS).map_or(false, |value| value == "TRUE");
 
         // For each block, either update using calldata or blobs
         for block_no in block_numbers.iter() {
             let block_no = block_no.parse::<u64>()?;
-            let snos = self.get_snos_for_block(block_no, Some(fetch_snos_from_tests)).await;
-            self.update_state_for_block(config, block_no, snos).await?;
+            let snos = self.get_snos_for_block(block_no, Some(fetch_from_tests)).await;
+            self.update_state_for_block(config, block_no, snos, Some(fetch_from_tests)).await?;
         }
         Ok(blocks_to_settle.to_string())
     }
@@ -82,9 +84,9 @@ impl Job for StateUpdateJob {
 
 impl StateUpdateJob {
     /// Retrieves the SNOS output for the corresponding block.
-    /// TODO: remove the fetch_snos_from_tests argument once we have proper fetching
-    async fn get_snos_for_block(&self, block_no: u64, fetch_snos_from_tests: Option<bool>) -> StarknetOsOutput {
-        let fetch_from_tests = fetch_snos_from_tests.unwrap_or(false);
+    /// TODO: remove the fetch_from_tests argument once we have proper fetching (db/s3)
+    async fn get_snos_for_block(&self, block_no: u64, fetch_from_tests: Option<bool>) -> StarknetOsOutput {
+        let fetch_from_tests = fetch_from_tests.unwrap_or(false);
         match fetch_from_tests {
             true => {
                 let snos_path = format!("./test_data/{}/snos_output_block.json", block_no);
@@ -98,8 +100,30 @@ impl StateUpdateJob {
         }
     }
 
+    /// Retrieves the KZG Proof for the corresponding block.
+    /// TODO: remove the fetch_from_tests argument once we have proper fetching (db/s3)
+    async fn get_kzg_proof_for_block(&self, block_no: u64, fetch_from_tests: Option<bool>) -> String {
+        let fetch_from_tests = fetch_from_tests.unwrap_or(false);
+        match fetch_from_tests {
+            true => {
+                let kzg_path = format!("./test_data/{}/kzg_proof.txt", block_no);
+                if !utils::io::file_exists(&kzg_path) {
+                    panic!("KZG proof file not found for block number {}", block_no);
+                }
+                utils::io::read_file_to_string(&kzg_path).await.expect("Failed to read file")
+            }
+            false => unimplemented!("can't fetch SNOS from DB/S3"),
+        }
+    }
+
     /// Update the state for the corresponding block using the settlement layer.
-    async fn update_state_for_block(&self, config: &Config, block_no: u64, snos: StarknetOsOutput) -> Result<()> {
+    async fn update_state_for_block(
+        &self,
+        config: &Config,
+        block_no: u64,
+        snos: StarknetOsOutput,
+        fetch_from_tests: Option<bool>,
+    ) -> Result<()> {
         let starknet_client = config.starknet_client();
         let settlement_client = config.settlement_client();
         if snos.use_kzg_da == Felt252::ZERO {
@@ -113,7 +137,7 @@ impl StateUpdateJob {
             let _state_diff = state_update.state_diff;
             settlement_client.update_state_calldata(vec![], vec![], 0).await?;
         } else if snos.use_kzg_da == Felt252::ONE {
-            let _kzg_proof = String::from("something from s3/or txt_file");
+            let _kzg_proof = self.get_kzg_proof_for_block(block_no, fetch_from_tests).await;
             settlement_client.update_state_blobs(vec![], vec![]).await?;
         } else {
             panic!("SNOS error: [use_kzg_da] should be either 0 or 1.");
