@@ -1,8 +1,10 @@
 use std::collections::HashMap;
 
 use async_trait::async_trait;
+use cairo_vm::Felt252;
 use color_eyre::eyre::eyre;
 use color_eyre::Result;
+use snos::io::output::StarknetOsOutput;
 use starknet::providers::Provider;
 use starknet_core::types::{BlockId, MaybePendingStateUpdate};
 use uuid::Uuid;
@@ -48,31 +50,38 @@ impl Job for StateUpdateJob {
         // For each block, get the program output (from the PIE?) and the
         for block_no in block_numbers.iter() {
             let block_no = block_no.parse::<u64>()?;
-            let state_update = starnet_client.get_state_update(BlockId::Number(block_no)).await?;
-            let state_update = match state_update {
-                MaybePendingStateUpdate::PendingUpdate(_) => {
-                    return Err(eyre!(
-                        "Cannot process block {} for job id {} as it's still in pending state",
-                        block_no,
-                        job.id
-                    ));
-                }
-                MaybePendingStateUpdate::Update(state_update) => state_update,
+            // TODO: get snos for block n_o from somewhere ?_?
+            let snos: StarknetOsOutput = StarknetOsOutput {
+                initial_root: Felt252::ZERO,
+                final_root: Felt252::ZERO,
+                block_number: Felt252::ZERO,
+                block_hash: Felt252::ZERO,
+                starknet_os_config_hash: Felt252::ZERO,
+                use_kzg_da: Felt252::ZERO,
+                messages_to_l1: vec![Felt252::ZERO],
+                messages_to_l2: vec![Felt252::ZERO],
+                contracts: vec![],
+                classes: Default::default(),
             };
-            let state_diff = state_update.state_diff;
-            // TODO: create env variable to switch between where to update state
-            let x = true;
-            match x {
-                true => {
-                    // TODO: get the proof for the current block number from S3/test data
-                    let kzg_proof = String::from("something from s3/or txt_file");
-                    // In this case program_output does not contain state diffs
-                    // settlement_client.update_state_blobs(program_output, kzg_proof)
-                }
-                false => {
-                    // In this case we have state diffs as part of the program_output
-                    // settlement_client.update_state_calldata(program_output, onchain_data_hash, onchain_data_size)
-                }
+            if snos.use_kzg_da == Felt252::ZERO {
+                let state_update = starnet_client.get_state_update(BlockId::Number(block_no)).await?;
+                let state_update = match state_update {
+                    MaybePendingStateUpdate::PendingUpdate(_) => {
+                        return Err(eyre!(
+                            "Cannot process block {} for job id {} as it's still in pending state",
+                            block_no,
+                            job.id
+                        ));
+                    }
+                    MaybePendingStateUpdate::Update(state_update) => state_update,
+                };
+                let _state_diff = state_update.state_diff;
+                settlement_client.update_state_calldata(vec![], vec![], 0).await?;
+            } else if snos.use_kzg_da == Felt252::ONE {
+                let _kzg_proof = String::from("something from s3/or txt_file");
+                settlement_client.update_state_blobs(vec![], vec![]).await?;
+            } else {
+                panic!("uuuh");
             }
         }
         todo!()
