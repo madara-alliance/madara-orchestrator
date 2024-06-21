@@ -63,6 +63,7 @@ impl SettlementClient for EthereumSettlementClient {
     /// Should verify the inclusion of the state diff in the DA layer and return the status
     #[allow(unused)]
     async fn verify_inclusion(&self, external_id: &str) -> Result<SettlementVerificationStatus> {
+        // TODO: not implemented yet
         Ok(SettlementVerificationStatus::Verified)
     }
 }
@@ -76,7 +77,7 @@ impl From<EthereumSettlementConfig> for EthereumSettlementClient {
 
         let provider = ProviderBuilder::new().with_recommended_fillers().wallet(wallet).on_http(config.rpc_url);
         let core_contract_client = StarknetValidityContractClient::new(
-            Address::from_slice(config.core_contract.as_bytes()).0.into(),
+            Address::from_slice(config.core_contract_address.as_bytes()).0.into(),
             Arc::new(provider),
         );
 
