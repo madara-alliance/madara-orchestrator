@@ -18,6 +18,7 @@ use settlement_client_interface::{SettlementClient, SettlementVerificationStatus
 use std::sync::Arc;
 use utils::env_utils::get_env_var_or_panic;
 
+use crate::clients::interfaces::validity_interface::StarknetValidityContractTrait;
 use crate::clients::StarknetValidityContractClient;
 
 pub const ENV_PRIVATE_KEY: &str = "ETHEREUM_PRIVATE_KEY";
@@ -25,7 +26,6 @@ pub const ENV_PRIVATE_KEY: &str = "ETHEREUM_PRIVATE_KEY";
 #[allow(dead_code)]
 pub struct EthereumSettlementClient {
     core_contract_client: StarknetValidityContractClient,
-    memory_pages_contract: String,
 }
 
 #[automock]
@@ -48,15 +48,16 @@ impl SettlementClient for EthereumSettlementClient {
     ) -> Result<String> {
         let program_output: Vec<U256> = slice_slice_u8_to_vec_u256(&program_output);
         let onchain_data_hash: U256 = slice_u8_to_u256(&onchain_data_hash);
-        Ok("external_id".to_string())
+        self.core_contract_client.update_state(program_output, onchain_data_hash, U256::from(0)).await?;
+        Ok("TODO".to_string())
     }
 
     /// Should be used to update state on core contract when DA is in blobs/alt DA
     #[allow(unused)]
     async fn update_state_blobs(&self, program_output: Vec<Vec<u8>>, kzg_proof: Vec<u8>) -> Result<String> {
         let program_output: Vec<U256> = slice_slice_u8_to_vec_u256(&program_output);
-        let kzg_proof: U256 = slice_u8_to_u256(&kzg_proof);
-        Ok("external_id".to_string())
+        self.core_contract_client.update_state_kzg(program_output, kzg_proof).await?;
+        Ok("TODO".to_string())
     }
 
     /// Should verify the inclusion of the state diff in the DA layer and return the status
@@ -72,11 +73,13 @@ impl From<EthereumSettlementConfig> for EthereumSettlementClient {
         let private_key = get_env_var_or_panic(ENV_PRIVATE_KEY);
         let signer: PrivateKeySigner = private_key.parse().expect("Failed to parse private key");
         let wallet = EthereumWallet::from(signer);
+
         let provider = ProviderBuilder::new().with_recommended_fillers().wallet(wallet).on_http(config.rpc_url);
         let core_contract_client = StarknetValidityContractClient::new(
             Address::from_slice(config.core_contract.as_bytes()).0.into(),
             Arc::new(provider),
         );
-        EthereumSettlementClient { memory_pages_contract: config.memory_pages_contract, core_contract_client }
+
+        EthereumSettlementClient { core_contract_client }
     }
 }

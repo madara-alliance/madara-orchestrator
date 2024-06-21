@@ -4,8 +4,7 @@ use settlement_client_interface::SettlementConfig;
 use url::Url;
 use utils::env_utils::get_env_var_or_panic;
 
-// TODO(akhercha): do we use madara rpc or another starknet rpc?
-pub const ENV_STARKNET_RPC_URL: &str = "MADARA_RPC_URL";
+pub const ENV_STARKNET_RPC_URL: &str = "STARKNET_RPC_URL";
 
 pub struct StarknetSettlementConfig {
     pub rpc_url: Url,

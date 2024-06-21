@@ -13,7 +13,7 @@ use starknet::providers::{jsonrpc::HttpTransport, JsonRpcClient};
 
 #[allow(unused)]
 pub struct StarknetSettlementClient {
-    provider: Arc<JsonRpcClient<HttpTransport>>,
+    pub provider: Arc<JsonRpcClient<HttpTransport>>,
 }
 
 #[automock]

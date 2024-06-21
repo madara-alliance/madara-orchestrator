@@ -15,10 +15,9 @@ use crate::jobs::types::{JobItem, JobStatus, JobType, JobVerificationStatus};
 use crate::jobs::Job;
 use crate::utils;
 
-pub struct StateUpdateJob;
-
 pub const METADATA_FETCH_FROM_TESTS: &str = "FETCH_FROM_TESTS";
 
+pub struct StateUpdateJob;
 #[async_trait]
 impl Job for StateUpdateJob {
     async fn create_job(
