@@ -16,6 +16,7 @@ use crate::config::Config;
 use crate::jobs::constants::JOB_METADATA_STATE_UPDATE_BLOCKS_TO_SETTLE_KEY;
 use crate::jobs::types::{JobItem, JobStatus, JobType, JobVerificationStatus};
 use crate::jobs::Job;
+use crate::utils;
 
 pub struct StateUpdateJob;
 
@@ -83,23 +84,23 @@ impl Job for StateUpdateJob {
 }
 
 impl StateUpdateJob {
+    /// Retrieves the SNOS output for the corresponding block.
     async fn get_snos_for_block(&self, block_no: u64, fetch_snos_from_tests: Option<bool>) -> StarknetOsOutput {
         let fetch_from_tests = fetch_snos_from_tests.unwrap_or(false);
         match fetch_from_tests {
             true => {
                 let file_path = format!("./test_data/{}/snos_output_block.json", block_no);
-                if !Path::new(&file_path).exists() {
+                if !utils::io::file_exists(&file_path) {
                     panic!("SNOS file not found for block number {}", block_no);
                 }
-                let mut file = File::open(file_path).await.expect("SNOS file not found");
-                let mut contents = String::new();
-                file.read_to_string(&mut contents).await.expect("Failed to read file");
+                let contents = utils::io::read_file_to_string(&file_path).await.expect("Failed to read file");
                 serde_json::from_str(&contents).expect("Failed to deserialize JSON into SNOS")
             }
-            false => unimplemented!("fetch snos from DB/S3 not implemented yet"),
+            false => unimplemented!("can't fetch SNOS from DB/S3"),
         }
     }
 
+    /// Update the state for the corresponding block using the settlement layer.
     async fn update_state_for_block(&self, config: &Config, block_no: u64, snos: StarknetOsOutput) -> Result<()> {
         let starknet_client = config.starknet_client();
         let settlement_client = config.settlement_client();
@@ -117,7 +118,7 @@ impl StateUpdateJob {
             let _kzg_proof = String::from("something from s3/or txt_file");
             settlement_client.update_state_blobs(vec![], vec![]).await?;
         } else {
-            panic!("uuuh");
+            panic!("SNOS error: [use_kzg_da] should be either 0 or 1.");
         }
         Ok(())
     }

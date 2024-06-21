@@ -12,6 +12,8 @@ pub mod jobs;
 pub mod queue;
 /// Contains the routes for the service
 pub mod routes;
+/// Contains utility functions.
+pub mod utils;
 /// Contains workers which act like cron jobs
 pub mod workers;
 
