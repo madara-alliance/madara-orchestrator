@@ -6,6 +6,7 @@ use std::sync::Arc;
 use async_trait::async_trait;
 use color_eyre::Result;
 use config::StarknetSettlementConfig;
+use conversion::{slice_slice_u8_to_vec_field, slice_u8_to_field};
 use mockall::{automock, predicate::*};
 use settlement_client_interface::{SettlementClient, SettlementVerificationStatus};
 use starknet::providers::{jsonrpc::HttpTransport, JsonRpcClient};
@@ -33,14 +34,16 @@ impl SettlementClient for StarknetSettlementClient {
         onchain_data_hash: Vec<u8>,
         onchain_data_size: usize,
     ) -> Result<String> {
-        // TODO: We need to figure out how to calculate onchain_data_hash and onchain_data_size here
+        let program_output = slice_slice_u8_to_vec_field(&program_output);
+        let onchain_data_hash = slice_u8_to_field(&onchain_data_hash);
         Ok("external_id".to_string())
     }
 
     /// Should be used to update state on core contract when DA is in blobs/alt DA
     #[allow(unused)]
-    async fn update_state_blobs(&self, program_output: Vec<u8>, kzg_proof: Vec<u8>) -> Result<String> {
-        // TODO: We need to figure out how to calculate kzg_proof here
+    async fn update_state_blobs(&self, program_output: Vec<Vec<u8>>, kzg_proof: Vec<u8>) -> Result<String> {
+        let program_output = slice_slice_u8_to_vec_field(&program_output);
+        let kzg_proof = slice_u8_to_field(&kzg_proof);
         Ok("external_id".to_string())
     }
 

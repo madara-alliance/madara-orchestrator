@@ -17,6 +17,18 @@ sol! {
     #[allow(missing_docs)]
     #[sol(rpc)]
     interface StarknetValidityContract {
+        function setProgramHash(uint256 newProgramHash) external notFinalized onlyGovernance;
+        function setConfigHash(uint256 newConfigHash) external notFinalized onlyGovernance;
+        function setMessageCancellationDelay(uint256 delayInSeconds) external notFinalized onlyGovernance;
+
+        function programHash() public view returns (uint256);
+        function configHash() public view returns (uint256);
+
+        function identify() external pure override returns (string memory);
+        function stateRoot() external view returns (uint256);
+        function stateBlockNumber() external view returns (int256);
+        function stateBlockHash() external view returns (uint256);
+
         function updateState(uint256[] calldata programOutput, uint256 onchainDataHash, uint256 onchainDataSize) external onlyOperator;
         function updateStateKzgDA(uint256[] calldata programOutput, bytes calldata kzgProof) external onlyOperator;
     }
