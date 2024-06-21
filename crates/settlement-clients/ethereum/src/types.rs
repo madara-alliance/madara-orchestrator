@@ -1,11 +1,9 @@
 use alloy::{
     network::{Ethereum, EthereumWallet},
-    primitives::Address,
     providers::{
         fillers::{ChainIdFiller, FillProvider, GasFiller, JoinFill, NonceFiller, WalletFiller},
         RootProvider,
     },
-    signers::local::PrivateKeySigner,
     transports::http::{Client, Http},
 };
 
