@@ -5,11 +5,8 @@ use mockall::predicate::*;
 
 #[derive(Debug, Copy, Clone, PartialEq, Eq)]
 pub enum SettlementVerificationStatus {
-    #[allow(dead_code)]
     Pending,
-    #[allow(dead_code)]
     Verified,
-    #[allow(dead_code)]
     Rejected,
 }
 
@@ -32,12 +29,14 @@ pub trait SettlementClient: Send + Sync {
     /// Should be used to update state on core contract when DA is in blobs/alt DA
     async fn update_state_blobs(&self, program_output: Vec<Vec<u8>>, kzg_proof: Vec<u8>) -> Result<String>;
 
-    /// Should verify the inclusion of the state diff in the DA layer and return the status
+    /// Should verify the inclusion of the state diff in the Settlement layer and return the status
     async fn verify_inclusion(&self, external_id: &str) -> Result<SettlementVerificationStatus>;
+
+    async fn get_last_settled_block(&self) -> Result<u64>;
 }
 
-/// Trait for every new DaConfig to implement
+/// Trait for every new SettlementConfig to implement
 pub trait SettlementConfig {
-    /// Should create a new instance of the DaConfig from the environment variables
+    /// Should create a new instance of the SettlementConfig from the environment variables
     fn new_from_env() -> Self;
 }

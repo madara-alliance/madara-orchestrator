@@ -4,27 +4,46 @@ pub mod conversion;
 use std::sync::Arc;
 
 use async_trait::async_trait;
+use color_eyre::eyre::eyre;
 use color_eyre::Result;
-use config::StarknetSettlementConfig;
-use conversion::{slice_slice_u8_to_vec_field, slice_u8_to_field};
+use lazy_static::lazy_static;
 use mockall::{automock, predicate::*};
-use settlement_client_interface::{SettlementClient, SettlementVerificationStatus};
+use starknet::accounts::ConnectedAccount;
+use starknet::providers::Provider;
 use starknet::{
     accounts::{Account, Call, ExecutionEncoding, SingleOwnerAccount},
-    core::{chain_id, types::FieldElement, utils::get_selector_from_name},
+    core::{
+        chain_id,
+        types::{BlockId, BlockTag, FieldElement, FunctionCall},
+        utils::get_selector_from_name,
+    },
     providers::{jsonrpc::HttpTransport, JsonRpcClient},
     signers::{LocalWallet, SigningKey},
 };
+
+use config::StarknetSettlementConfig;
+use conversion::{slice_slice_u8_to_vec_field, slice_u8_to_field};
+use settlement_client_interface::{SettlementClient, SettlementVerificationStatus};
 use utils::env_utils::get_env_var_or_panic;
 
 #[allow(unused)]
 pub struct StarknetSettlementClient {
     pub account: SingleOwnerAccount<Arc<JsonRpcClient<HttpTransport>>, LocalWallet>,
-    pub core_contract_address: String,
+    pub core_contract_address: FieldElement,
 }
 
 pub const ENV_PUBLIC_KEY: &str = "STARKNET_PUBLIC_KEY";
 pub const ENV_PRIVATE_KEY: &str = "STARKNET_PRIVATE_KEY";
+
+// Assumed the contract called for settlement l ooks like:
+// https://github.com/keep-starknet-strange/piltover
+
+lazy_static! {
+    pub static ref CONTRACT_WRITE_UPDATE_STATE_SELECTOR: FieldElement =
+        get_selector_from_name("update_state").expect("Invalid update state selector");
+    pub static ref CONTRACT_READ_STATE_BLOCK_NUMBER: FieldElement =
+        get_selector_from_name("stateBlockNumber").expect("Invalid update state selector");
+}
 
 #[automock]
 #[async_trait]
@@ -52,8 +71,8 @@ impl SettlementClient for StarknetSettlementClient {
         let _ = self
             .account
             .execute(vec![Call {
-                to: FieldElement::from_hex_be(&self.core_contract_address).expect("invalid contract"),
-                selector: get_selector_from_name("update_state").expect("invalid selector"),
+                to: self.core_contract_address,
+                selector: *CONTRACT_WRITE_UPDATE_STATE_SELECTOR,
                 calldata,
             }])
             .send()
@@ -73,6 +92,27 @@ impl SettlementClient for StarknetSettlementClient {
     async fn verify_inclusion(&self, external_id: &str) -> Result<SettlementVerificationStatus> {
         Ok(SettlementVerificationStatus::Verified)
     }
+
+    /// Returns the last block settled from the core contract.
+    async fn get_last_settled_block(&self) -> Result<u64> {
+        let block_number = self
+            .account
+            .provider()
+            .call(
+                FunctionCall {
+                    contract_address: self.core_contract_address,
+                    entry_point_selector: *CONTRACT_READ_STATE_BLOCK_NUMBER,
+                    calldata: vec![],
+                },
+                BlockId::Tag(BlockTag::Latest),
+            )
+            .await?;
+        if block_number.is_empty() {
+            return Err(eyre!("Could not fetch last block number from core contract."));
+        }
+        // TODO: unsafe unwrap
+        Ok(block_number[0].try_into().unwrap())
+    }
 }
 
 impl From<StarknetSettlementConfig> for StarknetSettlementClient {
@@ -87,6 +127,9 @@ impl From<StarknetSettlementConfig> for StarknetSettlementClient {
         let signer = FieldElement::from_hex_be(&private_key).expect("Invalid private key");
         let signer = LocalWallet::from(SigningKey::from_secret_scalar(signer));
 
+        let core_contract_address =
+            FieldElement::from_hex_be(&config.core_contract_address).expect("Invalid core contract address");
+
         let account = SingleOwnerAccount::new(
             provider.clone(),
             signer,
@@ -95,6 +138,6 @@ impl From<StarknetSettlementConfig> for StarknetSettlementClient {
             ExecutionEncoding::Legacy,
         );
 
-        StarknetSettlementClient { account, core_contract_address: config.core_contract_address }
+        StarknetSettlementClient { account, core_contract_address }
     }
 }

@@ -45,22 +45,30 @@ impl Job for StateUpdateJob {
     }
 
     async fn process_job(&self, config: &Config, job: &JobItem) -> Result<String> {
-        // Read the metadata to get the blocks for which state update will be performed.
-        // We assume that blocks nbrs are formatted as follow: "2,3,4,5,6".
-        let blocks_to_settle = job.metadata.get(JOB_METADATA_STATE_UPDATE_BLOCKS_TO_SETTLE_KEY).ok_or_else(|| {
-            eyre!(eyre!("Blocks number to settle must be specified (prover job #{})", job.internal_id))
-        })?;
-        let block_numbers: Vec<String> = blocks_to_settle.split(',').map(String::from).collect();
-
         // TODO: remove when SNOS is correctly stored in DB/S3
         // Test metadata to fetch the snos output from the test folder
         let fetch_from_tests = job.metadata.get(METADATA_FETCH_FROM_TESTS).map_or(false, |value| value == "TRUE");
 
+        // Read the metadata to get the blocks for which state update will be performed.
+        // We assume that blocks nbrs are formatted as follow: "2,3,4,5,6".
+        let blocks_to_settle = job.metadata.get(JOB_METADATA_STATE_UPDATE_BLOCKS_TO_SETTLE_KEY).ok_or_else(|| {
+            eyre!("Blocks number to settle must be specified (state update job #{})", job.internal_id)
+        })?;
+        let block_numbers: Vec<u64> = blocks_to_settle
+            .split(',')
+            .map(|block_no| block_no.parse::<u64>())
+            .collect::<Result<Vec<u64>, _>>()
+            .map_err(|_| eyre!("Block numbers to settle list is not correctly formatted."))?;
+
+        // Run validations on the block_numbers;
+        // i.e: check that there's no overlapping with current block
+        // Use starknet provider to call the stateBlockNumber of the core contract
+        self.validate_block_numbers(config, &block_numbers).await?;
+
         // For each block, either update using calldata or blobs
         for block_no in block_numbers.iter() {
-            let block_no = block_no.parse::<u64>()?;
-            let snos = self.fetch_snos_for_block(block_no, Some(fetch_from_tests)).await;
-            self.update_state_for_block(config, block_no, snos, Some(fetch_from_tests)).await?;
+            let snos = self.fetch_snos_for_block(*block_no, Some(fetch_from_tests)).await;
+            self.update_state_for_block(config, *block_no, snos, Some(fetch_from_tests)).await?;
         }
         Ok("task_id".to_string())
     }
@@ -87,33 +95,20 @@ impl Job for StateUpdateJob {
 }
 
 impl StateUpdateJob {
-    /// Retrieves the SNOS output for the corresponding block.
-    /// TODO: remove the fetch_from_tests argument once we have proper fetching (db/s3)
-    async fn fetch_snos_for_block(&self, block_no: u64, fetch_from_tests: Option<bool>) -> StarknetOsOutput {
-        let fetch_from_tests = fetch_from_tests.unwrap_or(false);
-        match fetch_from_tests {
-            true => {
-                let snos_path =
-                    CURRENT_PATH.join(format!("src/jobs/state_update_job/test_data/{}/snos_output.json", block_no));
-                let snos_str = std::fs::read_to_string(snos_path).expect("Failed to read the SNOS json file");
-                serde_json::from_str(&snos_str).expect("Failed to deserialize JSON into SNOS")
-            }
-            false => unimplemented!("can't fetch SNOS from DB/S3"),
+    /// Validate that the list of block numbers to process is valid.
+    /// Valid in this context means:
+    /// - that there is no gap between the last block settled and the first block to settle,
+    /// - that the all the specified blocks are greater than the last settled block.
+    async fn validate_block_numbers(&self, config: &Config, block_numbers: &[u64]) -> Result<()> {
+        let last_settled_block: u64 = config.settlement_client().get_last_settled_block().await?;
+        if last_settled_block + 1 != *block_numbers.first().expect("block numbers list is empty") {
+            return Err(eyre!("Gap detected between the first block to settle and the last one settled."));
         }
-    }
-
-    /// Retrieves the KZG Proof for the corresponding block.
-    /// TODO: remove the fetch_from_tests argument once we have proper fetching (db/s3)
-    async fn fetch_kzg_proof_for_block(&self, block_no: u64, fetch_from_tests: Option<bool>) -> String {
-        let fetch_from_tests = fetch_from_tests.unwrap_or(false);
-        match fetch_from_tests {
-            true => {
-                let kzg_path =
-                    CURRENT_PATH.join(format!("src/jobs/state_update_job/test_data/{}/kzg_proof.txt", block_no));
-                std::fs::read_to_string(&kzg_path).expect("Failed to read the KZG txt file")
-            }
-            false => unimplemented!("can't fetch KZG Proof from DB/S3"),
+        let valid_count = block_numbers.iter().filter(|&&block| block > last_settled_block).count();
+        if valid_count != block_numbers.len() {
+            return Err(eyre!("Invalid blocks."));
         }
+        Ok(())
     }
 
     /// Update the state for the corresponding block using the settlement layer.
@@ -144,5 +139,34 @@ impl StateUpdateJob {
             panic!("SNOS error: [use_kzg_da] should be either 0 or 1.");
         }
         Ok(())
+    }
+
+    /// Retrieves the SNOS output for the corresponding block.
+    /// TODO: remove the fetch_from_tests argument once we have proper fetching (db/s3)
+    async fn fetch_snos_for_block(&self, block_no: u64, fetch_from_tests: Option<bool>) -> StarknetOsOutput {
+        let fetch_from_tests = fetch_from_tests.unwrap_or(false);
+        match fetch_from_tests {
+            true => {
+                let snos_path =
+                    CURRENT_PATH.join(format!("src/jobs/state_update_job/test_data/{}/snos_output.json", block_no));
+                let snos_str = std::fs::read_to_string(snos_path).expect("Failed to read the SNOS json file");
+                serde_json::from_str(&snos_str).expect("Failed to deserialize JSON into SNOS")
+            }
+            false => unimplemented!("can't fetch SNOS from DB/S3"),
+        }
+    }
+
+    /// Retrieves the KZG Proof for the corresponding block.
+    /// TODO: remove the fetch_from_tests argument once we have proper fetching (db/s3)
+    async fn fetch_kzg_proof_for_block(&self, block_no: u64, fetch_from_tests: Option<bool>) -> String {
+        let fetch_from_tests = fetch_from_tests.unwrap_or(false);
+        match fetch_from_tests {
+            true => {
+                let kzg_path =
+                    CURRENT_PATH.join(format!("src/jobs/state_update_job/test_data/{}/kzg_proof.txt", block_no));
+                std::fs::read_to_string(&kzg_path).expect("Failed to read the KZG txt file")
+            }
+            false => unimplemented!("can't fetch KZG Proof from DB/S3"),
+        }
     }
 }

@@ -8442,6 +8442,7 @@ dependencies = [
  "c-kzg",
  "color-eyre",
  "dotenv",
+ "lazy_static",
  "mockall",
  "reqwest 0.12.5",
  "rstest 0.18.2",

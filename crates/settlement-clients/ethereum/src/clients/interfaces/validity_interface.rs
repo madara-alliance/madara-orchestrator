@@ -4,7 +4,7 @@ use async_trait::async_trait;
 
 use alloy::{
     network::Ethereum,
-    primitives::U256,
+    primitives::{I256, U256},
     providers::Provider,
     rpc::types::eth::TransactionReceipt,
     sol,
@@ -12,6 +12,9 @@ use alloy::{
 };
 
 use crate::types::LocalWalletSignerMiddleware;
+
+// TODO: should be moved to Zaun:
+// https://github.com/keep-starknet-strange/zaun
 
 sol! {
     #[allow(missing_docs)]
@@ -36,6 +39,9 @@ sol! {
 
 #[async_trait]
 pub trait StarknetValidityContractTrait {
+    /// Retrieves the last block number settled
+    async fn state_block_number(&self) -> Result<I256, alloy::contract::Error>;
+
     /// Update the L1 state
     async fn update_state(
         &self,
@@ -63,6 +69,10 @@ where
         > + Send
         + Sync,
 {
+    async fn state_block_number(&self) -> Result<I256, alloy::contract::Error> {
+        Ok(self.as_ref().stateBlockNumber().call().await?._0)
+    }
+
     async fn update_state(
         &self,
         program_output: Vec<U256>,

@@ -66,6 +66,12 @@ impl SettlementClient for EthereumSettlementClient {
         // TODO: not implemented yet
         Ok(SettlementVerificationStatus::Verified)
     }
+
+    async fn get_last_settled_block(&self) -> Result<u64> {
+        let block_number = self.core_contract_client.state_block_number().await?;
+        // TODO: unsafe unwrap
+        Ok(block_number.try_into().unwrap())
+    }
 }
 
 impl From<EthereumSettlementConfig> for EthereumSettlementClient {

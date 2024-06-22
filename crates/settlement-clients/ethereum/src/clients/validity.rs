@@ -5,6 +5,9 @@ use alloy::{network::Ethereum, primitives::Address, transports::http::Http};
 use crate::clients::interfaces::validity_interface::StarknetValidityContract;
 use crate::types::LocalWalletSignerMiddleware;
 
+// TODO: should be moved to Zaun:
+// https://github.com/keep-starknet-strange/zaun
+
 /// Client to interact with a Starknet core contract running in `Validity` mode
 pub struct StarknetValidityContractClient {
     core_contract: StarknetValidityContract::StarknetValidityContractInstance<
