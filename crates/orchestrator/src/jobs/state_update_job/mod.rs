@@ -1,4 +1,6 @@
+use lazy_static::lazy_static;
 use std::collections::HashMap;
+use std::path::PathBuf;
 
 use async_trait::async_trait;
 use cairo_vm::Felt252;
@@ -16,6 +18,10 @@ use crate::jobs::Job;
 use crate::utils;
 
 pub const METADATA_FETCH_FROM_TESTS: &str = "FETCH_FROM_TESTS";
+
+lazy_static! {
+    pub static ref CURRENT_PATH: PathBuf = std::env::current_dir().unwrap();
+}
 
 pub struct StateUpdateJob;
 #[async_trait]
@@ -57,7 +63,7 @@ impl Job for StateUpdateJob {
             let snos = self.fetch_snos_for_block(block_no, Some(fetch_from_tests)).await;
             self.update_state_for_block(config, block_no, snos, Some(fetch_from_tests)).await?;
         }
-        Ok(blocks_to_settle.to_string())
+        Ok("task_id".to_string())
     }
 
     /// Verify that the proof transaction has been included on chain
@@ -88,11 +94,10 @@ impl StateUpdateJob {
         let fetch_from_tests = fetch_from_tests.unwrap_or(false);
         match fetch_from_tests {
             true => {
-                let snos_path = format!("./test_data/{}/snos_output.json", block_no);
-                if !utils::io::file_exists(&snos_path) {
-                    panic!("SNOS file not found for block number {}", block_no);
-                }
-                let snos_str = utils::io::read_file_to_string(&snos_path).await.expect("Failed to snos json file");
+                let snos_path =
+                    CURRENT_PATH.join(format!("src/jobs/state_update_job/test_data/{}/snos_output.json", block_no));
+                let snos_str =
+                    utils::io::read_file_to_string(&snos_path).await.expect("Failed to read the snos json file");
                 serde_json::from_str(&snos_str).expect("Failed to deserialize JSON into SNOS")
             }
             false => unimplemented!("can't fetch SNOS from DB/S3"),
@@ -105,11 +110,9 @@ impl StateUpdateJob {
         let fetch_from_tests = fetch_from_tests.unwrap_or(false);
         match fetch_from_tests {
             true => {
-                let kzg_path = format!("./test_data/{}/kzg_proof.txt", block_no);
-                if !utils::io::file_exists(&kzg_path) {
-                    panic!("KZG proof file not found for block number {}", block_no);
-                }
-                utils::io::read_file_to_string(&kzg_path).await.expect("Failed to KZG txt file")
+                let kzg_path =
+                    CURRENT_PATH.join(format!("src/jobs/state_update_job/test_data/{}/kzg_proof.txt", block_no));
+                utils::io::read_file_to_string(&kzg_path).await.expect("Failed to read the KZG txt file")
             }
             false => unimplemented!("can't fetch KZG Proof from DB/S3"),
         }
