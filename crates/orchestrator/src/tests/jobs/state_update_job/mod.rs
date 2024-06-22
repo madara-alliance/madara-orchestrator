@@ -1,7 +1,8 @@
+use mockall::predicate::eq;
 use rstest::*;
 use settlement_client_interface::{MockSettlementClient, SettlementClient};
 
-use std::collections::HashMap;
+use std::{collections::HashMap, env, fs};
 
 use super::super::common::init_config;
 
@@ -36,7 +37,18 @@ async fn test_create_job() {
 #[tokio::test]
 async fn test_process_job() {
     let server = MockServer::start();
-    let settlement_client = MockSettlementClient::new();
+    let mut settlement_client = MockSettlementClient::new();
+
+    // Load and concatenate the kzg_proof.txt contents
+    let block_numbers = ["651053", "651054", "651055", "651056"];
+    for block_no in block_numbers {
+        let block_proof = load_kzg_proof(block_no);
+        settlement_client
+            .expect_update_state_blobs()
+            .with(eq(vec![]), eq(block_proof.into_bytes()))
+            .returning(|_, _| Ok(String::from("TODO")));
+    }
+
     let config = init_config(
         Some(format!("http://localhost:{}", server.port())),
         None,
@@ -49,10 +61,8 @@ async fn test_process_job() {
 
     let mut metadata: HashMap<String, String> = HashMap::new();
     metadata.insert(String::from("FETCH_FROM_TESTS"), String::from("TRUE"));
-    metadata.insert(
-        String::from(JOB_METADATA_STATE_UPDATE_BLOCKS_TO_SETTLE_KEY),
-        String::from("651053,651054,651055,651056"),
-    );
+    metadata
+        .insert(String::from(JOB_METADATA_STATE_UPDATE_BLOCKS_TO_SETTLE_KEY), String::from(block_numbers.join(",")));
 
     let job = StateUpdateJob.create_job(&config, String::from("0"), metadata).await.unwrap();
     assert_eq!(StateUpdateJob.process_job(&config, &job).await.unwrap(), "task_id".to_string())
@@ -66,3 +76,8 @@ async fn test_process_job() {
 //     let config = init_config(None, None, None, None, None, Some(settlement_client)).await;
 //     assert!(StateUpdateJob.verify_job(&config, &job_item).await.is_ok());
 // }
+
+fn load_kzg_proof(block_no: &str) -> String {
+    let file_path = format!("src/jobs/state_update_job/test_data/{}/kzg_proof.txt", block_no);
+    fs::read_to_string(&file_path).expect("Unable to read kzg_proof.txt")
+}

@@ -15,7 +15,6 @@ use crate::config::Config;
 use crate::jobs::constants::JOB_METADATA_STATE_UPDATE_BLOCKS_TO_SETTLE_KEY;
 use crate::jobs::types::{JobItem, JobStatus, JobType, JobVerificationStatus};
 use crate::jobs::Job;
-use crate::utils;
 
 pub const METADATA_FETCH_FROM_TESTS: &str = "FETCH_FROM_TESTS";
 
@@ -96,8 +95,7 @@ impl StateUpdateJob {
             true => {
                 let snos_path =
                     CURRENT_PATH.join(format!("src/jobs/state_update_job/test_data/{}/snos_output.json", block_no));
-                let snos_str =
-                    utils::io::read_file_to_string(&snos_path).await.expect("Failed to read the snos json file");
+                let snos_str = std::fs::read_to_string(snos_path).expect("Failed to read the SNOS json file");
                 serde_json::from_str(&snos_str).expect("Failed to deserialize JSON into SNOS")
             }
             false => unimplemented!("can't fetch SNOS from DB/S3"),
@@ -112,7 +110,7 @@ impl StateUpdateJob {
             true => {
                 let kzg_path =
                     CURRENT_PATH.join(format!("src/jobs/state_update_job/test_data/{}/kzg_proof.txt", block_no));
-                utils::io::read_file_to_string(&kzg_path).await.expect("Failed to read the KZG txt file")
+                std::fs::read_to_string(&kzg_path).expect("Failed to read the KZG txt file")
             }
             false => unimplemented!("can't fetch KZG Proof from DB/S3"),
         }
