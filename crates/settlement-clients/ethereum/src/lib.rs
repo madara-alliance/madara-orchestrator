@@ -14,7 +14,7 @@ use color_eyre::Result;
 use config::EthereumSettlementConfig;
 use conversion::{slice_slice_u8_to_vec_u256, slice_u8_to_u256};
 use mockall::{automock, predicate::*};
-use settlement_client_interface::{SettlementClient, SettlementVerificationStatus};
+use settlement_client_interface::{parse_and_validate_block_order, SettlementClient, SettlementVerificationStatus};
 use std::sync::Arc;
 use utils::env_utils::get_env_var_or_panic;
 
@@ -63,8 +63,21 @@ impl SettlementClient for EthereumSettlementClient {
     /// Should verify the inclusion of the state diff in the DA layer and return the status
     #[allow(unused)]
     async fn verify_inclusion(&self, external_id: &str) -> Result<SettlementVerificationStatus> {
-        // TODO: not implemented yet
-        Ok(SettlementVerificationStatus::Verified)
+        let last_block_settled = self.get_last_settled_block().await?;
+        // We assume here that the external_id is the list of blocks comma separated
+        let block_numbers: Vec<u64> = parse_and_validate_block_order(external_id)?;
+
+        let first_block_no = block_numbers.first().expect("could not get first block");
+        let last_block_no = block_numbers.last().expect("could not get last block");
+
+        let status = if (last_block_settled >= *first_block_no) && (last_block_settled <= *last_block_no) {
+            SettlementVerificationStatus::Pending
+        } else if last_block_settled > *last_block_no {
+            SettlementVerificationStatus::Verified
+        } else {
+            SettlementVerificationStatus::Rejected
+        };
+        Ok(status)
     }
 
     async fn get_last_settled_block(&self) -> Result<u64> {

@@ -1,4 +1,5 @@
 use lazy_static::lazy_static;
+use settlement_client_interface::parse_and_validate_block_order;
 use std::collections::HashMap;
 use std::path::PathBuf;
 
@@ -54,11 +55,7 @@ impl Job for StateUpdateJob {
         let blocks_to_settle = job.metadata.get(JOB_METADATA_STATE_UPDATE_BLOCKS_TO_SETTLE_KEY).ok_or_else(|| {
             eyre!("Blocks number to settle must be specified (state update job #{})", job.internal_id)
         })?;
-        let block_numbers: Vec<u64> = blocks_to_settle
-            .split(',')
-            .map(|block_no| block_no.parse::<u64>())
-            .collect::<Result<Vec<u64>, _>>()
-            .map_err(|_| eyre!("Block numbers to settle list is not correctly formatted."))?;
+        let block_numbers: Vec<u64> = parse_and_validate_block_order(blocks_to_settle)?;
 
         // Run validations on the block_numbers;
         // i.e: check that there's no overlapping with current block
