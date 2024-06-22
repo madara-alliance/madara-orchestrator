@@ -42,6 +42,7 @@ pub trait SettlementConfig {
     fn new_from_env() -> Self;
 }
 
+/// Parse a list of blocks comma separated and assert that they're sorted in ascending order.
 pub fn parse_and_validate_block_order(blocks_to_settle: &str) -> Result<Vec<u64>> {
     let block_numbers: Vec<u64> = blocks_to_settle
         .split(',')
