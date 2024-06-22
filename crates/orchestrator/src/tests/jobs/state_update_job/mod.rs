@@ -1,8 +1,8 @@
 use mockall::predicate::eq;
 use rstest::*;
-use settlement_client_interface::{MockSettlementClient, SettlementClient};
+use settlement_client_interface::MockSettlementClient;
 
-use std::{collections::HashMap, env, fs};
+use std::{collections::HashMap, fs};
 
 use super::super::common::init_config;
 
@@ -39,12 +39,13 @@ async fn test_process_job() {
     let server = MockServer::start();
     let mut settlement_client = MockSettlementClient::new();
 
-    // Load and concatenate the kzg_proof.txt contents
+    // TODO: have tests for update_state_calldata, only kzg for now
     let block_numbers = ["651053", "651054", "651055", "651056"];
     for block_no in block_numbers {
         let block_proof = load_kzg_proof(block_no);
         settlement_client
             .expect_update_state_blobs()
+            // TODO: vec![] is program_output
             .with(eq(vec![]), eq(block_proof.into_bytes()))
             .returning(|_, _| Ok(String::from("TODO")));
     }
@@ -64,18 +65,10 @@ async fn test_process_job() {
     metadata
         .insert(String::from(JOB_METADATA_STATE_UPDATE_BLOCKS_TO_SETTLE_KEY), String::from(block_numbers.join(",")));
 
-    let job = StateUpdateJob.create_job(&config, String::from("0"), metadata).await.unwrap();
+    let job = StateUpdateJob.create_job(&config, String::from("internal_id"), metadata).await.unwrap();
+    // TODO: "task_id" should be replaced
     assert_eq!(StateUpdateJob.process_job(&config, &job).await.unwrap(), "task_id".to_string())
 }
-
-// #[rstest]
-// #[tokio::test]
-// async fn test_verify_job(#[from(default_job_item)] job_item: JobItem) {
-//     let settlement_client = MockSettlementClient::new();
-
-//     let config = init_config(None, None, None, None, None, Some(settlement_client)).await;
-//     assert!(StateUpdateJob.verify_job(&config, &job_item).await.is_ok());
-// }
 
 fn load_kzg_proof(block_no: &str) -> String {
     let file_path = format!("src/jobs/state_update_job/test_data/{}/kzg_proof.txt", block_no);
