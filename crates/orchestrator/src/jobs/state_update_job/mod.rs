@@ -62,7 +62,7 @@ impl Job for StateUpdateJob {
         // Use starknet provider to call the stateBlockNumber of the core contract
         self.validate_block_numbers(config, &block_numbers).await?;
 
-        // For each block, either update using calldata or blobs
+        // For each block, either update state using calldata or blobs
         for block_no in block_numbers.iter() {
             let snos = self.fetch_snos_for_block(*block_no, Some(fetch_from_tests)).await;
             self.update_state_for_block(config, *block_no, snos, Some(fetch_from_tests)).await?;

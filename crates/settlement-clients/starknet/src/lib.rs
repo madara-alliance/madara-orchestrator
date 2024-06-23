@@ -77,7 +77,7 @@ impl SettlementClient for StarknetSettlementClient {
             }])
             .send()
             .await?;
-        // TODO: external id ?
+        // TODO(akhercha): external id ?
         Ok("external_id".to_string())
     }
 
@@ -124,7 +124,7 @@ impl SettlementClient for StarknetSettlementClient {
         if block_number.is_empty() {
             return Err(eyre!("Could not fetch last block number from core contract."));
         }
-        // TODO: unsafe unwrap
+        // TODO(akhercha): unsafe unwrap from conversion
         Ok(block_number[0].try_into().unwrap())
     }
 }
@@ -134,10 +134,10 @@ impl From<StarknetSettlementConfig> for StarknetSettlementClient {
         let provider = Arc::new(JsonRpcClient::new(HttpTransport::new(config.rpc_url)));
 
         let public_key = get_env_var_or_panic(ENV_PUBLIC_KEY);
-        let private_key = get_env_var_or_panic(ENV_PRIVATE_KEY);
-
         let signer_address = FieldElement::from_hex_be(&public_key).expect("invalid signer address");
+
         // TODO: Very insecure way of building the signer. Needs to be adjusted.
+        let private_key = get_env_var_or_panic(ENV_PRIVATE_KEY);
         let signer = FieldElement::from_hex_be(&private_key).expect("Invalid private key");
         let signer = LocalWallet::from(SigningKey::from_secret_scalar(signer));
 
@@ -148,6 +148,7 @@ impl From<StarknetSettlementConfig> for StarknetSettlementClient {
             provider.clone(),
             signer,
             signer_address,
+            // TODO: chain_id should be configurable?
             chain_id::MAINNET,
             ExecutionEncoding::Legacy,
         );
