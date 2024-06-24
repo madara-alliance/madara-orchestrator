@@ -1,6 +1,7 @@
+pub mod utils;
+
 use async_trait::async_trait;
-use color_eyre::eyre::eyre;
-use color_eyre::Result;
+use color_eyre::eyre::Result;
 use mockall::automock;
 use mockall::predicate::*;
 
@@ -40,20 +41,4 @@ pub trait SettlementClient: Send + Sync {
 pub trait SettlementConfig {
     /// Should create a new instance of the SettlementConfig from the environment variables
     fn new_from_env() -> Self;
-}
-
-/// Parse a list of blocks comma separated and assert that they're sorted in ascending order.
-pub fn parse_and_validate_block_order(blocks_to_settle: &str) -> Result<Vec<u64>> {
-    let block_numbers: Vec<u64> = blocks_to_settle
-        .split(',')
-        .map(|block_no| block_no.parse::<u64>())
-        .collect::<Result<Vec<u64>, _>>()
-        .map_err(|_| eyre!("Block numbers to settle list is not correctly formatted."))?;
-
-    // Check if the vector is sorted in increasing order
-    if !block_numbers.windows(2).all(|w| w[0] < w[1]) {
-        return Err(eyre!("Block numbers are not in increasing order."));
-    }
-
-    Ok(block_numbers)
 }

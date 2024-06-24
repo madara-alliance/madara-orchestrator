@@ -23,7 +23,8 @@ use starknet::{
 
 use config::StarknetSettlementConfig;
 use conversion::{slice_slice_u8_to_vec_field, slice_u8_to_field};
-use settlement_client_interface::{parse_and_validate_block_order, SettlementClient, SettlementVerificationStatus};
+use settlement_client_interface::utils::parse_block_numbers;
+use settlement_client_interface::{SettlementClient, SettlementVerificationStatus};
 use utils::env_utils::get_env_var_or_panic;
 
 #[allow(unused)]
@@ -92,7 +93,7 @@ impl SettlementClient for StarknetSettlementClient {
     async fn verify_inclusion(&self, external_id: &str) -> Result<SettlementVerificationStatus> {
         let last_block_settled = self.get_last_settled_block().await?;
         // TODO: We assumed here that external_id is the list of blocks comma separated
-        let block_numbers: Vec<u64> = parse_and_validate_block_order(external_id)?;
+        let block_numbers: Vec<u64> = parse_block_numbers(external_id)?;
 
         let first_block_no = block_numbers.first().expect("could not get first block");
         let last_block_no = block_numbers.last().expect("could not get last block");

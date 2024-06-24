@@ -1,7 +1,8 @@
 use lazy_static::lazy_static;
-use settlement_client_interface::parse_and_validate_block_order;
+use settlement_client_interface::utils::parse_block_numbers;
 use std::collections::HashMap;
 use std::path::PathBuf;
+use utils::collections::{has_dup, is_sorted};
 
 use async_trait::async_trait;
 use cairo_vm::Felt252;
@@ -53,13 +54,11 @@ impl Job for StateUpdateJob {
         // Read the metadata to get the blocks for which state update will be performed.
         // We assume that blocks nbrs are formatted as follow: "2,3,4,5,6".
         let blocks_to_settle = job.metadata.get(JOB_METADATA_STATE_UPDATE_BLOCKS_TO_SETTLE_KEY).ok_or_else(|| {
-            eyre!("Blocks number to settle must be specified (state update job #{})", job.internal_id)
+            eyre!("Block numbers to settle must be specified (state update job #{})", job.internal_id)
         })?;
-        let block_numbers: Vec<u64> = parse_and_validate_block_order(blocks_to_settle)?;
+        let block_numbers: Vec<u64> = parse_block_numbers(blocks_to_settle)?;
 
-        // Run validations on the block_numbers;
-        // i.e: check that there's no overlapping with current block
-        // Use starknet provider to call the stateBlockNumber of the core contract
+        // Assert that the provided blocks are valids
         self.validate_block_numbers(config, &block_numbers).await?;
 
         // For each block, either update state using calldata or blobs
@@ -93,17 +92,20 @@ impl Job for StateUpdateJob {
 
 impl StateUpdateJob {
     /// Validate that the list of block numbers to process is valid.
-    /// Valid in this context means:
-    /// - that there is no gap between the last block settled and the first block to settle,
-    /// - that the all the specified blocks are greater than the last settled block.
     async fn validate_block_numbers(&self, config: &Config, block_numbers: &[u64]) -> Result<()> {
-        let last_settled_block: u64 = config.settlement_client().get_last_settled_block().await?;
-        if last_settled_block + 1 != *block_numbers.first().expect("block numbers list is empty") {
-            return Err(eyre!("Gap detected between the first block to settle and the last one settled."));
+        if block_numbers.is_empty() {
+            return Ok(());
         }
-        let valid_count = block_numbers.iter().filter(|&&block| block > last_settled_block).count();
-        if valid_count != block_numbers.len() {
-            return Err(eyre!("Invalid blocks."));
+        if has_dup(block_numbers) {
+            return Err(eyre!("Duplicated block numbers."));
+        }
+        if !is_sorted(block_numbers) {
+            return Err(eyre!("Block numbers aren't sorted in increasing order."));
+        }
+        // Check for gap between the last settled block and the first block to settle
+        let last_settled_block: u64 = config.settlement_client().get_last_settled_block().await?;
+        if last_settled_block + 1 != block_numbers[0] {
+            return Err(eyre!("Gap detected between the first block to settle and the last one settled."));
         }
         Ok(())
     }
@@ -122,7 +124,7 @@ impl StateUpdateJob {
             let state_update = starknet_client.get_state_update(BlockId::Number(block_no)).await?;
             let _state_update = match state_update {
                 MaybePendingStateUpdate::PendingUpdate(_) => {
-                    return Err(eyre!("Cannot update state for block {} as it's still in pending state", block_no));
+                    return Err(eyre!("Block #{} - Cannot update state as it's still in pending state", block_no));
                 }
                 MaybePendingStateUpdate::Update(state_update) => state_update,
             };
@@ -133,7 +135,7 @@ impl StateUpdateJob {
             // TODO: how to build program output?
             settlement_client.update_state_blobs(vec![], kzg_proof.into_bytes()).await?;
         } else {
-            panic!("SNOS error: [use_kzg_da] should be either 0 or 1.");
+            return Err(eyre!("Block #{} - SNOS error, [use_kzg_da] should be either 0 or 1.", block_no));
         }
         Ok(())
     }
@@ -141,7 +143,7 @@ impl StateUpdateJob {
     /// Retrieves the SNOS output for the corresponding block.
     /// TODO: remove the fetch_from_tests argument once we have proper fetching (db/s3)
     async fn fetch_snos_for_block(&self, block_no: u64, fetch_from_tests: Option<bool>) -> StarknetOsOutput {
-        let fetch_from_tests = fetch_from_tests.unwrap_or(false);
+        let fetch_from_tests = fetch_from_tests.unwrap_or(true);
         match fetch_from_tests {
             true => {
                 let snos_path =
@@ -156,12 +158,12 @@ impl StateUpdateJob {
     /// Retrieves the KZG Proof for the corresponding block.
     /// TODO: remove the fetch_from_tests argument once we have proper fetching (db/s3)
     async fn fetch_kzg_proof_for_block(&self, block_no: u64, fetch_from_tests: Option<bool>) -> String {
-        let fetch_from_tests = fetch_from_tests.unwrap_or(false);
+        let fetch_from_tests = fetch_from_tests.unwrap_or(true);
         match fetch_from_tests {
             true => {
                 let kzg_path =
                     CURRENT_PATH.join(format!("src/jobs/state_update_job/test_data/{}/kzg_proof.txt", block_no));
-                std::fs::read_to_string(&kzg_path).expect("Failed to read the KZG txt file")
+                std::fs::read_to_string(kzg_path).expect("Failed to read the KZG txt file")
             }
             false => unimplemented!("can't fetch KZG Proof from DB/S3"),
         }

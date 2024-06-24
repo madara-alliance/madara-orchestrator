@@ -39,6 +39,9 @@ async fn test_process_job() {
     let server = MockServer::start();
     let mut settlement_client = MockSettlementClient::new();
 
+    // Mock the latest block settled
+    settlement_client.expect_get_last_settled_block().returning(|| Ok(651052_u64));
+
     // TODO: have tests for update_state_calldata, only kzg for now
     let block_numbers = ["651053", "651054", "651055", "651056"];
     for block_no in block_numbers {
@@ -62,15 +65,90 @@ async fn test_process_job() {
 
     let mut metadata: HashMap<String, String> = HashMap::new();
     metadata.insert(String::from("FETCH_FROM_TESTS"), String::from("TRUE"));
-    metadata
-        .insert(String::from(JOB_METADATA_STATE_UPDATE_BLOCKS_TO_SETTLE_KEY), String::from(block_numbers.join(",")));
+    metadata.insert(String::from(JOB_METADATA_STATE_UPDATE_BLOCKS_TO_SETTLE_KEY), block_numbers.join(","));
 
     let job = StateUpdateJob.create_job(&config, String::from("internal_id"), metadata).await.unwrap();
     // TODO: "task_id" should be replaced
     assert_eq!(StateUpdateJob.process_job(&config, &job).await.unwrap(), "task_id".to_string())
 }
 
+#[rstest]
+#[case(String::from("651052, 651054, 651051, 651056"), "Block numbers aren't sorted in increasing order.")]
+#[case(String::from("a, 651054, b, 651056"), "settle list is not correctly formatted")]
+#[case(String::from("651052, 651052, 651053, 651053"), "Duplicated block numbers.")]
+#[tokio::test]
+async fn test_process_job_invalid_inputs(#[case] block_numbers_to_settle: String, #[case] expected_error: &str) {
+    let server = MockServer::start();
+    let settlement_client = MockSettlementClient::new();
+    let config = init_config(
+        Some(format!("http://localhost:{}", server.port())),
+        None,
+        None,
+        None,
+        None,
+        Some(settlement_client),
+    )
+    .await;
+
+    let mut metadata: HashMap<String, String> = HashMap::new();
+    metadata.insert(String::from(JOB_METADATA_STATE_UPDATE_BLOCKS_TO_SETTLE_KEY), block_numbers_to_settle);
+
+    let job = StateUpdateJob.create_job(&config, String::from("internal_id"), metadata).await.unwrap();
+    let status = StateUpdateJob.process_job(&config, &job).await;
+    assert!(status.is_err());
+
+    if let Err(error) = status {
+        let error_message = format!("{}", error);
+        println!(": {}", error_message);
+        assert!(
+            error_message.contains(expected_error),
+            "Error message did not contain expected substring: {}",
+            expected_error
+        );
+    }
+}
+
+#[rstest]
+#[tokio::test]
+async fn test_process_job_invalid_input_gap() {
+    let server = MockServer::start();
+    let mut settlement_client = MockSettlementClient::new();
+
+    settlement_client.expect_get_last_settled_block().returning(|| Ok(4_u64));
+
+    let config = init_config(
+        Some(format!("http://localhost:{}", server.port())),
+        None,
+        None,
+        None,
+        None,
+        Some(settlement_client),
+    )
+    .await;
+
+    let mut metadata: HashMap<String, String> = HashMap::new();
+    metadata.insert(String::from(JOB_METADATA_STATE_UPDATE_BLOCKS_TO_SETTLE_KEY), String::from("6, 7, 8"));
+
+    let job = StateUpdateJob.create_job(&config, String::from("internal_id"), metadata).await.unwrap();
+    let status = StateUpdateJob.process_job(&config, &job).await;
+    assert!(status.is_err());
+
+    let expected_error = "Gap detected between the first block to settle and the last one settled";
+
+    if let Err(error) = status {
+        let error_message = format!("{}", error);
+        println!(": {}", error_message);
+        assert!(
+            error_message.contains(expected_error),
+            "Error message did not contain expected substring: {}",
+            expected_error
+        );
+    }
+}
+
+// ==================== Utility functions ===========================
+
 fn load_kzg_proof(block_no: &str) -> String {
     let file_path = format!("src/jobs/state_update_job/test_data/{}/kzg_proof.txt", block_no);
-    fs::read_to_string(&file_path).expect("Unable to read kzg_proof.txt")
+    fs::read_to_string(file_path).expect("Unable to read kzg_proof.txt")
 }
