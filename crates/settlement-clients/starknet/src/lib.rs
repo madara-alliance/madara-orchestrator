@@ -49,6 +49,13 @@ lazy_static! {
         get_selector_from_name("stateBlockNumber").expect("Invalid update state selector");
 }
 
+// TODO: Note that we already have an implementation of the appchain core contract client available here:
+// https://github.com/keep-starknet-strange/zaun/tree/main/crates/l3/appchain-core-contract-client
+// However, this implementation uses different FieldElement types, and incorporating all of them
+// into this repository would introduce unnecessary complexity.
+// Therefore, we will wait for the update of starknet_rs in the Zaun repository before adapting
+// the StarknetSettlementClient implementation.
+
 #[automock]
 #[async_trait]
 impl SettlementClient for StarknetSettlementClient {
