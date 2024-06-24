@@ -76,10 +76,11 @@ async fn test_process_job() {
 }
 
 #[rstest]
-#[case(String::from("651052, 651054, 651051, 651056"), "Block numbers aren't sorted in increasing order.")]
-#[case(String::from("651052, 651052, 651052, 651052"), "Duplicated block numbers.")]
+#[case(String::from("651052, 651054, 651051, 651056"), "numbers aren't sorted in increasing order")]
+#[case(String::from("651052, 651052, 651052, 651052"), "Duplicated block numbers")]
 #[case(String::from("a, 651054, b, 651056"), "settle list is not correctly formatted")]
-#[case(String::from("651052, 651052, 651053, 651053"), "Duplicated block numbers.")]
+#[case(String::from("651052, 651052, 651053, 651053"), "Duplicated block numbers")]
+#[case(String::from(""), "settle list is not correctly formatted")]
 #[tokio::test]
 async fn test_process_job_invalid_inputs(#[case] block_numbers_to_settle: String, #[case] expected_error: &str) {
     let server = MockServer::start();

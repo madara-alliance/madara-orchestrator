@@ -109,7 +109,7 @@ impl StateUpdateJob {
     /// Validate that the list of block numbers to process is valid.
     async fn validate_block_numbers(&self, config: &Config, block_numbers: &[u64]) -> Result<()> {
         if block_numbers.is_empty() {
-            return Ok(());
+            return Err(eyre!("No block numbers found."));
         }
         if has_dup(block_numbers) {
             return Err(eyre!("Duplicated block numbers."));
