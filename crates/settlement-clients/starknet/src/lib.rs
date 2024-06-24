@@ -42,6 +42,9 @@ pub const ENV_PRIVATE_KEY: &str = "STARKNET_PRIVATE_KEY";
 lazy_static! {
     pub static ref CONTRACT_WRITE_UPDATE_STATE_SELECTOR: FieldElement =
         get_selector_from_name("update_state").expect("Invalid update state selector");
+    // TODO: `stateBlockNumber` does not exists yet in our implementation:
+    // https://github.com/keep-starknet-strange/piltover
+    // It should get added to match the solidity implementation of the core contract.
     pub static ref CONTRACT_READ_STATE_BLOCK_NUMBER: FieldElement =
         get_selector_from_name("stateBlockNumber").expect("Invalid update state selector");
 }

@@ -132,7 +132,7 @@ impl StateUpdateJob {
             settlement_client.update_state_calldata(vec![], vec![], 0).await?;
         } else if snos.use_kzg_da == Felt252::ONE {
             let kzg_proof = self.fetch_kzg_proof_for_block(block_no, fetch_from_tests).await;
-            // TODO: how to build program output?
+            // TODO: Build the blob & the KZG proof & send them to update_state_blobs
             settlement_client.update_state_blobs(vec![], kzg_proof.into_bytes()).await?;
         } else {
             return Err(eyre!("Block #{} - SNOS error, [use_kzg_da] should be either 0 or 1.", block_no));
