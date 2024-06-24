@@ -2,6 +2,7 @@
 .env
 .idea
 .DS_Store
+lcov.info
 
 *.code-workspace
 .vscode
