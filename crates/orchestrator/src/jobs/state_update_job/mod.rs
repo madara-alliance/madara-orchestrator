@@ -143,7 +143,7 @@ impl StateUpdateJob {
                 }
                 MaybePendingStateUpdate::Update(state_update) => state_update,
             };
-            // TODO: how to build the required arguments?
+            // TODO: Build the required arguments & send them to update_state_calldata
             settlement_client.update_state_calldata(vec![], vec![], 0).await?
         } else if snos.use_kzg_da == Felt252::ONE {
             let kzg_proof = self.fetch_kzg_proof_for_block(block_no, fetch_from_tests).await;
