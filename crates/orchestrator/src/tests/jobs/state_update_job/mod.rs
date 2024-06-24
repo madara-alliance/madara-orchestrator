@@ -74,6 +74,7 @@ async fn test_process_job() {
 
 #[rstest]
 #[case(String::from("651052, 651054, 651051, 651056"), "Block numbers aren't sorted in increasing order.")]
+#[case(String::from("651052, 651052, 651052, 651052"), "Duplicated block numbers.")]
 #[case(String::from("a, 651054, b, 651056"), "settle list is not correctly formatted")]
 #[case(String::from("651052, 651052, 651053, 651053"), "Duplicated block numbers.")]
 #[tokio::test]
