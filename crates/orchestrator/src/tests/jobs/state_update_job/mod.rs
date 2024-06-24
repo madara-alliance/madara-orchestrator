@@ -110,6 +110,7 @@ async fn test_process_job_invalid_inputs(#[case] block_numbers_to_settle: String
 
 #[rstest]
 #[tokio::test]
+#[should_panic(expected = "Gap detected between the first block to settle and the last one settle")]
 async fn test_process_job_invalid_input_gap() {
     let server = MockServer::start();
     let mut settlement_client = MockSettlementClient::new();
@@ -130,20 +131,7 @@ async fn test_process_job_invalid_input_gap() {
     metadata.insert(String::from(JOB_METADATA_STATE_UPDATE_BLOCKS_TO_SETTLE_KEY), String::from("6, 7, 8"));
 
     let job = StateUpdateJob.create_job(&config, String::from("internal_id"), metadata).await.unwrap();
-    let status = StateUpdateJob.process_job(&config, &job).await;
-    assert!(status.is_err());
-
-    let expected_error = "Gap detected between the first block to settle and the last one settled";
-
-    if let Err(error) = status {
-        let error_message = format!("{}", error);
-        println!(": {}", error_message);
-        assert!(
-            error_message.contains(expected_error),
-            "Error message did not contain expected substring: {}",
-            expected_error
-        );
-    }
+    let _ = StateUpdateJob.process_job(&config, &job).await.unwrap();
 }
 
 // ==================== Utility functions ===========================
