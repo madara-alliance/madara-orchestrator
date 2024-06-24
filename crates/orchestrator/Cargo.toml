@@ -22,6 +22,7 @@ color-eyre = { workspace = true }
 da-client-interface = { workspace = true }
 dotenvy = { workspace = true }
 ethereum-da-client = { workspace = true, optional = true }
+ethereum-settlement-client = { workspace = true }
 futures = { workspace = true }
 lazy_static = { workspace = true }
 log = "0.4.21"
@@ -37,12 +38,11 @@ prover-client-interface = { workspace = true }
 serde = { workspace = true }
 serde_json = { workspace = true }
 settlement-client-interface = { workspace = true }
-ethereum-settlement-client = { workspace = true }
-starknet-settlement-client = { workspace = true }
 sharp-service = { workspace = true }
+snos = { workspace = true }
 starknet = { workspace = true }
 starknet-core = "0.9.0"
-snos = { workspace = true }
+starknet-settlement-client = { workspace = true }
 thiserror = { workspace = true }
 tokio = { workspace = true, features = ["sync", "macros", "rt-multi-thread"] }
 tracing = { workspace = true }
