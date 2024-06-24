@@ -50,7 +50,7 @@ async fn test_process_job() {
             .expect_update_state_blobs()
             // TODO: vec![] is program_output
             .with(eq(vec![]), eq(block_proof.into_bytes()))
-            .returning(|_, _| Ok(String::from("TODO")));
+            .returning(|_, _| Ok(String::from("0x5d17fac98d9454030426606019364f6e68d915b91f6210ef1e2628cd6987442")));
     }
 
     let config = init_config(
@@ -69,7 +69,10 @@ async fn test_process_job() {
 
     let job = StateUpdateJob.create_job(&config, String::from("internal_id"), metadata).await.unwrap();
     // TODO: "task_id" should be replaced
-    assert_eq!(StateUpdateJob.process_job(&config, &job).await.unwrap(), "task_id".to_string())
+    assert_eq!(
+        StateUpdateJob.process_job(&config, &job).await.unwrap(),
+        "0x5d17fac98d9454030426606019364f6e68d915b91f6210ef1e2628cd6987442".to_string()
+    )
 }
 
 #[rstest]

@@ -9,6 +9,7 @@ use color_eyre::Result;
 use lazy_static::lazy_static;
 use mockall::{automock, predicate::*};
 use starknet::accounts::ConnectedAccount;
+use starknet::core::types::{ExecutionResult, MaybePendingTransactionReceipt};
 use starknet::providers::Provider;
 use starknet::{
     accounts::{Account, Call, ExecutionEncoding, SingleOwnerAccount},
@@ -23,7 +24,6 @@ use starknet::{
 
 use config::StarknetSettlementConfig;
 use conversion::{slice_slice_u8_to_vec_field, slice_u8_to_field};
-use settlement_client_interface::utils::parse_block_numbers;
 use settlement_client_interface::{SettlementClient, SettlementVerificationStatus};
 use utils::env_utils::get_env_var_or_panic;
 
@@ -79,7 +79,7 @@ impl SettlementClient for StarknetSettlementClient {
         calldata.extend(program_output);
         calldata.push(onchain_data_hash);
         calldata.push(FieldElement::from(onchain_data_size));
-        let _ = self
+        let invoke_result = self
             .account
             .execute(vec![Call {
                 to: self.core_contract_address,
@@ -88,8 +88,7 @@ impl SettlementClient for StarknetSettlementClient {
             }])
             .send()
             .await?;
-        // TODO(akhercha): external id ?
-        Ok("external_id".to_string())
+        Ok(format!("0x{:x}", invoke_result.transaction_hash))
     }
 
     /// Should be used to update state on core contract when DA is in blobs/alt DA
@@ -99,26 +98,25 @@ impl SettlementClient for StarknetSettlementClient {
     }
 
     /// Should verify the inclusion of the state diff in the DA layer and return the status
-    #[allow(unused)]
     async fn verify_inclusion(&self, external_id: &str) -> Result<SettlementVerificationStatus> {
-        let last_block_settled = self.get_last_settled_block().await?;
-        // TODO: We assumed here that external_id is the list of blocks comma separated
-        let block_numbers: Vec<u64> = parse_block_numbers(external_id)?;
-
-        let first_block_no = block_numbers.first().expect("could not get first block");
-        let last_block_no = block_numbers.last().expect("could not get last block");
-
-        let status = if (last_block_settled >= *first_block_no) && (last_block_settled <= *last_block_no) {
-            SettlementVerificationStatus::Pending
-        } else if last_block_settled > *last_block_no {
-            SettlementVerificationStatus::Verified
-        } else {
-            SettlementVerificationStatus::Rejected(format!(
-                "The last block settled is {}, but the first block to settle is {}",
-                last_block_settled, first_block_no
-            ))
-        };
-        Ok(status)
+        let tx_hash = FieldElement::from_hex_be(external_id)?;
+        let tx_receipt = self.account.provider().get_transaction_receipt(tx_hash).await?;
+        match tx_receipt {
+            MaybePendingTransactionReceipt::Receipt(tx) => match tx.execution_result() {
+                ExecutionResult::Succeeded => Ok(SettlementVerificationStatus::Verified),
+                ExecutionResult::Reverted { reason } => Ok(SettlementVerificationStatus::Rejected(format!(
+                    "Tx {} has been reverted: {}",
+                    external_id, reason
+                ))),
+            },
+            MaybePendingTransactionReceipt::PendingReceipt(tx) => match tx.execution_result() {
+                ExecutionResult::Succeeded => Ok(SettlementVerificationStatus::Pending),
+                ExecutionResult::Reverted { reason } => Ok(SettlementVerificationStatus::Rejected(format!(
+                    "Pending tx {} has been reverted: {}",
+                    external_id, reason
+                ))),
+            },
+        }
     }
 
     /// Returns the last block settled from the core contract.
@@ -138,8 +136,7 @@ impl SettlementClient for StarknetSettlementClient {
         if block_number.is_empty() {
             return Err(eyre!("Could not fetch last block number from core contract."));
         }
-        // TODO(akhercha): unsafe unwrap from conversion
-        Ok(block_number[0].try_into().unwrap())
+        Ok(block_number[0].try_into()?)
     }
 }
 

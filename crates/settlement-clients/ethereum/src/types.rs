@@ -16,3 +16,13 @@ pub type LocalWalletSignerMiddleware = FillProvider<
     Http<Client>,
     Ethereum,
 >;
+
+pub type EthHttpProvider = FillProvider<
+    JoinFill<
+        JoinFill<JoinFill<JoinFill<Identity, GasFiller>, NonceFiller>, ChainIdFiller>,
+        WalletFiller<EthereumWallet>,
+    >,
+    RootProvider<Http<Client>>,
+    Http<Client>,
+    Ethereum,
+>;

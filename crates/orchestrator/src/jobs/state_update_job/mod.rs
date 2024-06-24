@@ -1,5 +1,4 @@
 use lazy_static::lazy_static;
-use settlement_client_interface::utils::parse_block_numbers;
 use std::collections::HashMap;
 use std::path::PathBuf;
 use utils::collections::{has_dup, is_sorted};
@@ -56,21 +55,26 @@ impl Job for StateUpdateJob {
         let blocks_to_settle = job.metadata.get(JOB_METADATA_STATE_UPDATE_BLOCKS_TO_SETTLE_KEY).ok_or_else(|| {
             eyre!("Block numbers to settle must be specified (state update job #{})", job.internal_id)
         })?;
-        let block_numbers: Vec<u64> = parse_block_numbers(blocks_to_settle)?;
+        let block_numbers: Vec<u64> = self.parse_block_numbers(blocks_to_settle)?;
 
-        // Assert that the provided blocks are valids
         self.validate_block_numbers(config, &block_numbers).await?;
 
-        // For each block, either update state using calldata or blobs
+        let mut last_tx_hash: Option<String> = None;
         for block_no in block_numbers.iter() {
             let snos = self.fetch_snos_for_block(*block_no, Some(fetch_from_tests)).await;
-            self.update_state_for_block(config, *block_no, snos, Some(fetch_from_tests)).await?;
+            last_tx_hash = Some(self.update_state_for_block(config, *block_no, snos, Some(fetch_from_tests)).await?);
         }
-        Ok("task_id".to_string())
+
+        if let Some(tx_hash) = last_tx_hash {
+            Ok(tx_hash)
+        } else {
+            return Err(eyre!("No settlement TX executed (state update job #{})", job.internal_id));
+        }
     }
 
     /// Verify that the proof transaction has been included on chain
     async fn verify_job(&self, config: &Config, job: &JobItem) -> Result<JobVerificationStatus> {
+        // external_id corresponds to the last tx executed by the job
         let external_id: String = job.external_id.unwrap_string()?.into();
         let settlement_client = config.settlement_client();
         let inclusion_status = settlement_client.verify_inclusion(&external_id).await?;
@@ -91,6 +95,17 @@ impl Job for StateUpdateJob {
 }
 
 impl StateUpdateJob {
+    /// Parse a list of blocks comma separated
+    fn parse_block_numbers(&self, blocks_to_settle: &str) -> Result<Vec<u64>> {
+        let sanitized_blocks = blocks_to_settle.replace(' ', "");
+        let block_numbers: Vec<u64> = sanitized_blocks
+            .split(',')
+            .map(|block_no| block_no.parse::<u64>())
+            .collect::<Result<Vec<u64>, _>>()
+            .map_err(|e| eyre!("Block numbers to settle list is not correctly formatted: {e}"))?;
+        Ok(block_numbers)
+    }
+
     /// Validate that the list of block numbers to process is valid.
     async fn validate_block_numbers(&self, config: &Config, block_numbers: &[u64]) -> Result<()> {
         if block_numbers.is_empty() {
@@ -117,10 +132,10 @@ impl StateUpdateJob {
         block_no: u64,
         snos: StarknetOsOutput,
         fetch_from_tests: Option<bool>,
-    ) -> Result<()> {
+    ) -> Result<String> {
         let starknet_client = config.starknet_client();
         let settlement_client = config.settlement_client();
-        if snos.use_kzg_da == Felt252::ZERO {
+        let last_tx_hash_executed = if snos.use_kzg_da == Felt252::ZERO {
             let state_update = starknet_client.get_state_update(BlockId::Number(block_no)).await?;
             let _state_update = match state_update {
                 MaybePendingStateUpdate::PendingUpdate(_) => {
@@ -129,15 +144,15 @@ impl StateUpdateJob {
                 MaybePendingStateUpdate::Update(state_update) => state_update,
             };
             // TODO: how to build the required arguments?
-            settlement_client.update_state_calldata(vec![], vec![], 0).await?;
+            settlement_client.update_state_calldata(vec![], vec![], 0).await?
         } else if snos.use_kzg_da == Felt252::ONE {
             let kzg_proof = self.fetch_kzg_proof_for_block(block_no, fetch_from_tests).await;
             // TODO: Build the blob & the KZG proof & send them to update_state_blobs
-            settlement_client.update_state_blobs(vec![], kzg_proof.into_bytes()).await?;
+            settlement_client.update_state_blobs(vec![], kzg_proof.into_bytes()).await?
         } else {
             return Err(eyre!("Block #{} - SNOS error, [use_kzg_da] should be either 0 or 1.", block_no));
-        }
-        Ok(())
+        };
+        Ok(last_tx_hash_executed)
     }
 
     /// Retrieves the SNOS output for the corresponding block.

@@ -1,5 +1,3 @@
-pub mod utils;
-
 use async_trait::async_trait;
 use color_eyre::eyre::Result;
 use mockall::automock;
