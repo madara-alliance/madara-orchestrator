@@ -15,7 +15,7 @@ impl Worker for ProvingWorker {
         let config = config().await;
         let successful_snos_jobs = config
             .database()
-            .get_jobs_without_successor(JobType::SnosRun, JobStatus::Completed, JobType::ProofCreation, None)
+            .get_jobs_without_successor(JobType::SnosRun, JobStatus::Completed, JobType::ProofCreation)
             .await?;
 
         for job in successful_snos_jobs {

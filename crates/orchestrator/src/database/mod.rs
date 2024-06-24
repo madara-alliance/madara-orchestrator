@@ -41,7 +41,6 @@ pub trait Database: Send + Sync {
         job_a_type: JobType,
         job_a_status: JobStatus,
         job_b_type: JobType,
-        job_b_status: Option<JobStatus>,
     ) -> Result<Vec<JobItem>>;
 }
 

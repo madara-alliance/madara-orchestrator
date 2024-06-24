@@ -153,15 +153,12 @@ impl Database for MongoDb {
     ///
     /// job_b_type : ProofCreation
     ///
-    /// job_b_status : Status of Job B / None
-    ///
-    /// **IMP** : For now Job B status implementation is pending so we can pass None
+    /// TODO : For now Job B status implementation is pending so we can pass None
     async fn get_jobs_without_successor(
         &self,
         job_a_type: JobType,
         job_a_status: JobStatus,
         job_b_type: JobType,
-        _job_b_status: Option<JobStatus>,
     ) -> Result<Vec<JobItem>> {
         // Convert enums to Bson strings
         let job_a_type_bson = Bson::String(format!("{:?}", job_a_type));

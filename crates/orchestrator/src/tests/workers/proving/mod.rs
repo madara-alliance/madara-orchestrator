@@ -40,8 +40,8 @@ async fn test_proving_worker(#[case] incomplete_runs: bool) -> Result<(), Box<dy
         // Mocking db call for getting successful snos jobs
         db.expect_get_jobs_without_successor()
             .times(1)
-            .withf(|_, _, _, _| true)
-            .returning(move |_, _, _, _| Ok(jobs_vec_temp.clone()));
+            .withf(|_, _, _| true)
+            .returning(move |_, _, _| Ok(jobs_vec_temp.clone()));
 
         let num_vec: Vec<i32> = vec![1, 2, 4, 5];
 
@@ -50,6 +50,13 @@ async fn test_proving_worker(#[case] incomplete_runs: bool) -> Result<(), Box<dy
         }
 
         prover_client.expect_submit_task().times(4).returning(|_| Ok("task_id".to_string()));
+
+        // Queue function call simulations
+        queue
+            .expect_send_message_to_queue()
+            .times(4)
+            .returning(|_, _, _| Ok(()))
+            .withf(|queue, _payload, _delay| queue == JOB_PROCESSING_QUEUE);
     } else {
         for i in 1..5 + 1 {
             db_checks(i, &mut db);
@@ -58,17 +65,18 @@ async fn test_proving_worker(#[case] incomplete_runs: bool) -> Result<(), Box<dy
         // Mocking db call for getting successful snos jobs
         db.expect_get_jobs_without_successor()
             .times(1)
-            .withf(|_, _, _, _| true)
-            .returning(move |_, _, _, _| Ok(get_job_item_mock_by_id_vec(5)));
+            .withf(|_, _, _| true)
+            .returning(move |_, _, _| Ok(get_job_item_mock_by_id_vec(5)));
 
         prover_client.expect_submit_task().times(5).returning(|_| Ok("task_id".to_string()));
-    }
 
-    // Queue function call simulations
-    queue
-        .expect_send_message_to_queue()
-        .returning(|_, _, _| Ok(()))
-        .withf(|queue, _payload, _delay| queue == JOB_PROCESSING_QUEUE);
+        // Queue function call simulations
+        queue
+            .expect_send_message_to_queue()
+            .times(5)
+            .returning(|_, _, _| Ok(()))
+            .withf(|queue, _payload, _delay| queue == JOB_PROCESSING_QUEUE);
+    }
 
     let config = init_config(
         Some(format!("http://localhost:{}", server.port())),
