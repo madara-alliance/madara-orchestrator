@@ -133,7 +133,7 @@ pub async fn verify_job(id: Uuid) -> Result<()> {
         JobVerificationStatus::Verified => {
             config.database().update_job_status(&job, JobStatus::Completed).await?;
         }
-        JobVerificationStatus::Rejected => {
+        JobVerificationStatus::Rejected(_) => {
             config.database().update_job_status(&job, JobStatus::VerificationFailed).await?;
 
             // retry job processing if we haven't exceeded the max limit

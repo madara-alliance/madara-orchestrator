@@ -99,7 +99,6 @@ async fn test_process_job_invalid_inputs(#[case] block_numbers_to_settle: String
 
     if let Err(error) = status {
         let error_message = format!("{}", error);
-        println!(": {}", error_message);
         assert!(
             error_message.contains(expected_error),
             "Error message did not contain expected substring: {}",

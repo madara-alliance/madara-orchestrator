@@ -59,7 +59,10 @@ impl Job for ProverJob {
             TaskStatus::Succeeded => Ok(JobVerificationStatus::Verified),
             TaskStatus::Failed(err) => {
                 log!(Error, "Prover job #{} failed: {}", job.internal_id, err);
-                Ok(JobVerificationStatus::Rejected)
+                Ok(JobVerificationStatus::Rejected(format!(
+                    "Prover job #{} failed with error: {}",
+                    job.internal_id, err
+                )))
             }
         }
     }

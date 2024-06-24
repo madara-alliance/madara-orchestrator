@@ -121,14 +121,14 @@ pub struct JobItem {
     pub version: i32,
 }
 
-#[derive(Debug, Copy, Clone, PartialEq, Eq)]
+#[derive(Debug, Clone, PartialEq, Eq)]
 pub enum JobVerificationStatus {
     #[allow(dead_code)]
     Pending,
     #[allow(dead_code)]
     Verified,
     #[allow(dead_code)]
-    Rejected,
+    Rejected(String),
 }
 
 impl From<DaVerificationStatus> for JobVerificationStatus {
@@ -136,7 +136,7 @@ impl From<DaVerificationStatus> for JobVerificationStatus {
         match status {
             DaVerificationStatus::Pending => JobVerificationStatus::Pending,
             DaVerificationStatus::Verified => JobVerificationStatus::Verified,
-            DaVerificationStatus::Rejected => JobVerificationStatus::Rejected,
+            DaVerificationStatus::Rejected(e) => JobVerificationStatus::Rejected(e),
         }
     }
 }
@@ -146,7 +146,7 @@ impl From<SettlementVerificationStatus> for JobVerificationStatus {
         match status {
             SettlementVerificationStatus::Pending => JobVerificationStatus::Pending,
             SettlementVerificationStatus::Verified => JobVerificationStatus::Verified,
-            SettlementVerificationStatus::Rejected => JobVerificationStatus::Rejected,
+            SettlementVerificationStatus::Rejected(e) => JobVerificationStatus::Rejected(e),
         }
     }
 }

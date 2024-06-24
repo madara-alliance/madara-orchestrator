@@ -76,7 +76,10 @@ impl SettlementClient for EthereumSettlementClient {
         } else if last_block_settled > *last_block_no {
             SettlementVerificationStatus::Verified
         } else {
-            SettlementVerificationStatus::Rejected
+            SettlementVerificationStatus::Rejected(format!(
+                "The last block settled is {}, but the first block to settle is {}",
+                last_block_settled, first_block_no
+            ))
         };
         Ok(status)
     }

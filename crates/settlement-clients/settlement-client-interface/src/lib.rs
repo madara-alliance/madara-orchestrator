@@ -5,11 +5,11 @@ use color_eyre::eyre::Result;
 use mockall::automock;
 use mockall::predicate::*;
 
-#[derive(Debug, Copy, Clone, PartialEq, Eq)]
+#[derive(Debug, Clone, PartialEq, Eq)]
 pub enum SettlementVerificationStatus {
     Pending,
     Verified,
-    Rejected,
+    Rejected(String),
 }
 
 /// Trait for every new Settlement Layer to implement
