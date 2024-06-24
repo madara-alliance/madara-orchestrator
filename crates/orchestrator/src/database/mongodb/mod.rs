@@ -1,9 +1,9 @@
+use async_std::stream::StreamExt;
 use std::collections::HashMap;
 
 use async_trait::async_trait;
 use color_eyre::eyre::eyre;
 use color_eyre::Result;
-use futures::TryStreamExt;
 use mongodb::bson::{Bson, Document};
 use mongodb::options::{FindOneOptions, UpdateOptions};
 use mongodb::{
@@ -133,16 +133,54 @@ impl Database for MongoDb {
             .expect("Failed to fetch latest job by given job type"))
     }
 
-    async fn get_successful_snos_jobs_without_proving(&self) -> Result<Vec<JobItem>> {
-        let filter = vec![
-            // Stage 1: Match successful SNOS job runs
+    /// function to get jobs that don't have a successor job.
+    ///
+    /// `job_a_type` : Type of job that we need to get that doesn't have any successor.
+    ///
+    /// `job_a_status` : Status of job A.
+    ///
+    /// `job_b_type` : Type of job that we need to have as a successor for Job A.
+    ///
+    /// `job_b_status` : Status of job B which we want to check with.
+    ///
+    /// Eg :
+    ///
+    /// Getting SNOS jobs that do not have a successive proving job initiated yet.
+    ///
+    /// job_a_type : SnosRun
+    ///
+    /// job_a_status : Completed
+    ///
+    /// job_b_type : ProofCreation
+    ///
+    /// job_b_status : Status of Job B / None
+    ///
+    /// **IMP** : For now Job B status implementation is pending so we can pass None
+    async fn get_jobs_without_successor(
+        &self,
+        job_a_type: JobType,
+        job_a_status: JobStatus,
+        job_b_type: JobType,
+        _job_b_status: Option<JobStatus>,
+    ) -> Result<Vec<JobItem>> {
+        // Convert enums to Bson strings
+        let job_a_type_bson = Bson::String(format!("{:?}", job_a_type));
+        let job_a_status_bson = Bson::String(format!("{:?}", job_a_status));
+        let job_b_type_bson = Bson::String(format!("{:?}", job_b_type));
+
+        // TODO :
+        // implement job_b_status here in the pipeline
+
+        // Construct the initial pipeline
+        let pipeline = vec![
+            // Stage 1: Match job_a_type with job_a_status
             doc! {
                 "$match": {
-                    "job_type": "SnosRun",
-                    "status": "Completed",
+                    "job_type": job_a_type_bson,
+                    "status": job_a_status_bson,
                 }
             },
-            // Stage 2: Lookup to find corresponding proving jobs
+            // Stage 2: Lookup to find corresponding job_b_type jobs
             doc! {
                 "$lookup": {
                     "from": "jobs",
@@ -152,30 +190,67 @@ impl Database for MongoDb {
                             "$match": {
                                 "$expr": {
                                     "$and": [
-                                        { "$eq": ["$job_type", "ProofCreation"] },
+                                        { "$eq": ["$job_type", job_b_type_bson] },
+                                        // Conditionally match job_b_status if provided
                                         { "$eq": ["$internal_id", "$$internal_id"] }
                                     ]
                                 }
                             }
-                        }
+                        },
+                        // TODO : Job B status code :
+                        // // Add status matching if job_b_status is provided
+                        // if let Some(status) = job_b_status {
+                        //     doc! {
+                        //         "$match": {
+                        //             "$expr": { "$eq": ["$status", status] }
+                        //         }
+                        //     }
+                        // } else {
+                        //     doc! {}
+                        // }
+                    // ].into_iter().filter(|d| !d.is_empty()).collect::<Vec<_>>(),
                     ],
-                    "as": "proving_jobs"
+                    "as": "successor_jobs"
                 }
             },
-            // Stage 3: Filter out SNOS runs that have corresponding proving jobs
+            // Stage 3: Filter out job_a_type jobs that have corresponding job_b_type jobs
             doc! {
                 "$match": {
-                    "proving_jobs": { "$eq": [] }
+                    "successor_jobs": { "$eq": [] }
                 }
             },
         ];
 
-        let mut cursor = self.get_job_collection().aggregate(filter, None).await?;
+        // TODO : Job B status code :
+        // // Conditionally add status matching for job_b_status
+        // if let Some(status) = job_b_status {
+        //     let job_b_status_bson = Bson::String(format!("{:?}", status));
+        //
+        //     // Access the "$lookup" stage in the pipeline and modify the "pipeline" array inside it
+        //     if let Ok(lookup_stage) = pipeline[1].get_document_mut("pipeline") {
+        //         if let Ok(lookup_pipeline) = lookup_stage.get_array_mut(0) {
+        //             lookup_pipeline.push(Bson::Document(doc! {
+        //             "$match": {
+        //                 "$expr": { "$eq": ["$status", job_b_status_bson] }
+        //             }
+        //         }));
+        //         }
+        //     }
+        // }
+
+        let collection = self.get_job_collection();
+        let mut cursor = collection.aggregate(pipeline, None).await?;
+
         let mut vec_jobs: Vec<JobItem> = Vec::new();
-        while let Some(val) = cursor.try_next().await? {
-            match bson::from_bson(Bson::Document(val)) {
-                Ok(job_item) => vec_jobs.push(job_item),
-                Err(e) => eprintln!("Failed to deserialize JobItem: {:?}", e),
+
+        // Iterate over the cursor and process each document
+        while let Some(result) = cursor.next().await {
+            match result {
+                Ok(document) => match bson::from_bson(Bson::Document(document)) {
+                    Ok(job_item) => vec_jobs.push(job_item),
+                    Err(e) => eprintln!("Failed to deserialize JobItem: {:?}", e),
+                },
+                Err(e) => eprintln!("Error retrieving document: {:?}", e),
             }
         }
 

@@ -38,10 +38,10 @@ async fn test_proving_worker(#[case] incomplete_runs: bool) -> Result<(), Box<dy
         let jobs_vec_temp: Vec<JobItem> =
             get_job_item_mock_by_id_vec(5).into_iter().filter(|val| val.internal_id != "3").collect();
         // Mocking db call for getting successful snos jobs
-        db.expect_get_successful_snos_jobs_without_proving()
+        db.expect_get_jobs_without_successor()
             .times(1)
-            .with()
-            .returning(move || Ok(jobs_vec_temp.clone()));
+            .withf(|_, _, _, _| true)
+            .returning(move |_, _, _, _| Ok(jobs_vec_temp.clone()));
 
         let num_vec: Vec<i32> = vec![1, 2, 4, 5];
 
@@ -56,10 +56,10 @@ async fn test_proving_worker(#[case] incomplete_runs: bool) -> Result<(), Box<dy
         }
 
         // Mocking db call for getting successful snos jobs
-        db.expect_get_successful_snos_jobs_without_proving()
+        db.expect_get_jobs_without_successor()
             .times(1)
-            .with()
-            .returning(move || Ok(get_job_item_mock_by_id_vec(5)));
+            .withf(|_, _, _, _| true)
+            .returning(move |_, _, _, _| Ok(get_job_item_mock_by_id_vec(5)));
 
         prover_client.expect_submit_task().times(5).returning(|_| Ok("task_id".to_string()));
     }
