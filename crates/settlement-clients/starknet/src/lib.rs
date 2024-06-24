@@ -14,7 +14,6 @@ use starknet::providers::Provider;
 use starknet::{
     accounts::{Account, Call, ExecutionEncoding, SingleOwnerAccount},
     core::{
-        chain_id,
         types::{BlockId, BlockTag, FieldElement, FunctionCall},
         utils::get_selector_from_name,
     },
@@ -24,8 +23,9 @@ use starknet::{
 
 use config::StarknetSettlementConfig;
 use conversion::{slice_slice_u8_to_vec_field, slice_u8_to_field};
-use settlement_client_interface::{SettlementClient, SettlementVerificationStatus};
+use settlement_client_interface::{SettlementClient, SettlementVerificationStatus, SETTLEMENT_SETTINGS_NAME};
 use utils::env_utils::get_env_var_or_panic;
+use utils::settings::SettingsProvider;
 
 #[allow(unused)]
 pub struct StarknetSettlementClient {
@@ -38,6 +38,34 @@ pub const ENV_PRIVATE_KEY: &str = "STARKNET_PRIVATE_KEY";
 
 // Assumed the contract called for settlement l ooks like:
 // https://github.com/keep-starknet-strange/piltover
+
+impl StarknetSettlementClient {
+    pub async fn with_settings(settings: &impl SettingsProvider) -> Self {
+        let settlement_cfg: StarknetSettlementConfig = settings.get_settings(SETTLEMENT_SETTINGS_NAME).unwrap();
+        let provider = Arc::new(JsonRpcClient::new(HttpTransport::new(settlement_cfg.rpc_url)));
+
+        let public_key = get_env_var_or_panic(ENV_PUBLIC_KEY);
+        let signer_address = FieldElement::from_hex_be(&public_key).expect("invalid signer address");
+
+        // TODO: Very insecure way of building the signer. Needs to be adjusted.
+        let private_key = get_env_var_or_panic(ENV_PRIVATE_KEY);
+        let signer = FieldElement::from_hex_be(&private_key).expect("Invalid private key");
+        let signer = LocalWallet::from(SigningKey::from_secret_scalar(signer));
+
+        let core_contract_address =
+            FieldElement::from_hex_be(&settlement_cfg.core_contract_address).expect("Invalid core contract address");
+
+        let account = SingleOwnerAccount::new(
+            provider.clone(),
+            signer,
+            signer_address,
+            provider.chain_id().await.unwrap(),
+            ExecutionEncoding::Legacy,
+        );
+
+        StarknetSettlementClient { account, core_contract_address }
+    }
+}
 
 lazy_static! {
     pub static ref CONTRACT_WRITE_UPDATE_STATE_SELECTOR: FieldElement =
@@ -137,33 +165,5 @@ impl SettlementClient for StarknetSettlementClient {
             return Err(eyre!("Could not fetch last block number from core contract."));
         }
         Ok(block_number[0].try_into()?)
-    }
-}
-
-impl From<StarknetSettlementConfig> for StarknetSettlementClient {
-    fn from(config: StarknetSettlementConfig) -> Self {
-        let provider = Arc::new(JsonRpcClient::new(HttpTransport::new(config.rpc_url)));
-
-        let public_key = get_env_var_or_panic(ENV_PUBLIC_KEY);
-        let signer_address = FieldElement::from_hex_be(&public_key).expect("invalid signer address");
-
-        // TODO: Very insecure way of building the signer. Needs to be adjusted.
-        let private_key = get_env_var_or_panic(ENV_PRIVATE_KEY);
-        let signer = FieldElement::from_hex_be(&private_key).expect("Invalid private key");
-        let signer = LocalWallet::from(SigningKey::from_secret_scalar(signer));
-
-        let core_contract_address =
-            FieldElement::from_hex_be(&config.core_contract_address).expect("Invalid core contract address");
-
-        let account = SingleOwnerAccount::new(
-            provider.clone(),
-            signer,
-            signer_address,
-            // TODO: chain_id should be configurable?
-            chain_id::MAINNET,
-            ExecutionEncoding::Legacy,
-        );
-
-        StarknetSettlementClient { account, core_contract_address }
     }
 }

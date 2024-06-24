@@ -3,6 +3,8 @@ use color_eyre::eyre::Result;
 use mockall::automock;
 use mockall::predicate::*;
 
+pub const SETTLEMENT_SETTINGS_NAME: &str = "settlement_settings";
+
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum SettlementVerificationStatus {
     Pending,

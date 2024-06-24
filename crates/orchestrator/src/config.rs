@@ -5,14 +5,12 @@ use da_client_interface::{DaClient, DaConfig};
 use dotenvy::dotenv;
 use ethereum_da_client::config::EthereumDaConfig;
 use ethereum_da_client::EthereumDaClient;
-use ethereum_settlement_client::config::EthereumSettlementConfig;
 use ethereum_settlement_client::EthereumSettlementClient;
 use prover_client_interface::ProverClient;
-use settlement_client_interface::{SettlementClient, SettlementConfig};
+use settlement_client_interface::SettlementClient;
 use sharp_service::SharpProverService;
 use starknet::providers::jsonrpc::HttpTransport;
 use starknet::providers::{JsonRpcClient, Url};
-use starknet_settlement_client::config::StarknetSettlementConfig;
 use starknet_settlement_client::StarknetSettlementClient;
 use tokio::sync::OnceCell;
 use utils::env_utils::get_env_var_or_panic;
@@ -57,9 +55,9 @@ pub async fn init_config() -> Config {
     let queue = Box::new(SqsQueue {});
 
     let da_client = build_da_client();
-    let settlement_client = build_settlement_client();
 
     let settings_provider = DefaultSettingsProvider {};
+    let settlement_client = build_settlement_client(&settings_provider).await;
     let prover_client = build_prover_service(&settings_provider);
 
     Config::new(Arc::new(provider), da_client, prover_client, settlement_client, database, queue)
@@ -156,16 +154,10 @@ fn build_prover_service(settings_provider: &impl SettingsProvider) -> Box<dyn Pr
 }
 
 /// Builds the settlement client depending on the env variable SETTLEMENT_LAYER
-fn build_settlement_client() -> Box<dyn SettlementClient + Send + Sync> {
+async fn build_settlement_client(settings_provider: &impl SettingsProvider) -> Box<dyn SettlementClient + Send + Sync> {
     match get_env_var_or_panic("SETTLEMENT_LAYER").as_str() {
-        "ethereum" => {
-            let config = EthereumSettlementConfig::new_from_env();
-            Box::new(EthereumSettlementClient::from(config))
-        }
-        "starknet" => {
-            let config = StarknetSettlementConfig::new_from_env();
-            Box::new(StarknetSettlementClient::from(config))
-        }
+        "ethereum" => Box::new(EthereumSettlementClient::with_settings(settings_provider)),
+        "starknet" => Box::new(StarknetSettlementClient::with_settings(settings_provider).await),
         _ => panic!("Unsupported Settlement layer"),
     }
 }
