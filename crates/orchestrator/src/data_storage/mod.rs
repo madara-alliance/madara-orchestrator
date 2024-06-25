@@ -17,9 +17,17 @@ use mockall::automock;
 #[async_trait]
 pub trait DataStorage: Send + Sync {
     async fn get_snos_data_for_block(&self, block_number: u128) -> Result<StarknetOsOutput, Error>;
-    async fn store_snos_data_for_block(&self, block_number: u128, data: StarknetOsOutput) -> Result<usize, Error>;
+    async fn store_snos_data_for_block(
+        &self,
+        block_number: u128,
+        data: StarknetOsOutput,
+    ) -> Result<usize, Error>;
     async fn get_kzg_data_for_block(&self, block_number: u128) -> Result<String, Error>;
-    async fn set_kzg_data_for_block(&self, block_number: u128, kzg_proof: &str) -> Result<usize, Error>;
+    async fn set_kzg_data_for_block(
+        &self,
+        block_number: u128,
+        kzg_proof: &str,
+    ) -> Result<usize, Error>;
 }
 
 pub trait DataStorageConfig {
