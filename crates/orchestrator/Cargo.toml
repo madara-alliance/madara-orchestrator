@@ -19,6 +19,7 @@ aws-config = { version = "1.1.7", features = ["behavior-version-latest"] }
 aws-sdk-s3 = { version = "1.38.0", features = ["behavior-version-latest"] }
 axum = { workspace = true, features = ["macros"] }
 axum-macros = { workspace = true }
+bytes = "1.6.0"
 cairo-vm = { workspace = true }
 color-eyre = { workspace = true }
 da-client-interface = { workspace = true }

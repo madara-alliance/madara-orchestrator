@@ -1,9 +1,10 @@
 mod aws_s3;
 mod types;
 
-use crate::data_storage::types::StarknetOsOutput;
 use async_trait::async_trait;
+use aws_sdk_s3::primitives::ByteStream;
 use aws_sdk_s3::Error;
+use bytes::Bytes;
 use mockall::automock;
 
 /// DataStorage trait contains the functions used to store and get the data from
@@ -16,8 +17,8 @@ use mockall::automock;
 #[automock]
 #[async_trait]
 pub trait DataStorage: Send + Sync {
-    async fn get_data_for_block(&self, key: &str) -> Result<StarknetOsOutput, Error>;
-    async fn put_data_for_block(&self, data: StarknetOsOutput, key: &str) -> Result<usize, Error>;
+    async fn get_data(&self, key: &str) -> Result<Bytes, Error>;
+    async fn put_data(&self, data: ByteStream, key: &str) -> Result<(), Error>;
 }
 
 pub trait DataStorageConfig {

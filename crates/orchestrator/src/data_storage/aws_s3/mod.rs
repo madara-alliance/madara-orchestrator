@@ -1,10 +1,10 @@
 use crate::data_storage::aws_s3::config::AWSS3Config;
-use crate::data_storage::types::StarknetOsOutput;
 use crate::data_storage::DataStorage;
 use async_trait::async_trait;
 use aws_sdk_s3::config::{Builder, Credentials, Region};
 use aws_sdk_s3::primitives::ByteStream;
 use aws_sdk_s3::{Client, Error};
+use bytes::Bytes;
 
 pub mod config;
 
@@ -25,9 +25,7 @@ impl AWSS3 {
             "loaded_from_custom_env",
         );
         let region = Region::new(config.s3_bucket_region.clone().to_string());
-        let conf_builder = Builder::new()
-            .region(region)
-            .credentials_provider(credentials);
+        let conf_builder = Builder::new().region(region).credentials_provider(credentials);
         let conf = conf_builder.build();
 
         // Building AWS S3 config
@@ -39,47 +37,31 @@ impl AWSS3 {
 
 #[async_trait]
 impl DataStorage for AWSS3 {
-    async fn get_data_for_block(&self, key: &str) -> Result<StarknetOsOutput, Error> {
-        let response = self
-            .client
-            .get_object()
-            .bucket(self.config.s3_bucket_name.clone())
-            .key(key)
-            .send()
-            .await?;
-        let data_stream = response
-            .body
-            .collect()
-            .await
-            .expect("Failed to convert body into AggregatedBytes.");
+    async fn get_data(&self, key: &str) -> Result<Bytes, Error> {
+        let response = self.client.get_object().bucket(self.config.s3_bucket_name.clone()).key(key).send().await?;
+        let data_stream = response.body.collect().await.expect("Failed to convert body into AggregatedBytes.");
         let data_bytes = data_stream.into_bytes();
-        let json: StarknetOsOutput =
-            serde_json::from_slice(&data_bytes).expect("Failed to convert data_bytes into JSON.");
-
-        Ok(json)
+        Ok(data_bytes)
     }
 
-    async fn put_data_for_block(&self, data: StarknetOsOutput, key: &str) -> Result<usize, Error> {
-        let json_data =
-            serde_json::to_vec(&data).expect("Failed to convert StarknetOsOutput into JSON.");
-        let byte_stream = ByteStream::from(json_data.clone());
+    async fn put_data(&self, data: ByteStream, key: &str) -> Result<(), Error> {
         self.client
             .put_object()
             .bucket(self.config.s3_bucket_name.clone())
             .key(key)
-            .body(byte_stream)
+            .body(data)
             .content_type("application/json")
             .send()
             .await?;
 
-        Ok(json_data.len())
+        Ok(())
     }
 }
 
+// Temporary test for AWS S3 bucket functions
 // #[cfg(test)]
 // mod tests {
 //     use rstest::rstest;
-//     use crate::config::config;
 //     use crate::data_storage::aws_s3::AWSS3;
 //     use crate::data_storage::aws_s3::config::AWSS3Config;
 //     use crate::data_storage::{DataStorage, DataStorageConfig};

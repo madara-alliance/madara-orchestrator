@@ -6064,6 +6064,7 @@ dependencies = [
  "aws-sdk-s3",
  "axum 0.7.5",
  "axum-macros",
+ "bytes",
  "cairo-vm 1.0.0-rc3",
  "color-eyre",
  "da-client-interface",
