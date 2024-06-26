@@ -42,8 +42,12 @@ impl AWSS3 {
     }
 }
 
+/// Implementation of `DataStorage` for `AWSS3`
+/// contains the function for getting the data and putting the data
+/// by taking the key as an argument.
 #[async_trait]
 impl DataStorage for AWSS3 {
+    /// Function to get the data from S3 bucket by Key.
     async fn get_data(&self, key: &str) -> Result<Bytes, Error> {
         let response = self.client.get_object().bucket(self.config.s3_bucket_name.clone()).key(key).send().await?;
         let data_stream = response.body.collect().await.expect("Failed to convert body into AggregatedBytes.");
@@ -51,6 +55,7 @@ impl DataStorage for AWSS3 {
         Ok(data_bytes)
     }
 
+    /// Function to put the data to S3 bucket by Key.
     async fn put_data(&self, data: ByteStream, key: &str) -> Result<(), Error> {
         self.client
             .put_object()

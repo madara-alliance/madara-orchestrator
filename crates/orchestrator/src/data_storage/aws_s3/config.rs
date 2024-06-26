@@ -4,9 +4,13 @@ use crate::data_storage::DataStorageConfig;
 
 /// Represents AWS S3 config struct with all the necessary variables.
 pub struct AWSS3Config {
+    /// AWS ACCESS KEY ID
     pub s3_key_id: String,
+    /// AWS ACCESS KEY SECRET
     pub s3_key_secret: String,
+    /// S3 Bucket Name
     pub s3_bucket_name: String,
+    /// S3 Bucket region
     pub s3_bucket_region: String,
 }
 
