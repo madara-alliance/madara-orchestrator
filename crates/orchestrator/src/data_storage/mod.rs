@@ -21,6 +21,10 @@ pub trait DataStorage: Send + Sync {
     async fn put_data(&self, data: ByteStream, key: &str) -> Result<(), Error>;
 }
 
+/// **DataStorageConfig** : Trait method to represent the config struct needed for
+/// initialisation of data storage client
 pub trait DataStorageConfig {
+    /// Get a config file from environment vars in system or
+    /// dotenv file.
     fn new_from_env() -> Self;
 }

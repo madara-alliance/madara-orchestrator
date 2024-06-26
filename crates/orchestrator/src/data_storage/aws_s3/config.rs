@@ -2,6 +2,7 @@ use utils::env_utils::get_env_var_or_panic;
 
 use crate::data_storage::DataStorageConfig;
 
+/// Represents AWS S3 config struct with all the necessary variables.
 pub struct AWSS3Config {
     pub s3_key_id: String,
     pub s3_key_secret: String,
@@ -9,7 +10,9 @@ pub struct AWSS3Config {
     pub s3_bucket_region: String,
 }
 
+/// Implementation of `DataStorageConfig` for `AWSS3Config`
 impl DataStorageConfig for AWSS3Config {
+    /// To return the config struct by creating it from the environment variables.
     fn new_from_env() -> Self {
         Self {
             s3_key_id: get_env_var_or_panic("AWS_ACCESS_KEY_ID"),

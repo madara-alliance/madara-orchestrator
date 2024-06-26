@@ -6,14 +6,21 @@ use aws_sdk_s3::primitives::ByteStream;
 use aws_sdk_s3::{Client, Error};
 use bytes::Bytes;
 
+/// Module for AWS S3 config structs and implementations
 pub mod config;
 
+/// AWSS3 represents AWS S3 client object containing the client and the config itself.
 pub struct AWSS3 {
     client: Client,
     config: AWSS3Config,
 }
 
+/// Implementation for AWS S3 client. Contains the function for :
+///
+/// - initializing a new AWS S3 client
 impl AWSS3 {
+    /// Initializes a new AWS S3 client by passing the config
+    /// and returning it.
     #[allow(dead_code)]
     pub async fn new(config: AWSS3Config) -> Self {
         // AWS cred building

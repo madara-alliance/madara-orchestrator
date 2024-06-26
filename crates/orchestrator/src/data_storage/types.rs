@@ -2,6 +2,8 @@ use cairo_vm::Felt252;
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 
+/// This struct represents the contract changes that will be in `StarknetOsOutput`
+/// as a vector.
 #[derive(Debug, Deserialize, Serialize)]
 pub struct ContractChanges {
     /// The address of the contract.
@@ -14,6 +16,7 @@ pub struct ContractChanges {
     pub storage_changes: HashMap<Felt252, Felt252>,
 }
 
+/// This struct represents the starknet OS outputs in the json we will get after the run.
 #[derive(Debug, Deserialize, Serialize)]
 pub struct StarknetOsOutput {
     /// The root before.
