@@ -25,7 +25,9 @@ impl AWSS3 {
             "loaded_from_custom_env",
         );
         let region = Region::new(config.s3_bucket_region.clone().to_string());
-        let conf_builder = Builder::new().region(region).credentials_provider(credentials);
+        let conf_builder = Builder::new()
+            .region(region)
+            .credentials_provider(credentials);
         let conf = conf_builder.build();
 
         // Building AWS S3 config
@@ -38,8 +40,18 @@ impl AWSS3 {
 #[async_trait]
 impl DataStorage for AWSS3 {
     async fn get_data(&self, key: &str) -> Result<Bytes, Error> {
-        let response = self.client.get_object().bucket(self.config.s3_bucket_name.clone()).key(key).send().await?;
-        let data_stream = response.body.collect().await.expect("Failed to convert body into AggregatedBytes.");
+        let response = self
+            .client
+            .get_object()
+            .bucket(self.config.s3_bucket_name.clone())
+            .key(key)
+            .send()
+            .await?;
+        let data_stream = response
+            .body
+            .collect()
+            .await
+            .expect("Failed to convert body into AggregatedBytes.");
         let data_bytes = data_stream.into_bytes();
         Ok(data_bytes)
     }
