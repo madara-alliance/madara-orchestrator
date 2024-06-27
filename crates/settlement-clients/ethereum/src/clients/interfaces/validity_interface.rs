@@ -53,7 +53,7 @@ pub trait StarknetValidityContractTrait {
     async fn update_state_kzg(
         &self,
         program_output: Vec<U256>,
-        kzg_proof: Vec<u8>,
+        kzg_proof: [u8; 48],
     ) -> Result<TransactionReceipt, RpcError<TransportErrorKind>>;
 }
 
@@ -95,13 +95,13 @@ where
     async fn update_state_kzg(
         &self,
         program_output: Vec<U256>,
-        kzg_proof: Vec<u8>,
+        kzg_proof: [u8; 48],
     ) -> Result<TransactionReceipt, RpcError<TransportErrorKind>> {
         let base_fee = self.as_ref().provider().as_ref().get_gas_price().await.unwrap();
         let from_address = self.as_ref().provider().as_ref().get_accounts().await.unwrap()[0];
         let gas = self
             .as_ref()
-            .updateStateKzgDA(program_output.clone(), kzg_proof.clone().into())
+            .updateStateKzgDA(program_output.clone(), kzg_proof.into())
             .from(from_address)
             .estimate_gas()
             .await

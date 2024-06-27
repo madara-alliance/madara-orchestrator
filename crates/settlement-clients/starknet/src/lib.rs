@@ -90,18 +90,18 @@ impl SettlementClient for StarknetSettlementClient {
     /// Should register the proof on the base layer and return an external id
     /// which can be used to track the status.
     #[allow(unused)]
-    async fn register_proof(&self, proof: Vec<u8>) -> Result<String> {
+    async fn register_proof(&self, proof: [u8; 32]) -> Result<String> {
         !unimplemented!("register_proof not implemented yet")
     }
 
     /// Should be used to update state on core contract when DA is done in calldata
     async fn update_state_calldata(
         &self,
-        program_output: Vec<Vec<u8>>,
-        onchain_data_hash: Vec<u8>,
+        program_output: Vec<[u8; 32]>,
+        onchain_data_hash: [u8; 32],
         onchain_data_size: usize,
     ) -> Result<String> {
-        let program_output = slice_slice_u8_to_vec_field(&program_output);
+        let program_output = slice_slice_u8_to_vec_field(program_output.as_slice());
         let onchain_data_hash = slice_u8_to_field(&onchain_data_hash);
         let mut calldata: Vec<FieldElement> = Vec::with_capacity(program_output.len() + 2);
         calldata.extend(program_output);
@@ -121,29 +121,46 @@ impl SettlementClient for StarknetSettlementClient {
 
     /// Should be used to update state on core contract when DA is in blobs/alt DA
     #[allow(unused)]
-    async fn update_state_blobs(&self, program_output: Vec<Vec<u8>>, kzg_proof: Vec<u8>) -> Result<String> {
+    async fn update_state_blobs(&self, program_output: Vec<[u8; 32]>, kzg_proof: [u8; 48]) -> Result<String> {
         !unimplemented!("not available for starknet settlement layer")
     }
 
     /// Should verify the inclusion of the state diff in the DA layer and return the status
-    async fn verify_inclusion(&self, external_id: &str) -> Result<SettlementVerificationStatus> {
-        let tx_hash = FieldElement::from_hex_be(external_id)?;
+    async fn verify_inclusion(
+        &self,
+        last_settlement_tx_hash: &str,
+        last_block_number: u64,
+    ) -> Result<SettlementVerificationStatus> {
+        let tx_hash = FieldElement::from_hex_be(last_settlement_tx_hash)?;
         let tx_receipt = self.account.provider().get_transaction_receipt(tx_hash).await?;
         match tx_receipt {
-            MaybePendingTransactionReceipt::Receipt(tx) => match tx.execution_result() {
-                ExecutionResult::Succeeded => Ok(SettlementVerificationStatus::Verified),
-                ExecutionResult::Reverted { reason } => Ok(SettlementVerificationStatus::Rejected(format!(
-                    "Tx {} has been reverted: {}",
-                    external_id, reason
-                ))),
-            },
+            MaybePendingTransactionReceipt::Receipt(tx) => {
+                if let ExecutionResult::Reverted { reason } = tx.execution_result() {
+                    return Ok(SettlementVerificationStatus::Rejected(format!(
+                        "Tx {} has been reverted: {}",
+                        last_settlement_tx_hash, reason
+                    )));
+                }
+            }
             MaybePendingTransactionReceipt::PendingReceipt(tx) => match tx.execution_result() {
-                ExecutionResult::Succeeded => Ok(SettlementVerificationStatus::Pending),
-                ExecutionResult::Reverted { reason } => Ok(SettlementVerificationStatus::Rejected(format!(
-                    "Pending tx {} has been reverted: {}",
-                    external_id, reason
-                ))),
+                ExecutionResult::Succeeded => return Ok(SettlementVerificationStatus::Pending),
+                ExecutionResult::Reverted { reason } => {
+                    return Ok(SettlementVerificationStatus::Rejected(format!(
+                        "Pending tx {} has been reverted: {}",
+                        last_settlement_tx_hash, reason
+                    )))
+                }
             },
+        };
+
+        let last_settled_block = self.get_last_settled_block().await?;
+        if last_block_number == last_settled_block {
+            Ok(SettlementVerificationStatus::Verified)
+        } else {
+            Ok(SettlementVerificationStatus::Rejected(format!(
+                "Last settle bock expected was {} but found {}",
+                last_block_number, last_settled_block
+            )))
         }
     }
 

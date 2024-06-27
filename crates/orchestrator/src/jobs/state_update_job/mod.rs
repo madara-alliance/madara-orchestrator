@@ -52,11 +52,7 @@ impl Job for StateUpdateJob {
 
         // Read the metadata to get the blocks for which state update will be performed.
         // We assume that blocks nbrs are formatted as follow: "2,3,4,5,6".
-        let blocks_to_settle = job.metadata.get(JOB_METADATA_STATE_UPDATE_BLOCKS_TO_SETTLE_KEY).ok_or_else(|| {
-            eyre!("Block numbers to settle must be specified (state update job #{})", job.internal_id)
-        })?;
-        let block_numbers: Vec<u64> = self.parse_block_numbers(blocks_to_settle)?;
-
+        let block_numbers = self.get_block_numbers_from_metadata(job)?;
         self.validate_block_numbers(config, &block_numbers).await?;
 
         let mut last_tx_hash: Option<String> = None;
@@ -74,10 +70,14 @@ impl Job for StateUpdateJob {
 
     /// Verify that the proof transaction has been included on chain
     async fn verify_job(&self, config: &Config, job: &JobItem) -> Result<JobVerificationStatus> {
-        // external_id corresponds to the last tx executed by the job
-        let external_id: String = job.external_id.unwrap_string()?.into();
         let settlement_client = config.settlement_client();
-        let inclusion_status = settlement_client.verify_inclusion(&external_id).await?;
+
+        // external_id corresponds to the last tx executed by the job
+        let last_settlement_tx: String = job.external_id.unwrap_string()?.into();
+        let block_numbers = self.get_block_numbers_from_metadata(job)?;
+        let last_block_number = block_numbers.last().expect("Block numbers list should not be empty.");
+
+        let inclusion_status = settlement_client.verify_inclusion(&last_settlement_tx, *last_block_number).await?;
         Ok(inclusion_status.into())
     }
 
@@ -95,6 +95,14 @@ impl Job for StateUpdateJob {
 }
 
 impl StateUpdateJob {
+    /// Read the metadata and parse the block numbers
+    fn get_block_numbers_from_metadata(&self, job: &JobItem) -> Result<Vec<u64>> {
+        let blocks_to_settle = job.metadata.get(JOB_METADATA_STATE_UPDATE_BLOCKS_TO_SETTLE_KEY).ok_or_else(|| {
+            eyre!("Block numbers to settle must be specified (state update job #{})", job.internal_id)
+        })?;
+        self.parse_block_numbers(blocks_to_settle)
+    }
+
     /// Parse a list of blocks comma separated
     fn parse_block_numbers(&self, blocks_to_settle: &str) -> Result<Vec<u64>> {
         let sanitized_blocks = blocks_to_settle.replace(' ', "");
@@ -144,11 +152,15 @@ impl StateUpdateJob {
                 MaybePendingStateUpdate::Update(state_update) => state_update,
             };
             // TODO: Build the required arguments & send them to update_state_calldata
-            settlement_client.update_state_calldata(vec![], vec![], 0).await?
+            let program_output = vec![];
+            let onchain_data_hash = vec![0_u8; 32].try_into().expect("onchain data hash size must be 32 bytes");
+            let onchain_data_size = 0;
+            settlement_client.update_state_calldata(program_output, onchain_data_hash, onchain_data_size).await?
         } else if snos.use_kzg_da == Felt252::ONE {
-            let kzg_proof = self.fetch_kzg_proof_for_block(block_no, fetch_from_tests).await;
             // TODO: Build the blob & the KZG proof & send them to update_state_blobs
-            settlement_client.update_state_blobs(vec![], kzg_proof.into_bytes()).await?
+            let kzg_proof = self.fetch_kzg_proof_for_block(block_no, fetch_from_tests).await;
+            let kzg_proof: [u8; 48] = kzg_proof.try_into().expect("kzg proof size must be 48 bytes");
+            settlement_client.update_state_blobs(vec![], kzg_proof).await?
         } else {
             return Err(eyre!("Block #{} - SNOS error, [use_kzg_da] should be either 0 or 1.", block_no));
         };
@@ -172,15 +184,16 @@ impl StateUpdateJob {
 
     /// Retrieves the KZG Proof for the corresponding block.
     /// TODO: remove the fetch_from_tests argument once we have proper fetching (db/s3)
-    async fn fetch_kzg_proof_for_block(&self, block_no: u64, fetch_from_tests: Option<bool>) -> String {
+    async fn fetch_kzg_proof_for_block(&self, block_no: u64, fetch_from_tests: Option<bool>) -> Vec<u8> {
         let fetch_from_tests = fetch_from_tests.unwrap_or(true);
-        match fetch_from_tests {
+        let kzg_proof_str = match fetch_from_tests {
             true => {
                 let kzg_path =
                     CURRENT_PATH.join(format!("src/jobs/state_update_job/test_data/{}/kzg_proof.txt", block_no));
-                std::fs::read_to_string(kzg_path).expect("Failed to read the KZG txt file")
+                std::fs::read_to_string(kzg_path).expect("Failed to read the KZG txt file").replace("0x", "")
             }
             false => unimplemented!("can't fetch KZG Proof from DB/S3"),
-        }
+        };
+        hex::decode(kzg_proof_str).expect("Invalid test kzg proof")
     }
 }

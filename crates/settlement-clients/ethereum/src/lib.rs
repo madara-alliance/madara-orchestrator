@@ -56,18 +56,18 @@ impl SettlementClient for EthereumSettlementClient {
     /// Should register the proof on the base layer and return an external id
     /// which can be used to track the status.
     #[allow(unused)]
-    async fn register_proof(&self, proof: Vec<u8>) -> Result<String> {
+    async fn register_proof(&self, proof: [u8; 32]) -> Result<String> {
         Ok("external_id".to_string())
     }
 
     /// Should be used to update state on core contract when DA is done in calldata
     async fn update_state_calldata(
         &self,
-        program_output: Vec<Vec<u8>>,
-        onchain_data_hash: Vec<u8>,
+        program_output: Vec<[u8; 32]>,
+        onchain_data_hash: [u8; 32],
         onchain_data_size: usize,
     ) -> Result<String> {
-        let program_output: Vec<U256> = slice_slice_u8_to_vec_u256(&program_output);
+        let program_output: Vec<U256> = slice_slice_u8_to_vec_u256(program_output.as_slice());
         let onchain_data_hash: U256 = slice_u8_to_u256(&onchain_data_hash);
         let onchain_data_size: U256 = onchain_data_size.try_into()?;
         let tx_receipt =
@@ -76,29 +76,48 @@ impl SettlementClient for EthereumSettlementClient {
     }
 
     /// Should be used to update state on core contract when DA is in blobs/alt DA
-    async fn update_state_blobs(&self, program_output: Vec<Vec<u8>>, kzg_proof: Vec<u8>) -> Result<String> {
+    async fn update_state_blobs(&self, program_output: Vec<[u8; 32]>, kzg_proof: [u8; 48]) -> Result<String> {
         let program_output: Vec<U256> = slice_slice_u8_to_vec_u256(&program_output);
         let tx_receipt = self.core_contract_client.update_state_kzg(program_output, kzg_proof).await?;
         Ok(format!("0x{:x}", tx_receipt.transaction_hash))
     }
 
-    /// Should verify the inclusion of the state diff in the DA layer and return the status
-    /// External id corresponds to the last executed settlement tx hash
-    async fn verify_inclusion(&self, external_id: &str) -> Result<SettlementVerificationStatus> {
-        let tx_hash = B256::from_str(external_id)?;
+    /// Should verify the inclusion of the state diff in the DA layer and return the status.
+    /// To do so, we check:
+    /// 1. that the last settlement tx hash is successful,
+    /// 2. that the expected last settled block from our configuration is indeed the one found in the provider.
+    async fn verify_inclusion(
+        &self,
+        last_settlement_tx_hash: &str,
+        last_block_number: u64,
+    ) -> Result<SettlementVerificationStatus> {
+        let tx_hash = B256::from_str(last_settlement_tx_hash)?;
         let maybe_tx_status: Option<TransactionReceipt> = self.provider.get_transaction_receipt(tx_hash).await?;
         match maybe_tx_status {
             Some(tx_status) => {
-                if tx_status.status() {
-                    Ok(SettlementVerificationStatus::Verified)
-                } else {
-                    Ok(SettlementVerificationStatus::Rejected(format!("Tx has been rejected: {}", external_id)))
+                if !tx_status.status() {
+                    return Ok(SettlementVerificationStatus::Rejected(format!(
+                        "Tx has been rejected: {}",
+                        last_settlement_tx_hash
+                    )));
                 }
             }
-            None => Ok(SettlementVerificationStatus::Rejected(format!(
-                "Could not find status of settlement tx: {}",
-                external_id
-            ))),
+            None => {
+                return Ok(SettlementVerificationStatus::Rejected(format!(
+                    "Could not find status of settlement tx: {}",
+                    last_settlement_tx_hash
+                )))
+            }
+        }
+
+        let last_settled_block = self.get_last_settled_block().await?;
+        if last_block_number == last_settled_block {
+            Ok(SettlementVerificationStatus::Verified)
+        } else {
+            Ok(SettlementVerificationStatus::Rejected(format!(
+                "Last settle bock expected was {} but found {}",
+                last_block_number, last_settled_block
+            )))
         }
     }
 

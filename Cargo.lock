@@ -6114,6 +6114,7 @@ dependencies = [
  "ethereum-da-client",
  "ethereum-settlement-client",
  "futures",
+ "hex",
  "httpmock",
  "hyper 0.14.29",
  "lazy_static",

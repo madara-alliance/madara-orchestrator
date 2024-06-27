@@ -45,11 +45,13 @@ async fn test_process_job() {
     // TODO: have tests for update_state_calldata, only kzg for now
     let block_numbers = ["651053", "651054", "651055", "651056"];
     for block_no in block_numbers {
-        let block_proof = load_kzg_proof(block_no);
+        let program_output: Vec<[u8; 32]> = vec![];
+        let block_proof: Vec<u8> = load_kzg_proof(block_no);
+        let block_proof: [u8; 48] = block_proof.try_into().expect("test proof should be 48 bytes");
         settlement_client
             .expect_update_state_blobs()
             // TODO: vec![] is program_output
-            .with(eq(vec![]), eq(block_proof.into_bytes()))
+            .with(eq(program_output), eq(block_proof))
             .returning(|_, _| Ok(String::from("0x5d17fac98d9454030426606019364f6e68d915b91f6210ef1e2628cd6987442")));
     }
 
@@ -140,7 +142,8 @@ async fn test_process_job_invalid_input_gap() {
 
 // ==================== Utility functions ===========================
 
-fn load_kzg_proof(block_no: &str) -> String {
+fn load_kzg_proof(block_no: &str) -> Vec<u8> {
     let file_path = format!("src/jobs/state_update_job/test_data/{}/kzg_proof.txt", block_no);
-    fs::read_to_string(file_path).expect("Unable to read kzg_proof.txt")
+    let proof_str = fs::read_to_string(file_path).expect("Unable to read kzg_proof.txt").replace("0x", "");
+    hex::decode(proof_str).unwrap()
 }
