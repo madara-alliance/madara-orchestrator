@@ -82,42 +82,25 @@ impl SettlementClient for EthereumSettlementClient {
         Ok(format!("0x{:x}", tx_receipt.transaction_hash))
     }
 
-    /// Should verify the inclusion of the state diff in the DA layer and return the status.
-    /// To do so, we check:
-    /// 1. that the last settlement tx hash is successful,
-    /// 2. that the expected last settled block from our configuration is indeed the one found in the provider.
-    async fn verify_inclusion(
-        &self,
-        last_settlement_tx_hash: &str,
-        last_block_number: u64,
-    ) -> Result<SettlementVerificationStatus> {
+    /// Should be used to check that the last settlement tx has been successful
+    async fn verify_tx_inclusion(&self, last_settlement_tx_hash: &str) -> Result<SettlementVerificationStatus> {
         let tx_hash = B256::from_str(last_settlement_tx_hash)?;
         let maybe_tx_status: Option<TransactionReceipt> = self.provider.get_transaction_receipt(tx_hash).await?;
         match maybe_tx_status {
             Some(tx_status) => {
-                if !tx_status.status() {
-                    return Ok(SettlementVerificationStatus::Rejected(format!(
+                if tx_status.status() {
+                    Ok(SettlementVerificationStatus::Verified)
+                } else {
+                    Ok(SettlementVerificationStatus::Rejected(format!(
                         "Tx has been rejected: {}",
                         last_settlement_tx_hash
-                    )));
+                    )))
                 }
             }
-            None => {
-                return Ok(SettlementVerificationStatus::Rejected(format!(
-                    "Could not find status of settlement tx: {}",
-                    last_settlement_tx_hash
-                )))
-            }
-        }
-
-        let last_settled_block = self.get_last_settled_block().await?;
-        if last_block_number == last_settled_block {
-            Ok(SettlementVerificationStatus::Verified)
-        } else {
-            Ok(SettlementVerificationStatus::Rejected(format!(
-                "Last settle bock expected was {} but found {}",
-                last_block_number, last_settled_block
-            )))
+            None => Ok(SettlementVerificationStatus::Rejected(format!(
+                "Could not find status of settlement tx: {}",
+                last_settlement_tx_hash
+            ))),
         }
     }
 

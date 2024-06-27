@@ -27,6 +27,7 @@ dotenvy = { workspace = true }
 ethereum-da-client = { workspace = true, optional = true }
 ethereum-settlement-client = { workspace = true }
 futures = { workspace = true }
+hex = { workspace = true }
 lazy_static = { workspace = true }
 log = "0.4.21"
 majin-blob-core = { git = "https://github.com/AbdelStark/majin-blob", branch = "main" }
@@ -49,7 +50,6 @@ starknet-settlement-client = { workspace = true }
 thiserror = { workspace = true }
 tokio = { workspace = true, features = ["sync", "macros", "rt-multi-thread"] }
 tracing = { workspace = true }
-hex = { workspace = true }
 tracing-subscriber = { workspace = true, features = ["env-filter"] }
 url = { workspace = true }
 utils = { workspace = true }

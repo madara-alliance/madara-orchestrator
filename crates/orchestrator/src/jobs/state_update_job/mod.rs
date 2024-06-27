@@ -1,4 +1,5 @@
 use lazy_static::lazy_static;
+use settlement_client_interface::SettlementVerificationStatus;
 use std::collections::HashMap;
 use std::path::PathBuf;
 use utils::collections::{has_dup, is_sorted};
@@ -68,7 +69,10 @@ impl Job for StateUpdateJob {
         }
     }
 
-    /// Verify that the proof transaction has been included on chain
+    /// Returns the status of the passed job.
+    /// Status will be verified if:
+    /// 1. the last settlement tx hash is successful,
+    /// 2. the expected last settled block from our configuration is indeed the one found in the provider.
     async fn verify_job(&self, config: &Config, job: &JobItem) -> Result<JobVerificationStatus> {
         let settlement_client = config.settlement_client();
 
@@ -77,8 +81,23 @@ impl Job for StateUpdateJob {
         let block_numbers = self.get_block_numbers_from_metadata(job)?;
         let last_block_number = block_numbers.last().expect("Block numbers list should not be empty.");
 
-        let inclusion_status = settlement_client.verify_inclusion(&last_settlement_tx, *last_block_number).await?;
-        Ok(inclusion_status.into())
+        // check that the last tx is successful
+        let tx_inclusion_status = settlement_client.verify_tx_inclusion(&last_settlement_tx).await?;
+        if tx_inclusion_status != SettlementVerificationStatus::Verified {
+            return Ok(tx_inclusion_status.into());
+        }
+
+        // verify that the last settled block is indeed the one we expect to be
+        let last_settled_block = settlement_client.get_last_settled_block().await?;
+        let block_status = if *last_block_number == last_settled_block {
+            SettlementVerificationStatus::Verified
+        } else {
+            SettlementVerificationStatus::Rejected(format!(
+                "Last settle bock expected was {} but found {}",
+                last_block_number, last_settled_block
+            ))
+        };
+        Ok(block_status.into())
     }
 
     fn max_process_attempts(&self) -> u64 {

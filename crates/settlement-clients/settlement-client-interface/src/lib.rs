@@ -32,11 +32,7 @@ pub trait SettlementClient: Send + Sync {
     async fn update_state_blobs(&self, program_output: Vec<[u8; 32]>, kzg_proof: [u8; 48]) -> Result<String>;
 
     /// Should verify the inclusion of the state diff in the Settlement layer and return the status
-    async fn verify_inclusion(
-        &self,
-        last_settlement_hash: &str,
-        last_block_number: u64,
-    ) -> Result<SettlementVerificationStatus>;
+    async fn verify_tx_inclusion(&self, last_settlement_hash: &str) -> Result<SettlementVerificationStatus>;
 
     async fn get_last_settled_block(&self) -> Result<u64>;
 }

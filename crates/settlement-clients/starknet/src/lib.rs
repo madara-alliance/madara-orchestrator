@@ -125,42 +125,25 @@ impl SettlementClient for StarknetSettlementClient {
         !unimplemented!("not available for starknet settlement layer")
     }
 
-    /// Should verify the inclusion of the state diff in the DA layer and return the status
-    async fn verify_inclusion(
-        &self,
-        last_settlement_tx_hash: &str,
-        last_block_number: u64,
-    ) -> Result<SettlementVerificationStatus> {
+    /// Should be used to check that the last settlement tx has been successful
+    async fn verify_tx_inclusion(&self, last_settlement_tx_hash: &str) -> Result<SettlementVerificationStatus> {
         let tx_hash = FieldElement::from_hex_be(last_settlement_tx_hash)?;
         let tx_receipt = self.account.provider().get_transaction_receipt(tx_hash).await?;
         match tx_receipt {
-            MaybePendingTransactionReceipt::Receipt(tx) => {
-                if let ExecutionResult::Reverted { reason } = tx.execution_result() {
-                    return Ok(SettlementVerificationStatus::Rejected(format!(
-                        "Tx {} has been reverted: {}",
-                        last_settlement_tx_hash, reason
-                    )));
-                }
-            }
-            MaybePendingTransactionReceipt::PendingReceipt(tx) => match tx.execution_result() {
-                ExecutionResult::Succeeded => return Ok(SettlementVerificationStatus::Pending),
-                ExecutionResult::Reverted { reason } => {
-                    return Ok(SettlementVerificationStatus::Rejected(format!(
-                        "Pending tx {} has been reverted: {}",
-                        last_settlement_tx_hash, reason
-                    )))
-                }
+            MaybePendingTransactionReceipt::Receipt(tx) => match tx.execution_result() {
+                ExecutionResult::Succeeded => Ok(SettlementVerificationStatus::Verified),
+                ExecutionResult::Reverted { reason } => Ok(SettlementVerificationStatus::Rejected(format!(
+                    "Last settlement tx {} has been reverted: {}",
+                    last_settlement_tx_hash, reason
+                ))),
             },
-        };
-
-        let last_settled_block = self.get_last_settled_block().await?;
-        if last_block_number == last_settled_block {
-            Ok(SettlementVerificationStatus::Verified)
-        } else {
-            Ok(SettlementVerificationStatus::Rejected(format!(
-                "Last settle bock expected was {} but found {}",
-                last_block_number, last_settled_block
-            )))
+            MaybePendingTransactionReceipt::PendingReceipt(tx) => match tx.execution_result() {
+                ExecutionResult::Succeeded => Ok(SettlementVerificationStatus::Pending),
+                ExecutionResult::Reverted { reason } => Ok(SettlementVerificationStatus::Rejected(format!(
+                    "Pending tx {} has been reverted: {}",
+                    last_settlement_tx_hash, reason
+                ))),
+            },
         }
     }
 
