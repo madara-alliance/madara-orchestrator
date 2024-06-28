@@ -117,6 +117,7 @@ impl Job for StateUpdateJob {
                     job.metadata.insert(JOB_METADATA_STATE_UPDATE_LAST_FAILED_BLOCK_NO.into(), block_no.to_string());
                     return Ok(tx_inclusion_status.into());
                 }
+                // If the tx is still pending, we wait for it to be finalized and check again the status.
                 SettlementVerificationStatus::Pending => {
                     settlement_client.wait_for_tx_finality(tx_hash).await?;
                     let new_status = settlement_client.verify_tx_inclusion(tx_hash).await?;
@@ -137,7 +138,6 @@ impl Job for StateUpdateJob {
         }
         // verify that the last settled block is indeed the one we expect to be
         let expected_last_block_number = block_numbers.last().expect("Block numbers list should not be empty.");
-
         let out_last_block_number = settlement_client.get_last_settled_block().await?;
         let block_status = if out_last_block_number == *expected_last_block_number {
             SettlementVerificationStatus::Verified
