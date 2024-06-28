@@ -14,11 +14,16 @@ use starknet_core::types::{BlockId, MaybePendingStateUpdate};
 use uuid::Uuid;
 
 use crate::config::Config;
-use crate::jobs::constants::JOB_METADATA_STATE_UPDATE_BLOCKS_TO_SETTLE_KEY;
+use crate::jobs::constants::{
+    JOB_METADATA_STATE_UPDATE_BLOCKS_TO_SETTLE_KEY, JOB_METADATA_STATE_UPDATE_FETCH_FROM_TESTS,
+};
 use crate::jobs::types::{JobItem, JobStatus, JobType, JobVerificationStatus};
 use crate::jobs::Job;
 
-pub const METADATA_FETCH_FROM_TESTS: &str = "FETCH_FROM_TESTS";
+use super::constants::{
+    JOB_METADATA_STATE_UPDATE_ATTEMPT_PREFIX, JOB_METADATA_STATE_UPDATE_LAST_FAILED_BLOCK_NO,
+    JOB_PROCESS_ATTEMPT_METADATA_KEY,
+};
 
 lazy_static! {
     pub static ref CURRENT_PATH: PathBuf = std::env::current_dir().unwrap();
@@ -46,26 +51,42 @@ impl Job for StateUpdateJob {
         })
     }
 
-    async fn process_job(&self, config: &Config, job: &JobItem) -> Result<String> {
+    async fn process_job(&self, config: &Config, job: &mut JobItem) -> Result<String> {
+        let attempt_no =
+            job.metadata.get(JOB_PROCESS_ATTEMPT_METADATA_KEY).expect("Could not find current attempt number.").clone();
+
         // TODO: remove when SNOS is correctly stored in DB/S3
-        // Test metadata to fetch the snos output from the test folder
-        let fetch_from_tests = job.metadata.get(METADATA_FETCH_FROM_TESTS).map_or(false, |value| value == "TRUE");
+        // Test metadata to fetch the snos output from the test folder, default to False
+        let fetch_from_tests =
+            job.metadata.get(JOB_METADATA_STATE_UPDATE_FETCH_FROM_TESTS).map_or(false, |value| value == "TRUE");
 
         // Read the metadata to get the blocks for which state update will be performed.
         // We assume that blocks nbrs are formatted as follow: "2,3,4,5,6".
         let block_numbers = self.get_block_numbers_from_metadata(job)?;
         self.validate_block_numbers(config, &block_numbers).await?;
 
-        let mut last_tx_hash: Option<String> = None;
+        let mut sent_tx_hashes: Vec<String> = Vec::with_capacity(block_numbers.len());
         for block_no in block_numbers.iter() {
             let snos = self.fetch_snos_for_block(*block_no, Some(fetch_from_tests)).await;
-            last_tx_hash = Some(self.update_state_for_block(config, *block_no, snos, Some(fetch_from_tests)).await?);
+            let tx_hash = self.update_state_for_block(config, *block_no, snos, Some(fetch_from_tests)).await?;
+            sent_tx_hashes.push(tx_hash);
         }
 
-        if let Some(tx_hash) = last_tx_hash {
-            Ok(tx_hash)
+        // Insert the tx hashes into the the metadata for the attempt number - will be used later by
+        // verify_job to make sure that all tx are successful.
+        let new_attempt_metadata_key = format!("{}{}", JOB_METADATA_STATE_UPDATE_ATTEMPT_PREFIX, attempt_no);
+        job.metadata.insert(new_attempt_metadata_key, sent_tx_hashes.join(","));
+
+        if sent_tx_hashes.len() == block_numbers.len() {
+            // Return the last block number that should be settled as external_id
+            // (Safe unwrap since block numbers have been validated)
+            Ok(block_numbers.last().unwrap().to_string())
         } else {
-            return Err(eyre!("No settlement TX executed (state update job #{})", job.internal_id));
+            return Err(eyre!(
+                "[Attempt #{}] Not enough settlement TX sent (state update job #{})",
+                attempt_no,
+                job.internal_id
+            ));
         }
     }
 
@@ -73,35 +94,67 @@ impl Job for StateUpdateJob {
     /// Status will be verified if:
     /// 1. the last settlement tx hash is successful,
     /// 2. the expected last settled block from our configuration is indeed the one found in the provider.
-    async fn verify_job(&self, config: &Config, job: &JobItem) -> Result<JobVerificationStatus> {
+    async fn verify_job(&self, config: &Config, job: &mut JobItem) -> Result<JobVerificationStatus> {
+        let attempt_no =
+            job.metadata.get(JOB_PROCESS_ATTEMPT_METADATA_KEY).expect("Could not find current attempt number.").clone();
+        let metadata_tx_hashes = job
+            .metadata
+            .get(&format!("{}{}", JOB_METADATA_STATE_UPDATE_ATTEMPT_PREFIX, attempt_no))
+            .expect("Could not find tx hashes metadata for the current attempt")
+            .clone()
+            .replace(' ', "");
+
+        let tx_hashes: Vec<&str> = metadata_tx_hashes.split(',').collect();
+        let block_numbers = self.get_block_numbers_from_metadata(job)?;
         let settlement_client = config.settlement_client();
 
-        // external_id corresponds to the last tx executed by the job
-        let last_settlement_tx: String = job.external_id.unwrap_string()?.into();
-        let block_numbers = self.get_block_numbers_from_metadata(job)?;
-        let last_block_number = block_numbers.last().expect("Block numbers list should not be empty.");
-
-        // check that the last tx is successful
-        let tx_inclusion_status = settlement_client.verify_tx_inclusion(&last_settlement_tx).await?;
-        if tx_inclusion_status != SettlementVerificationStatus::Verified {
-            return Ok(tx_inclusion_status.into());
+        for (block_idx, tx_hash) in tx_hashes.iter().enumerate() {
+            let tx_inclusion_status = settlement_client.verify_tx_inclusion(tx_hash).await?;
+            match tx_inclusion_status {
+                SettlementVerificationStatus::Rejected(_) => {
+                    job.metadata.insert(
+                        JOB_METADATA_STATE_UPDATE_LAST_FAILED_BLOCK_NO.into(),
+                        block_numbers[block_idx].to_string(),
+                    );
+                    return Ok(tx_inclusion_status.into());
+                }
+                SettlementVerificationStatus::Pending => {
+                    settlement_client.wait_for_tx_finality(tx_hash).await?;
+                    let new_status = settlement_client.verify_tx_inclusion(tx_hash).await?;
+                    match new_status {
+                        SettlementVerificationStatus::Rejected(_) => {
+                            job.metadata.insert(
+                                JOB_METADATA_STATE_UPDATE_LAST_FAILED_BLOCK_NO.into(),
+                                block_numbers[block_idx].to_string(),
+                            );
+                            return Ok(new_status.into());
+                        }
+                        SettlementVerificationStatus::Pending => {
+                            return Err(eyre!("Tx {tx_hash} should not be pending."))
+                        }
+                        SettlementVerificationStatus::Verified => {}
+                    }
+                }
+                SettlementVerificationStatus::Verified => {}
+            }
         }
-
         // verify that the last settled block is indeed the one we expect to be
-        let last_settled_block = settlement_client.get_last_settled_block().await?;
-        let block_status = if *last_block_number == last_settled_block {
+        let expected_last_block_number = block_numbers.last().expect("Block numbers list should not be empty.");
+
+        let out_last_block_number = settlement_client.get_last_settled_block().await?;
+        let block_status = if out_last_block_number == *expected_last_block_number {
             SettlementVerificationStatus::Verified
         } else {
             SettlementVerificationStatus::Rejected(format!(
                 "Last settle bock expected was {} but found {}",
-                last_block_number, last_settled_block
+                expected_last_block_number, out_last_block_number
             ))
         };
         Ok(block_status.into())
     }
 
     fn max_process_attempts(&self) -> u64 {
-        1
+        5
     }
 
     fn max_verification_attempts(&self) -> u64 {

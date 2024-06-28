@@ -3,25 +3,27 @@ pub mod config;
 pub mod conversion;
 pub mod types;
 
+use std::{str::FromStr, sync::Arc};
+
 use alloy::{
     network::EthereumWallet,
     primitives::{Address, B256, U256},
-    providers::{Provider, ProviderBuilder},
+    providers::{PendingTransactionConfig, Provider, ProviderBuilder},
     rpc::types::TransactionReceipt,
     signers::local::PrivateKeySigner,
 };
 use async_trait::async_trait;
 use color_eyre::Result;
-use config::EthereumSettlementConfig;
-use conversion::{slice_slice_u8_to_vec_u256, slice_u8_to_u256};
 use mockall::{automock, predicate::*};
+
 use settlement_client_interface::{SettlementClient, SettlementVerificationStatus, SETTLEMENT_SETTINGS_NAME};
-use std::{str::FromStr, sync::Arc};
-use types::EthHttpProvider;
 use utils::{env_utils::get_env_var_or_panic, settings::SettingsProvider};
 
 use crate::clients::interfaces::validity_interface::StarknetValidityContractTrait;
 use crate::clients::StarknetValidityContractClient;
+use crate::config::EthereumSettlementConfig;
+use crate::conversion::{slice_slice_u8_to_vec_u256, slice_u8_to_u256};
+use crate::types::EthHttpProvider;
 
 pub const ENV_PRIVATE_KEY: &str = "ETHEREUM_PRIVATE_KEY";
 
@@ -82,28 +84,30 @@ impl SettlementClient for EthereumSettlementClient {
         Ok(format!("0x{:x}", tx_receipt.transaction_hash))
     }
 
-    /// Should be used to check that the last settlement tx has been successful
-    async fn verify_tx_inclusion(&self, last_settlement_tx_hash: &str) -> Result<SettlementVerificationStatus> {
-        let tx_hash = B256::from_str(last_settlement_tx_hash)?;
+    /// Should verify the inclusion of a tx in the settlement layer
+    async fn verify_tx_inclusion(&self, tx_hash: &str) -> Result<SettlementVerificationStatus> {
+        let tx_hash = B256::from_str(tx_hash)?;
         let maybe_tx_status: Option<TransactionReceipt> = self.provider.get_transaction_receipt(tx_hash).await?;
         match maybe_tx_status {
             Some(tx_status) => {
                 if tx_status.status() {
                     Ok(SettlementVerificationStatus::Verified)
                 } else {
-                    Ok(SettlementVerificationStatus::Rejected(format!(
-                        "Tx has been rejected: {}",
-                        last_settlement_tx_hash
-                    )))
+                    Ok(SettlementVerificationStatus::Pending)
                 }
             }
-            None => Ok(SettlementVerificationStatus::Rejected(format!(
-                "Could not find status of settlement tx: {}",
-                last_settlement_tx_hash
-            ))),
+            None => Ok(SettlementVerificationStatus::Rejected(format!("Could not find status of tx: {}", tx_hash))),
         }
     }
 
+    /// Wait for a pending tx to achieve finality
+    async fn wait_for_tx_finality(&self, tx_hash: &str) -> Result<()> {
+        let tx_hash = B256::from_str(tx_hash)?;
+        self.provider.watch_pending_transaction(PendingTransactionConfig::new(tx_hash)).await?;
+        Ok(())
+    }
+
+    /// Get the last block settled through the core contract
     async fn get_last_settled_block(&self) -> Result<u64> {
         let block_number = self.core_contract_client.state_block_number().await?;
         Ok(block_number.try_into()?)

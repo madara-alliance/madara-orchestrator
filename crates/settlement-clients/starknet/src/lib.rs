@@ -20,14 +20,15 @@ use starknet::{
     providers::{jsonrpc::HttpTransport, JsonRpcClient},
     signers::{LocalWallet, SigningKey},
 };
+use tokio::time::{sleep, Duration};
 
-use config::StarknetSettlementConfig;
-use conversion::{slice_slice_u8_to_vec_field, slice_u8_to_field};
 use settlement_client_interface::{SettlementClient, SettlementVerificationStatus, SETTLEMENT_SETTINGS_NAME};
 use utils::env_utils::get_env_var_or_panic;
 use utils::settings::SettingsProvider;
 
-#[allow(unused)]
+use crate::config::StarknetSettlementConfig;
+use crate::conversion::{slice_slice_u8_to_vec_field, slice_u8_to_field};
+
 pub struct StarknetSettlementClient {
     pub account: SingleOwnerAccount<Arc<JsonRpcClient<HttpTransport>>, LocalWallet>,
     pub core_contract_address: FieldElement,
@@ -35,6 +36,8 @@ pub struct StarknetSettlementClient {
 
 pub const ENV_PUBLIC_KEY: &str = "STARKNET_PUBLIC_KEY";
 pub const ENV_PRIVATE_KEY: &str = "STARKNET_PRIVATE_KEY";
+
+const MAX_RETRIES_VERIFY_TX_FINALITY: usize = 10;
 
 // Assumed the contract called for settlement l ooks like:
 // https://github.com/keep-starknet-strange/piltover
@@ -125,26 +128,47 @@ impl SettlementClient for StarknetSettlementClient {
         !unimplemented!("not available for starknet settlement layer")
     }
 
-    /// Should be used to check that the last settlement tx has been successful
-    async fn verify_tx_inclusion(&self, last_settlement_tx_hash: &str) -> Result<SettlementVerificationStatus> {
-        let tx_hash = FieldElement::from_hex_be(last_settlement_tx_hash)?;
+    /// Should verify the inclusion of a tx in the settlement layer
+    async fn verify_tx_inclusion(&self, tx_hash: &str) -> Result<SettlementVerificationStatus> {
+        let tx_hash = FieldElement::from_hex_be(tx_hash)?;
         let tx_receipt = self.account.provider().get_transaction_receipt(tx_hash).await?;
         match tx_receipt {
             MaybePendingTransactionReceipt::Receipt(tx) => match tx.execution_result() {
                 ExecutionResult::Succeeded => Ok(SettlementVerificationStatus::Verified),
-                ExecutionResult::Reverted { reason } => Ok(SettlementVerificationStatus::Rejected(format!(
-                    "Last settlement tx {} has been reverted: {}",
-                    last_settlement_tx_hash, reason
-                ))),
+                ExecutionResult::Reverted { reason } => {
+                    Ok(SettlementVerificationStatus::Rejected(format!("Tx {} has been reverted: {}", tx_hash, reason)))
+                }
             },
             MaybePendingTransactionReceipt::PendingReceipt(tx) => match tx.execution_result() {
                 ExecutionResult::Succeeded => Ok(SettlementVerificationStatus::Pending),
                 ExecutionResult::Reverted { reason } => Ok(SettlementVerificationStatus::Rejected(format!(
                     "Pending tx {} has been reverted: {}",
-                    last_settlement_tx_hash, reason
+                    tx_hash, reason
                 ))),
             },
         }
+    }
+
+    /// Wait for a pending tx to achieve finality
+    async fn wait_for_tx_finality(&self, tx_hash: &str) -> Result<()> {
+        let mut retries = 0;
+        // TODO: time to wait should be configurable in SettlementConfig?
+        sleep(Duration::from_secs(5)).await;
+
+        let tx_hash = FieldElement::from_hex_be(tx_hash)?;
+        loop {
+            let tx_receipt = self.account.provider().get_transaction_receipt(tx_hash).await?;
+            if let MaybePendingTransactionReceipt::PendingReceipt(_) = tx_receipt {
+                sleep(Duration::from_secs(5)).await;
+                retries += 1;
+                if retries > MAX_RETRIES_VERIFY_TX_FINALITY {
+                    return Err(eyre!("Max retries exceeeded while waiting for tx {tx_hash} finality."));
+                }
+            } else {
+                break;
+            }
+        }
+        Ok(())
     }
 
     /// Returns the last block settled from the core contract.

@@ -40,7 +40,7 @@ impl Job for ProvingJob {
         })
     }
 
-    async fn process_job(&self, config: &Config, job: &JobItem) -> Result<String> {
+    async fn process_job(&self, config: &Config, job: &mut JobItem) -> Result<String> {
         // TODO: allow to donwload PIE from S3
         let cairo_pie_path: PathBuf = job
             .metadata
@@ -52,7 +52,7 @@ impl Job for ProvingJob {
         Ok(external_id)
     }
 
-    async fn verify_job(&self, config: &Config, job: &JobItem) -> Result<JobVerificationStatus> {
+    async fn verify_job(&self, config: &Config, job: &mut JobItem) -> Result<JobVerificationStatus> {
         let task_id: String = job.external_id.unwrap_string()?.into();
         match config.prover_client().get_task_status(&task_id).await? {
             TaskStatus::Processing => Ok(JobVerificationStatus::Pending),

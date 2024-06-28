@@ -69,10 +69,10 @@ async fn test_process_job() {
     metadata.insert(String::from("FETCH_FROM_TESTS"), String::from("TRUE"));
     metadata.insert(String::from(JOB_METADATA_STATE_UPDATE_BLOCKS_TO_SETTLE_KEY), block_numbers.join(","));
 
-    let job = StateUpdateJob.create_job(&config, String::from("internal_id"), metadata).await.unwrap();
+    let mut job = StateUpdateJob.create_job(&config, String::from("internal_id"), metadata).await.unwrap();
     // TODO: "task_id" should be replaced
     assert_eq!(
-        StateUpdateJob.process_job(&config, &job).await.unwrap(),
+        StateUpdateJob.process_job(&config, &mut job).await.unwrap(),
         "0x5d17fac98d9454030426606019364f6e68d915b91f6210ef1e2628cd6987442".to_string()
     )
 }
@@ -100,8 +100,8 @@ async fn test_process_job_invalid_inputs(#[case] block_numbers_to_settle: String
     let mut metadata: HashMap<String, String> = HashMap::new();
     metadata.insert(String::from(JOB_METADATA_STATE_UPDATE_BLOCKS_TO_SETTLE_KEY), block_numbers_to_settle);
 
-    let job = StateUpdateJob.create_job(&config, String::from("internal_id"), metadata).await.unwrap();
-    let status = StateUpdateJob.process_job(&config, &job).await;
+    let mut job = StateUpdateJob.create_job(&config, String::from("internal_id"), metadata).await.unwrap();
+    let status = StateUpdateJob.process_job(&config, &mut job).await;
     assert!(status.is_err());
 
     if let Err(error) = status {
@@ -136,8 +136,8 @@ async fn test_process_job_invalid_input_gap() {
     let mut metadata: HashMap<String, String> = HashMap::new();
     metadata.insert(String::from(JOB_METADATA_STATE_UPDATE_BLOCKS_TO_SETTLE_KEY), String::from("6, 7, 8"));
 
-    let job = StateUpdateJob.create_job(&config, String::from("internal_id"), metadata).await.unwrap();
-    let _ = StateUpdateJob.process_job(&config, &job).await.unwrap();
+    let mut job = StateUpdateJob.create_job(&config, String::from("internal_id"), metadata).await.unwrap();
+    let _ = StateUpdateJob.process_job(&config, &mut job).await.unwrap();
 }
 
 // ==================== Utility functions ===========================

@@ -36,12 +36,12 @@ async fn test_create_job() {
 
 #[rstest]
 #[tokio::test]
-async fn test_verify_job(#[from(default_job_item)] job_item: JobItem) {
+async fn test_verify_job(#[from(default_job_item)] mut job_item: JobItem) {
     let mut prover_client = MockProverClient::new();
     prover_client.expect_get_task_status().times(1).returning(|_| Ok(TaskStatus::Succeeded));
 
     let config = init_config(None, None, None, None, Some(prover_client), None).await;
-    assert!(ProvingJob.verify_job(&config, &job_item).await.is_ok());
+    assert!(ProvingJob.verify_job(&config, &mut job_item).await.is_ok());
 }
 
 #[rstest]
@@ -62,7 +62,7 @@ async fn test_process_job() {
         ProvingJob
             .process_job(
                 &config,
-                &JobItem {
+                &mut JobItem {
                     id: Uuid::default(),
                     internal_id: "0".into(),
                     job_type: JobType::ProofCreation,
