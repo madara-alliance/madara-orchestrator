@@ -26,6 +26,7 @@ use crate::jobs::constants::{
 use crate::jobs::types::{JobItem, JobStatus, JobType, JobVerificationStatus};
 use crate::jobs::Job;
 
+// TODO: remove when data is correctly stored in DB/S3
 lazy_static! {
     pub static ref CURRENT_PATH: PathBuf = std::env::current_dir().unwrap();
 }
@@ -109,14 +110,11 @@ impl Job for StateUpdateJob {
         let block_numbers = self.get_block_numbers_from_metadata(job)?;
         let settlement_client = config.settlement_client();
 
-        for (block_idx, tx_hash) in tx_hashes.iter().enumerate() {
+        for (tx_hash, block_no) in tx_hashes.iter().zip(block_numbers.iter()) {
             let tx_inclusion_status = settlement_client.verify_tx_inclusion(tx_hash).await?;
             match tx_inclusion_status {
                 SettlementVerificationStatus::Rejected(_) => {
-                    job.metadata.insert(
-                        JOB_METADATA_STATE_UPDATE_LAST_FAILED_BLOCK_NO.into(),
-                        block_numbers[block_idx].to_string(),
-                    );
+                    job.metadata.insert(JOB_METADATA_STATE_UPDATE_LAST_FAILED_BLOCK_NO.into(), block_no.to_string());
                     return Ok(tx_inclusion_status.into());
                 }
                 SettlementVerificationStatus::Pending => {
@@ -124,10 +122,8 @@ impl Job for StateUpdateJob {
                     let new_status = settlement_client.verify_tx_inclusion(tx_hash).await?;
                     match new_status {
                         SettlementVerificationStatus::Rejected(_) => {
-                            job.metadata.insert(
-                                JOB_METADATA_STATE_UPDATE_LAST_FAILED_BLOCK_NO.into(),
-                                block_numbers[block_idx].to_string(),
-                            );
+                            job.metadata
+                                .insert(JOB_METADATA_STATE_UPDATE_LAST_FAILED_BLOCK_NO.into(), block_no.to_string());
                             return Ok(new_status.into());
                         }
                         SettlementVerificationStatus::Pending => {
