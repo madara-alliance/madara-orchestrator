@@ -1,17 +1,23 @@
-use lazy_static::lazy_static;
-use settlement_client_interface::SettlementVerificationStatus;
 use std::collections::HashMap;
 use std::path::PathBuf;
-use utils::collections::{has_dup, is_sorted};
 
 use async_trait::async_trait;
 use cairo_vm::Felt252;
 use color_eyre::eyre::eyre;
 use color_eyre::Result;
+use lazy_static::lazy_static;
 use snos::io::output::StarknetOsOutput;
 use starknet::providers::Provider;
 use starknet_core::types::{BlockId, MaybePendingStateUpdate};
 use uuid::Uuid;
+
+use settlement_client_interface::SettlementVerificationStatus;
+use utils::collections::{has_dup, is_sorted};
+
+use super::constants::{
+    JOB_METADATA_STATE_UPDATE_ATTEMPT_PREFIX, JOB_METADATA_STATE_UPDATE_LAST_FAILED_BLOCK_NO,
+    JOB_PROCESS_ATTEMPT_METADATA_KEY,
+};
 
 use crate::config::Config;
 use crate::jobs::constants::{
@@ -19,11 +25,6 @@ use crate::jobs::constants::{
 };
 use crate::jobs::types::{JobItem, JobStatus, JobType, JobVerificationStatus};
 use crate::jobs::Job;
-
-use super::constants::{
-    JOB_METADATA_STATE_UPDATE_ATTEMPT_PREFIX, JOB_METADATA_STATE_UPDATE_LAST_FAILED_BLOCK_NO,
-    JOB_PROCESS_ATTEMPT_METADATA_KEY,
-};
 
 lazy_static! {
     pub static ref CURRENT_PATH: PathBuf = std::env::current_dir().unwrap();
