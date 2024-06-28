@@ -7,7 +7,10 @@ use std::{collections::HashMap, fs};
 use super::super::common::init_config;
 
 use crate::jobs::{
-    constants::JOB_METADATA_STATE_UPDATE_BLOCKS_TO_SETTLE_KEY,
+    constants::{
+        JOB_METADATA_STATE_UPDATE_BLOCKS_TO_SETTLE_KEY, JOB_METADATA_STATE_UPDATE_FETCH_FROM_TESTS,
+        JOB_PROCESS_ATTEMPT_METADATA_KEY,
+    },
     state_update_job::StateUpdateJob,
     types::{JobStatus, JobType},
     Job,
@@ -66,15 +69,13 @@ async fn test_process_job() {
     .await;
 
     let mut metadata: HashMap<String, String> = HashMap::new();
-    metadata.insert(String::from("FETCH_FROM_TESTS"), String::from("TRUE"));
+    metadata.insert(String::from(JOB_METADATA_STATE_UPDATE_FETCH_FROM_TESTS), String::from("TRUE"));
     metadata.insert(String::from(JOB_METADATA_STATE_UPDATE_BLOCKS_TO_SETTLE_KEY), block_numbers.join(","));
+    metadata.insert(String::from(JOB_PROCESS_ATTEMPT_METADATA_KEY), String::from("0"));
 
     let mut job = StateUpdateJob.create_job(&config, String::from("internal_id"), metadata).await.unwrap();
     // TODO: "task_id" should be replaced
-    assert_eq!(
-        StateUpdateJob.process_job(&config, &mut job).await.unwrap(),
-        "0x5d17fac98d9454030426606019364f6e68d915b91f6210ef1e2628cd6987442".to_string()
-    )
+    assert_eq!(StateUpdateJob.process_job(&config, &mut job).await.unwrap(), "651056".to_string())
 }
 
 #[rstest]
@@ -99,6 +100,7 @@ async fn test_process_job_invalid_inputs(#[case] block_numbers_to_settle: String
 
     let mut metadata: HashMap<String, String> = HashMap::new();
     metadata.insert(String::from(JOB_METADATA_STATE_UPDATE_BLOCKS_TO_SETTLE_KEY), block_numbers_to_settle);
+    metadata.insert(String::from(JOB_PROCESS_ATTEMPT_METADATA_KEY), String::from("0"));
 
     let mut job = StateUpdateJob.create_job(&config, String::from("internal_id"), metadata).await.unwrap();
     let status = StateUpdateJob.process_job(&config, &mut job).await;
@@ -135,6 +137,7 @@ async fn test_process_job_invalid_input_gap() {
 
     let mut metadata: HashMap<String, String> = HashMap::new();
     metadata.insert(String::from(JOB_METADATA_STATE_UPDATE_BLOCKS_TO_SETTLE_KEY), String::from("6, 7, 8"));
+    metadata.insert(String::from(JOB_PROCESS_ATTEMPT_METADATA_KEY), String::from("0"));
 
     let mut job = StateUpdateJob.create_job(&config, String::from("internal_id"), metadata).await.unwrap();
     let _ = StateUpdateJob.process_job(&config, &mut job).await.unwrap();
