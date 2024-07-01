@@ -79,17 +79,8 @@ impl Job for StateUpdateJob {
         let new_attempt_metadata_key = format!("{}{}", JOB_METADATA_STATE_UPDATE_ATTEMPT_PREFIX, attempt_no);
         job.metadata.insert(new_attempt_metadata_key, sent_tx_hashes.join(","));
 
-        if sent_tx_hashes.len() == block_numbers.len() {
-            // Return the last block number that should be settled as external_id
-            // (Safe unwrap since block numbers have been validated)
-            Ok(block_numbers.last().unwrap().to_string())
-        } else {
-            return Err(eyre!(
-                "[Attempt #{}] Not enough settlement TX sent (state update job #{})",
-                attempt_no,
-                job.internal_id
-            ));
-        }
+        // external_id returned corresponds to the last block number settled
+        Ok(block_numbers.last().unwrap().to_string())
     }
 
     /// Returns the status of the passed job.

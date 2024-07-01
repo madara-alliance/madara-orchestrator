@@ -83,17 +83,7 @@ impl Database for MongoDb {
         Ok(self.get_job_collection().find_one(filter, None).await?)
     }
 
-    async fn update_job_status(&self, job: &JobItem, new_status: JobStatus) -> Result<()> {
-        let update = doc! {
-            "$set": {
-                "status": mongodb::bson::to_bson(&new_status)?,
-            }
-        };
-        self.update_job_optimistically(job, update).await?;
-        Ok(())
-    }
-
-    async fn update_external_id_and_status_and_metadata(
+    async fn update_job(
         &self,
         job: &JobItem,
         external_id: String,
@@ -102,9 +92,21 @@ impl Database for MongoDb {
     ) -> Result<()> {
         let update = doc! {
             "$set": {
+                "internal_id": &job.internal_id,
+                "job_type": mongodb::bson::to_bson(&job.job_type)?,
                 "status": mongodb::bson::to_bson(&new_status)?,
                 "external_id": external_id,
-                "metadata":  mongodb::bson::to_document(&metadata)?
+                "metadata": mongodb::bson::to_document(&metadata)?
+            }
+        };
+        self.update_job_optimistically(job, update).await?;
+        Ok(())
+    }
+
+    async fn update_job_status(&self, job: &JobItem, new_status: JobStatus) -> Result<()> {
+        let update = doc! {
+            "$set": {
+                "status": mongodb::bson::to_bson(&new_status)?,
             }
         };
         self.update_job_optimistically(job, update).await?;
