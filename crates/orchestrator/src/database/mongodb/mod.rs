@@ -83,17 +83,8 @@ impl Database for MongoDb {
         Ok(self.get_job_collection().find_one(filter, None).await?)
     }
 
-    async fn update_job(
-        &self,
-        job: &JobItem,
-        external_id: String,
-        new_status: JobStatus,
-        metadata: HashMap<String, String>,
-    ) -> Result<()> {
-        let mut job_doc = bson::to_document(job)?;
-        job_doc.insert("external_id", external_id);
-        job_doc.insert("status", bson::to_bson(&new_status)?);
-        job_doc.insert("metadata", bson::to_document(&metadata)?);
+    async fn update_job(&self, job: &JobItem) -> Result<()> {
+        let job_doc = bson::to_document(job)?;
         let update = doc! {
             "$set": job_doc
         };
