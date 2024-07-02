@@ -59,7 +59,7 @@ impl SettlementClient for EthereumSettlementClient {
     /// which can be used to track the status.
     #[allow(unused)]
     async fn register_proof(&self, proof: [u8; 32]) -> Result<String> {
-        Ok("external_id".to_string())
+        todo!("register_proof is not implemented yet")
     }
 
     /// Should be used to update state on core contract when DA is done in calldata

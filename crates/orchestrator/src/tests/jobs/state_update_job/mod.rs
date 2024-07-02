@@ -27,8 +27,8 @@ async fn test_create_job() {
     assert!(job.is_ok());
 
     let job = job.unwrap();
-
     let job_type = job.job_type;
+
     assert_eq!(job_type, JobType::StateTransition, "job_type should be StateTransition");
     assert!(!(job.id.is_nil()), "id should not be nil");
     assert_eq!(job.status, JobStatus::Created, "status should be Created");
@@ -74,7 +74,6 @@ async fn test_process_job() {
     metadata.insert(String::from(JOB_PROCESS_ATTEMPT_METADATA_KEY), String::from("0"));
 
     let mut job = StateUpdateJob.create_job(&config, String::from("internal_id"), metadata).await.unwrap();
-    // TODO: "task_id" should be replaced
     assert_eq!(StateUpdateJob.process_job(&config, &mut job).await.unwrap(), "651056".to_string())
 }
 

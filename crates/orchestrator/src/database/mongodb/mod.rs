@@ -90,14 +90,12 @@ impl Database for MongoDb {
         new_status: JobStatus,
         metadata: HashMap<String, String>,
     ) -> Result<()> {
+        let mut job_doc = bson::to_document(job)?;
+        job_doc.insert("external_id", external_id);
+        job_doc.insert("status", bson::to_bson(&new_status)?);
+        job_doc.insert("metadata", bson::to_document(&metadata)?);
         let update = doc! {
-            "$set": {
-                "internal_id": &job.internal_id,
-                "job_type": mongodb::bson::to_bson(&job.job_type)?,
-                "status": mongodb::bson::to_bson(&new_status)?,
-                "external_id": external_id,
-                "metadata": mongodb::bson::to_document(&metadata)?
-            }
+            "$set": job_doc
         };
         self.update_job_optimistically(job, update).await?;
         Ok(())

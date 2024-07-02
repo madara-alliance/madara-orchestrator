@@ -64,20 +64,29 @@ impl Job for StateUpdateJob {
 
         // Read the metadata to get the blocks for which state update will be performed.
         // We assume that blocks nbrs are formatted as follow: "2,3,4,5,6".
-        let block_numbers = self.get_block_numbers_from_metadata(job)?;
+        let mut block_numbers = self.get_block_numbers_from_metadata(job)?;
         self.validate_block_numbers(config, &block_numbers).await?;
+
+        // If we had a block state update failing last run, we recover from this block
+        if let Some(last_failed_block) = job.metadata.get(JOB_METADATA_STATE_UPDATE_LAST_FAILED_BLOCK_NO) {
+            let last_failed_block: u64 =
+                last_failed_block.parse().expect("last_failed_block should be a positive number");
+            block_numbers = block_numbers.into_iter().filter(|&block| block >= last_failed_block).collect::<Vec<u64>>();
+        }
 
         let mut sent_tx_hashes: Vec<String> = Vec::with_capacity(block_numbers.len());
         for block_no in block_numbers.iter() {
             let snos = self.fetch_snos_for_block(*block_no, Some(fetch_from_tests)).await;
-            let tx_hash = self.update_state_for_block(config, *block_no, snos, Some(fetch_from_tests)).await?;
+            let tx_hash =
+                self.update_state_for_block(config, *block_no, snos, Some(fetch_from_tests)).await.map_err(|e| {
+                    job.metadata.insert(JOB_METADATA_STATE_UPDATE_LAST_FAILED_BLOCK_NO.into(), block_no.to_string());
+                    self.insert_attempts_into_metadata(job, &attempt_no, &sent_tx_hashes);
+                    eyre!("Block #{block_no} - Error occured during the state update: {e}")
+                })?;
             sent_tx_hashes.push(tx_hash);
         }
 
-        // Insert the tx hashes into the the metadata for the attempt number - will be used later by
-        // verify_job to make sure that all tx are successful.
-        let new_attempt_metadata_key = format!("{}{}", JOB_METADATA_STATE_UPDATE_ATTEMPT_PREFIX, attempt_no);
-        job.metadata.insert(new_attempt_metadata_key, sent_tx_hashes.join(","));
+        self.insert_attempts_into_metadata(job, &attempt_no, &sent_tx_hashes);
 
         // external_id returned corresponds to the last block number settled
         Ok(block_numbers.last().unwrap().to_string())
@@ -142,11 +151,11 @@ impl Job for StateUpdateJob {
     }
 
     fn max_process_attempts(&self) -> u64 {
-        5
+        1
     }
 
     fn max_verification_attempts(&self) -> u64 {
-        1
+        10
     }
 
     fn verification_polling_delay_seconds(&self) -> u64 {
@@ -255,5 +264,12 @@ impl StateUpdateJob {
             false => unimplemented!("can't fetch KZG Proof from DB/S3"),
         };
         hex::decode(kzg_proof_str).expect("Invalid test kzg proof")
+    }
+
+    /// Insert the tx hashes into the the metadata for the attempt number - will be used later by
+    /// verify_job to make sure that all tx are successful.
+    fn insert_attempts_into_metadata(&self, job: &mut JobItem, attempt_no: &str, tx_hashes: &[String]) {
+        let new_attempt_metadata_key = format!("{}{}", JOB_METADATA_STATE_UPDATE_ATTEMPT_PREFIX, attempt_no);
+        job.metadata.insert(new_attempt_metadata_key, tx_hashes.join(","));
     }
 }
