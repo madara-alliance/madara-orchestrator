@@ -32,7 +32,7 @@ use crate::conversion::{slice_slice_u8_to_vec_field, slice_u8_to_field};
 pub struct StarknetSettlementClient {
     pub account: SingleOwnerAccount<Arc<JsonRpcClient<HttpTransport>>, LocalWallet>,
     pub core_contract_address: FieldElement,
-    pub tx_finality_retry_wait_in_seconds: u64,
+    pub tx_finality_retry_delay_in_seconds: u64,
 }
 
 pub const ENV_PUBLIC_KEY: &str = "STARKNET_PUBLIC_KEY";
@@ -70,7 +70,7 @@ impl StarknetSettlementClient {
         StarknetSettlementClient {
             account,
             core_contract_address,
-            tx_finality_retry_wait_in_seconds: settlement_cfg.tx_finality_retry_wait_in_seconds,
+            tx_finality_retry_delay_in_seconds: settlement_cfg.tx_finality_retry_delay_in_seconds,
         }
     }
 }
@@ -157,7 +157,7 @@ impl SettlementClient for StarknetSettlementClient {
     /// Wait for a pending tx to achieve finality
     async fn wait_for_tx_finality(&self, tx_hash: &str) -> Result<()> {
         let mut retries = 0;
-        let duration_to_wait_between_polling = Duration::from_secs(self.tx_finality_retry_wait_in_seconds);
+        let duration_to_wait_between_polling = Duration::from_secs(self.tx_finality_retry_delay_in_seconds);
         sleep(duration_to_wait_between_polling).await;
 
         let tx_hash = FieldElement::from_hex_be(tx_hash)?;
