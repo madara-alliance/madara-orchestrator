@@ -92,11 +92,13 @@ impl DaClient for AvailDaClient {
     }
 
     async fn max_blob_per_txn(&self) -> u64 {
-        todo!()
+        // TODO: Avail is not limited by the number of blobs per transaction.
+        6
     }
 
     async fn max_bytes_per_blob(&self) -> u64 {
-        todo!()
+        // TODO: Avail is not limited max bytes per blob. I got this number from Zksync hyperchain.
+        512 * 1024
     }
 }
 
