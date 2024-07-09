@@ -16,12 +16,9 @@ use subxt_signer::sr25519::{Keypair, SecretKeyBytes};
 use config::AvailDaConfig;
 use da_client_interface::{DaClient, DaVerificationStatus};
 
-use crate::conversion::get_bytes_from_state_diff;
-
 type AvailSigner = Keypair;
 
 pub mod config;
-pub mod conversion;
 
 pub struct AvailDaClient {
     client: AvailClient,
@@ -43,13 +40,13 @@ impl DaClient for AvailDaClient {
         let tx_progress = submit_data_with_nonce(&client, &signer, &data, &self.app_id, nonce)
             .await.expect("Failed to submit data.");
 
-
+        // Must wait here to get the block hash of the transaction.
         let block_hash = tx::then_in_block(tx_progress)
             .await
             .expect("Failed to get block hash.")
             .block_hash();
 
-        // Return the statediff hash and block hash, since there is no way to get the extrinsic with extrinsic hash.
+        // Return the statediff hash and block hash, since there is no way to get the transaction with extrinsic hash.
         Ok(format!("{}:{}", state_diff_hash.to_string(), block_hash.to_string()))
     }
 
@@ -74,9 +71,9 @@ impl DaClient for AvailDaClient {
         let mut tx_idx = 0;
         let da_submissions = extrinsics.find::<SubmitData>();
         let mut found = false;
-        for ext in extrinsics.iter() {
-            let ext = ext?;
-            let call = ext.as_extrinsic::<SubmitData>();
+        for da_submission in da_submissions {
+            let da_submission = da_submission?;
+            let call = da_submission.as_extrinsic::<SubmitData>();
             if let Ok(Some(call)) = call {
 
                 if data_hash.to_string() == sha2_256(call.data.0).into().to_string() {
@@ -110,6 +107,10 @@ pub fn try_create_avail_client(rpc_url: &str) -> eyre::Result<AvailClient> {
     Ok(client)
 }
 
+pub fn get_bytes_from_state_diff(state_diff: Vec<Vec<u8>>) -> Vec<u8> {
+    state_diff.into_iter().flatten().collect()
+}
+
 impl AvailDaClient {
     #[allow(dead_code)]
     fn from(config: AvailDaConfig) -> eyre::Result<Self> {
@@ -121,4 +122,6 @@ impl AvailDaClient {
 }
 
 #[cfg(test)]
-mod tests {}
+mod tests {
+
+}
