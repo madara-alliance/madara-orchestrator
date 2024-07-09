@@ -110,6 +110,7 @@ pub fn try_create_avail_client(rpc_url: &str) -> eyre::Result<AvailClient> {
 }
 
 pub fn get_bytes_from_state_diff(state_diff: Vec<Vec<u8>>) -> Vec<u8> {
+    // TODO: This is a dummy implementation. We need to implement a proper way to convert state diff to bytes.
     state_diff.into_iter().flatten().collect()
 }
 
