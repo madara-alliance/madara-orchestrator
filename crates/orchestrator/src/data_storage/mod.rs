@@ -1,5 +1,5 @@
-mod aws_s3;
-mod types;
+pub mod aws_s3;
+pub mod types;
 
 use async_trait::async_trait;
 use aws_sdk_s3::primitives::ByteStream;
@@ -14,6 +14,7 @@ use mockall::automock;
 ///     ----<block_number>
 ///         ----<snos_output.json>
 ///         ----<kzg.txt>
+///         ----<blob_data.txt>
 #[automock]
 #[async_trait]
 pub trait DataStorage: Send + Sync {

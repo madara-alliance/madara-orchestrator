@@ -1,3 +1,5 @@
+mod kzg;
+
 use std::collections::HashMap;
 use std::path::PathBuf;
 
@@ -23,6 +25,7 @@ use crate::config::Config;
 use crate::jobs::constants::{
     JOB_METADATA_STATE_UPDATE_BLOCKS_TO_SETTLE_KEY, JOB_METADATA_STATE_UPDATE_FETCH_FROM_TESTS,
 };
+use crate::jobs::state_update_job::kzg::build_kzg_proof;
 use crate::jobs::types::{JobItem, JobStatus, JobType, JobVerificationStatus};
 use crate::jobs::Job;
 
@@ -226,9 +229,7 @@ impl StateUpdateJob {
             let onchain_data_size = 0;
             settlement_client.update_state_calldata(program_output, onchain_data_hash, onchain_data_size).await?
         } else if snos.use_kzg_da == Felt252::ONE {
-            // TODO: Build the blob & the KZG proof & send them to update_state_blobs
-            let kzg_proof = self.fetch_kzg_proof_for_block(block_no, fetch_from_tests).await;
-            let kzg_proof: [u8; 48] = kzg_proof.try_into().expect("kzg proof size must be 48 bytes");
+            let kzg_proof = build_kzg_proof(block_no, fetch_from_tests).await?.to_owned();
             settlement_client.update_state_blobs(vec![], kzg_proof).await?
         } else {
             return Err(eyre!("Block #{} - SNOS error, [use_kzg_da] should be either 0 or 1.", block_no));
@@ -253,18 +254,19 @@ impl StateUpdateJob {
 
     /// Retrieves the KZG Proof for the corresponding block.
     /// TODO: remove the fetch_from_tests argument once we have proper fetching (db/s3)
-    async fn fetch_kzg_proof_for_block(&self, block_no: u64, fetch_from_tests: Option<bool>) -> Vec<u8> {
-        let fetch_from_tests = fetch_from_tests.unwrap_or(true);
-        let kzg_proof_str = match fetch_from_tests {
-            true => {
-                let kzg_path =
-                    CURRENT_PATH.join(format!("src/jobs/state_update_job/test_data/{}/kzg_proof.txt", block_no));
-                std::fs::read_to_string(kzg_path).expect("Failed to read the KZG txt file").replace("0x", "")
-            }
-            false => unimplemented!("can't fetch KZG Proof from DB/S3"),
-        };
-        hex::decode(kzg_proof_str).expect("Invalid test kzg proof")
-    }
+    /// No longer needed as we are building the proof during the state update job run
+    // async fn fetch_kzg_proof_for_block(&self, block_no: u64, fetch_from_tests: Option<bool>) -> Vec<u8> {
+    //     let fetch_from_tests = fetch_from_tests.unwrap_or(true);
+    //     let kzg_proof_str = match fetch_from_tests {
+    //         true => {
+    //             let kzg_path =
+    //                 CURRENT_PATH.join(format!("src/jobs/state_update_job/test_data/{}/kzg_proof.txt", block_no));
+    //             std::fs::read_to_string(kzg_path).expect("Failed to read the KZG txt file").replace("0x", "")
+    //         }
+    //         false => unimplemented!("can't fetch KZG Proof from DB/S3"),
+    //     };
+    //     hex::decode(kzg_proof_str).expect("Invalid test kzg proof")
+    // }
 
     /// Insert the tx hashes into the the metadata for the attempt number - will be used later by
     /// verify_job to make sure that all tx are successful.

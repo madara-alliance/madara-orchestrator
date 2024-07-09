@@ -4,6 +4,7 @@ use std::result::Result::{Err, Ok as OtherOk};
 use std::str::FromStr;
 
 use async_trait::async_trait;
+use aws_sdk_s3::primitives::ByteStream;
 use color_eyre::eyre::{eyre, Ok};
 use color_eyre::Result;
 use lazy_static::lazy_static;
@@ -18,6 +19,9 @@ use uuid::Uuid;
 use super::types::{JobItem, JobStatus, JobType, JobVerificationStatus};
 use super::Job;
 use crate::config::Config;
+use crate::data_storage::aws_s3::config::AWSS3Config;
+use crate::data_storage::aws_s3::AWSS3;
+use crate::data_storage::{DataStorage, DataStorageConfig};
 
 lazy_static! {
     /// EIP-4844 BLS12-381 modulus.
@@ -76,7 +80,7 @@ impl Job for DaJob {
             MaybePendingStateUpdate::Update(state_update) => state_update,
         };
         // constructing the data from the rpc
-        let blob_data = state_update_to_blob_data(block_no, state_update, config).await?;
+        let blob_data = state_update_to_blob_data(block_no, state_update, config, false).await?;
         // transforming the data so that we can apply FFT on this.
         // @note: we can skip this step if in the above step we return vec<BigUint> directly
         let blob_data_biguint = convert_to_biguint(blob_data.clone());
@@ -200,6 +204,7 @@ async fn state_update_to_blob_data(
     block_no: u64,
     state_update: StateUpdate,
     config: &Config,
+    test_mode: bool,
 ) -> Result<Vec<FieldElement>> {
     let state_diff = state_update.state_diff;
     let mut blob_data: Vec<FieldElement> = vec![
@@ -272,7 +277,29 @@ async fn state_update_to_blob_data(
         blob_data.push(*compiled_class_hash);
     }
 
+    // saving the blob data of the block to S3 bucket (if not running in test mod)
+    if !test_mode {
+        store_blob_data_s3(blob_data.clone(), block_no, config).await?;
+    }
+
     Ok(blob_data)
+}
+
+/// To store the blob data in S3 bucket with path <block_number>/blob_data.txt
+async fn store_blob_data_s3(blob_data: Vec<FieldElement>, block_number: u64, config: &Config) -> Result<()> {
+    let s3_client = AWSS3::new(AWSS3Config::new_from_env()).await;
+    let key = block_number.to_string() + "/blob_data.txt";
+    let data_blob_big_uint = convert_to_biguint(blob_data.clone());
+
+    // TODO : Figure out the approach when there are multiple blobs in blobs_array
+    let blobs_array = data_to_blobs(config.da_client().max_bytes_per_blob().await, data_blob_big_uint).unwrap();
+    let blob = blobs_array[0].clone();
+
+    if !blobs_array.is_empty() {
+        s3_client.put_data(ByteStream::from(blob), &key).await?;
+    }
+
+    Ok(())
 }
 
 /// DA word encoding:
@@ -382,7 +409,7 @@ mod tests {
         get_nonce_attached(&server, nonce_file_path);
 
         let state_update = read_state_update_from_file(state_update_file_path).expect("issue while reading");
-        let blob_data = state_update_to_blob_data(block_no, state_update, &config)
+        let blob_data = state_update_to_blob_data(block_no, state_update, &config, true)
             .await
             .expect("issue while converting state update to blob data");
 

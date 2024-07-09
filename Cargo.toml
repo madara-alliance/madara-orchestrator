@@ -28,6 +28,7 @@ alloy = { version = "0.1.2", features = ["full"] }
 axum = { version = "0.7.4" }
 axum-macros = "0.4.1"
 color-eyre = "0.6.2"
+c-kzg = "1.0.0"
 dotenvy = "0.15.7"
 futures = "0.3.30"
 mongodb = { version = "2.8.1" }
