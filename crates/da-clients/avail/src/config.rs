@@ -14,7 +14,7 @@ impl DaConfig for AvailDaConfig {
         Self {
             rpc_url: get_env_var_or_panic("AVAIL_RPC_URL"),
             app_id: get_env_var_or_panic("AVAIL_APP_ID"),
-            private_key: get_env_var_or_panic("PRIVATE_KEY"),
+            private_key: get_env_var_or_panic("AVAIL_PRIVATE_KEY"),
         }
     }
 }
