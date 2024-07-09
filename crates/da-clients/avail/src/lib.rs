@@ -115,7 +115,7 @@ impl AvailDaClient {
     fn from(config: AvailDaConfig) -> eyre::Result<Self> {
         let client = try_create_avail_client(&config.rpc_url).expect("Failed to parse AVAIL_RPC_URL.");
         let signer = Keypair::from_secret_key(SecretKeyBytes::from_hex(config.private_key.clone())).expect("Failed to create keypair.");
-        let app_id = AppId(config.app_id);
+        let app_id = AppId(config.app_id.parse().expect("Failed to parse app id."));
         Ok(AvailDaClient { client, app_id, signer })
     }
 }
