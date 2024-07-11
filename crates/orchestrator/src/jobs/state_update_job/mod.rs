@@ -275,3 +275,5 @@ impl StateUpdateJob {
         job.metadata.insert(new_attempt_metadata_key, tx_hashes.join(","));
     }
 }
+
+// publish state diff -> empty -> eth client : add in state update

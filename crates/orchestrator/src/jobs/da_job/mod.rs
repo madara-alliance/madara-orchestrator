@@ -80,7 +80,8 @@ impl Job for DaJob {
             MaybePendingStateUpdate::Update(state_update) => state_update,
         };
         // constructing the data from the rpc
-        let blob_data = state_update_to_blob_data(block_no, state_update, config, false).await?;
+        // TODO: Need to update the test_mode variable to false after implementation
+        let blob_data = state_update_to_blob_data(block_no, state_update, config, true).await?;
         // transforming the data so that we can apply FFT on this.
         // @note: we can skip this step if in the above step we return vec<BigUint> directly
         let blob_data_biguint = convert_to_biguint(blob_data.clone());
