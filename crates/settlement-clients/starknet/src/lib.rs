@@ -154,6 +154,17 @@ impl SettlementClient for StarknetSettlementClient {
         }
     }
 
+    /// Should be used to update state on core contract and publishing the blob simultaneously
+    #[allow(unused)]
+    async fn update_state_blobs_and_blob(
+        &self,
+        program_output: Vec<[u8; 32]>,
+        kzg_proof: [u8; 48],
+        state_diff: Vec<Vec<u8>>,
+    ) -> Result<String> {
+        !unimplemented!("not implemented yet.")
+    }
+
     /// Wait for a pending tx to achieve finality
     async fn wait_for_tx_finality(&self, tx_hash: &str) -> Result<()> {
         let mut retries = 0;

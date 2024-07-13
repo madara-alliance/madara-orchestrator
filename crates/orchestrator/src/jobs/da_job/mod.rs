@@ -107,11 +107,13 @@ impl Job for DaJob {
             ));
         }
 
+        // IMP : No longer needed as the blob will be published in the transaction in the state_update_job
         // making the txn to the DA layer
         // TODO: move the core contract address to the config
-        let external_id = config.da_client().publish_state_diff(blob_array, &[0; 32]).await?;
+        // let external_id = config.da_client().publish_state_diff(blob_array, &[0; 32]).await?;
+        // Ok(external_id)
 
-        Ok(external_id)
+        Ok("da_job_process_done".to_string())
     }
 
     async fn verify_job(&self, config: &Config, job: &mut JobItem) -> Result<JobVerificationStatus> {

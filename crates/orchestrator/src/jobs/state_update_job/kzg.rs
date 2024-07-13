@@ -6,7 +6,10 @@ use alloy::eips::eip4844::BYTES_PER_BLOB;
 use c_kzg::{Blob, Bytes32, KzgCommitment, KzgProof, KzgSettings};
 
 /// Build KZG proof for a given block
-pub async fn build_kzg_proof(block_number: u64, fetch_from_tests: Option<bool>) -> color_eyre::Result<KzgProof> {
+pub async fn build_kzg_proof(
+    block_number: u64,
+    fetch_from_tests: Option<bool>,
+) -> color_eyre::Result<(Vec<u8>, KzgProof)> {
     let blob_data = fetch_blob_data_for_block(block_number, fetch_from_tests).await?;
     let mut fixed_size_blob: [u8; BYTES_PER_BLOB] = [0; BYTES_PER_BLOB];
     fixed_size_blob.copy_from_slice(blob_data.as_slice());
@@ -32,7 +35,7 @@ pub async fn build_kzg_proof(block_number: u64, fetch_from_tests: Option<bool>) 
     )?;
     assert!(eval);
 
-    Ok(kzg_proof)
+    Ok((blob_data, kzg_proof))
 }
 
 /// Fetching the blob data (stored in s3 during DA job) for a particular block
@@ -109,12 +112,13 @@ mod tests {
     async fn test_build_kzg_proof(#[case] block_number: u64) {
         // testing the data in transaction :
         // https://etherscan.io/tx/0x6b9fc547764a5d6e4451b5236b92e74c70800250f00fc1974fc0a75a459dc12e
-        let kzg_proof = build_kzg_proof(block_number, Some(true)).await.unwrap().to_bytes();
+        let (_, kzg_proof) = build_kzg_proof(block_number, Some(true)).await.unwrap();
+        let proof = kzg_proof.to_bytes();
         let original_proof_from_l1 = Bytes48::from_hex(
             "a168b317e7c44691ee1932bd12fc6ac22182277e8fc5cd4cd21adc0831c33b1359aa5171bba529c69dcfe6224b220f8f",
         )
         .unwrap();
 
-        assert_eq!(kzg_proof, original_proof_from_l1);
+        assert_eq!(proof, original_proof_from_l1);
     }
 }

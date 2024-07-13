@@ -1,4 +1,4 @@
-mod kzg;
+pub mod kzg;
 
 use std::collections::HashMap;
 use std::path::PathBuf;
@@ -229,8 +229,14 @@ impl StateUpdateJob {
             let onchain_data_size = 0;
             settlement_client.update_state_calldata(program_output, onchain_data_hash, onchain_data_size).await?
         } else if snos.use_kzg_da == Felt252::ONE {
-            let kzg_proof = build_kzg_proof(block_no, fetch_from_tests).await?.to_owned();
-            settlement_client.update_state_blobs(vec![], kzg_proof).await?
+            let (blob_data, kzg_proof) = build_kzg_proof(block_no, fetch_from_tests).await?;
+
+            // Temp solution for formatting to blob
+            // TODO : Need to implement solution to handle multiple vectors (multiple data) as It will be updated in the upcoming starknet update.
+            let mut blob_data_vec: Vec<Vec<u8>> = Vec::new();
+            blob_data_vec.push(blob_data);
+
+            settlement_client.update_state_blobs_and_blob(vec![], kzg_proof.to_owned(), blob_data_vec).await?
         } else {
             return Err(eyre!("Block #{} - SNOS error, [use_kzg_da] should be either 0 or 1.", block_no));
         };
@@ -275,5 +281,3 @@ impl StateUpdateJob {
         job.metadata.insert(new_attempt_metadata_key, tx_hashes.join(","));
     }
 }
-
-// publish state diff -> empty -> eth client : add in state update
