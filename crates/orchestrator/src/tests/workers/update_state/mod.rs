@@ -4,8 +4,7 @@ use crate::jobs::types::{JobStatus, JobType};
 use crate::queue::MockQueueProvider;
 use crate::tests::common::init_config;
 use crate::tests::workers::utils::{
-    db_create_job_expectations_update_state_worker, db_get_job_expectations_update_state_worker,
-    get_job_by_mock_id_vector, get_job_item_mock_by_id,
+    db_create_job_expectations_update_state_worker, get_job_by_mock_id_vector, get_job_item_mock_by_id,
 };
 use crate::workers::update_state::UpdateStateWorker;
 use crate::workers::Worker;
@@ -45,9 +44,9 @@ async fn test_update_state_worker(
             .returning(|_| Ok(Some(get_job_item_mock_by_id("1".to_string(), Uuid::new_v4()))));
 
         // mocking the return values of second function call (getting completed proving worker jobs)
-        db.expect_get_completed_jobs_after_internal_id_by_job_type()
-            .with(eq(JobType::ProofCreation), eq("1".to_string()))
-            .returning(move |_, _| {
+        db.expect_get_jobs_after_internal_id_by_job_type()
+            .with(eq(JobType::ProofCreation), eq(JobStatus::Completed), eq("1".to_string()))
+            .returning(move |_, _, _| {
                 Ok(get_job_by_mock_id_vector(
                     JobType::ProofCreation,
                     JobStatus::Completed,
@@ -57,7 +56,8 @@ async fn test_update_state_worker(
             });
 
         // mocking getting of the jobs
-        let completed_jobs = get_job_by_mock_id_vector(JobType::ProofCreation, JobStatus::Completed, number_of_processed_jobs as u64, 2);
+        let completed_jobs =
+            get_job_by_mock_id_vector(JobType::ProofCreation, JobStatus::Completed, number_of_processed_jobs as u64, 2);
         for job in completed_jobs {
             db.expect_get_job_by_internal_id_and_type()
                 .times(1)

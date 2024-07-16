@@ -17,6 +17,17 @@ pub fn get_job_item_mock_by_id(id: String, uuid: Uuid) -> JobItem {
     }
 }
 
+/// Function to get the vector of JobItems with mock IDs
+///
+/// Arguments :
+///
+/// `job_type` : Type of job you want to create the vector for.
+///
+/// `job_status` : State of the job you want to create the vector for.
+///
+/// `number_of_jobs` : Number of jobs (length of the vector you need).
+///
+/// `start_index` : Start index of the `internal_id` for the JobItem in the vector.
 pub fn get_job_by_mock_id_vector(
     job_type: JobType,
     job_status: JobStatus,
@@ -39,14 +50,6 @@ pub fn get_job_by_mock_id_vector(
     }
 
     jobs_vec
-}
-
-pub fn db_get_job_expectations_update_state_worker(db: &mut MockDatabase, internal_id: &str) {
-        db.expect_get_job_by_internal_id_and_type()
-            .times(1)
-            .with(eq(internal_id.to_string()), eq(JobType::StateTransition))
-            .returning(|_, _| Ok(None));
-        println!("expect set for job id : {}", internal_id);
 }
 
 pub fn db_create_job_expectations_update_state_worker(db: &mut MockDatabase, proof_creation_jobs: Vec<JobItem>) {

@@ -37,9 +37,10 @@ pub trait Database: Send + Sync {
         job_b_type: JobType,
     ) -> Result<Vec<JobItem>>;
     async fn get_last_successful_job_by_type(&self, job_type: JobType) -> Result<Option<JobItem>>;
-    async fn get_completed_jobs_after_internal_id_by_job_type(
+    async fn get_jobs_after_internal_id_by_job_type(
         &self,
         job_type: JobType,
+        job_status: JobStatus,
         internal_id: String,
     ) -> Result<Vec<JobItem>>;
 }
