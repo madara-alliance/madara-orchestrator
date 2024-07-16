@@ -75,6 +75,7 @@ async fn test_snos_worker(#[case] db_val: bool) -> Result<(), Box<dyn Error>> {
         Some(da_client),
         None,
         None,
+        None,
     )
     .await;
     config_force_init(config).await;

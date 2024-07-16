@@ -99,7 +99,7 @@ impl SettlementClient for EthereumSettlementClient {
         Ok(format!("0x{:x}", tx_receipt.transaction_hash))
     }
 
-    async fn update_state_blobs_and_blob(
+    async fn update_state_with_blobs(
         &self,
         program_output: Vec<[u8; 32]>,
         kzg_proof: [u8; 48],
@@ -185,8 +185,7 @@ async fn prepare_sidecar(
     let mut sidecar_proofs = vec![];
 
     for blob_data in state_diff {
-        let mut fixed_size_blob: [u8; BYTES_PER_BLOB] = [0; BYTES_PER_BLOB];
-        fixed_size_blob.copy_from_slice(blob_data.as_slice());
+        let fixed_size_blob: [u8; BYTES_PER_BLOB] = blob_data.as_slice().try_into()?;
 
         let blob = Blob::new(fixed_size_blob);
 

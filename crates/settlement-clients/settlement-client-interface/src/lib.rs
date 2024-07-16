@@ -29,7 +29,7 @@ pub trait SettlementClient: Send + Sync {
     ) -> Result<String>;
 
     /// Should be used to update state on contract and publish the blob on ethereum.
-    async fn update_state_blobs_and_blob(
+    async fn update_state_with_blobs(
         &self,
         program_output: Vec<[u8; 32]>,
         kzg_proof: [u8; 48],

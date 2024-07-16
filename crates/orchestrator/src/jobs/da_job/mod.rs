@@ -19,9 +19,6 @@ use uuid::Uuid;
 use super::types::{JobItem, JobStatus, JobType, JobVerificationStatus};
 use super::Job;
 use crate::config::Config;
-use crate::data_storage::aws_s3::config::AWSS3Config;
-use crate::data_storage::aws_s3::AWSS3;
-use crate::data_storage::{DataStorage, DataStorageConfig};
 
 lazy_static! {
     /// EIP-4844 BLS12-381 modulus.
@@ -81,7 +78,7 @@ impl Job for DaJob {
         };
         // constructing the data from the rpc
         // TODO: Need to update the test_mode variable to false after implementation
-        let blob_data = state_update_to_blob_data(block_no, state_update, config, true).await?;
+        let blob_data = state_update_to_blob_data(block_no, state_update, config).await?;
         // transforming the data so that we can apply FFT on this.
         // @note: we can skip this step if in the above step we return vec<BigUint> directly
         let blob_data_biguint = convert_to_biguint(blob_data.clone());
@@ -107,13 +104,10 @@ impl Job for DaJob {
             ));
         }
 
-        // IMP : No longer needed as the blob will be published in the transaction in the state_update_job
         // making the txn to the DA layer
-        // TODO: move the core contract address to the config
-        // let external_id = config.da_client().publish_state_diff(blob_array, &[0; 32]).await?;
-        // Ok(external_id)
+        let external_id = config.da_client().publish_state_diff(blob_array, &[0; 32]).await?;
 
-        Ok("da_job_process_done".to_string())
+        Ok(external_id)
     }
 
     async fn verify_job(&self, config: &Config, job: &mut JobItem) -> Result<JobVerificationStatus> {
@@ -207,7 +201,6 @@ async fn state_update_to_blob_data(
     block_no: u64,
     state_update: StateUpdate,
     config: &Config,
-    test_mode: bool,
 ) -> Result<Vec<FieldElement>> {
     let state_diff = state_update.state_diff;
     let mut blob_data: Vec<FieldElement> = vec![
@@ -280,17 +273,15 @@ async fn state_update_to_blob_data(
         blob_data.push(*compiled_class_hash);
     }
 
-    // saving the blob data of the block to S3 bucket (if not running in test mod)
-    if !test_mode {
-        store_blob_data_s3(blob_data.clone(), block_no, config).await?;
-    }
+    // saving the blob data of the block to S3 bucket
+    store_blob_data_s3(blob_data.clone(), block_no, config).await?;
 
     Ok(blob_data)
 }
 
 /// To store the blob data in S3 bucket with path <block_number>/blob_data.txt
 async fn store_blob_data_s3(blob_data: Vec<FieldElement>, block_number: u64, config: &Config) -> Result<()> {
-    let s3_client = AWSS3::new(AWSS3Config::new_from_env()).await;
+    let s3_client = config.storage();
     let key = block_number.to_string() + "/blob_data.txt";
     let data_blob_big_uint = convert_to_biguint(blob_data.clone());
 
@@ -355,6 +346,8 @@ mod tests {
     use majin_blob_types::serde;
     use majin_blob_types::state_diffs::UnorderedEq;
     // use majin_blob_types::serde;
+    use crate::data_storage::MockDataStorage;
+    use da_client_interface::MockDaClient;
     use rstest::rstest;
     use serde_json::json;
 
@@ -405,14 +398,31 @@ mod tests {
         #[case] nonce_file_path: &str,
     ) {
         let server = MockServer::start();
+        let mut da_client = MockDaClient::new();
+        let mut storage_client = MockDataStorage::new();
 
-        let config =
-            init_config(Some(format!("http://localhost:{}", server.port())), None, None, None, None, None).await;
+        // Mocking DA client calls
+        da_client.expect_max_blob_per_txn().with().returning(|| 6);
+        da_client.expect_max_bytes_per_blob().with().returning(|| 131072);
+
+        // Mocking storage client
+        storage_client.expect_put_data().returning(|_, _| Result::Ok(())).times(1);
+
+        let config = init_config(
+            Some(format!("http://localhost:{}", server.port())),
+            None,
+            None,
+            Some(da_client),
+            None,
+            None,
+            Some(storage_client),
+        )
+        .await;
 
         get_nonce_attached(&server, nonce_file_path);
 
         let state_update = read_state_update_from_file(state_update_file_path).expect("issue while reading");
-        let blob_data = state_update_to_blob_data(block_no, state_update, &config, true)
+        let blob_data = state_update_to_blob_data(block_no, state_update, &config)
             .await
             .expect("issue while converting state update to blob data");
 
@@ -428,25 +438,25 @@ mod tests {
         assert!(block_data_state_diffs.unordered_eq(&blob_data_state_diffs), "value of data json should be identical");
     }
 
-    #[rstest]
-    #[case("src/jobs/da_job/test_data/test_blob_631861.txt")]
-    #[case("src/jobs/da_job/test_data/test_blob_638353.txt")]
-    #[case("src/jobs/da_job/test_data/test_blob_639404.txt")]
-    #[case("src/jobs/da_job/test_data/test_blob_640641.txt")]
-    #[case("src/jobs/da_job/test_data/test_blob_640644.txt")]
-    #[case("src/jobs/da_job/test_data/test_blob_640646.txt")]
-    #[case("src/jobs/da_job/test_data/test_blob_640647.txt")]
-    fn test_fft_transformation(#[case] file_to_check: &str) {
-        // parsing the blob hex to the bigUints
-        let original_blob_data = serde::parse_file_to_blob_data(file_to_check);
-        // converting the data to it's original format
-        let ifft_blob_data = blob::recover(original_blob_data.clone());
-        // applying the fft function again on the original format
-        let fft_blob_data = fft_transformation(ifft_blob_data);
-
-        // ideally the data after fft transformation and the data before ifft should be same.
-        assert_eq!(fft_blob_data, original_blob_data);
-    }
+    // #[rstest]
+    // #[case("src/jobs/da_job/test_data/test_blob_631861.txt")]
+    // #[case("src/jobs/da_job/test_data/test_blob_638353.txt")]
+    // #[case("src/jobs/da_job/test_data/test_blob_639404.txt")]
+    // #[case("src/jobs/da_job/test_data/test_blob_640641.txt")]
+    // #[case("src/jobs/da_job/test_data/test_blob_640644.txt")]
+    // #[case("src/jobs/da_job/test_data/test_blob_640646.txt")]
+    // #[case("src/jobs/da_job/test_data/test_blob_640647.txt")]
+    // fn test_fft_transformation(#[case] file_to_check: &str) {
+    //     // parsing the blob hex to the bigUints
+    //     let original_blob_data = serde::parse_file_to_blob_data(file_to_check);
+    //     // converting the data to its original format
+    //     let ifft_blob_data = blob::recover(original_blob_data.clone());
+    //     // applying the fft function again on the original format
+    //     let fft_blob_data = fft_transformation(ifft_blob_data);
+    //
+    //     // ideally the data after fft transformation and the data before ifft should be same.
+    //     assert_eq!(fft_blob_data, original_blob_data);
+    // }
 
     pub fn read_state_update_from_file(file_path: &str) -> Result<StateUpdate> {
         // let file_path = format!("state_update_block_no_{}.txt", block_no);

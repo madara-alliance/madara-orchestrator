@@ -1,27 +1,16 @@
 #![allow(missing_docs)]
 #![allow(clippy::missing_docs_in_private_items)]
-use std::env;
-use std::path::Path;
 use std::str::FromStr;
 
-use alloy::consensus::{
-    BlobTransactionSidecar, SignableTransaction, TxEip4844, TxEip4844Variant, TxEip4844WithSidecar, TxEnvelope,
-};
-use alloy::eips::eip2718::Encodable2718;
-use alloy::eips::eip2930::AccessList;
-use alloy::eips::eip4844::BYTES_PER_BLOB;
-use alloy::network::{Ethereum, TxSigner};
-use alloy::primitives::{bytes, Address, FixedBytes, TxHash, U256, U64};
+use alloy::network::Ethereum;
+use alloy::primitives::{TxHash, U64};
 use alloy::providers::{Provider, ProviderBuilder, RootProvider};
 use alloy::rpc::client::RpcClient;
-use alloy::signers::wallet::LocalWallet;
 use alloy::transports::http::Http;
 use async_trait::async_trait;
-use c_kzg::{Blob, KzgCommitment, KzgProof, KzgSettings};
 use color_eyre::Result;
 use config::EthereumDaConfig;
 use da_client_interface::{DaClient, DaVerificationStatus};
-use dotenv::dotenv;
 use mockall::automock;
 use mockall::predicate::*;
 use reqwest::Client;
@@ -30,57 +19,60 @@ pub mod config;
 pub struct EthereumDaClient {
     #[allow(dead_code)]
     provider: RootProvider<Ethereum, Http<Client>>,
-    wallet: LocalWallet,
-    trusted_setup: KzgSettings,
 }
 
 #[automock]
 #[async_trait]
 impl DaClient for EthereumDaClient {
-    async fn publish_state_diff(&self, state_diff: Vec<Vec<u8>>, to: &[u8; 32]) -> Result<String> {
-        dotenv().ok();
-        let provider = &self.provider;
-        let trusted_setup = &self.trusted_setup;
-        let wallet = &self.wallet;
-        let addr = wallet.address();
+    async fn publish_state_diff(&self, _state_diff: Vec<Vec<u8>>, _to: &[u8; 32]) -> Result<String> {
+        // Code no longer needed in Ethereum DA client because
+        // - We are building the blob and publishing it in update_state_job for ethereum.
 
-        let (sidecar_blobs, sidecar_commitments, sidecar_proofs) = prepare_sidecar(&state_diff, trusted_setup).await?;
-        let sidecar = BlobTransactionSidecar::new(sidecar_blobs, sidecar_commitments, sidecar_proofs);
+        // dotenv().ok();
+        // let provider = &self.provider;
+        // let trusted_setup = &self.trusted_setup;
+        // let wallet = &self.wallet;
+        // let addr = wallet.address();
+        //
+        // let (sidecar_blobs, sidecar_commitments, sidecar_proofs) = prepare_sidecar(&state_diff, trusted_setup).await?;
+        // let sidecar = BlobTransactionSidecar::new(sidecar_blobs, sidecar_commitments, sidecar_proofs);
+        //
+        // let eip1559_est = provider.estimate_eip1559_fees(None).await?;
+        // let chain_id: u64 = provider.get_chain_id().await?.to_string().parse()?;
+        //
+        // let max_fee_per_blob_gas: u128 = provider.get_blob_base_fee().await?.to_string().parse()?;
+        // let max_priority_fee_per_gas: u128 = provider.get_max_priority_fee_per_gas().await?.to_string().parse()?;
+        //
+        // let nonce = provider.get_transaction_count(addr, None).await?.to_string().parse()?;
+        // let to = FixedBytes(*to);
+        //
+        // let tx = TxEip4844 {
+        //     chain_id,
+        //     nonce,
+        //     gas_limit: 30_000_000,
+        //     max_fee_per_gas: eip1559_est.max_fee_per_gas.to_string().parse()?,
+        //     max_priority_fee_per_gas,
+        //     to: Address::from_word(to),
+        //     value: U256::from(0),
+        //     access_list: AccessList(vec![]),
+        //     blob_versioned_hashes: sidecar.versioned_hashes().collect(),
+        //     max_fee_per_blob_gas,
+        //     input: bytes!(),
+        // };
+        // let tx_sidecar = TxEip4844WithSidecar { tx: tx.clone(), sidecar: sidecar.clone() };
+        // let mut variant = TxEip4844Variant::from(tx_sidecar);
+        //
+        // // Sign and submit
+        // let signature = wallet.sign_transaction(&mut variant).await?;
+        // let tx_signed = variant.into_signed(signature);
+        // let tx_envelope: TxEnvelope = tx_signed.into();
+        // let encoded = tx_envelope.encoded_2718();
+        //
+        // let pending_tx = provider.send_raw_transaction(&encoded).await?;
+        //
+        // Ok(pending_tx.tx_hash().to_string())
 
-        let eip1559_est = provider.estimate_eip1559_fees(None).await?;
-        let chain_id: u64 = provider.get_chain_id().await?.to_string().parse()?;
-
-        let max_fee_per_blob_gas: u128 = provider.get_blob_base_fee().await?.to_string().parse()?;
-        let max_priority_fee_per_gas: u128 = provider.get_max_priority_fee_per_gas().await?.to_string().parse()?;
-
-        let nonce = provider.get_transaction_count(addr, None).await?.to_string().parse()?;
-        let to = FixedBytes(*to);
-
-        let tx = TxEip4844 {
-            chain_id,
-            nonce,
-            gas_limit: 30_000_000,
-            max_fee_per_gas: eip1559_est.max_fee_per_gas.to_string().parse()?,
-            max_priority_fee_per_gas,
-            to: Address::from_word(to),
-            value: U256::from(0),
-            access_list: AccessList(vec![]),
-            blob_versioned_hashes: sidecar.versioned_hashes().collect(),
-            max_fee_per_blob_gas,
-            input: bytes!(),
-        };
-        let tx_sidecar = TxEip4844WithSidecar { tx: tx.clone(), sidecar: sidecar.clone() };
-        let mut variant = TxEip4844Variant::from(tx_sidecar);
-
-        // Sign and submit
-        let signature = wallet.sign_transaction(&mut variant).await?;
-        let tx_signed = variant.into_signed(signature);
-        let tx_envelope: TxEnvelope = tx_signed.into();
-        let encoded = tx_envelope.encoded_2718();
-
-        let pending_tx = provider.send_raw_transaction(&encoded).await?;
-
-        Ok(pending_tx.tx_hash().to_string())
+        Ok("0xbeef".to_string())
     }
 
     async fn verify_inclusion(&self, external_id: &str) -> Result<DaVerificationStatus> {
@@ -114,45 +106,45 @@ impl From<EthereumDaConfig> for EthereumDaClient {
         let client =
             RpcClient::new_http(Url::from_str(config.rpc_url.as_str()).expect("Failed to parse ETHEREUM_RPC_URL"));
         let provider = ProviderBuilder::<_, Ethereum>::new().on_client(client);
-        let wallet: LocalWallet = env::var("PK").expect("PK must be set").parse().expect("issue while parsing");
-        // let wallet: LocalWallet = config.private_key.as_str().parse();
-        let trusted_setup = KzgSettings::load_trusted_setup_file(Path::new("./trusted_setup.txt"))
-            .expect("issue while loading the trusted setup");
-        EthereumDaClient { provider, wallet, trusted_setup }
+        EthereumDaClient { provider }
     }
-}
-
-async fn prepare_sidecar(
-    state_diff: &[Vec<u8>],
-    trusted_setup: &KzgSettings,
-) -> Result<(Vec<FixedBytes<131072>>, Vec<FixedBytes<48>>, Vec<FixedBytes<48>>)> {
-    let mut sidecar_blobs = vec![];
-    let mut sidecar_commitments = vec![];
-    let mut sidecar_proofs = vec![];
-
-    for blob_data in state_diff {
-        let mut fixed_size_blob: [u8; BYTES_PER_BLOB] = [0; BYTES_PER_BLOB];
-        fixed_size_blob.copy_from_slice(blob_data.as_slice());
-
-        let blob = Blob::new(fixed_size_blob);
-
-        let commitment = KzgCommitment::blob_to_kzg_commitment(&blob, trusted_setup)?;
-        let proof = KzgProof::compute_blob_kzg_proof(&blob, &commitment.to_bytes(), trusted_setup)?;
-
-        sidecar_blobs.push(FixedBytes::new(fixed_size_blob));
-        sidecar_commitments.push(FixedBytes::new(commitment.to_bytes().into_inner()));
-        sidecar_proofs.push(FixedBytes::new(proof.to_bytes().into_inner()));
-    }
-
-    Ok((sidecar_blobs, sidecar_commitments, sidecar_proofs))
 }
 
 #[cfg(test)]
 mod tests {
+    use alloy::eips::eip4844::BYTES_PER_BLOB;
+    use alloy::primitives::FixedBytes;
+    use c_kzg::{Blob, KzgCommitment, KzgProof, KzgSettings};
     use std::fs::File;
     use std::io::{self, BufRead};
+    use std::path::Path;
 
     use super::*;
+
+    async fn prepare_sidecar(
+        state_diff: &[Vec<u8>],
+        trusted_setup: &KzgSettings,
+    ) -> Result<(Vec<FixedBytes<131072>>, Vec<FixedBytes<48>>, Vec<FixedBytes<48>>)> {
+        let mut sidecar_blobs = vec![];
+        let mut sidecar_commitments = vec![];
+        let mut sidecar_proofs = vec![];
+
+        for blob_data in state_diff {
+            let mut fixed_size_blob: [u8; BYTES_PER_BLOB] = [0; BYTES_PER_BLOB];
+            fixed_size_blob.copy_from_slice(blob_data.as_slice());
+
+            let blob = Blob::new(fixed_size_blob);
+
+            let commitment = KzgCommitment::blob_to_kzg_commitment(&blob, trusted_setup)?;
+            let proof = KzgProof::compute_blob_kzg_proof(&blob, &commitment.to_bytes(), trusted_setup)?;
+
+            sidecar_blobs.push(FixedBytes::new(fixed_size_blob));
+            sidecar_commitments.push(FixedBytes::new(commitment.to_bytes().into_inner()));
+            sidecar_proofs.push(FixedBytes::new(proof.to_bytes().into_inner()));
+        }
+
+        Ok((sidecar_blobs, sidecar_commitments, sidecar_proofs))
+    }
 
     #[tokio::test]
     async fn test_kzg() {

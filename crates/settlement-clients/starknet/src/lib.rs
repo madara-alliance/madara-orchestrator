@@ -156,7 +156,7 @@ impl SettlementClient for StarknetSettlementClient {
 
     /// Should be used to update state on core contract and publishing the blob simultaneously
     #[allow(unused)]
-    async fn update_state_blobs_and_blob(
+    async fn update_state_with_blobs(
         &self,
         program_output: Vec<[u8; 32]>,
         kzg_proof: [u8; 48],
