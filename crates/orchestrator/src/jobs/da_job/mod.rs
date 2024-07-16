@@ -438,25 +438,25 @@ mod tests {
         assert!(block_data_state_diffs.unordered_eq(&blob_data_state_diffs), "value of data json should be identical");
     }
 
-    // #[rstest]
-    // #[case("src/jobs/da_job/test_data/test_blob_631861.txt")]
-    // #[case("src/jobs/da_job/test_data/test_blob_638353.txt")]
-    // #[case("src/jobs/da_job/test_data/test_blob_639404.txt")]
-    // #[case("src/jobs/da_job/test_data/test_blob_640641.txt")]
-    // #[case("src/jobs/da_job/test_data/test_blob_640644.txt")]
-    // #[case("src/jobs/da_job/test_data/test_blob_640646.txt")]
-    // #[case("src/jobs/da_job/test_data/test_blob_640647.txt")]
-    // fn test_fft_transformation(#[case] file_to_check: &str) {
-    //     // parsing the blob hex to the bigUints
-    //     let original_blob_data = serde::parse_file_to_blob_data(file_to_check);
-    //     // converting the data to its original format
-    //     let ifft_blob_data = blob::recover(original_blob_data.clone());
-    //     // applying the fft function again on the original format
-    //     let fft_blob_data = fft_transformation(ifft_blob_data);
-    //
-    //     // ideally the data after fft transformation and the data before ifft should be same.
-    //     assert_eq!(fft_blob_data, original_blob_data);
-    // }
+    #[rstest]
+    #[case("src/jobs/da_job/test_data/test_blob_631861.txt")]
+    #[case("src/jobs/da_job/test_data/test_blob_638353.txt")]
+    #[case("src/jobs/da_job/test_data/test_blob_639404.txt")]
+    #[case("src/jobs/da_job/test_data/test_blob_640641.txt")]
+    #[case("src/jobs/da_job/test_data/test_blob_640644.txt")]
+    #[case("src/jobs/da_job/test_data/test_blob_640646.txt")]
+    #[case("src/jobs/da_job/test_data/test_blob_640647.txt")]
+    fn test_fft_transformation(#[case] file_to_check: &str) {
+        // parsing the blob hex to the bigUints
+        let original_blob_data = serde::parse_file_to_blob_data(file_to_check);
+        // converting the data to its original format
+        let ifft_blob_data = blob::recover(original_blob_data.clone());
+        // applying the fft function again on the original format
+        let fft_blob_data = fft_transformation(ifft_blob_data);
+
+        // ideally the data after fft transformation and the data before ifft should be same.
+        assert_eq!(fft_blob_data, original_blob_data);
+    }
 
     pub fn read_state_update_from_file(file_path: &str) -> Result<StateUpdate> {
         // let file_path = format!("state_update_block_no_{}.txt", block_no);
