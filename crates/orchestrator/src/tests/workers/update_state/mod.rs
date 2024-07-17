@@ -55,7 +55,7 @@ async fn test_update_state_worker(
                 ))
             });
 
-        // mocking getting of the jobs
+        // mocking getting of the jobs (when there is a safety check for any pre-existing job during job creation)
         let completed_jobs =
             get_job_by_mock_id_vector(JobType::ProofCreation, JobStatus::Completed, number_of_processed_jobs as u64, 2);
         for job in completed_jobs {
