@@ -12,6 +12,7 @@ members = [
   "crates/settlement-clients/ethereum",
   "crates/settlement-clients/starknet",
   "e2e-tests",
+  "crates/da-clients/celestia",
 ]
 
 [workspace.package]
