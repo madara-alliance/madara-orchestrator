@@ -178,7 +178,7 @@ async fn build_settlement_client(settings_provider: &impl SettingsProvider) -> B
 
 async fn build_storage_client() -> Box<dyn DataStorage + Send + Sync> {
     match get_env_var_or_panic("DATA_STORAGE").as_str() {
-        "aws" => Box::new(AWSS3::new(AWSS3Config::new_from_env()).await),
+        "s3" => Box::new(AWSS3::new(AWSS3Config::new_from_env()).await),
         _ => panic!("Unsupported Storage Client"),
     }
 }

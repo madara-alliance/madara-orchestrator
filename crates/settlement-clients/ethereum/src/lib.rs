@@ -22,6 +22,7 @@ use c_kzg::{Blob, KzgCommitment, KzgProof, KzgSettings};
 use color_eyre::Result;
 use mockall::{automock, predicate::*};
 use rstest::rstest;
+use std::fmt::Write;
 use std::path::Path;
 use std::str::FromStr;
 use std::sync::Arc;
@@ -210,17 +211,18 @@ fn get_txn_input_bytes(program_output: Vec<[u8; 32]>, kzg_proof: [u8; 48]) -> By
     Bytes::from(program_output_hex_string + &kzg_proof_hex_string + function_selector)
 }
 
-#[allow(clippy::format_collect)]
 fn vec_u8_32_to_hex_string(data: Vec<[u8; 32]>) -> String {
-    data.into_iter()
-        .map(|arr| {
-            // Convert the array to a hex string
-            let hex = arr.iter().map(|byte| format!("{:02x}", byte)).collect::<String>();
+    data.into_iter().fold(String::new(), |mut output, arr| {
+        // Convert the array to a hex string
+        let hex = arr.iter().fold(String::new(), |mut output, byte| {
+            let _ = write!(output, "{byte:02x}");
+            output
+        });
 
-            // Ensure the hex string is exactly 64 characters (32 bytes)
-            format!("{:0>64}", hex)
-        })
-        .collect()
+        // Ensure the hex string is exactly 64 characters (32 bytes)
+        let _ = write!(output, "{hex:0>64}");
+        output
+    })
 }
 
 fn u8_48_to_hex_string(data: [u8; 48]) -> String {
@@ -235,10 +237,12 @@ fn u8_48_to_hex_string(data: [u8; 48]) -> String {
     first_hex + &second_hex
 }
 
-#[allow(clippy::format_collect)]
 // Function to convert a slice of u8 to a padded hex string
 fn to_padded_hex(slice: &[u8]) -> String {
-    let hex = slice.iter().map(|byte| format!("{:02x}", byte)).collect::<String>();
+    let hex = slice.iter().fold(String::new(), |mut output, byte| {
+        let _ = write!(output, "{byte:02x}");
+        output
+    });
     format!("{:0<64}", hex)
 }
 

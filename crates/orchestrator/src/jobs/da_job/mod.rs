@@ -40,6 +40,8 @@ lazy_static! {
     pub static ref BLOB_LEN: usize = 4096;
 }
 
+pub const BLOB_DATA_FILE_NAME: &str = "blob_data.txt";
+
 pub struct DaJob;
 
 #[async_trait]
@@ -274,15 +276,15 @@ async fn state_update_to_blob_data(
     }
 
     // saving the blob data of the block to S3 bucket
-    store_blob_data_s3(blob_data.clone(), block_no, config).await?;
+    store_blob_data(blob_data.clone(), block_no, config).await?;
 
     Ok(blob_data)
 }
 
-/// To store the blob data in S3 bucket with path <block_number>/blob_data.txt
-async fn store_blob_data_s3(blob_data: Vec<FieldElement>, block_number: u64, config: &Config) -> Result<()> {
+/// To store the blob data using the storage client with path <block_number>/blob_data.txt
+async fn store_blob_data(blob_data: Vec<FieldElement>, block_number: u64, config: &Config) -> Result<()> {
     let s3_client = config.storage();
-    let key = block_number.to_string() + "/blob_data.txt";
+    let key = block_number.to_string() + "/" + BLOB_DATA_FILE_NAME;
     let data_blob_big_uint = convert_to_biguint(blob_data.clone());
 
     // TODO : Figure out the approach when there are multiple blobs in blobs_array

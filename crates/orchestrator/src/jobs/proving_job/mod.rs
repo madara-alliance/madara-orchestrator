@@ -41,7 +41,6 @@ impl Job for ProvingJob {
     }
 
     async fn process_job(&self, config: &Config, job: &mut JobItem) -> Result<String> {
-        println!("process job start : )");
         // TODO: allow to download PIE from S3
         let cairo_pie_path: PathBuf = job
             .metadata

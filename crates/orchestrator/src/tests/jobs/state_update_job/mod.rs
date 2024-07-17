@@ -21,6 +21,7 @@ use crate::config::{config, config_force_init};
 use crate::data_storage::MockDataStorage;
 use crate::jobs::state_update_job::kzg::hex_string_to_u8_vec;
 use crate::jobs::state_update_job::CURRENT_PATH;
+use crate::tests::common::constants::{BLOB_DATA_FILE_NAME, SNOS_OUTPUT_FILE_NAME, X_0_FILE_NAME};
 use httpmock::prelude::*;
 
 #[rstest]
@@ -59,7 +60,7 @@ async fn test_process_job() {
         let block_proof: [u8; 48] = block_proof.try_into().expect("test proof should be 48 bytes");
         let state_diff: Vec<Vec<u8>> = load_state_diff_file(block_no.parse::<u64>().unwrap()).await;
 
-        let snos_output_key = block_no.to_owned() + "/snos_output.json";
+        let snos_output_key = block_no.to_owned() + "/" + SNOS_OUTPUT_FILE_NAME;
         let snos_output_data = fs::read_to_string(
             CURRENT_PATH.join(format!("src/jobs/state_update_job/test_data/{}/snos_output.json", block_no)),
         )
@@ -69,14 +70,14 @@ async fn test_process_job() {
             .with(eq(snos_output_key))
             .returning(move |_| Ok(Bytes::from(snos_output_data.clone())));
 
-        let blob_data_key = block_no.to_owned() + "/blob_data.txt";
+        let blob_data_key = block_no.to_owned() + "/" + BLOB_DATA_FILE_NAME;
         let blob_data = fs::read_to_string(
             CURRENT_PATH.join(format!("src/jobs/state_update_job/test_data/{}/blob_data.txt", block_no)),
         )
         .expect("Failed to read the blob data txt file");
         storage_client.expect_get_data().with(eq(blob_data_key)).returning(move |_| Ok(Bytes::from(blob_data.clone())));
 
-        let x_0_key = block_no.to_owned() + "/x_0.txt";
+        let x_0_key = block_no.to_owned() + "/" + X_0_FILE_NAME;
         let x_0 =
             fs::read_to_string(CURRENT_PATH.join(format!("src/jobs/state_update_job/test_data/{}/x_0.txt", block_no)))
                 .expect("Failed to read the blob data txt file");

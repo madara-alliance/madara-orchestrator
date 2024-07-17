@@ -25,54 +25,7 @@ pub struct EthereumDaClient {
 #[async_trait]
 impl DaClient for EthereumDaClient {
     async fn publish_state_diff(&self, _state_diff: Vec<Vec<u8>>, _to: &[u8; 32]) -> Result<String> {
-        // Code no longer needed in Ethereum DA client because
-        // - We are building the blob and publishing it in update_state_job for ethereum.
-
-        // dotenv().ok();
-        // let provider = &self.provider;
-        // let trusted_setup = &self.trusted_setup;
-        // let wallet = &self.wallet;
-        // let addr = wallet.address();
-        //
-        // let (sidecar_blobs, sidecar_commitments, sidecar_proofs) = prepare_sidecar(&state_diff, trusted_setup).await?;
-        // let sidecar = BlobTransactionSidecar::new(sidecar_blobs, sidecar_commitments, sidecar_proofs);
-        //
-        // let eip1559_est = provider.estimate_eip1559_fees(None).await?;
-        // let chain_id: u64 = provider.get_chain_id().await?.to_string().parse()?;
-        //
-        // let max_fee_per_blob_gas: u128 = provider.get_blob_base_fee().await?.to_string().parse()?;
-        // let max_priority_fee_per_gas: u128 = provider.get_max_priority_fee_per_gas().await?.to_string().parse()?;
-        //
-        // let nonce = provider.get_transaction_count(addr, None).await?.to_string().parse()?;
-        // let to = FixedBytes(*to);
-        //
-        // let tx = TxEip4844 {
-        //     chain_id,
-        //     nonce,
-        //     gas_limit: 30_000_000,
-        //     max_fee_per_gas: eip1559_est.max_fee_per_gas.to_string().parse()?,
-        //     max_priority_fee_per_gas,
-        //     to: Address::from_word(to),
-        //     value: U256::from(0),
-        //     access_list: AccessList(vec![]),
-        //     blob_versioned_hashes: sidecar.versioned_hashes().collect(),
-        //     max_fee_per_blob_gas,
-        //     input: bytes!(),
-        // };
-        // let tx_sidecar = TxEip4844WithSidecar { tx: tx.clone(), sidecar: sidecar.clone() };
-        // let mut variant = TxEip4844Variant::from(tx_sidecar);
-        //
-        // // Sign and submit
-        // let signature = wallet.sign_transaction(&mut variant).await?;
-        // let tx_signed = variant.into_signed(signature);
-        // let tx_envelope: TxEnvelope = tx_signed.into();
-        // let encoded = tx_envelope.encoded_2718();
-        //
-        // let pending_tx = provider.send_raw_transaction(&encoded).await?;
-        //
-        // Ok(pending_tx.tx_hash().to_string())
-
-        Ok("0xbeef".to_string())
+        Ok("NA".to_string())
     }
 
     async fn verify_inclusion(&self, external_id: &str) -> Result<DaVerificationStatus> {

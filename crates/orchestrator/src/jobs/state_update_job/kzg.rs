@@ -2,6 +2,7 @@ use crate::config::config;
 use crate::jobs::state_update_job::CURRENT_PATH;
 use alloy::eips::eip4844::BYTES_PER_BLOB;
 use c_kzg::{Blob, Bytes32, KzgCommitment, KzgProof, KzgSettings};
+use color_eyre::eyre::eyre;
 use lazy_static::lazy_static;
 
 lazy_static! {
@@ -11,9 +12,11 @@ lazy_static! {
     .expect("Error loading trusted setup file");
 }
 
+pub const BLOB_DATA_FILE_NAME: &str = "blob_data.txt";
+pub const X_0_FILE_NAME: &str = "x_0.txt";
+
 /// Build KZG proof for a given block
 pub async fn build_kzg_proof(blob_data: Vec<u8>, x_0_value: Bytes32) -> color_eyre::Result<(Vec<u8>, KzgProof)> {
-    println!("blob_data: {:?}", blob_data.len());
     let fixed_size_blob: [u8; BYTES_PER_BLOB] = blob_data.as_slice().try_into()?;
 
     let blob = Blob::new(fixed_size_blob);
@@ -28,16 +31,19 @@ pub async fn build_kzg_proof(blob_data: Vec<u8>, x_0_value: Bytes32) -> color_ey
         &kzg_proof.to_bytes(),
         &KZG_SETTINGS,
     )?;
-    assert!(eval, "ERROR : Assertion failed, not able to verify the proof.");
 
-    Ok((blob_data, kzg_proof))
+    if !eval {
+        Err(eyre!("ERROR : Assertion failed, not able to verify the proof."))
+    } else {
+        Ok((blob_data, kzg_proof))
+    }
 }
 
 /// Fetching the blob data (stored in s3 during DA job) for a particular block
 pub async fn fetch_blob_data_for_block(block_number: u64) -> color_eyre::Result<Vec<u8>> {
     let config = config().await;
     let storage_client = config.storage();
-    let key = block_number.to_string() + "/blob_data.txt";
+    let key = block_number.to_string() + "/" + BLOB_DATA_FILE_NAME;
     let blob_data = storage_client.get_data(&key).await?;
     let blob_data_string = std::str::from_utf8(blob_data.as_ref()).unwrap();
     Ok(hex_string_to_u8_vec(blob_data_string).unwrap())
@@ -46,7 +52,7 @@ pub async fn fetch_blob_data_for_block(block_number: u64) -> color_eyre::Result<
 pub async fn fetch_x_0_value_from_os_output(block_number: u64) -> color_eyre::Result<Bytes32> {
     let config = config().await;
     let storage_client = config.storage();
-    let key = block_number.to_string() + "/x_0.txt";
+    let key = block_number.to_string() + "/" + X_0_FILE_NAME;
     let x_0_point = storage_client.get_data(&key).await?;
     let x_0_point_string = std::str::from_utf8(x_0_point.as_ref()).unwrap();
     Ok(Bytes32::from_hex(x_0_point_string)?)
@@ -78,7 +84,7 @@ mod tests {
     use crate::config::config_force_init;
     use crate::data_storage::MockDataStorage;
     use crate::jobs::state_update_job::kzg::{
-        build_kzg_proof, fetch_blob_data_for_block, fetch_x_0_value_from_os_output,
+        build_kzg_proof, fetch_blob_data_for_block, fetch_x_0_value_from_os_output, BLOB_DATA_FILE_NAME, X_0_FILE_NAME,
     };
     use crate::jobs::state_update_job::CURRENT_PATH;
     use crate::tests::common::init_config;
@@ -94,8 +100,8 @@ mod tests {
         let mut storage_client = MockDataStorage::new();
 
         // Mocking Data Storage Client
-        let blob_data_key = block_number.to_string() + "/blob_data.txt";
-        let x_0_key = block_number.to_string() + "/x_0.txt";
+        let blob_data_key = block_number.to_string() + "/" + BLOB_DATA_FILE_NAME;
+        let x_0_key = block_number.to_string() + "/" + X_0_FILE_NAME;
 
         let blob_data = std::fs::read_to_string(
             CURRENT_PATH.join(format!("src/jobs/state_update_job/test_data/{}/blob_data.txt", block_number)),
