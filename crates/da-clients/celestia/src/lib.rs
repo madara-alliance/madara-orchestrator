@@ -1,38 +1,38 @@
 pub mod config;
 pub mod error;
 
-use anyhow::Result;
+use color_eyre::Result;
 use async_trait::async_trait;
 use error::CelestiaDaError;
+use jsonrpsee::http_client::{HeaderMap, HeaderValue, HttpClient, HttpClientBuilder};
+use reqwest::header;
 
-use celestia_rpc::{BlobClient, Client, HeaderClient, ShareClient};
+use celestia_rpc::BlobClient;
 use celestia_types::blob::GasPrice;
-use celestia_types::{nmt::Namespace, Blob, ExtendedDataSquare};
+use celestia_types::{nmt::Namespace, Blob};
 
 use da_client_interface::{DaClient, DaVerificationStatus};
-use crate::{DaClient, DaMode};
 
 #[derive(Clone, Debug)]
 pub struct CelestiaDaClient {
-    celestia_client: Client,
+    celestia_client: HttpClient,
     nid: Namespace,
-    mode: DaMode,
 }
 
-#[automock]
 #[async_trait]
 impl DaClient for CelestiaDaClient {
     async fn publish_state_diff(&self, state_diff: Vec<Vec<u8>>, to: &[u8; 32]) -> Result<String> {
         // Convert the state_diffs into Blobs
-        let blobs = state_diff.iter().map(|&blob_data| Blob::new(self.nid, blob_data)).collect();
+        let blobs : Result<Vec<Blob>, _> = state_diff.into_iter().map(|blob_data| Blob::new(self.nid, blob_data)).collect();
+        
         // Submit the blobs to celestia
-        let height = self.celestia_client.blob_submit(blobs,  GasPrice::default()).await.expect("Failed submitting blobs");
-        // Return back the height of the block that will contain the blob.
+        let height = self.celestia_client.blob_submit(blobs?.as_slice(),  GasPrice::default()).await.expect("Failed submitting blobs");
+        
+        // // Return back the height of the block that will contain the blob.
         Ok(height.to_string())
     }
 
     async fn verify_inclusion(&self, external_id: &str) -> Result<DaVerificationStatus> {
-
         // TODO: check if feasible and needed ? we can send blob.commitment as a part of external id and use it to call get_blob rather than get_all for more precise answer.
 
         // External Id : Height of Block the blob is submitted to.
@@ -40,23 +40,20 @@ impl DaClient for CelestiaDaClient {
         // Is the current block ahead of the block that we have, if it is does my block contain the blob.
         // Call the blob_get_all function of the client
 
-        let height: String = external_id.parse().unwrap();
-        let height_id: u64 = match s.parse::<u64>() {
-            Ok(n) => n,
-            Err(e) => {
-                // TODO: check ifthis returns 
-                CelestiaDaError::Generic((format!("Failed to convert string to u64: {e}")));
+        let height_id = external_id.parse()?;
+        let retrieved_blobs = self.celestia_client.blob_get_all(height_id, &[self.nid]).await;
+
+        //TODO: Assumption: Given that we are sending only 1 nid, we'll get an array of 1 object back.
+
+        match retrieved_blobs {
+            Ok(blobs) => {
+                if blobs.len() == 1 {
+                    Ok(DaVerificationStatus::Verified)
+                } else {
+                    Ok(DaVerificationStatus::Rejected(format!("Expected 1 blob, but got {}", blobs.len())))
+                }
             }
-        };
-
-        let retrieved_blobs = self.celestia_client.blob_get_all(height_id, self.nid).await
-        .expect(CelestiaDaError::Generic((format!("could not init namespace"))));
-        
-        // TODO: Assumption: Given that we are sending only 1 nid, we'll get an array of 1 object back.
-
-        match retrieved_blobs[0].validate() {
-            Ok => Ok(DaVerificationStatus::Verified),
-            Err(e) => Ok(DaVerificationStatus::Rejected(format!("Verification failed", e.to_string()))),
+            Err(e) => Ok(DaVerificationStatus::Rejected(format!("Error occurred: {}", e))),
         }
 
     }
@@ -72,53 +69,32 @@ impl DaClient for CelestiaDaClient {
     }
 }
 
-impl CelestiaClient {
-    async fn publish_data(&self, blob: &Blob) -> Result<u64> {
-        self.http_client
-            .blob_submit(&[blob.clone()], SubmitOptions::default())
-            .await
-            .map_err(|e| CelestiaDaError::Client(format!("Celestia RPC error: {e}")))
-    }
-
-    fn get_blob_from_state_diff(&self, state_diff: Vec<U256>) -> CelestiaTypesResult<Blob> {
-        let state_diff_bytes: Vec<u8> = state_diff
-            .iter()
-            .flat_map(|item| {
-                let mut bytes = [0_u8; 32];
-                item.to_big_endian(&mut bytes);
-                bytes.to_vec()
-            })
-            .collect();
-
-        Blob::new(self.nid, state_diff_bytes)
-    }
-
-    async fn verify_blob_was_included(&self, submitted_height: u64, blob: Blob) -> Result<()> {
-        let received_blob = self.http_client.blob_get(submitted_height, self.nid, blob.commitment).await.unwrap();
-        received_blob.validate()?;
-        Ok(())
-    }
-}
-
-impl TryFrom<config::CelestiaConfig> for CelestiaClient {
+impl TryFrom<config::CelestiaConfig> for CelestiaDaClient {
     type Error = anyhow::Error;
-
     fn try_from(conf: config::CelestiaConfig) -> Result<Self, Self::Error> {
         // Borrowed the below code from https://github.com/eigerco/lumina/blob/ccc5b9bfeac632cccd32d35ecb7b7d51d71fbb87/rpc/src/client.rs#L41.
         // Directly calling the function wasn't possible as the function is async. Since
         // we only need to initiate the http provider and not the ws provider, we don't need async
 
-        let client = Client::new(&conf.http_provider, Some(&conf.auth_token))
-        .await
-        // TODO: user Celestia DA Errors
-        .expect(CelestiaDaError::Client((format!("Failed creating rpc client"))));
+        let mut headers = HeaderMap::new();
+        
+        // checking if Auth is available
+        if let Some(auth_token) = conf.auth_token {
+            let val = HeaderValue::from_str(&format!("Bearer {}", auth_token))?;
+            headers.insert(header::AUTHORIZATION, val);
+        }
+
+        let http_client = HttpClientBuilder::default()
+            .set_headers(headers)
+            .build(conf.http_provider.as_str())
+            .map_err(|e| CelestiaDaError::Client(format!("could not init http client: {e}")))?;
 
         // Convert the input string to bytes
         let bytes = conf.nid.as_bytes();
 
         // Create a new Namespace from these bytes
-        let nid = Namespace::new_v0(bytes).map_err(|e| CelestiaDaError::Generic(format!("could not init namespace: {e}")));
+        let nid = Namespace::new_v0(bytes).map_err(|e| CelestiaDaError::Generic(format!("could not init namespace: {e}"))).unwrap();
 
-        Ok(Self { client, nid, mode: conf.mode })
+        Ok(Self { celestia_client: http_client, nid })
     }
 }

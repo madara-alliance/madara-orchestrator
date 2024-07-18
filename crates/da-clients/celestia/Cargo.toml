@@ -5,16 +5,23 @@ edition.workspace = true
 authors.workspace = true
 
 [dependencies]
+anyhow = "1.0.86"
 async-trait = { workspace = true }
 celestia-rpc = "0.2.0"
 celestia-types = "0.2.0"
 color-eyre = { workspace = true }
 da-client-interface = { workspace = true }
-dotenv = "0.15"
+jsonrpsee = { version = "0.20.0", features = [
+  "http-client",
+  "ws-client",
+  "macros",
+] }
 mockall = "0.12.1"
-reqwest = { version = "0.12.3" }
+reqwest = { version = "0.11.18", features = ["blocking", "json"] }
 rstest = { workspace = true }
 serde = { version = "1.0.196", default-features = false, features = ["derive"] }
+serde_json.workspace = true
+thiserror.workspace = true
 tokio = { workspace = true }
 url = { workspace = true }
 utils = { workspace = true }

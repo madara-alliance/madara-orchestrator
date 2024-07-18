@@ -3191,16 +3191,19 @@ dependencies = [
 name = "celestia-da-client"
 version = "0.1.0"
 dependencies = [
+ "anyhow",
  "async-trait",
  "celestia-rpc",
  "celestia-types",
  "color-eyre",
  "da-client-interface",
- "dotenv",
+ "jsonrpsee",
  "mockall",
- "reqwest 0.12.5",
+ "reqwest 0.11.27",
  "rstest 0.18.2",
  "serde",
+ "serde_json",
+ "thiserror",
  "tokio",
  "tokio-test",
  "url",

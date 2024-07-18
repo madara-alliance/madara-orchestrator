@@ -3,8 +3,6 @@ use std::path::PathBuf;
 
 use serde::Deserialize;
 
-use crate::DaMode;
-
 pub const DEFAULT_CELESTIA_NODE: &str = "127.0.0.1:8000";
 pub const DEFAULT_AUTH_TOKEN: &str = "";
 pub const DEFAULT_NID: &str = "Karnot";
@@ -13,14 +11,10 @@ pub const DEFAULT_NID: &str = "Karnot";
 pub struct CelestiaConfig {
     #[serde(default = "default_http")]
     pub http_provider: String,
-    #[serde(default = "default_auth_token")]
-    pub auth_token: String,
-    #[serde(default = "default_nid")]
-    pub nid: String,
     #[serde(default)]
     pub auth_token: Option<String>,
-    #[serde(default)]
-    pub mode: DaMode,
+    #[serde(default = "default_nid")]
+    pub nid: String,
 }
 
 impl TryFrom<&PathBuf> for CelestiaConfig {
@@ -36,9 +30,10 @@ fn default_http() -> String {
     format!("http://{DEFAULT_CELESTIA_NODE}")
 }
 
-fn default_auth_token() -> String {
-    format!("http://{DEFAULT_AUTH_TOKEN}")
-}
+// TODO: Auth currently not supported, surpassing from celestia-node using --rpc.skip_auth
+// fn default_auth_token() -> String {
+//     format!("http://{DEFAULT_AUTH_TOKEN}")
+// }
 
 
 fn default_nid() -> String {
@@ -49,10 +44,8 @@ impl Default for CelestiaConfig {
     fn default() -> Self {
         Self {
             http_provider: default_http(),
-            auth_token: default_auth_token(),
-            nid: default_nid(),
-            mode: DaMode::default(),
             auth_token: None,
+            nid: default_nid(),
         }
     }
 }
