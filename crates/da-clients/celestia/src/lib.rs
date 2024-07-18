@@ -44,13 +44,13 @@ impl DaClient for CelestiaDaClient {
         let height_id: u64 = match s.parse::<u64>() {
             Ok(n) => n,
             Err(e) => {
-                println!("Failed to convert string to u64: {}", e);
-                return;
+                // TODO: check ifthis returns 
+                CelestiaDaError::Generic((format!("Failed to convert string to u64: {e}")));
             }
         };
 
         let retrieved_blobs = self.celestia_client.blob_get_all(height_id, self.nid).await
-        .expect("Failed to retrieve blobs");
+        .expect(CelestiaDaError::Generic((format!("could not init namespace"))));
         
         // TODO: Assumption: Given that we are sending only 1 nid, we'll get an array of 1 object back.
 
@@ -77,7 +77,7 @@ impl CelestiaClient {
         self.http_client
             .blob_submit(&[blob.clone()], SubmitOptions::default())
             .await
-            .map_err(|e| anyhow::anyhow!("could not submit blob {e}"))
+            .map_err(|e| CelestiaDaError::Client(format!("Celestia RPC error: {e}")))
     }
 
     fn get_blob_from_state_diff(&self, state_diff: Vec<U256>) -> CelestiaTypesResult<Blob> {
@@ -111,13 +111,13 @@ impl TryFrom<config::CelestiaConfig> for CelestiaClient {
         let client = Client::new(&conf.http_provider, Some(&conf.auth_token))
         .await
         // TODO: user Celestia DA Errors
-        .expect("Failed creating rpc client");
+        .expect(CelestiaDaError::Client((format!("Failed creating rpc client"))));
 
         // Convert the input string to bytes
         let bytes = conf.nid.as_bytes();
 
         // Create a new Namespace from these bytes
-        let nid = Namespace::new_v0(bytes).map_err(|e| anyhow::anyhow!("could not init namespace: {e}"))?;
+        let nid = Namespace::new_v0(bytes).map_err(|e| CelestiaDaError::Generic(format!("could not init namespace: {e}")));
 
         Ok(Self { client, nid, mode: conf.mode })
     }

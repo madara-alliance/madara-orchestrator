@@ -3191,9 +3191,7 @@ dependencies = [
 name = "celestia-da-client"
 version = "0.1.0"
 dependencies = [
- "alloy 0.1.0",
  "async-trait",
- "c-kzg",
  "celestia-rpc",
  "celestia-types",
  "color-eyre",
@@ -3203,7 +3201,6 @@ dependencies = [
  "reqwest 0.12.5",
  "rstest 0.18.2",
  "serde",
- "starknet",
  "tokio",
  "tokio-test",
  "url",
