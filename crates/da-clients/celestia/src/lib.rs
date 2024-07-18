@@ -98,3 +98,70 @@ impl TryFrom<config::CelestiaConfig> for CelestiaDaClient {
         Ok(Self { celestia_client: http_client, nid })
     }
 }
+
+
+
+
+#[cfg(test)]
+mod tests {
+
+    use config::{CelestiaConfig,  DEFAULT_CELESTIA_NODE, DEFAULT_NID};
+
+    use super::*;
+
+    // async fn test_celestia_da_client(){
+    //     let config = CelestiaConfig {
+    //         http_provider: DEFAULT_CELESTIA_NODE.to_string(),
+    //         auth_token: None,
+    //         nid: DEFAULT_NID.to_string(),
+    //     };
+    //     // Instantiate CelestiaDaClient
+    //     let celestia_da_client = CelestiaDaClient::try_from(config).unwrap();
+
+    //     celestia_da_client.publish_state_diff(state_diff, to);
+
+
+    // }
+
+    // async fn test_verify_inclusion(){
+
+
+    // }
+
+
+    #[tokio::test]
+    async fn test_max_blob_per_txn(){
+        let expected_value:u64 = 1;
+
+        println!("{}",DEFAULT_CELESTIA_NODE);
+
+        let config = CelestiaConfig {
+            http_provider: DEFAULT_CELESTIA_NODE.to_string(),
+            auth_token: None,
+            nid: DEFAULT_NID.to_string(),
+        };
+        // Instantiate CelestiaDaClient
+        let celestia_da_client = CelestiaDaClient::try_from(config).unwrap();
+
+        let max_blobs_per_txn = celestia_da_client.max_blob_per_txn().await;
+        assert_eq!(max_blobs_per_txn, expected_value);
+    }
+
+    #[tokio::test]
+    async fn test_max_bytes_per_blob(){
+        let expected_value:u64 = 1974272;
+
+        let config = CelestiaConfig {
+            http_provider: DEFAULT_CELESTIA_NODE.to_string(),
+            auth_token: None,
+            nid: DEFAULT_NID.to_string(),
+        };
+        // Instantiate CelestiaDaClient
+        let celestia_da_client = CelestiaDaClient::try_from(config).unwrap();
+
+        let max_bytes_per_blob = celestia_da_client.max_bytes_per_blob().await;
+        assert_eq!(max_bytes_per_blob,expected_value);
+    }
+
+
+}

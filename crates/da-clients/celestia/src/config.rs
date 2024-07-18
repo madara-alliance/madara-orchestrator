@@ -3,7 +3,7 @@ use std::path::PathBuf;
 
 use serde::Deserialize;
 
-pub const DEFAULT_CELESTIA_NODE: &str = "127.0.0.1:8000";
+pub const DEFAULT_CELESTIA_NODE: &str = "http://127.0.0.1:8000";
 pub const DEFAULT_AUTH_TOKEN: &str = "";
 pub const DEFAULT_NID: &str = "Karnot";
 
@@ -27,7 +27,7 @@ impl TryFrom<&PathBuf> for CelestiaConfig {
 }
 
 fn default_http() -> String {
-    format!("http://{DEFAULT_CELESTIA_NODE}")
+    format!("{DEFAULT_CELESTIA_NODE}")
 }
 
 // TODO: Auth currently not supported, surpassing from celestia-node using --rpc.skip_auth
