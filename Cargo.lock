@@ -3197,6 +3197,7 @@ dependencies = [
  "celestia-types",
  "color-eyre",
  "da-client-interface",
+ "dotenv",
  "jsonrpsee",
  "mockall",
  "protobuf",

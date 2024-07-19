@@ -3,7 +3,7 @@ use std::fs::File;
 use std::path::PathBuf;
 use utils::env_utils::get_env_var_or_panic;
 use serde::Deserialize;
-
+use dotenv::dotenv;
 #[derive(Clone, PartialEq, Deserialize, Debug)]
 pub struct CelestiaDaConfig {
     pub http_provider: String,
@@ -22,6 +22,7 @@ impl TryFrom<&PathBuf> for CelestiaDaConfig {
 
 impl DaConfig for CelestiaDaConfig {
     fn new_from_env() -> Self {
+        dotenv().ok();
         Self {
             http_provider: get_env_var_or_panic("CELESTIA_DA_RPC_URL"),
             auth_token: Some(get_env_var_or_panic("CELESTIA_DA_AUTH_TOKEN")),

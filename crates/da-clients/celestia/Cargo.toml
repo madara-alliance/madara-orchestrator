@@ -11,6 +11,7 @@ celestia-rpc = "0.2.0"
 celestia-types = "0.2.0"
 color-eyre = { workspace = true }
 da-client-interface = { workspace = true }
+dotenv = "0.15.0"
 jsonrpsee = { version = "0.20.0", features = ["http-client"] }
 mockall = "0.12.1"
 protobuf = "3.5.0"
