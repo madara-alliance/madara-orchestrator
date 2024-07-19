@@ -26,7 +26,7 @@ impl DaClient for CelestiaDaClient {
         let blobs : Result<Vec<Blob>, _> = state_diff.into_iter().map(|blob_data| Blob::new(self.nid, blob_data)).collect();
         
         // Submit the blobs to celestia
-        let height = self.celestia_client.blob_submit(blobs?.as_slice(),  GasPrice::default()).await.expect("Failed submitting blobs");
+        let height = self.celestia_client.blob_submit(blobs?.as_slice(),  GasPrice::from(0.1)).await.expect("Failed submitting blobs");
         
         // // Return back the height of the block that will contain the blob.
         Ok(height.to_string())
@@ -59,7 +59,7 @@ impl DaClient for CelestiaDaClient {
     }
 
     async fn max_blob_per_txn(&self) -> u64 {
-        //Info: No docs suggest a number. 
+        //Info: No docs suggest a number, default to 1. 
         1
     }
 
@@ -100,40 +100,64 @@ impl TryFrom<config::CelestiaConfig> for CelestiaDaClient {
 }
 
 
-
-
 #[cfg(test)]
 mod tests {
 
     use config::{CelestiaConfig,  DEFAULT_CELESTIA_NODE, DEFAULT_NID};
-
     use super::*;
 
-    // async fn test_celestia_da_client(){
-    //     let config = CelestiaConfig {
-    //         http_provider: DEFAULT_CELESTIA_NODE.to_string(),
-    //         auth_token: None,
-    //         nid: DEFAULT_NID.to_string(),
-    //     };
-    //     // Instantiate CelestiaDaClient
-    //     let celestia_da_client = CelestiaDaClient::try_from(config).unwrap();
+    #[tokio::test]
+    async fn test_celestia_publish_state_diff_and_verify_inclusion(){
+        let config = CelestiaConfig {
+            http_provider: DEFAULT_CELESTIA_NODE.to_string(),
+            auth_token: None,
+            nid: DEFAULT_NID.to_string(),
+        };
+        // Instantiate CelestiaDaClient
+        let celestia_da_client = CelestiaDaClient::try_from(config).unwrap();
 
-    //     celestia_da_client.publish_state_diff(state_diff, to);
+        let s = "Hello World!";
+        let bytes: Vec<u8> = s.bytes().collect();
+        let state_diff  = vec![bytes];
 
+        let to: [u8; 32] = [
+            0x01, 0x23, 0x45, 0x67,
+            0x89, 0xab, 0xcd, 0xef,
+            0xfe, 0xdc, 0xba, 0x98,
+            0x76, 0x54, 0x32, 0x10,
+            0x00, 0x11, 0x22, 0x33,
+            0x44, 0x55, 0x66, 0x77,
+            0x88, 0x99, 0xaa, 0xbb,
+            0xcc, 0xdd, 0xee, 0xff,
+        ];
 
-    // }
+        let height_response = celestia_da_client.publish_state_diff(state_diff, &to).await;
 
-    // async fn test_verify_inclusion(){
+        let height_id = match height_response {
+            Ok(variable) => variable,
+            Err(error) => panic!("Problem reading: {error:?}"),
+        };
 
+        let inclusion_response = celestia_da_client.verify_inclusion(&height_id).await;
 
-    // }
+        let inclusion = match inclusion_response {
+            Ok(variable) => variable,
+            Err(error) => panic!("Problem reading: {error:?}"),
+        };
+
+       assert_eq!(inclusion,DaVerificationStatus::Verified);
+
+        match inclusion {
+            DaVerificationStatus::Pending => println!("Verification Status is Pending"),
+            DaVerificationStatus::Verified => println!("Verification Status is Verified"),
+            DaVerificationStatus::Rejected(msg) => println!("Verification Status is Rejected: {}", msg),
+        }
+    }
 
 
     #[tokio::test]
     async fn test_max_blob_per_txn(){
         let expected_value:u64 = 1;
-
-        println!("{}",DEFAULT_CELESTIA_NODE);
 
         let config = CelestiaConfig {
             http_provider: DEFAULT_CELESTIA_NODE.to_string(),
@@ -162,6 +186,4 @@ mod tests {
         let max_bytes_per_blob = celestia_da_client.max_bytes_per_blob().await;
         assert_eq!(max_bytes_per_blob,expected_value);
     }
-
-
 }
