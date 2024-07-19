@@ -4,6 +4,8 @@ use arc_swap::{ArcSwap, Guard};
 use da_client_interface::{DaClient, DaConfig};
 use dotenvy::dotenv;
 use ethereum_da_client::config::EthereumDaConfig;
+use celestia_da_client::config::CelestiaDaConfig;
+use celestia_da_client::CelestiaDaClient;
 use ethereum_settlement_client::EthereumSettlementClient;
 use prover_client_interface::ProverClient;
 use settlement_client_interface::SettlementClient;
@@ -139,6 +141,10 @@ async fn build_da_client() -> Box<dyn DaClient + Send + Sync> {
         "ethereum" => {
             let config = EthereumDaConfig::new_from_env();
             Box::new(config.build_client().await)
+        }
+        "celestia" => {
+            let config: CelestiaDaConfig = CelestiaDaConfig::new_from_env();
+            Box::new(CelestiaDaClient::try_from(config).unwrap())
         }
         _ => panic!("Unsupported DA layer"),
     }

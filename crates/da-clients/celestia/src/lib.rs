@@ -73,9 +73,9 @@ impl DaClient for CelestiaDaClient {
     }
 }
 
-impl TryFrom<config::CelestiaConfig> for CelestiaDaClient {
+impl TryFrom<config::CelestiaDaConfig> for CelestiaDaClient {
     type Error = anyhow::Error;
-    fn try_from(conf: config::CelestiaConfig) -> Result<Self, Self::Error> {
+    fn try_from(conf: config::CelestiaDaConfig) -> Result<Self, Self::Error> {
         // Borrowed the below code from https://github.com/eigerco/lumina/blob/ccc5b9bfeac632cccd32d35ecb7b7d51d71fbb87/rpc/src/client.rs#L41.
         // Directly calling the function wasn't possible as the function is async. Since
         // we only need to initiate the http provider and not the ws provider, we don't need async
@@ -109,12 +109,12 @@ impl TryFrom<config::CelestiaConfig> for CelestiaDaClient {
 mod tests {
 
     use super::*;
-    use config::{CelestiaConfig, DEFAULT_CELESTIA_NODE, DEFAULT_NID};
+    use config::{CelestiaDaConfig, DEFAULT_CELESTIA_NODE, DEFAULT_NID};
 
     #[tokio::test]
     #[ignore = "Can't run without manual intervention, setup celestia-node and fund address."]
     async fn test_celestia_publish_state_diff_and_verify_inclusion() {
-        let config = CelestiaConfig {
+        let config = CelestiaDaConfig {
             http_provider: DEFAULT_CELESTIA_NODE.to_string(),
             auth_token: None,
             nid: DEFAULT_NID.to_string(),
@@ -159,7 +159,7 @@ mod tests {
     async fn test_max_blob_per_txn() {
         let expected_value: u64 = 1;
 
-        let config = CelestiaConfig {
+        let config = CelestiaDaConfig {
             http_provider: DEFAULT_CELESTIA_NODE.to_string(),
             auth_token: None,
             nid: DEFAULT_NID.to_string(),
@@ -176,7 +176,7 @@ mod tests {
     async fn test_max_bytes_per_blob() {
         let expected_value: u64 = 1974272;
 
-        let config = CelestiaConfig {
+        let config = CelestiaDaConfig {
             http_provider: DEFAULT_CELESTIA_NODE.to_string(),
             auth_token: None,
             nid: DEFAULT_NID.to_string(),

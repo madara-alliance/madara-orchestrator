@@ -6784,6 +6784,7 @@ dependencies = [
  "axum-macros",
  "bytes",
  "cairo-vm 1.0.0-rc3",
+ "celestia-da-client",
  "color-eyre",
  "da-client-interface",
  "dotenvy",

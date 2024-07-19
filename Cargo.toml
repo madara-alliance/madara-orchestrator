@@ -77,6 +77,7 @@ madara-prover-rpc-client = { git = "https://github.com/Moonsong-Labs/madara-prov
 # Project
 da-client-interface = { path = "crates/da-clients/da-client-interface" }
 ethereum-da-client = { path = "crates/da-clients/ethereum" }
+celestia-da-client = { path = "crates/da-clients/celestia" }
 
 settlement-client-interface = { path = "crates/settlement-clients/settlement-client-interface" }
 ethereum-settlement-client = { path = "crates/settlement-clients/ethereum" }
