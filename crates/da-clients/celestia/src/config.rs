@@ -27,7 +27,7 @@ impl TryFrom<&PathBuf> for CelestiaConfig {
 }
 
 fn default_http() -> String {
-    format!("{DEFAULT_CELESTIA_NODE}")
+    DEFAULT_CELESTIA_NODE.to_string()
 }
 
 // TODO: Auth currently not supported, surpassing from celestia-node using --rpc.skip_auth
@@ -35,17 +35,12 @@ fn default_http() -> String {
 //     format!("http://{DEFAULT_AUTH_TOKEN}")
 // }
 
-
 fn default_nid() -> String {
     DEFAULT_NID.to_string()
 }
 
 impl Default for CelestiaConfig {
     fn default() -> Self {
-        Self {
-            http_provider: default_http(),
-            auth_token: None,
-            nid: default_nid(),
-        }
+        Self { http_provider: default_http(), auth_token: None, nid: default_nid() }
     }
 }
