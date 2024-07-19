@@ -19,6 +19,7 @@ pub struct CelestiaDaClient {
     nid: Namespace,
 }
 
+
 #[async_trait]
 impl DaClient for CelestiaDaClient {
     async fn publish_state_diff(&self, state_diff: Vec<Vec<u8>>, to: &[u8; 32]) -> Result<String> {
@@ -107,6 +108,7 @@ mod tests {
     use super::*;
 
     #[tokio::test]
+    #[ignore = "Can't run without manual intervention, setup celestia-node and fund address."]
     async fn test_celestia_publish_state_diff_and_verify_inclusion(){
         let config = CelestiaConfig {
             http_provider: DEFAULT_CELESTIA_NODE.to_string(),
@@ -156,6 +158,7 @@ mod tests {
 
 
     #[tokio::test]
+    #[ignore = "Can't run without manual intervention, setup celestia-node."]
     async fn test_max_blob_per_txn(){
         let expected_value:u64 = 1;
 
@@ -172,6 +175,7 @@ mod tests {
     }
 
     #[tokio::test]
+    #[ignore = "Can't run without manual intervention, setup celestia-node."]
     async fn test_max_bytes_per_blob(){
         let expected_value:u64 = 1974272;
 
