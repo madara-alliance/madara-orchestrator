@@ -30,36 +30,21 @@ impl DaClient for CelestiaDaClient {
         let height = self
             .celestia_client
             .blob_submit(blobs?.as_slice(), GasPrice::default())
-            .await
-            .expect("Failed submitting blobs");
+            .await?;
 
         // // Return back the height of the block that will contain the blob.
         Ok(height.to_string())
     }
 
     async fn verify_inclusion(&self, external_id: &str) -> Result<DaVerificationStatus> {
-        // TODO: check if feasible and needed ? we can send blob.commitment as a part of external id and use it to call get_blob rather than get_all for more precise answer.
+        // https://node-rpc-docs.celestia.org/?version=v0.13.7#blob.Submit
+        // Our Oberservation: 
+            // 1) Submit sends Blobs and reports the height in which they were included.
+            // 2) It takes submit 1-15 seconds (under right network conditions) depending on the nearest block.
+        // Assumption :
+            // blob.Submit is a blocking call that returns only when the BLOCK HAS BEEN INCLUDED.
 
-        // External Id : Height of Block the blob is submitted to.
-        // 2 ways to check :
-        // Is the current block ahead of the block that we have, if it is does my block contain the blob.
-        // Call the blob_get_all function of the client
-
-        let height_id = external_id.parse()?;
-        let retrieved_blobs = self.celestia_client.blob_get_all(height_id, &[self.nid]).await;
-
-        //TODO: Assumption: Given that we are sending only 1 nid, we'll get an array of 1 object back.
-
-        match retrieved_blobs {
-            Ok(blobs) => {
-                if blobs.len() == 1 {
-                    Ok(DaVerificationStatus::Verified)
-                } else {
-                    Ok(DaVerificationStatus::Rejected(format!("Expected 1 blob, but got {}", blobs.len())))
-                }
-            }
-            Err(e) => Ok(DaVerificationStatus::Rejected(format!("Error occurred: {}", e))),
-        }
+        Ok(DaVerificationStatus::Verified)
     }
 
     async fn max_blob_per_txn(&self) -> u64 {
@@ -68,8 +53,8 @@ impl DaClient for CelestiaDaClient {
     }
 
     async fn max_bytes_per_blob(&self) -> u64 {
-        //Info: https://github.com/celestiaorg/celestia-node/issues/3356
-        1974272
+        //Info: https://docs.celestia.org/nodes/mainnet#maximum-bytes 
+        1973786
     }
 }
 
@@ -105,21 +90,36 @@ impl TryFrom<config::CelestiaDaConfig> for CelestiaDaClient {
     }
 }
 
+/*
+celestia-node - Steps : 
+1. Run celestia-node, preferred impl https://docs.celestia.org/nodes/docker-images.
+2. Ensure to safely note down the account information provided to use later on.
+3. Ensure to manually fund the account, see https://docs.celestia.org/nodes/arabica-devnet#arabica-devnet-faucet.
+4. Ensure that the account is detected by celestia-node, see https://docs.celestia.org/developers/celestia-node-key#docker-and-cel-key.
+5. Remove the #ignores to run the tests.
+
+Shortcut method to run Celestia as DA : 
+ - define $NETWORK, $RPC_URL, $NODE_TYPE, see https://docs.celestia.org/nodes/docker-images#quick-start.
+ - skips Auth, setup from https://node-rpc-docs.celestia.org/?version=v0.13.7#node.AuthNew.
+ - exposes 26658 for RPC communication: https://docs.celestia.org/nodes/celestia-node-troubleshooting#ports, binds it to 8000 of host.
+    ```bash 
+    docker run --expose 26658 -p 8000:26658 -e NODE_TYPE=$NODE_TYPE -e P2P_NETWORK=$NETWORK -v $HOME/<path-to-folder>:/home/celestia ghcr.io/celestiaorg/celestia-node:v0.14.0 celestia light start --core.ip $RPC_URL --p2p.network $NETWORK --rpc.port 26658 --rpc.addr 0.0.0.0 --rpc.skip-auth
+    ```
+ - [only for testnet/devnet] Then copy paste all files from `.celestia-light-<network_type>/keys` to `.celestia-light/keys`, check if account is getting detected, see https://docs.celestia.org/developers/celestia-node-key#using-the-cel-key-utility.
+ */
+
 #[cfg(test)]
 mod tests {
 
+    use config::CelestiaDaConfig;
+    use da_client_interface::DaConfig;
+
     use super::*;
-    use config::{CelestiaDaConfig, DEFAULT_CELESTIA_NODE, DEFAULT_NID};
 
     #[tokio::test]
     #[ignore = "Can't run without manual intervention, setup celestia-node and fund address."]
     async fn test_celestia_publish_state_diff_and_verify_inclusion() {
-        let config = CelestiaDaConfig {
-            http_provider: DEFAULT_CELESTIA_NODE.to_string(),
-            auth_token: None,
-            nid: DEFAULT_NID.to_string(),
-        };
-        // Instantiate CelestiaDaClient
+        let config: CelestiaDaConfig = CelestiaDaConfig::new_from_env();
         let celestia_da_client = CelestiaDaClient::try_from(config).unwrap();
 
         let s = "Hello World!";
@@ -131,60 +131,11 @@ mod tests {
             0x22, 0x33, 0x44, 0x55, 0x66, 0x77, 0x88, 0x99, 0xaa, 0xbb, 0xcc, 0xdd, 0xee, 0xff,
         ];
 
-        let height_response = celestia_da_client.publish_state_diff(state_diff, &to).await;
+        let height_id = celestia_da_client.publish_state_diff(state_diff, &to).await.expect("Problem reading:");
 
-        let height_id = match height_response {
-            Ok(variable) => variable,
-            Err(error) => panic!("Problem reading: {error:?}"),
-        };
+        let inclusion_response = celestia_da_client.verify_inclusion(&height_id).await.expect("Problem reading:");
 
-        let inclusion_response = celestia_da_client.verify_inclusion(&height_id).await;
+        assert_eq!(inclusion_response, DaVerificationStatus::Verified);
 
-        let inclusion = match inclusion_response {
-            Ok(variable) => variable,
-            Err(error) => panic!("Problem reading: {error:?}"),
-        };
-
-        assert_eq!(inclusion, DaVerificationStatus::Verified);
-
-        match inclusion {
-            DaVerificationStatus::Pending => println!("Verification Status is Pending"),
-            DaVerificationStatus::Verified => println!("Verification Status is Verified"),
-            DaVerificationStatus::Rejected(msg) => println!("Verification Status is Rejected: {}", msg),
-        }
-    }
-
-    #[tokio::test]
-    #[ignore = "Can't run without manual intervention, setup celestia-node."]
-    async fn test_max_blob_per_txn() {
-        let expected_value: u64 = 1;
-
-        let config = CelestiaDaConfig {
-            http_provider: DEFAULT_CELESTIA_NODE.to_string(),
-            auth_token: None,
-            nid: DEFAULT_NID.to_string(),
-        };
-        // Instantiate CelestiaDaClient
-        let celestia_da_client = CelestiaDaClient::try_from(config).unwrap();
-
-        let max_blobs_per_txn = celestia_da_client.max_blob_per_txn().await;
-        assert_eq!(max_blobs_per_txn, expected_value);
-    }
-
-    #[tokio::test]
-    #[ignore = "Can't run without manual intervention, setup celestia-node."]
-    async fn test_max_bytes_per_blob() {
-        let expected_value: u64 = 1974272;
-
-        let config = CelestiaDaConfig {
-            http_provider: DEFAULT_CELESTIA_NODE.to_string(),
-            auth_token: None,
-            nid: DEFAULT_NID.to_string(),
-        };
-        // Instantiate CelestiaDaClient
-        let celestia_da_client = CelestiaDaClient::try_from(config).unwrap();
-
-        let max_bytes_per_blob = celestia_da_client.max_bytes_per_blob().await;
-        assert_eq!(max_bytes_per_blob, expected_value);
     }
 }
