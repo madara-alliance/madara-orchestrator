@@ -29,7 +29,7 @@ impl DaClient for CelestiaDaClient {
         // Submit the blobs to celestia
         let height = self
             .celestia_client
-            .blob_submit(blobs?.as_slice(), GasPrice::from(0.1))
+            .blob_submit(blobs?.as_slice(), GasPrice::default())
             .await
             .expect("Failed submitting blobs");
 
