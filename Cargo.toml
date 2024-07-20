@@ -57,17 +57,25 @@ itertools = "0.13.0"
 mockall = "0.12.1"
 testcontainers = "0.18.0"
 
+# Bmlockifier, using the same version than Madara
+blockifier = { git = "https://github.com/Moonsong-Labs/blockifier", branch = "msl/derive-clone", features = [
+  "testing",
+] }
+
 # Cairo VM
 cairo-vm = { git = "https://github.com/lambdaclass/cairo-vm", features = [
   "extensive_hints",
   "cairo-1-hints",
 ] }
 
-# TODO: we currently use the Moonsong fork & the os-output-serde branch so we
-# can deserialize our snos input json into a StarknetOsInput struct.
-# TODO: update back to the main repo once it's merged
-# Sharp (Starkware)
-snos = { git = "https://github.com/keep-starknet-strange/snos" }
+# Deoxys
+dc-exec = { package = "dc-exec", git = "https://github.com/akhercha/deoxys", branch = "main"}
+
+# Snos
+snos = { git = "https://github.com/keep-starknet-strange/snos", branch = "main" }
+
+# Starknet API
+starknet_api = { version = "=0.10", features = ["testing"] }
 
 # Madara prover API
 madara-prover-common = { git = "https://github.com/Moonsong-Labs/madara-prover-api", branch = "od/use-latest-cairo-vm" }

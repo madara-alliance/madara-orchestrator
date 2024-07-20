@@ -19,10 +19,12 @@ aws-config = { version = "1.1.7", features = ["behavior-version-latest"] }
 aws-sdk-s3 = { version = "1.38.0", features = ["behavior-version-latest"] }
 axum = { workspace = true, features = ["macros"] }
 axum-macros = { workspace = true }
+blockifier = { workspace = true }
 bytes = "1.6.0"
 cairo-vm = { workspace = true }
 color-eyre = { workspace = true }
 da-client-interface = { workspace = true }
+dc-exec = { workspace = true }
 dotenvy = { workspace = true }
 ethereum-da-client = { workspace = true, optional = true }
 ethereum-settlement-client = { workspace = true }
@@ -45,6 +47,7 @@ settlement-client-interface = { workspace = true }
 sharp-service = { workspace = true }
 snos = { workspace = true }
 starknet = { workspace = true }
+starknet_api = { workspace = true }
 starknet-core = "0.9.0"
 starknet-settlement-client = { workspace = true }
 thiserror = { workspace = true }
