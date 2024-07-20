@@ -1,11 +1,10 @@
 use std::sync::Arc;
 
 use arc_swap::{ArcSwap, Guard};
+use celestia_da_client::config::CelestiaDaConfig;
 use da_client_interface::{DaClient, DaConfig};
 use dotenvy::dotenv;
 use ethereum_da_client::config::EthereumDaConfig;
-use celestia_da_client::config::CelestiaDaConfig;
-use celestia_da_client::{CelestiaDaClient, CelestiaDaConfigAndClient};
 use ethereum_settlement_client::EthereumSettlementClient;
 use prover_client_interface::ProverClient;
 use settlement_client_interface::SettlementClient;

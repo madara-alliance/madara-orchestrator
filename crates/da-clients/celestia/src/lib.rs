@@ -17,8 +17,8 @@ pub struct CelestiaDaClient {
 }
 
 pub struct CelestiaDaConfigAndClient {
-    pub config : CelestiaDaConfig,
-    pub client : Client
+    pub config: CelestiaDaConfig,
+    pub client: Client,
 }
 
 #[async_trait]
@@ -29,23 +29,20 @@ impl DaClient for CelestiaDaClient {
             state_diff.into_iter().map(|blob_data| Blob::new(self.nid, blob_data)).collect();
 
         // Submit the blobs to celestia
-        let height = self
-            .client
-            .blob_submit(blobs?.as_slice(), GasPrice::default())
-            .await?;
+        let height = self.client.blob_submit(blobs?.as_slice(), GasPrice::default()).await?;
 
-        println!("{}",height);
+        println!("{}", height);
         // // Return back the height of the block that will contain the blob.
         Ok(height.to_string())
     }
 
     async fn verify_inclusion(&self, external_id: &str) -> Result<DaVerificationStatus> {
         // https://node-rpc-docs.celestia.org/?version=v0.13.7#blob.Submit
-        // Our Oberservation: 
-            // 1) Submit sends Blobs and reports the height in which they were included.
-            // 2) It takes submit 1-15 seconds (under right network conditions) depending on the nearest block.
+        // Our Oberservation:
+        // 1) Submit sends Blobs and reports the height in which they were included.
+        // 2) It takes submit 1-15 seconds (under right network conditions) depending on the nearest block.
         // Assumption :
-            // blob.Submit is a blocking call that returns only when the BLOCK HAS BEEN INCLUDED.
+        // blob.Submit is a blocking call that returns only when the BLOCK HAS BEEN INCLUDED.
 
         Ok(DaVerificationStatus::Verified)
     }
@@ -56,24 +53,24 @@ impl DaClient for CelestiaDaClient {
     }
 
     async fn max_bytes_per_blob(&self) -> u64 {
-        //Info: https://docs.celestia.org/nodes/mainnet#maximum-bytes 
+        //Info: https://docs.celestia.org/nodes/mainnet#maximum-bytes
         1973786
     }
 }
 
 /*
-celestia-node - Steps : 
+celestia-node - Steps :
 1. Run celestia-node, preferred impl https://docs.celestia.org/nodes/docker-images.
 2. Ensure to safely note down the account information provided to use later on.
 3. Ensure to manually fund the account, see https://docs.celestia.org/nodes/arabica-devnet#arabica-devnet-faucet.
 4. Ensure that the account is detected by celestia-node, see https://docs.celestia.org/developers/celestia-node-key#docker-and-cel-key.
 5. Remove the #ignores to run the tests.
 
-Shortcut method to run Celestia as DA : 
+Shortcut method to run Celestia as DA :
  - define $NETWORK, $RPC_URL, $NODE_TYPE, see https://docs.celestia.org/nodes/docker-images#quick-start.
  - skips Auth, setup from https://node-rpc-docs.celestia.org/?version=v0.13.7#node.AuthNew.
  - exposes 26658 for RPC communication: https://docs.celestia.org/nodes/celestia-node-troubleshooting#ports, binds it to 8000 of host.
-    ```bash 
+    ```bash
     docker run --expose 26658 -p 8000:26658 -e NODE_TYPE=$NODE_TYPE -e P2P_NETWORK=$NETWORK -v $HOME/<path-to-folder>:/home/celestia ghcr.io/celestiaorg/celestia-node:v0.14.0 celestia light start --core.ip $RPC_URL --p2p.network $NETWORK --rpc.port 26658 --rpc.addr 0.0.0.0 --rpc.skip-auth
     ```
  - [only for testnet/devnet] Then copy paste all files from `.celestia-light-<network_type>/keys` to `.celestia-light/keys`, check if account is getting detected, see https://docs.celestia.org/developers/celestia-node-key#using-the-cel-key-utility.
@@ -107,6 +104,5 @@ mod tests {
         let inclusion_response = celestia_da_client.verify_inclusion(&height_id).await.expect("Problem reading:");
 
         assert_eq!(inclusion_response, DaVerificationStatus::Verified);
-
     }
 }
