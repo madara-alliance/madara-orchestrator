@@ -1,9 +1,10 @@
 use da_client_interface::DaConfig;
-use std::fs::File;
-use std::path::PathBuf;
-use utils::env_utils::get_env_var_or_panic;
+use async_trait::async_trait;
 use serde::Deserialize;
 use dotenv::dotenv;
+use celestia_rpc::Client;
+use utils::env_utils::{get_env_car_optional_or_panic, get_env_var_or_panic};
+
 #[derive(Clone, PartialEq, Deserialize, Debug)]
 pub struct CelestiaDaConfig {
     pub http_provider: String,
@@ -11,22 +12,20 @@ pub struct CelestiaDaConfig {
     pub nid: String,
 }
 
-impl TryFrom<&PathBuf> for CelestiaDaConfig {
-    type Error = String;
 
-    fn try_from(path: &PathBuf) -> Result<Self, Self::Error> {
-        let file = File::open(path).map_err(|e| format!("error opening da config: {e}"))?;
-        serde_json::from_reader(file).map_err(|e| format!("error parsing da config: {e}"))
-    }
-}
-
-impl DaConfig for CelestiaDaConfig {
+#[async_trait]
+impl DaConfig<Client> for CelestiaDaConfig {
+    // TODO: Possibility to merge these two ?
     fn new_from_env() -> Self {
         dotenv().ok();
         Self {
             http_provider: get_env_var_or_panic("CELESTIA_DA_RPC_URL"),
-            auth_token: Some(get_env_var_or_panic("CELESTIA_DA_AUTH_TOKEN")),
+            auth_token: get_env_car_optional_or_panic("CELESTIA_DA_AUTH_TOKEN"),
             nid: get_env_var_or_panic("CELESTIA_DA_NID"),
+            
         }
     }
-}
+    async fn build_da_client(&self) -> Client{
+        Client::new(&self.http_provider, self.auth_token.as_deref()).await.expect("Failed to create Client: ")
+    }
+} 

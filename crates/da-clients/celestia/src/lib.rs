@@ -3,20 +3,23 @@ pub mod error;
 
 use async_trait::async_trait;
 use color_eyre::Result;
+use config::CelestiaDaConfig;
 use error::CelestiaDaError;
-use jsonrpsee::http_client::{HeaderMap, HeaderValue, HttpClient, HttpClientBuilder};
-use reqwest::header;
 
-use celestia_rpc::BlobClient;
+use celestia_rpc::{BlobClient, Client};
 use celestia_types::blob::GasPrice;
 use celestia_types::{nmt::Namespace, Blob};
 
 use da_client_interface::{DaClient, DaVerificationStatus};
 
-#[derive(Clone, Debug)]
 pub struct CelestiaDaClient {
-    celestia_client: HttpClient,
+    client: Client,
     nid: Namespace,
+}
+
+pub struct CelestiaDaConfigAndClient {
+    pub config : CelestiaDaConfig,
+    pub client : Client
 }
 
 #[async_trait]
@@ -28,10 +31,11 @@ impl DaClient for CelestiaDaClient {
 
         // Submit the blobs to celestia
         let height = self
-            .celestia_client
+            .client
             .blob_submit(blobs?.as_slice(), GasPrice::default())
             .await?;
 
+        println!("{}",height);
         // // Return back the height of the block that will contain the blob.
         Ok(height.to_string())
     }
@@ -58,35 +62,21 @@ impl DaClient for CelestiaDaClient {
     }
 }
 
-impl TryFrom<config::CelestiaDaConfig> for CelestiaDaClient {
+
+
+impl TryFrom<CelestiaDaConfigAndClient> for CelestiaDaClient {
     type Error = anyhow::Error;
-    fn try_from(conf: config::CelestiaDaConfig) -> Result<Self, Self::Error> {
-        // Borrowed the below code from https://github.com/eigerco/lumina/blob/ccc5b9bfeac632cccd32d35ecb7b7d51d71fbb87/rpc/src/client.rs#L41.
-        // Directly calling the function wasn't possible as the function is async. Since
-        // we only need to initiate the http provider and not the ws provider, we don't need async
+    fn try_from(config_and_client: CelestiaDaConfigAndClient) -> Result<Self, Self::Error> {
+        let bytes = config_and_client.config.nid.as_bytes();
 
-        let mut headers = HeaderMap::new();
-
-        // checking if Auth is available
-        if let Some(auth_token) = conf.auth_token {
-            let val = HeaderValue::from_str(&format!("Bearer {}", auth_token))?;
-            headers.insert(header::AUTHORIZATION, val);
-        }
-
-        let http_client = HttpClientBuilder::default()
-            .set_headers(headers)
-            .build(conf.http_provider.as_str())
-            .map_err(|e| CelestiaDaError::Client(format!("could not init http client: {e}")))?;
-
-        // Convert the input string to bytes
-        let bytes = conf.nid.as_bytes();
-
-        // Create a new Namespace from these bytes
         let nid = Namespace::new_v0(bytes)
-            .map_err(|e| CelestiaDaError::Generic(format!("could not init namespace: {e}")))
-            .unwrap();
+        .map_err(|e| CelestiaDaError::Generic(format!("could not init namespace: {e}")))
+        .unwrap();
 
-        Ok(Self { celestia_client: http_client, nid })
+        Ok(Self {
+            client : config_and_client.client,
+            nid
+        })
     }
 }
 
@@ -117,10 +107,17 @@ mod tests {
     use super::*;
 
     #[tokio::test]
-    #[ignore = "Can't run without manual intervention, setup celestia-node and fund address."]
+    // #[ignore = "Can't run without manual intervention, setup celestia-node and fund address."]
     async fn test_celestia_publish_state_diff_and_verify_inclusion() {
         let config: CelestiaDaConfig = CelestiaDaConfig::new_from_env();
-        let celestia_da_client = CelestiaDaClient::try_from(config).unwrap();
+        let client = config.build_da_client().await;
+
+        let conf_client = CelestiaDaConfigAndClient{
+            config,
+            client
+        };
+
+        let celestia_da_client = CelestiaDaClient::try_from(conf_client).unwrap();
 
         let s = "Hello World!";
         let bytes: Vec<u8> = s.bytes().collect();
