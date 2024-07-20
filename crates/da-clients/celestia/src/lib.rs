@@ -4,7 +4,6 @@ pub mod error;
 use async_trait::async_trait;
 use color_eyre::Result;
 use config::CelestiaDaConfig;
-use error::CelestiaDaError;
 
 use celestia_rpc::{BlobClient, Client};
 use celestia_types::blob::GasPrice;
@@ -62,24 +61,6 @@ impl DaClient for CelestiaDaClient {
     }
 }
 
-
-
-impl TryFrom<CelestiaDaConfigAndClient> for CelestiaDaClient {
-    type Error = anyhow::Error;
-    fn try_from(config_and_client: CelestiaDaConfigAndClient) -> Result<Self, Self::Error> {
-        let bytes = config_and_client.config.nid.as_bytes();
-
-        let nid = Namespace::new_v0(bytes)
-        .map_err(|e| CelestiaDaError::Generic(format!("could not init namespace: {e}")))
-        .unwrap();
-
-        Ok(Self {
-            client : config_and_client.client,
-            nid
-        })
-    }
-}
-
 /*
 celestia-node - Steps : 
 1. Run celestia-node, preferred impl https://docs.celestia.org/nodes/docker-images.
@@ -110,14 +91,7 @@ mod tests {
     // #[ignore = "Can't run without manual intervention, setup celestia-node and fund address."]
     async fn test_celestia_publish_state_diff_and_verify_inclusion() {
         let config: CelestiaDaConfig = CelestiaDaConfig::new_from_env();
-        let client = config.build_da_client().await;
-
-        let conf_client = CelestiaDaConfigAndClient{
-            config,
-            client
-        };
-
-        let celestia_da_client = CelestiaDaClient::try_from(conf_client).unwrap();
+        let celestia_da_client = config.build_da_client().await;
 
         let s = "Hello World!";
         let bytes: Vec<u8> = s.bytes().collect();
