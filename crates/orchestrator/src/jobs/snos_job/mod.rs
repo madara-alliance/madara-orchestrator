@@ -1,22 +1,19 @@
+mod dummy_state;
+
 use std::collections::HashMap;
 use std::num::NonZeroU128;
 
 use async_trait::async_trait;
 use blockifier::block::{pre_process_block, BlockInfo, BlockNumberHashPair, GasPrices};
 use blockifier::context::{ChainInfo, FeeTokenAddresses};
-use blockifier::state::cached_state::{CachedState, GlobalContractCache};
-use blockifier::test_utils::dict_state_reader::DictStateReader;
 use blockifier::versioned_constants::VersionedConstants;
 use cairo_vm::types::layout_name::LayoutName;
 use cairo_vm::Felt252;
 use color_eyre::Result;
 use num::FromPrimitive;
-use snos::crypto::pedersen::PedersenHash;
 use snos::execution::helper::ExecutionHelperWrapper;
 use snos::io::input::StarknetOsInput;
 use snos::run_os;
-use snos::storage::dict_storage::DictStorage;
-use snos::storage::storage::FactFetchingContext;
 use starknet_api::block::{BlockHash, BlockNumber, BlockTimestamp};
 use starknet_api::core::{ChainId, ContractAddress, PatriciaKey};
 use starknet_api::hash::StarkFelt;
@@ -24,6 +21,7 @@ use starknet_core::types::FieldElement;
 use uuid::Uuid;
 
 use crate::config::Config;
+use crate::jobs::snos_job::dummy_state::DummyState;
 use crate::jobs::types::{JobItem, JobStatus, JobType, JobVerificationStatus};
 use crate::jobs::Job;
 
@@ -55,7 +53,7 @@ impl Job for SnosJob {
 
         // 2. Build the required inputs for snos::run_os
         // TODO import BlockifierStateAdapter from Deoxys RPC and use it here
-        let state = CachedState::new(state, global_class_hash_to_class);
+        let mut state = DummyState {};
 
         // TODO: build the BlockNumberHashPair, should be in the metadata?
         let old_block_number_and_hash =
@@ -68,7 +66,7 @@ impl Job for SnosJob {
             // TODO: get the block timestamp from SnosInput block_hash
             block_timestamp: BlockTimestamp(69420420),
             // TODO: should be a constant?
-            sequencer_address: ContractAddress(PatriciaKey::from(42)),
+            sequencer_address: ContractAddress(PatriciaKey::from(42_u32)),
             // TODO: retrieve them from Deoxys?
             gas_prices: GasPrices {
                 eth_l1_gas_price: NonZeroU128::new(42).unwrap(),
@@ -85,14 +83,16 @@ impl Job for SnosJob {
             chain_id: ChainId(String::from("0x69420")),
             // TODO: retrieve the fee token addresses from our configuration or deoxys?
             fee_token_addresses: FeeTokenAddresses {
-                strk_fee_token_address: ContractAddress(PatriciaKey::from(42)),
-                eth_fee_token_address: ContractAddress(PatriciaKey::from(42)),
+                strk_fee_token_address: ContractAddress(PatriciaKey::from(42_u32)),
+                eth_fee_token_address: ContractAddress(PatriciaKey::from(42_u32)),
             },
         };
 
         // TODO: check this, lot of fields
         let versioned_constants = VersionedConstants::default();
 
+        let old_block_number = old_block_number_and_hash.number.0;
+        let old_block_hash = old_block_number_and_hash.hash.0;
         let block_context = pre_process_block(
             // TODO: what should be the state reader here? do we build our own & call deoxys?
             // See: deoxys/crates/client/exec/src/blockifier_state_adapter.rs
@@ -112,13 +112,13 @@ impl Job for SnosJob {
             &block_context,
             // TODO: should be old_block_number_and_hash
             (
-                Felt252::from_u64(old_block_number_and_hash.number.0).unwrap(),
-                Felt252::from_hex_unchecked(&FieldElement::from(old_block_number_and_hash.hash.0).to_string()),
+                Felt252::from_u64(old_block_number).unwrap(),
+                Felt252::from_hex_unchecked(&FieldElement::from(old_block_hash).to_string()),
             ),
         );
 
         // 3. Import SNOS in Rust and execute it with the input data
-        let (cairo_pie, snos_output) = run_os(
+        let (_cairo_pie, _snos_output) = run_os(
             // TODO: what is this?
             String::from("PATH/TO/THE/OS"),
             // TODO: what to choose?
