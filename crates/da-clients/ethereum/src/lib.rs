@@ -109,19 +109,6 @@ impl DaClient for EthereumDaClient {
     }
 }
 
-impl From<EthereumDaConfig> for EthereumDaClient {
-    fn from(config: EthereumDaConfig) -> Self {
-        let client =
-            RpcClient::new_http(Url::from_str(config.rpc_url.as_str()).expect("Failed to parse ETHEREUM_RPC_URL"));
-        let provider = ProviderBuilder::<_, Ethereum>::new().on_client(client);
-        let wallet: LocalWallet = env::var("PK").expect("PK must be set").parse().expect("issue while parsing");
-        // let wallet: LocalWallet = config.private_key.as_str().parse();
-        let trusted_setup = KzgSettings::load_trusted_setup_file(Path::new("./trusted_setup.txt"))
-            .expect("issue while loading the trusted setup");
-        EthereumDaClient { provider, wallet, trusted_setup }
-    }
-}
-
 async fn prepare_sidecar(
     state_diff: &[Vec<u8>],
     trusted_setup: &KzgSettings,
