@@ -1,8 +1,5 @@
 #![allow(missing_docs)]
 #![allow(clippy::missing_docs_in_private_items)]
-use std::env;
-use std::path::Path;
-use std::str::FromStr;
 
 use alloy::consensus::{
     BlobTransactionSidecar, SignableTransaction, TxEip4844, TxEip4844Variant, TxEip4844WithSidecar, TxEnvelope,
@@ -12,20 +9,18 @@ use alloy::eips::eip2930::AccessList;
 use alloy::eips::eip4844::BYTES_PER_BLOB;
 use alloy::network::{Ethereum, TxSigner};
 use alloy::primitives::{bytes, Address, FixedBytes, TxHash, U256, U64};
-use alloy::providers::{Provider, ProviderBuilder, RootProvider};
-use alloy::rpc::client::RpcClient;
+use alloy::providers::{Provider, RootProvider};
 use alloy::signers::wallet::LocalWallet;
 use alloy::transports::http::Http;
 use async_trait::async_trait;
 use c_kzg::{Blob, KzgCommitment, KzgProof, KzgSettings};
 use color_eyre::Result;
-use config::EthereumDaConfig;
 use da_client_interface::{DaClient, DaVerificationStatus};
 use dotenv::dotenv;
+use std::path::Path;
 use mockall::automock;
 use mockall::predicate::*;
 use reqwest::Client;
-use url::Url;
 pub mod config;
 pub struct EthereumDaClient {
     #[allow(dead_code)]
