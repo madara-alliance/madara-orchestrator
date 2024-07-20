@@ -138,7 +138,7 @@ async fn build_da_client() -> Box<dyn DaClient + Send + Sync> {
     match get_env_var_or_panic("DA_LAYER").as_str() {
         "ethereum" => {
             let config = EthereumDaConfig::new_from_env();
-            Box::new(config.build_da_client().await)
+            Box::new(config.build_client().await)
         }
         _ => panic!("Unsupported DA layer"),
     }

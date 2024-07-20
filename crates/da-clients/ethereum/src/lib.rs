@@ -17,7 +17,6 @@ use c_kzg::{Blob, KzgCommitment, KzgProof, KzgSettings};
 use color_eyre::Result;
 use da_client_interface::{DaClient, DaVerificationStatus};
 use dotenv::dotenv;
-use std::path::Path;
 use mockall::automock;
 use mockall::predicate::*;
 use reqwest::Client;
@@ -133,6 +132,7 @@ async fn prepare_sidecar(
 mod tests {
     use std::fs::File;
     use std::io::{self, BufRead};
+    use std::path::Path;
 
     use super::*;
 

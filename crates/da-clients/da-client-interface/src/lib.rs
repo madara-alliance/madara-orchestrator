@@ -33,5 +33,5 @@ pub trait DaClient: Send + Sync {
 pub trait DaConfig<T> {
     /// Should create a new instance of the DaConfig from the environment variables
     fn new_from_env() -> Self;
-    async fn build_da_client(&self) -> T;
+    async fn build_client(&self) -> T;
 }
