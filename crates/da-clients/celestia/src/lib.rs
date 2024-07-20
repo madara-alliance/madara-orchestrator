@@ -91,7 +91,7 @@ mod tests {
     // #[ignore = "Can't run without manual intervention, setup celestia-node and fund address."]
     async fn test_celestia_publish_state_diff_and_verify_inclusion() {
         let config: CelestiaDaConfig = CelestiaDaConfig::new_from_env();
-        let celestia_da_client = config.build_da_client().await;
+        let celestia_da_client = config.build_client().await;
 
         let s = "Hello World!";
         let bytes: Vec<u8> = s.bytes().collect();

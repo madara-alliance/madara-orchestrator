@@ -144,7 +144,7 @@ async fn build_da_client() -> Box<dyn DaClient + Send + Sync> {
         }
         "celestia" => {
             let config: CelestiaDaConfig = CelestiaDaConfig::new_from_env();
-            let client = config.build_da_client().await;
+            let client = config.build_client().await;
             Box::new(client)
         }
         _ => panic!("Unsupported DA layer"),

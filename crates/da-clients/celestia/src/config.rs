@@ -26,7 +26,7 @@ impl DaConfig<CelestiaDaClient> for CelestiaDaConfig {
             nid: get_env_var_or_panic("CELESTIA_DA_NID"),
         }
     }
-    async fn build_da_client(&self) -> CelestiaDaClient{
+    async fn build_client(&self) -> CelestiaDaClient{
         let bytes = self.nid.as_bytes();
 
         let nid = Namespace::new_v0(bytes)
