@@ -3,8 +3,7 @@
 use std::str::FromStr;
 
 use alloy::network::Ethereum;
-use alloy::primitives::{TxHash, U64};
-use alloy::providers::{Provider, ProviderBuilder, RootProvider};
+use alloy::providers::{ProviderBuilder, RootProvider};
 use alloy::rpc::client::RpcClient;
 use alloy::transports::http::Http;
 use async_trait::async_trait;
@@ -25,24 +24,13 @@ pub struct EthereumDaClient {
 #[async_trait]
 impl DaClient for EthereumDaClient {
     async fn publish_state_diff(&self, _state_diff: Vec<Vec<u8>>, _to: &[u8; 32]) -> Result<String> {
+        // Here in case of ethereum we are not publishing the state diff because we are doing it all together in update_state job.
+        // So we don't need to send the blob here.
         Ok("NA".to_string())
     }
 
-    async fn verify_inclusion(&self, external_id: &str) -> Result<DaVerificationStatus> {
-        let provider = &self.provider;
-        let tx_hash: TxHash = external_id.parse().unwrap();
-        let txn_response = provider.get_transaction_receipt(tx_hash).await?;
-
-        match txn_response {
-            None => Ok(DaVerificationStatus::Pending),
-            Some(receipt) => match receipt.status_code {
-                Some(status) if status == U64::from(1) => Ok(DaVerificationStatus::Verified),
-                Some(status) => {
-                    Ok(DaVerificationStatus::Rejected(format!("Transaction failed with status code: {}", status)))
-                }
-                None => Ok(DaVerificationStatus::Rejected("Transaction status code is missing".into())),
-            },
-        }
+    async fn verify_inclusion(&self, _external_id: &str) -> Result<DaVerificationStatus> {
+        Ok(DaVerificationStatus::Verified)
     }
 
     async fn max_blob_per_txn(&self) -> u64 {

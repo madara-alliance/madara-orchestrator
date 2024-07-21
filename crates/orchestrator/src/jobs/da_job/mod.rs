@@ -79,7 +79,6 @@ impl Job for DaJob {
             MaybePendingStateUpdate::Update(state_update) => state_update,
         };
         // constructing the data from the rpc
-        // TODO: Need to update the test_mode variable to false after implementation
         let blob_data = state_update_to_blob_data(block_no, state_update, config).await?;
         // transforming the data so that we can apply FFT on this.
         // @note: we can skip this step if in the above step we return vec<BigUint> directly
@@ -93,7 +92,8 @@ impl Job for DaJob {
         // converting BigUints to Vec<u8>, one Vec<u8> represents one blob data
         let blob_array =
             data_to_blobs(max_bytes_per_blob, transformed_data).expect("error while converting blob data to vec<u8>");
-        let current_blob_length: u64 = blob_array.len().try_into().unwrap();
+        let current_blob_length: u64 =
+            blob_array.len().try_into().expect("Unable to convert the blob length into u64 format.");
 
         // there is a limit on number of blobs per txn, checking that here
         if current_blob_length > max_blob_per_txn {
@@ -134,7 +134,10 @@ fn fft_transformation(elements: Vec<BigUint>) -> Vec<BigUint> {
         .map(|i| {
             let bin = format!("{:012b}", i);
             let bin_rev = bin.chars().rev().collect::<String>();
-            GENERATOR.modpow(&BigUint::from_str_radix(&bin_rev, 2).unwrap(), &BLS_MODULUS)
+            GENERATOR.modpow(
+                &BigUint::from_str_radix(&bin_rev, 2).expect("Not able to convert the parameters into exponent."),
+                &BLS_MODULUS,
+            )
         })
         .collect();
     let n = elements.len();
@@ -288,7 +291,8 @@ async fn store_blob_data(blob_data: Vec<FieldElement>, block_number: u64, config
     let data_blob_big_uint = convert_to_biguint(blob_data.clone());
 
     // TODO : Figure out the approach when there are multiple blobs in blobs_array
-    let blobs_array = data_to_blobs(config.da_client().max_bytes_per_blob().await, data_blob_big_uint).unwrap();
+    let blobs_array = data_to_blobs(config.da_client().max_bytes_per_blob().await, data_blob_big_uint)
+        .expect("Not able to convert the data into blobs.");
     let blob = blobs_array[0].clone();
 
     if !blobs_array.is_empty() {
@@ -314,7 +318,7 @@ fn da_word(class_flag: bool, nonce_change: Option<FieldElement>, num_changes: u6
 
     // checking for nonce here
     if let Some(_new_nonce) = nonce_change {
-        let bytes: [u8; 32] = nonce_change.unwrap().to_bytes_be();
+        let bytes: [u8; 32] = nonce_change.expect("Not able to convert the nonce_change var into [u8; 32] type. Possible Error : Improper parameter length.").to_bytes_be();
         let biguint = BigUint::from_bytes_be(&bytes);
         let binary_string_local = format!("{:b}", biguint);
         let padded_binary_string = format!("{:0>64}", binary_string_local);
