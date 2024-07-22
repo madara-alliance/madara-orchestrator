@@ -1,3 +1,11 @@
+//! A Dummy state that does nothing.
+//! It just implements the State and StateReader trait provided by Blockifier.
+//!
+//! This module needs to be deleted as soon as we can import the structure from
+//! Deoxys code.
+//! Currently, we have version conflicts between snos <=> deoxys <=> madara <=> cairo-vm.
+//! This is an issue that needs to be tackled on its own.
+
 use std::collections::HashSet;
 
 use blockifier::execution::contract_class::ContractClass;
