@@ -63,7 +63,7 @@ impl Job for SnosJob {
         let block_number = self.get_block_number_from_metadata(job)?;
 
         // 1. Fetch SNOS input data from Madara
-        let snos_input: StarknetOsInput = self.request_snos_input_from_madara(config, &block_number).await?;
+        let snos_input: StarknetOsInput = self.get_snos_input_from_madara(config, &block_number).await?;
 
         // 2. Build the required inputs for snos::run_os
         // TODO: import BlockifierStateAdapter from Madara RPC and use it here.
@@ -149,11 +149,7 @@ impl SnosJob {
     }
 
     /// Retrieves the [StarknetOsInput] for the provided block number from Madara.
-    async fn request_snos_input_from_madara(
-        &self,
-        config: &Config,
-        block_number: &BlockNumber,
-    ) -> Result<StarknetOsInput> {
+    async fn get_snos_input_from_madara(&self, config: &Config, block_number: &BlockNumber) -> Result<StarknetOsInput> {
         let http_rpc_client = config.http_rpc_client();
         let snos_input = http_rpc_client.get_snos_input(block_number).await?;
         Ok(snos_input)
@@ -166,7 +162,7 @@ impl SnosJob {
         block_number: &BlockNumber,
         snos_input: &StarknetOsInput,
     ) -> Result<(BlockInfo, ChainInfo)> {
-        let gas_prices = self.request_gas_prices_from_l1(config).await?;
+        let gas_prices = self.get_gas_prices_from_l1(config).await?;
 
         let block_info = BlockInfo {
             block_number: *block_number,
@@ -190,7 +186,7 @@ impl SnosJob {
     /// Retrieves the ETH & STRK gas prices and returns them in a [GasPrices].
     /// TODO: We only retrieve the ETH gas price for now. For STRK, we need to implement
     /// a logic to fetch the live price of ETH <=> STRK from an Oracle.
-    async fn request_gas_prices_from_l1(&self, config: &Config) -> Result<GasPrices> {
+    async fn get_gas_prices_from_l1(&self, config: &Config) -> Result<GasPrices> {
         let http_rpc_client = config.http_rpc_client();
         let fee_history = http_rpc_client.fee_history().await?;
 
