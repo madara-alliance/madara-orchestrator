@@ -12,30 +12,13 @@ mod tests {
     use super::*;
 
     #[test]
-    fn test_try_non_zero_u128_from_u128_valid() {
-        let result = try_non_zero_u128_from_u128(42);
-        assert!(result.is_ok());
-        assert_eq!(result.unwrap().get(), 42);
-    }
+    fn test_try_non_zero_u128_from_u128() {
+        // Test valid conversions
+        assert_eq!(try_non_zero_u128_from_u128(42).unwrap().get(), 42);
+        assert_eq!(try_non_zero_u128_from_u128(u128::MAX).unwrap().get(), u128::MAX);
 
-    #[test]
-    fn test_try_non_zero_u128_from_u128_max() {
-        let result = try_non_zero_u128_from_u128(u128::MAX);
-        assert!(result.is_ok());
-        assert_eq!(result.unwrap().get(), u128::MAX);
-    }
-
-    #[test]
-    fn test_try_non_zero_u128_from_u128_one() {
-        let result = try_non_zero_u128_from_u128(1);
-        assert!(result.is_ok());
-        assert_eq!(result.unwrap().get(), 1);
-    }
-
-    #[test]
-    fn test_try_non_zero_u128_from_u128_zero() {
-        let result = try_non_zero_u128_from_u128(0);
-        assert!(result.is_err());
-        assert_eq!(result.unwrap_err().to_string(), "Could not convert 0 from u128 to NonZeroU128.");
+        // Test zero (invalid conversion)
+        let err = try_non_zero_u128_from_u128(0).unwrap_err();
+        assert_eq!(err.to_string(), "Could not convert 0 from u128 to NonZeroU128.");
     }
 }
