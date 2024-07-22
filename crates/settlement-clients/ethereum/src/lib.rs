@@ -18,17 +18,20 @@ use alloy::{
     signers::local::PrivateKeySigner,
 };
 use async_trait::async_trait;
-use c_kzg::{Blob, KzgCommitment, KzgProof, KzgSettings};
+use c_kzg::{Blob, Bytes32, KzgCommitment, KzgProof, KzgSettings};
+use color_eyre::eyre::eyre;
 use color_eyre::Result;
-use mockall::{automock, predicate::*};
+use mockall::{automock, lazy_static, predicate::*};
 use rstest::rstest;
 use std::fmt::Write;
-use std::path::Path;
+use std::path::{Path, PathBuf};
 use std::str::FromStr;
 use std::sync::Arc;
 
 use crate::clients::interfaces::validity_interface::StarknetValidityContractTrait;
-use settlement_client_interface::{SettlementClient, SettlementVerificationStatus, SETTLEMENT_SETTINGS_NAME};
+use settlement_client_interface::{
+    BuildProofParams, BuildProofReturnTypes, SettlementClient, SettlementVerificationStatus, SETTLEMENT_SETTINGS_NAME,
+};
 use utils::{env_utils::get_env_var_or_panic, settings::SettingsProvider};
 
 use crate::clients::StarknetValidityContractClient;
@@ -37,6 +40,14 @@ use crate::conversion::{slice_slice_u8_to_vec_u256, slice_u8_to_u256};
 use crate::types::EthHttpProvider;
 
 pub const ENV_PRIVATE_KEY: &str = "ETHEREUM_PRIVATE_KEY";
+
+lazy_static! {
+    pub static ref CURRENT_PATH: PathBuf = std::env::current_dir().unwrap();
+    pub static ref KZG_SETTINGS: KzgSettings = KzgSettings::load_trusted_setup_file(
+        CURRENT_PATH.join("../../../orchestrator/src/jobs/state_update_job/trusted_setup.txt").as_path()
+    )
+    .expect("Error loading trusted setup file");
+}
 
 #[allow(dead_code)]
 pub struct EthereumSettlementClient {
@@ -100,12 +111,7 @@ impl SettlementClient for EthereumSettlementClient {
         Ok(format!("0x{:x}", tx_receipt.transaction_hash))
     }
 
-    async fn update_state_with_blobs(
-        &self,
-        program_output: Vec<[u8; 32]>,
-        kzg_proof: [u8; 48],
-        state_diff: Vec<Vec<u8>>,
-    ) -> Result<String> {
+    async fn update_state_with_blobs(&self, program_output: Vec<[u8; 32]>, state_diff: Vec<Vec<u8>>) -> Result<String> {
         let trusted_setup = KzgSettings::load_trusted_setup_file(Path::new("./trusted_setup.txt"))
             .expect("issue while loading the trusted setup");
         let (sidecar_blobs, sidecar_commitments, sidecar_proofs) = prepare_sidecar(&state_diff, &trusted_setup).await?;
@@ -118,6 +124,19 @@ impl SettlementClient for EthereumSettlementClient {
         let max_priority_fee_per_gas: u128 = self.provider.get_max_priority_fee_per_gas().await?.to_string().parse()?;
 
         let nonce = self.provider.get_transaction_count(self.wallet_address).await?.to_string().parse()?;
+
+        // x_0_value : program_output[6]
+        let kzg_proof_build_params = BuildProofParams::Ethereum(
+            state_diff,
+            Bytes32::from_bytes(program_output[6].as_slice()).expect("Not able to get x_0 point params."),
+        );
+        let kzg_proof = match Self::build_proof(self, kzg_proof_build_params)
+            .await
+            .expect("Unable to build KZG proof for given params.")
+        {
+            BuildProofReturnTypes::Ethereum(proof) => proof.to_bytes().into_inner(),
+            _ => return Err(eyre!("Invalid return type for build proof.")),
+        };
 
         let tx = TxEip4844 {
             chain_id,
@@ -173,6 +192,39 @@ impl SettlementClient for EthereumSettlementClient {
     async fn get_last_settled_block(&self) -> Result<u64> {
         let block_number = self.core_contract_client.state_block_number().await?;
         Ok(block_number.try_into()?)
+    }
+
+    /// Build kzg proof for the x_0 point evaluation
+    async fn build_proof(&self, params: BuildProofParams) -> Result<BuildProofReturnTypes> {
+        let (blob_data, x_0_value) = match params {
+            BuildProofParams::Ethereum(blob_data, x_0_value) => (blob_data, x_0_value),
+            _ => return Err(eyre!("Invalid params for build proof for ETH settlement.")),
+        };
+
+        // Asserting that there is only one blob in the whole Vec<Vec<u8>> array for now.
+        // Later we will add the support for multiple blob in single blob_data vec.
+        assert_eq!(blob_data.len(), 1);
+
+        let fixed_size_blob: [u8; BYTES_PER_BLOB] = blob_data[0].as_slice().try_into()?;
+
+        let blob = Blob::new(fixed_size_blob);
+        let commitment = KzgCommitment::blob_to_kzg_commitment(&blob, &KZG_SETTINGS)?;
+        let (kzg_proof, y_0_value) = KzgProof::compute_kzg_proof(&blob, &x_0_value, &KZG_SETTINGS)?;
+
+        // Verifying the proof for double check
+        let eval = KzgProof::verify_kzg_proof(
+            &commitment.to_bytes(),
+            &x_0_value,
+            &y_0_value,
+            &kzg_proof.to_bytes(),
+            &KZG_SETTINGS,
+        )?;
+
+        if !eval {
+            Err(eyre!("ERROR : Assertion failed, not able to verify the proof."))
+        } else {
+            Ok(BuildProofReturnTypes::Ethereum(kzg_proof))
+        }
     }
 }
 

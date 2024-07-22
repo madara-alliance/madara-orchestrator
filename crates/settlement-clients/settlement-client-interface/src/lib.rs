@@ -1,4 +1,5 @@
 use async_trait::async_trait;
+use c_kzg::{Bytes32, KzgProof};
 use color_eyre::eyre::Result;
 use mockall::automock;
 use mockall::predicate::*;
@@ -10,6 +11,16 @@ pub enum SettlementVerificationStatus {
     Pending,
     Verified,
     Rejected(String),
+}
+
+pub enum BuildProofParams {
+    Ethereum(Vec<Vec<u8>>, Bytes32),
+    Starknet,
+}
+
+pub enum BuildProofReturnTypes {
+    Ethereum(KzgProof),
+    Starknet,
 }
 
 /// Trait for every new Settlement Layer to implement
@@ -29,12 +40,7 @@ pub trait SettlementClient: Send + Sync {
     ) -> Result<String>;
 
     /// Should be used to update state on contract and publish the blob on ethereum.
-    async fn update_state_with_blobs(
-        &self,
-        program_output: Vec<[u8; 32]>,
-        kzg_proof: [u8; 48],
-        state_diff: Vec<Vec<u8>>,
-    ) -> Result<String>;
+    async fn update_state_with_blobs(&self, program_output: Vec<[u8; 32]>, state_diff: Vec<Vec<u8>>) -> Result<String>;
 
     /// Should be used to update state on core contract when DA is in blobs/alt DA
     async fn update_state_blobs(&self, program_output: Vec<[u8; 32]>, kzg_proof: [u8; 48]) -> Result<String>;
@@ -47,6 +53,9 @@ pub trait SettlementClient: Send + Sync {
 
     /// Should retrieves the last settled block in the settlement layer
     async fn get_last_settled_block(&self) -> Result<u64>;
+
+    /// Build the proof for respective settlement layer
+    async fn build_proof(&self, params: BuildProofParams) -> Result<BuildProofReturnTypes>;
 }
 
 /// Trait for every new SettlementConfig to implement

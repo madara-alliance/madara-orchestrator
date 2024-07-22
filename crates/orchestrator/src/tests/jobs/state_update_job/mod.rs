@@ -42,11 +42,8 @@ async fn test_create_job() {
     assert_eq!(job.external_id.unwrap_string().unwrap(), String::new(), "external_id should be empty string");
 }
 
-/// This test will fail because `update_state_for_block` is not implemented as of now.
-/// Therefor ignoring this test case
 #[rstest]
 #[tokio::test]
-#[ignore]
 async fn test_process_job() {
     let server = MockServer::start();
     let mut settlement_client = MockSettlementClient::new();
@@ -59,8 +56,6 @@ async fn test_process_job() {
     let block_numbers = ["651053", "651054", "651055", "651056"];
     for block_no in block_numbers {
         let program_output: Vec<[u8; 32]> = vec![];
-        let block_proof: Vec<u8> = load_kzg_proof(block_no);
-        let block_proof: [u8; 48] = block_proof.try_into().expect("test proof should be 48 bytes");
         let state_diff: Vec<Vec<u8>> = load_state_diff_file(block_no.parse::<u64>().unwrap()).await;
 
         let snos_output_key = block_no.to_owned() + "/" + SNOS_OUTPUT_FILE_NAME;
@@ -78,7 +73,12 @@ async fn test_process_job() {
             CURRENT_PATH.join(format!("src/tests/jobs/state_update_job/test_data/{}/blob_data.txt", block_no)),
         )
         .expect("Failed to read the blob data txt file");
-        storage_client.expect_get_data().with(eq(blob_data_key)).returning(move |_| Ok(Bytes::from(blob_data.clone())));
+        let blob_data_vec = vec![hex_string_to_u8_vec(&blob_data).unwrap()];
+        let blob_serialized = bincode::serialize(&blob_data_vec).unwrap();
+        storage_client
+            .expect_get_data()
+            .with(eq(blob_data_key))
+            .returning(move |_| Ok(Bytes::from(blob_serialized.clone())));
 
         let x_0_key = block_no.to_owned() + "/" + X_0_FILE_NAME;
         let x_0 = fs::read_to_string(
@@ -90,8 +90,8 @@ async fn test_process_job() {
         settlement_client
             .expect_update_state_with_blobs()
             // TODO: vec![] is program_output
-            .with(eq(program_output), eq(block_proof), eq(state_diff))
-            .returning(|_, _, _| Ok(String::from("0x5d17fac98d9454030426606019364f6e68d915b91f6210ef1e2628cd6987442")));
+            .with(eq(program_output), eq(state_diff))
+            .returning(|_, _| Ok(String::from("0x5d17fac98d9454030426606019364f6e68d915b91f6210ef1e2628cd6987442")));
     }
 
     let config_init = init_config(
@@ -187,12 +187,6 @@ async fn test_process_job_invalid_input_gap() {
 }
 
 // ==================== Utility functions ===========================
-
-fn load_kzg_proof(block_no: &str) -> Vec<u8> {
-    let file_path = format!("src/tests/jobs/state_update_job/test_data/{}/kzg_proof.txt", block_no);
-    let proof_str = fs::read_to_string(file_path).expect("Unable to read kzg_proof.txt").replace("0x", "");
-    hex::decode(proof_str).unwrap()
-}
 
 async fn load_state_diff_file(block_no: u64) -> Vec<Vec<u8>> {
     let mut state_diff_vec: Vec<Vec<u8>> = Vec::new();

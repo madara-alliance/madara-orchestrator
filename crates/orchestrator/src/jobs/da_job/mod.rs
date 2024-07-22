@@ -290,13 +290,16 @@ async fn store_blob_data(blob_data: Vec<FieldElement>, block_number: u64, config
     let key = block_number.to_string() + "/" + BLOB_DATA_FILE_NAME;
     let data_blob_big_uint = convert_to_biguint(blob_data.clone());
 
-    // TODO : Figure out the approach when there are multiple blobs in blobs_array
     let blobs_array = data_to_blobs(config.da_client().max_bytes_per_blob().await, data_blob_big_uint)
         .expect("Not able to convert the data into blobs.");
-    let blob = blobs_array[0].clone();
+
+    let blob = blobs_array.clone();
+
+    // converting Vec<Vec<u8> into Vec<u8>
+    let blob_vec_u8 = bincode::serialize(&blob).unwrap();
 
     if !blobs_array.is_empty() {
-        s3_client.put_data(ByteStream::from(blob), &key).await?;
+        s3_client.put_data(ByteStream::from(blob_vec_u8), &key).await?;
     }
 
     Ok(())
@@ -462,6 +465,17 @@ mod tests {
 
         // ideally the data after fft transformation and the data before ifft should be same.
         assert_eq!(fft_blob_data, original_blob_data);
+    }
+
+    #[rstest]
+    fn test_bincode() {
+        let data = vec![vec![1, 2], vec![3, 4]];
+
+        let serialize_data = bincode::serialize(&data).unwrap();
+        println!("serialized data: {:?}", serialize_data);
+        let deserialize_data: Vec<Vec<u8>> = bincode::deserialize(&serialize_data).unwrap();
+
+        assert_eq!(data, deserialize_data);
     }
 
     pub fn read_state_update_from_file(file_path: &str) -> Result<StateUpdate> {

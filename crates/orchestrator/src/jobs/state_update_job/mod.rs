@@ -4,6 +4,7 @@ use std::collections::HashMap;
 use std::path::PathBuf;
 
 use async_trait::async_trait;
+use cairo_vm::Felt252;
 use color_eyre::eyre::eyre;
 use color_eyre::Result;
 use lazy_static::lazy_static;
@@ -21,6 +22,7 @@ use super::constants::{
 use crate::config::{config, Config};
 use crate::constants::SNOS_OUTPUT_FILE_NAME;
 use crate::jobs::constants::JOB_METADATA_STATE_UPDATE_BLOCKS_TO_SETTLE_KEY;
+use crate::jobs::state_update_job::kzg::fetch_blob_data_for_block;
 use crate::jobs::types::{JobItem, JobStatus, JobType, JobVerificationStatus};
 use crate::jobs::Job;
 
@@ -195,47 +197,19 @@ impl StateUpdateJob {
     }
 
     /// Update the state for the corresponding block using the settlement layer.
-    async fn update_state_for_block(
-        &self,
-        _config: &Config,
-        _block_no: u64,
-        _snos: StarknetOsOutput,
-    ) -> Result<String> {
-        // Let's keep this code as some of the parts can be reused.
-        //
-        // let starknet_client = config.starknet_client();
-        // let settlement_client = config.settlement_client();
-        // let last_tx_hash_executed = if snos.use_kzg_da == Felt252::ZERO {
-        //     let state_update = starknet_client.get_state_update(BlockId::Number(block_no)).await?;
-        //     let _state_update = match state_update {
-        //         MaybePendingStateUpdate::PendingUpdate(_) => {
-        //             return Err(eyre!("Block #{} - Cannot update state as it's still in pending state", block_no));
-        //         }
-        //         MaybePendingStateUpdate::Update(state_update) => state_update,
-        //     };
-        //     // TODO: Build the required arguments & send them to update_state_calldata
-        //     let program_output = vec![];
-        //     let onchain_data_hash = vec![0_u8; 32].try_into().expect("onchain data hash size must be 32 bytes");
-        //     let onchain_data_size = 0;
-        //     settlement_client.update_state_calldata(program_output, onchain_data_hash, onchain_data_size).await?
-        // } else if snos.use_kzg_da == Felt252::ONE {
-        //     let blob_data = fetch_blob_data_for_block(block_no).await?;
-        //     let x_0_value = fetch_x_0_value_from_os_output(block_no).await?;
-        //
-        //     let (blob_data, kzg_proof) = build_kzg_proof(blob_data, x_0_value).await?;
-        //
-        //     // Temp solution for formatting to blob
-        //     // TODO : Need to implement solution to handle multiple vectors (multiple data) as It will be updated in the upcoming starknet update.
-        //     let mut blob_data_vec: Vec<Vec<u8>> = Vec::new();
-        //     blob_data_vec.push(blob_data);
-        //
-        //     // Sending update_state transaction
-        //     settlement_client.update_state_with_blobs(vec![], kzg_proof.to_owned(), blob_data_vec).await?
-        // } else {
-        //     return Err(eyre!("Block #{} - SNOS error, [use_kzg_da] should be either 0 or 1.", block_no));
-        // };
-        // Ok(last_tx_hash_executed)
-        unimplemented!("update_state_for_block not implemented as of now.")
+    async fn update_state_for_block(&self, config: &Config, block_no: u64, snos: StarknetOsOutput) -> Result<String> {
+        let settlement_client = config.settlement_client();
+        let last_tx_hash_executed = if snos.use_kzg_da == Felt252::ZERO {
+            unimplemented!("update_state_for_block not implemented as of now for calldata DA.")
+        } else if snos.use_kzg_da == Felt252::ONE {
+            let blob_data = fetch_blob_data_for_block(block_no).await?;
+
+            // Sending update_state transaction from the settlement client
+            settlement_client.update_state_with_blobs(vec![], blob_data).await?
+        } else {
+            return Err(eyre!("Block #{} - SNOS error, [use_kzg_da] should be either 0 or 1.", block_no));
+        };
+        Ok(last_tx_hash_executed)
     }
 
     /// Retrieves the SNOS output for the corresponding block.

@@ -22,7 +22,9 @@ use starknet::{
 };
 use tokio::time::{sleep, Duration};
 
-use settlement_client_interface::{SettlementClient, SettlementVerificationStatus, SETTLEMENT_SETTINGS_NAME};
+use settlement_client_interface::{
+    BuildProofParams, BuildProofReturnTypes, SettlementClient, SettlementVerificationStatus, SETTLEMENT_SETTINGS_NAME,
+};
 use utils::env_utils::get_env_var_or_panic;
 use utils::settings::SettingsProvider;
 
@@ -156,12 +158,7 @@ impl SettlementClient for StarknetSettlementClient {
 
     /// Should be used to update state on core contract and publishing the blob simultaneously
     #[allow(unused)]
-    async fn update_state_with_blobs(
-        &self,
-        program_output: Vec<[u8; 32]>,
-        kzg_proof: [u8; 48],
-        state_diff: Vec<Vec<u8>>,
-    ) -> Result<String> {
+    async fn update_state_with_blobs(&self, program_output: Vec<[u8; 32]>, state_diff: Vec<Vec<u8>>) -> Result<String> {
         !unimplemented!("not implemented yet.")
     }
 
@@ -205,5 +202,10 @@ impl SettlementClient for StarknetSettlementClient {
             return Err(eyre!("Could not fetch last block number from core contract."));
         }
         Ok(block_number[0].try_into()?)
+    }
+
+    /// Build the proof for starknet settlement
+    async fn build_proof(&self, _params: BuildProofParams) -> Result<BuildProofReturnTypes> {
+        unimplemented!("Build Proof not implemented for Starknet settlement.")
     }
 }
