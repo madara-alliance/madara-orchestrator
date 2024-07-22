@@ -69,7 +69,7 @@ pub async fn init_config() -> Config {
     let settings_provider = DefaultSettingsProvider {};
     let settlement_client = build_settlement_client(&settings_provider).await;
     let prover_client = build_prover_service(&settings_provider);
-    let storage_client = build_storage_client().await;
+    let storage = build_storage_client().await;
 
     Config::new(
         Arc::new(provider),
@@ -79,12 +79,13 @@ pub async fn init_config() -> Config {
         settlement_client,
         database,
         queue,
-        storage_client
+        storage,
     )
 }
 
 impl Config {
     /// Create a new config
+    #[allow(clippy::too_many_arguments)]
     pub fn new(
         starknet_client: Arc<JsonRpcClient<HttpTransport>>,
         http_rpc_client: Arc<HttpRpcClient>,
