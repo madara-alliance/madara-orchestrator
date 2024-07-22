@@ -12,10 +12,10 @@ use cairo_vm::Felt252;
 use color_eyre::eyre::eyre;
 use color_eyre::Result;
 use num::FromPrimitive;
+use serde_json::json;
 use snos::execution::helper::ExecutionHelperWrapper;
 use snos::io::input::StarknetOsInput;
 use snos::run_os;
-use starknet::providers::jsonrpc::JsonRpcRequest;
 use starknet_api::block::{BlockHash, BlockNumber, BlockTimestamp};
 use starknet_api::hash::StarkFelt;
 use starknet_core::types::FieldElement;
@@ -144,13 +144,11 @@ impl Job for SnosJob {
     }
 
     fn max_verification_attempts(&self) -> u64 {
-        // TODO: isn't 10 a lot?
-        10
+        1
     }
 
     fn verification_polling_delay_seconds(&self) -> u64 {
-        // TODO: what is an average run time for SNOS?
-        60
+        1
     }
 }
 
@@ -168,16 +166,14 @@ impl SnosJob {
 
     /// Retrieves the [StarknetOsInput] for the provided block number from Madara.
     fn get_snos_input_from_madara(&self, _config: &Config, block_number: &BlockNumber) -> Result<StarknetOsInput> {
-        let raw_request = format!(
-            r#"{{
-            "id": 1,
-            "jsonrpc": "2.0",
-            "method": "madara_getSnosInput",
-            "params": [{{ "block_number": {} }}]
-        }}"#,
-            block_number
+        let _rpc_request = json!(
+            {
+                "id": 1,
+                "jsonrpc": "2.0",
+                "method": "madara_getSnosInput",
+                "params": [{"block_number": block_number}]
+            }
         );
-        let _rpc_request = serde_json::from_str::<JsonRpcRequest>(&raw_request).expect("unable to parse request");
         unimplemented!("Handler for madara_getSnosInput has not been implemented")
     }
 }
