@@ -31,7 +31,6 @@ impl DaClient for CelestiaDaClient {
         // Submit the blobs to celestia
         let height = self.client.blob_submit(blobs?.as_slice(), GasPrice::default()).await?;
 
-        println!("{}", height);
         // // Return back the height of the block that will contain the blob.
         Ok(height.to_string())
     }
@@ -85,7 +84,7 @@ mod tests {
     use super::*;
 
     #[tokio::test]
-    // #[ignore = "Can't run without manual intervention, setup celestia-node and fund address."]
+    #[ignore = "Can't run without manual intervention, setup celestia-node and fund address."]
     async fn test_celestia_publish_state_diff_and_verify_inclusion() {
         let config: CelestiaDaConfig = CelestiaDaConfig::new_from_env();
         let celestia_da_client = config.build_client().await;
@@ -99,9 +98,9 @@ mod tests {
             0x22, 0x33, 0x44, 0x55, 0x66, 0x77, 0x88, 0x99, 0xaa, 0xbb, 0xcc, 0xdd, 0xee, 0xff,
         ];
 
-        let height_id = celestia_da_client.publish_state_diff(state_diff, &to).await.expect("Problem reading:");
+        let height_id = celestia_da_client.publish_state_diff(state_diff, &to).await.expect("Failed to publish state diff:");
 
-        let inclusion_response = celestia_da_client.verify_inclusion(&height_id).await.expect("Problem reading:");
+        let inclusion_response = celestia_da_client.verify_inclusion(&height_id).await.expect("Failed to verify inclusion:");
 
         assert_eq!(inclusion_response, DaVerificationStatus::Verified);
     }
