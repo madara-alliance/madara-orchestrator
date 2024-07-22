@@ -70,6 +70,7 @@ impl Job for SnosJob {
         // Currently not possible because of dependencies versions conflicts between
         // SNOS, cairo-vm and madara.
         let mut state = DummyState {};
+        let (block_info, chain_info) = self.build_info(config, &block_number, &snos_input).await?;
         let block_number_and_hash = BlockNumberHashPair {
             number: block_number,
             hash: BlockHash(StarkFelt::from(
@@ -77,7 +78,6 @@ impl Job for SnosJob {
                     .expect("Could not convert Felt to FieldElement"),
             )),
         };
-        let (block_info, chain_info) = self.build_info(config, &block_number, &snos_input).await?;
 
         let block_context = match pre_process_block(
             &mut state,
@@ -111,11 +111,10 @@ impl Job for SnosJob {
             Err(e) => return Err(eyre!("Could not run SNOS for block #{}: {}", block_number, e)),
         };
 
-        // 3. Store the received PIE in DB
+        // 3. Store the received outputs in our cloud storage
         self.store_into_cloud_storage(config, &block_number, cairo_pie, snos_output).await?;
 
-        // TODO: which internal id do we want?
-        Ok("some_create_id?".into())
+        Ok(format!("snos_{block_number}"))
     }
 
     async fn verify_job(&self, _config: &Config, _job: &mut JobItem) -> Result<JobVerificationStatus> {
