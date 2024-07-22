@@ -63,14 +63,13 @@ impl Job for SnosJob {
         let block_number = self.get_block_number_from_metadata(job)?;
 
         // 1. Fetch SNOS input data from Madara
-        let snos_input: StarknetOsInput = self.get_snos_input_from_madara(config, &block_number).await?;
+        let snos_input: StarknetOsInput = self.request_snos_input_from_madara(config, &block_number).await?;
 
         // 2. Build the required inputs for snos::run_os
         // TODO: import BlockifierStateAdapter from Madara RPC and use it here.
         // Currently not possible because of dependencies versions conflicts between
         // SNOS, cairo-vm and madara.
         let mut state = DummyState {};
-
         let block_number_and_hash = BlockNumberHashPair {
             number: block_number,
             hash: BlockHash(StarkFelt::from(
@@ -78,24 +77,7 @@ impl Job for SnosJob {
                     .expect("Could not convert Felt to FieldElement"),
             )),
         };
-
-        let block_info = BlockInfo {
-            block_number,
-            // TODO: Assert that we really want current_timestamp?
-            block_timestamp: BlockTimestamp(get_current_timestamp_in_secs()),
-            sequencer_address: snos_input.general_config.sequencer_address,
-            gas_prices: self.get_gas_prices_from_l1(config).await?,
-            use_kzg_da: snos_input.general_config.use_kzg_da,
-        };
-
-        let chain_info = ChainInfo {
-            chain_id: snos_input.general_config.starknet_os_config.chain_id.clone(),
-            fee_token_addresses: FeeTokenAddresses {
-                eth_fee_token_address: snos_input.general_config.starknet_os_config.fee_token_address,
-                // TODO: assert that the STRK fee token address is [deprecated_fee_token_address]
-                strk_fee_token_address: snos_input.general_config.starknet_os_config.deprecated_fee_token_address,
-            },
-        };
+        let (block_info, chain_info) = self.build_info(config, &block_number, &snos_input).await?;
 
         let block_context = match pre_process_block(
             &mut state,
@@ -108,11 +90,9 @@ impl Job for SnosJob {
             Err(e) => return Err(eyre!("pre_process_block failed for block #{}: {}", block_number, e)),
         };
 
-        // TODO: contract_storage_map should be retrieved from where?
-        let contract_storage_map = HashMap::default();
         let execution_helper = ExecutionHelperWrapper::new(
-            contract_storage_map,
-            vec![], // TODO: vec of TransactionExecutionInfo, how to get it?
+            HashMap::default(), // TODO: contract_storage_map should be retrieved from where?
+            vec![],             // TODO: vec of TransactionExecutionInfo, how to get it?
             &block_context,
             (Felt252::from_u64(block_number.0).unwrap(), snos_input.block_hash),
         );
@@ -170,16 +150,48 @@ impl SnosJob {
     }
 
     /// Retrieves the [StarknetOsInput] for the provided block number from Madara.
-    async fn get_snos_input_from_madara(&self, config: &Config, block_number: &BlockNumber) -> Result<StarknetOsInput> {
+    async fn request_snos_input_from_madara(
+        &self,
+        config: &Config,
+        block_number: &BlockNumber,
+    ) -> Result<StarknetOsInput> {
         let http_rpc_client = config.http_rpc_client();
         let snos_input = http_rpc_client.get_snos_input(block_number).await?;
         Ok(snos_input)
     }
 
+    /// Builds the [BlockInfo] and [ChainInfo] structures that are required for the `pre_process_block` function.
+    async fn build_info(
+        &self,
+        config: &Config,
+        block_number: &BlockNumber,
+        snos_input: &StarknetOsInput,
+    ) -> Result<(BlockInfo, ChainInfo)> {
+        let gas_prices = self.request_gas_prices_from_l1(config).await?;
+
+        let block_info = BlockInfo {
+            block_number: *block_number,
+            block_timestamp: BlockTimestamp(get_current_timestamp_in_secs()),
+            sequencer_address: snos_input.general_config.sequencer_address,
+            gas_prices,
+            use_kzg_da: snos_input.general_config.use_kzg_da,
+        };
+
+        let chain_info = ChainInfo {
+            chain_id: snos_input.general_config.starknet_os_config.chain_id.clone(),
+            fee_token_addresses: FeeTokenAddresses {
+                eth_fee_token_address: snos_input.general_config.starknet_os_config.fee_token_address,
+                strk_fee_token_address: snos_input.general_config.starknet_os_config.deprecated_fee_token_address,
+            },
+        };
+
+        Ok((block_info, chain_info))
+    }
+
     /// Retrieves the ETH & STRK gas prices and returns them in a [GasPrices].
     /// TODO: We only retrieve the ETH gas price for now. For STRK, we need to implement
     /// a logic to fetch the live price of ETH <=> STRK from an Oracle.
-    async fn get_gas_prices_from_l1(&self, config: &Config) -> Result<GasPrices> {
+    async fn request_gas_prices_from_l1(&self, config: &Config) -> Result<GasPrices> {
         let http_rpc_client = config.http_rpc_client();
         let fee_history = http_rpc_client.fee_history().await?;
 
