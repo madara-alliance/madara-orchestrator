@@ -29,6 +29,7 @@ ethereum-da-client = { workspace = true, optional = true }
 ethereum-settlement-client = { workspace = true }
 futures = { workspace = true }
 hex = { workspace = true }
+indexmap = { workspace = true }
 lazy_static = { workspace = true }
 log = "0.4.21"
 majin-blob-core = { git = "https://github.com/AbdelStark/majin-blob", branch = "main" }
@@ -46,10 +47,9 @@ settlement-client-interface = { workspace = true }
 sharp-service = { workspace = true }
 snos = { workspace = true }
 starknet = { workspace = true }
-starknet_api = { workspace = true }
-indexmap = { workspace = true }
 starknet-core = "0.9.0"
 starknet-settlement-client = { workspace = true }
+starknet_api = { workspace = true }
 thiserror = { workspace = true }
 tokio = { workspace = true, features = ["sync", "macros", "rt-multi-thread"] }
 tracing = { workspace = true }

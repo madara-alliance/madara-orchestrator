@@ -47,9 +47,9 @@ impl Job for SnosJob {
         })
     }
 
-    async fn process_job(&self, _config: &Config, _job: &mut JobItem) -> Result<String> {
+    async fn process_job(&self, _config: &Config, job: &mut JobItem) -> Result<String> {
         // 0. Get block number from metadata
-        let block_number = BlockNumber(42_u64);
+        let block_number = self.get_block_number_from_metadata(job);
 
         // 1. Fetch SNOS input data from Madara
         let snos_input: StarknetOsInput = self.get_snos_input_from_madara(&block_number)?;
@@ -72,11 +72,11 @@ impl Job for SnosJob {
             // TODO: Assert that we really want current_timestamp?
             block_timestamp: BlockTimestamp(get_current_timestamp_in_secs()),
             sequencer_address: snos_input.general_config.sequencer_address,
-            // TODO: retrieve them from Madara? & assert that they're in gas_price_bounds?
+            // TODO: retrieve prices from Madara?
             gas_prices: GasPrices {
                 eth_l1_gas_price: NonZeroU128::new(0).unwrap(),
-                strk_l1_gas_price: NonZeroU128::new(0).unwrap(),
                 eth_l1_data_gas_price: NonZeroU128::new(0).unwrap(),
+                strk_l1_gas_price: NonZeroU128::new(0).unwrap(),
                 strk_l1_data_gas_price: NonZeroU128::new(0).unwrap(),
             },
             use_kzg_da: snos_input.general_config.use_kzg_da,
@@ -150,6 +150,11 @@ impl Job for SnosJob {
 }
 
 impl SnosJob {
+    // TODO: actually parse the metadata
+    fn get_block_number_from_metadata(&self, _job: &JobItem) -> BlockNumber {
+        BlockNumber(42_u64)
+    }
+
     fn get_snos_input_from_madara(&self, _block_number: &BlockNumber) -> Result<StarknetOsInput> {
         // TODO: JSON RPC call to `getSnosInput` for a specific block
         let snos_input = StarknetOsInput::load(std::path::Path::new("i_do_not_exist_😹.txt")).unwrap();
