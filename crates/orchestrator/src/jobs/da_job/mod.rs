@@ -377,7 +377,7 @@ mod tests {
         let server = MockServer::start();
 
         let config =
-            init_config(Some(format!("http://localhost:{}", server.port())), None, None, None, None, None).await;
+            init_config(Some(format!("http://localhost:{}", server.port())), None, None, None, None, None, None).await;
 
         get_nonce_attached(&server, nonce_file_path);
 

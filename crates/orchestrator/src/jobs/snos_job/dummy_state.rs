@@ -1,16 +1,15 @@
 //! A Dummy state that does nothing.
-//! It just implements the State and StateReader trait provided by Blockifier.
+//! It just implements the State and StateReader traits provided by Blockifier.
 //!
-//! This module needs to be deleted as soon as we can import the structure from
-//! Madara code.
+//! This module needs to be deleted as soon as we can import the structure
+//! [BlockifierStateAdapter] from Madara code.
 //! Currently, we have version conflicts between snos <=> deoxys <=> cairo-vm.
 //! This is an issue that needs to be tackled on its own.
 
 use std::collections::HashSet;
 
-use blockifier::execution::contract_class::ContractClass;
+use blockifier::execution::contract_class::{ContractClass, ContractClassV0};
 use blockifier::state::cached_state::CommitmentStateDiff;
-use blockifier::state::errors::StateError;
 use blockifier::state::state_api::{State, StateReader, StateResult};
 use indexmap::IndexMap;
 use starknet_api::core::{ClassHash, CompiledClassHash, ContractAddress, Nonce};
@@ -33,7 +32,7 @@ impl StateReader for DummyState {
     }
 
     fn get_compiled_contract_class(&mut self, _class_hash: ClassHash) -> StateResult<ContractClass> {
-        Err(StateError::OutOfRangeContractAddress)
+        Ok(ContractClass::V0(ContractClassV0::default()))
     }
 
     fn get_compiled_class_hash(&mut self, _class_hash: ClassHash) -> StateResult<CompiledClassHash> {

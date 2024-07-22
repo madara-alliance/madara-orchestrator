@@ -3849,7 +3849,7 @@ name = "e2e-tests"
 version = "0.1.0"
 dependencies = [
  "orchestrator",
- "reqwest 0.11.27",
+ "reqwest 0.12.5",
  "serde_json",
  "testcontainers",
  "tokio",
@@ -6298,6 +6298,7 @@ dependencies = [
  "num-traits 0.2.19",
  "omniqueue",
  "prover-client-interface",
+ "reqwest 0.12.5",
  "rstest 0.18.2",
  "serde",
  "serde_json",
@@ -8237,7 +8238,7 @@ dependencies = [
  "gps-fact-checker",
  "hex",
  "prover-client-interface",
- "reqwest 0.11.27",
+ "reqwest 0.12.5",
  "serde",
  "serde_json",
  "snos",

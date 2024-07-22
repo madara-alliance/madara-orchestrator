@@ -27,6 +27,7 @@ pub async fn init_config(
     da_client: Option<MockDaClient>,
     prover_client: Option<MockProverClient>,
     settlement_client: Option<MockSettlementClient>,
+    http_client: Option<reqwest::Client>,
 ) -> Config {
     let _ = tracing_subscriber::fmt().with_max_level(tracing::Level::INFO).with_target(false).try_init();
 
@@ -36,6 +37,7 @@ pub async fn init_config(
     let da_client = da_client.unwrap_or_default();
     let prover_client = prover_client.unwrap_or_default();
     let settlement_client = settlement_client.unwrap_or_default();
+    let http_client = http_client.unwrap_or_default();
 
     // init starknet client
     let provider = JsonRpcClient::new(HttpTransport::new(Url::parse(rpc_url.as_str()).expect("Failed to parse URL")));
@@ -45,6 +47,7 @@ pub async fn init_config(
         Box::new(da_client),
         Box::new(prover_client),
         Box::new(settlement_client),
+        Box::new(http_client),
         Box::new(database),
         Box::new(queue),
     )

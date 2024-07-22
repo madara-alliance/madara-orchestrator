@@ -21,7 +21,7 @@ use httpmock::prelude::*;
 #[rstest]
 #[tokio::test]
 async fn test_create_job() {
-    let config = init_config(None, None, None, None, None, None).await;
+    let config = init_config(None, None, None, None, None, None, None).await;
 
     let job = StateUpdateJob.create_job(&config, String::from("0"), HashMap::default()).await;
     assert!(job.is_ok());
@@ -65,6 +65,7 @@ async fn test_process_job() {
         None,
         None,
         Some(settlement_client),
+        None,
     )
     .await;
 
@@ -94,6 +95,7 @@ async fn test_process_job_invalid_inputs(#[case] block_numbers_to_settle: String
         None,
         None,
         Some(settlement_client),
+        None,
     )
     .await;
 
@@ -131,6 +133,7 @@ async fn test_process_job_invalid_input_gap() {
         None,
         None,
         Some(settlement_client),
+        None,
     )
     .await;
 

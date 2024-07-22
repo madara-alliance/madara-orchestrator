@@ -33,6 +33,8 @@ pub struct Config {
     prover_client: Box<dyn ProverClient>,
     /// Settlement client
     settlement_client: Box<dyn SettlementClient>,
+    /// An HTTP client used for RPC requests
+    http_client: Box<reqwest::Client>,
     /// The database client
     database: Box<dyn Database>,
     queue: Box<dyn QueueProvider>,
@@ -53,13 +55,14 @@ pub async fn init_config() -> Config {
     // init the queue
     let queue = Box::new(SqsQueue {});
 
+    let http_client = Box::new(reqwest::Client::new());
     let da_client = build_da_client().await;
 
     let settings_provider = DefaultSettingsProvider {};
     let settlement_client = build_settlement_client(&settings_provider).await;
     let prover_client = build_prover_service(&settings_provider);
 
-    Config::new(Arc::new(provider), da_client, prover_client, settlement_client, database, queue)
+    Config::new(Arc::new(provider), da_client, prover_client, settlement_client, http_client, database, queue)
 }
 
 impl Config {
@@ -69,10 +72,11 @@ impl Config {
         da_client: Box<dyn DaClient>,
         prover_client: Box<dyn ProverClient>,
         settlement_client: Box<dyn SettlementClient>,
+        http_client: Box<reqwest::Client>,
         database: Box<dyn Database>,
         queue: Box<dyn QueueProvider>,
     ) -> Self {
-        Self { starknet_client, da_client, prover_client, settlement_client, database, queue }
+        Self { starknet_client, da_client, prover_client, settlement_client, http_client, database, queue }
     }
 
     /// Returns the starknet client
@@ -93,6 +97,11 @@ impl Config {
     /// Returns the settlement client
     pub fn settlement_client(&self) -> &dyn SettlementClient {
         self.settlement_client.as_ref()
+    }
+
+    /// Returns the http client
+    pub fn http_client(&self) -> &reqwest::Client {
+        self.http_client.as_ref()
     }
 
     /// Returns the database client
