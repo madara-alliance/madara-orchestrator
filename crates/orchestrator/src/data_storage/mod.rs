@@ -12,6 +12,7 @@ use mockall::automock;
 /// The proposed storage format is :
 /// ----s3
 ///     ----<block_number>
+///         ----<cairo_pie.json>
 ///         ----<snos_output.json>
 ///         ----<kzg.txt>
 #[automock]

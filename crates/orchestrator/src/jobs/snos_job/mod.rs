@@ -15,6 +15,7 @@ use num::FromPrimitive;
 use snos::execution::helper::ExecutionHelperWrapper;
 use snos::io::input::StarknetOsInput;
 use snos::run_os;
+use starknet::providers::jsonrpc::JsonRpcRequest;
 use starknet_api::block::{BlockHash, BlockNumber, BlockTimestamp};
 use starknet_api::hash::StarkFelt;
 use starknet_core::types::FieldElement;
@@ -50,12 +51,12 @@ impl Job for SnosJob {
         })
     }
 
-    async fn process_job(&self, _config: &Config, job: &mut JobItem) -> Result<String> {
+    async fn process_job(&self, config: &Config, job: &mut JobItem) -> Result<String> {
         // 0. Get block number from metadata
         let block_number = self.get_block_number_from_metadata(job)?;
 
         // 1. Fetch SNOS input data from Madara
-        let snos_input: StarknetOsInput = self.get_snos_input_from_madara(&block_number)?;
+        let snos_input: StarknetOsInput = self.get_snos_input_from_madara(config, &block_number)?;
 
         // 2. Build the required inputs for snos::run_os
         // TODO: import BlockifierStateAdapter from Madara RPC and use it here
@@ -128,7 +129,7 @@ impl Job for SnosJob {
         };
 
         // 3. Store the received PIE in DB
-        // TODO: do we want to store the SnosOutput also?
+        // TODO: Store the PIE & the SnosOutput once S3 is implemented
         todo!()
     }
 
@@ -157,17 +158,26 @@ impl SnosJob {
     /// Get the block number that needs to be run with SNOS for the current
     /// job.
     fn get_block_number_from_metadata(&self, job: &JobItem) -> Result<BlockNumber> {
-        let block_number = job
+        let block_number: u64 = job
             .metadata
             .get(JOB_METADATA_SNOS_BLOCK)
-            .ok_or_else(|| eyre!("Block number to run with SNOS must be specified (snos job #{})", job.internal_id))?;
-        Ok(BlockNumber(block_number.parse()?))
+            .ok_or_else(|| eyre!("Block number to run with SNOS must be specified (snos job #{})", job.internal_id))?
+            .parse()?;
+        Ok(BlockNumber(block_number))
     }
 
     /// Retrieves the [StarknetOsInput] for the provided block number from Madara.
-    fn get_snos_input_from_madara(&self, _block_number: &BlockNumber) -> Result<StarknetOsInput> {
-        // TODO: JSON RPC call to `getSnosInput` for a specific block
-        let snos_input = StarknetOsInput::load(std::path::Path::new("i_do_not_exist_😹.txt")).unwrap();
-        Ok(snos_input)
+    fn get_snos_input_from_madara(&self, _config: &Config, block_number: &BlockNumber) -> Result<StarknetOsInput> {
+        let raw_request = format!(
+            r#"{{
+            "id": 1,
+            "jsonrpc": "2.0",
+            "method": "madara_getSnosInput",
+            "params": [{{ "block_number": {} }}]
+        }}"#,
+            block_number
+        );
+        let _rpc_request = serde_json::from_str::<JsonRpcRequest>(&raw_request).expect("unable to parse request");
+        unimplemented!("Handler for madara_getSnosInput has not been implemented")
     }
 }
