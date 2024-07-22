@@ -63,17 +63,17 @@ pub async fn fetch_x_0_value_from_os_output(block_number: u64) -> color_eyre::Re
 // ===============
 
 /// Util function to convert hex string data into Vec<u8>
-pub fn hex_string_to_u8_vec(hex_str: &str) -> color_eyre::Result<Vec<u8>, String> {
+pub fn hex_string_to_u8_vec(hex_str: &str) -> color_eyre::Result<Vec<u8>> {
     // Remove any spaces or non-hex characters from the input string
     let cleaned_str: String = hex_str.chars().filter(|c| c.is_ascii_hexdigit()).collect();
 
     // Convert the cleaned hex string to a Vec<u8>
     let mut result = Vec::new();
     for chunk in cleaned_str.as_bytes().chunks(2) {
-        if let Ok(byte_val) = u8::from_str_radix(std::str::from_utf8(chunk).unwrap(), 16) {
+        if let Ok(byte_val) = u8::from_str_radix(std::str::from_utf8(chunk)?, 16) {
             result.push(byte_val);
         } else {
-            return Err(format!("Error parsing hex string: {}", cleaned_str));
+            return Err(eyre!("Error parsing hex string: {}", cleaned_str));
         }
     }
 

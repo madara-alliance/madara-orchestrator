@@ -296,7 +296,7 @@ async fn store_blob_data(blob_data: Vec<FieldElement>, block_number: u64, config
     let blob = blobs_array.clone();
 
     // converting Vec<Vec<u8> into Vec<u8>
-    let blob_vec_u8 = bincode::serialize(&blob).unwrap();
+    let blob_vec_u8 = bincode::serialize(&blob)?;
 
     if !blobs_array.is_empty() {
         s3_client.put_data(ByteStream::from(blob_vec_u8), &key).await?;

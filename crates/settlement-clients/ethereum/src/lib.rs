@@ -112,8 +112,7 @@ impl SettlementClient for EthereumSettlementClient {
     }
 
     async fn update_state_with_blobs(&self, program_output: Vec<[u8; 32]>, state_diff: Vec<Vec<u8>>) -> Result<String> {
-        let trusted_setup = KzgSettings::load_trusted_setup_file(Path::new("./trusted_setup.txt"))
-            .expect("issue while loading the trusted setup");
+        let trusted_setup = KzgSettings::load_trusted_setup_file(Path::new("./trusted_setup.txt"))?;
         let (sidecar_blobs, sidecar_commitments, sidecar_proofs) = prepare_sidecar(&state_diff, &trusted_setup).await?;
         let sidecar = BlobTransactionSidecar::new(sidecar_blobs, sidecar_commitments, sidecar_proofs);
 
@@ -126,14 +125,9 @@ impl SettlementClient for EthereumSettlementClient {
         let nonce = self.provider.get_transaction_count(self.wallet_address).await?.to_string().parse()?;
 
         // x_0_value : program_output[6]
-        let kzg_proof_build_params = BuildProofParams::Ethereum(
-            state_diff,
-            Bytes32::from_bytes(program_output[6].as_slice()).expect("Not able to get x_0 point params."),
-        );
-        let kzg_proof = match Self::build_proof(self, kzg_proof_build_params)
-            .await
-            .expect("Unable to build KZG proof for given params.")
-        {
+        let kzg_proof_build_params =
+            BuildProofParams::Ethereum(state_diff, Bytes32::from_bytes(program_output[6].as_slice())?);
+        let kzg_proof = match Self::build_proof(self, kzg_proof_build_params).await? {
             BuildProofReturnTypes::Ethereum(proof) => proof.to_bytes().into_inner(),
             _ => return Err(eyre!("Invalid return type for build proof.")),
         };
