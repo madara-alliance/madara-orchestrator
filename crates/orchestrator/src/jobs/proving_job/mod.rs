@@ -41,7 +41,7 @@ impl Job for ProvingJob {
     }
 
     async fn process_job(&self, config: &Config, job: &mut JobItem) -> Result<String> {
-        // TODO: allow to download PIE from S3
+        // TODO: allow to download PIE from storage
         let cairo_pie_path: PathBuf = job
             .metadata
             .get(JOB_METADATA_CAIRO_PIE_PATH_KEY)

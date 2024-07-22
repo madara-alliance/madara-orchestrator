@@ -4,7 +4,6 @@ use std::result::Result::{Err, Ok as OtherOk};
 use std::str::FromStr;
 
 use async_trait::async_trait;
-use aws_sdk_s3::primitives::ByteStream;
 use color_eyre::eyre::{eyre, Ok};
 use color_eyre::Result;
 use lazy_static::lazy_static;
@@ -19,6 +18,7 @@ use uuid::Uuid;
 use super::types::{JobItem, JobStatus, JobType, JobVerificationStatus};
 use super::Job;
 use crate::config::Config;
+use crate::constants::BLOB_DATA_FILE_NAME;
 
 lazy_static! {
     /// EIP-4844 BLS12-381 modulus.
@@ -39,8 +39,6 @@ lazy_static! {
 
     pub static ref BLOB_LEN: usize = 4096;
 }
-
-pub const BLOB_DATA_FILE_NAME: &str = "blob_data.txt";
 
 pub struct DaJob;
 
@@ -278,7 +276,7 @@ async fn state_update_to_blob_data(
         blob_data.push(*compiled_class_hash);
     }
 
-    // saving the blob data of the block to S3 bucket
+    // saving the blob data of the block to storage client
     store_blob_data(blob_data.clone(), block_no, config).await?;
 
     Ok(blob_data)
@@ -286,7 +284,7 @@ async fn state_update_to_blob_data(
 
 /// To store the blob data using the storage client with path <block_number>/blob_data.txt
 async fn store_blob_data(blob_data: Vec<FieldElement>, block_number: u64, config: &Config) -> Result<()> {
-    let s3_client = config.storage();
+    let storage_client = config.storage();
     let key = block_number.to_string() + "/" + BLOB_DATA_FILE_NAME;
     let data_blob_big_uint = convert_to_biguint(blob_data.clone());
 
@@ -299,7 +297,7 @@ async fn store_blob_data(blob_data: Vec<FieldElement>, block_number: u64, config
     let blob_vec_u8 = bincode::serialize(&blob)?;
 
     if !blobs_array.is_empty() {
-        s3_client.put_data(ByteStream::from(blob_vec_u8), &key).await?;
+        storage_client.put_data(blob_vec_u8.into(), &key).await?;
     }
 
     Ok(())
@@ -472,7 +470,6 @@ mod tests {
         let data = vec![vec![1, 2], vec![3, 4]];
 
         let serialize_data = bincode::serialize(&data).unwrap();
-        println!("serialized data: {:?}", serialize_data);
         let deserialize_data: Vec<Vec<u8>> = bincode::deserialize(&serialize_data).unwrap();
 
         assert_eq!(data, deserialize_data);

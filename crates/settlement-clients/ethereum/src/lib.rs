@@ -197,7 +197,9 @@ impl SettlementClient for EthereumSettlementClient {
 
         // Asserting that there is only one blob in the whole Vec<Vec<u8>> array for now.
         // Later we will add the support for multiple blob in single blob_data vec.
-        assert_eq!(blob_data.len(), 1);
+        if blob_data.len() != 1 {
+            return Err(eyre!("Blob data length must be 1"));
+        }
 
         let fixed_size_blob: [u8; BYTES_PER_BLOB] = blob_data[0].as_slice().try_into()?;
 

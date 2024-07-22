@@ -2,7 +2,9 @@ use mockall::predicate::eq;
 use rstest::*;
 use settlement_client_interface::MockSettlementClient;
 
+use async_std::prelude::FutureExt;
 use bytes::Bytes;
+use std::path::PathBuf;
 use std::{collections::HashMap, fs};
 
 use super::super::common::init_config;
@@ -18,11 +20,17 @@ use crate::jobs::{
 };
 
 use crate::config::{config, config_force_init};
-use crate::constants::{BLOB_DATA_FILE_NAME, SNOS_OUTPUT_FILE_NAME, X_0_FILE_NAME};
+use crate::constants::{BLOB_DATA_FILE_NAME, SNOS_OUTPUT_FILE_NAME};
 use crate::data_storage::MockDataStorage;
-use crate::jobs::state_update_job::kzg::hex_string_to_u8_vec;
-use crate::jobs::state_update_job::CURRENT_PATH;
+use crate::jobs::state_update_job::utils::hex_string_to_u8_vec;
 use httpmock::prelude::*;
+use lazy_static::lazy_static;
+
+lazy_static! {
+    pub static ref CURRENT_PATH: PathBuf = std::env::current_dir().unwrap();
+}
+
+pub const X_0_FILE_NAME: &str = "x_0.txt";
 
 #[rstest]
 #[tokio::test]
@@ -60,7 +68,8 @@ async fn test_process_job() {
 
         let snos_output_key = block_no.to_owned() + "/" + SNOS_OUTPUT_FILE_NAME;
         let snos_output_data = fs::read_to_string(
-            CURRENT_PATH.join(format!("src/tests/jobs/state_update_job/test_data/{}/snos_output.json", block_no)),
+            CURRENT_PATH
+                .join(format!("src/tests/jobs/state_update_job/test_data/{}/{}", block_no, SNOS_OUTPUT_FILE_NAME)),
         )
         .expect("Failed to read the snos output data json file");
         storage_client
@@ -70,7 +79,8 @@ async fn test_process_job() {
 
         let blob_data_key = block_no.to_owned() + "/" + BLOB_DATA_FILE_NAME;
         let blob_data = fs::read_to_string(
-            CURRENT_PATH.join(format!("src/tests/jobs/state_update_job/test_data/{}/blob_data.txt", block_no)),
+            CURRENT_PATH
+                .join(format!("src/tests/jobs/state_update_job/test_data/{}/{}", block_no, BLOB_DATA_FILE_NAME)),
         )
         .expect("Failed to read the blob data txt file");
         let blob_data_vec = vec![hex_string_to_u8_vec(&blob_data).unwrap()];
@@ -82,7 +92,7 @@ async fn test_process_job() {
 
         let x_0_key = block_no.to_owned() + "/" + X_0_FILE_NAME;
         let x_0 = fs::read_to_string(
-            CURRENT_PATH.join(format!("src/tests/jobs/state_update_job/test_data/{}/x_0.txt", block_no)),
+            CURRENT_PATH.join(format!("src/tests/jobs/state_update_job/test_data/{}/{}", block_no, X_0_FILE_NAME)),
         )
         .expect("Failed to read the blob data txt file");
         storage_client.expect_get_data().with(eq(x_0_key)).returning(move |_| Ok(Bytes::from(x_0.clone())));
@@ -190,7 +200,7 @@ async fn test_process_job_invalid_input_gap() {
 
 async fn load_state_diff_file(block_no: u64) -> Vec<Vec<u8>> {
     let mut state_diff_vec: Vec<Vec<u8>> = Vec::new();
-    let file_path = format!("src/tests/jobs/state_update_job/test_data/{}/blob_data.txt", block_no);
+    let file_path = format!("src/tests/jobs/state_update_job/test_data/{}/{}", block_no, BLOB_DATA_FILE_NAME);
     let file_data = fs::read_to_string(file_path).expect("Unable to read kzg_proof.txt").replace("0x", "");
     let blob_data = hex_string_to_u8_vec(&file_data).unwrap();
     state_diff_vec.push(blob_data);
