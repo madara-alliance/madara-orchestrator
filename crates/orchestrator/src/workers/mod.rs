@@ -2,6 +2,7 @@ use std::error::Error;
 
 use async_trait::async_trait;
 
+pub mod data_submission;
 pub mod proof_registration;
 pub mod proving;
 pub mod snos;
