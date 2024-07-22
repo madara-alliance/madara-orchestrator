@@ -41,9 +41,10 @@ pub struct RpcResponse<T> {
     pub result: T,
 }
 
+// Reference: https://docs.alchemy.com/reference/eth-feehistory
 #[derive(Clone, Debug, Default, PartialEq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
-pub struct FeeHistory {
+pub struct EthFeeHistory {
     /// An array of block base fees per gas.
     /// This includes the next block after the newest of the returned range,
     /// because this value can be derived from the newest block. Zeroes are
@@ -236,9 +237,8 @@ impl SnosJob {
                 "params": [300, "latest", []],
             }
         );
-
         let client = config.http_client();
-        let fee_history: RpcResponse<FeeHistory> =
+        let fee_history: RpcResponse<EthFeeHistory> =
             client.post(get_env_var_or_panic("ETHEREUM_RPC_URL")).json(&rpc_request).send().await?.json().await?;
 
         let (eth_l1_gas_price, eth_l1_data_gas_price) = self.compute_eth_gas_prices_from_history(fee_history.result)?;
@@ -253,9 +253,9 @@ impl SnosJob {
         Ok(gas_prices)
     }
 
-    /// Compute the l1_gas_price and l1_data_gas_price from the [FeeHistory].
+    /// Compute the l1_gas_price and l1_data_gas_price from the [EthFeeHistory].
     /// Source: https://github.com/keep-starknet-strange/madara/blob/7b405924b5859fdfa24ec33f152e56a97a047e31/crates/client/l1-gas-price/src/worker.rs#L31
-    fn compute_eth_gas_prices_from_history(&self, fee_history: FeeHistory) -> Result<(NonZeroU128, NonZeroU128)> {
+    fn compute_eth_gas_prices_from_history(&self, fee_history: EthFeeHistory) -> Result<(NonZeroU128, NonZeroU128)> {
         // The RPC responds with 301 elements for some reason - probably because of the parameter "300" in the
         // request.
         // It's also just safer to manually take the last 300. We choose 300 to get average gas caprice for
