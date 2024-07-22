@@ -19,6 +19,7 @@ use uuid::Uuid;
 use super::types::{JobItem, JobStatus, JobType, JobVerificationStatus};
 use super::Job;
 use crate::config::Config;
+use crate::constants::BLOB_DATA_FILE_NAME;
 
 lazy_static! {
     /// EIP-4844 BLS12-381 modulus.
@@ -39,8 +40,6 @@ lazy_static! {
 
     pub static ref BLOB_LEN: usize = 4096;
 }
-
-pub const BLOB_DATA_FILE_NAME: &str = "blob_data.txt";
 
 pub struct DaJob;
 
@@ -472,7 +471,6 @@ mod tests {
         let data = vec![vec![1, 2], vec![3, 4]];
 
         let serialize_data = bincode::serialize(&data).unwrap();
-        println!("serialized data: {:?}", serialize_data);
         let deserialize_data: Vec<Vec<u8>> = bincode::deserialize(&serialize_data).unwrap();
 
         assert_eq!(data, deserialize_data);

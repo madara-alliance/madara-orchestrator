@@ -106,11 +106,11 @@ mod tests {
         let x_0_key = block_number.to_string() + "/" + X_0_FILE_NAME;
 
         let blob_data = std::fs::read_to_string(
-            CURRENT_PATH.join(format!("src/tests/jobs/state_update_job/test_data/{}/blob_data.txt", block_number)),
+            CURRENT_PATH.join(format!("src/tests/jobs/state_update_job/test_data/{}/{}", block_number, BLOB_DATA_FILE_NAME)),
         )
         .expect("Failed to read the blob data txt file");
         let x_0 = std::fs::read_to_string(
-            CURRENT_PATH.join(format!("src/tests/jobs/state_update_job/test_data/{}/x_0.txt", block_number)),
+            CURRENT_PATH.join(format!("src/tests/jobs/state_update_job/test_data/{}/{}", block_number, X_0_FILE_NAME)),
         )
         .expect("Failed to read the x_0 txt file");
 

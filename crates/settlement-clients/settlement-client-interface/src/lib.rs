@@ -14,11 +14,13 @@ pub enum SettlementVerificationStatus {
 }
 
 pub enum BuildProofParams {
+    /// Ethereum (blob data, x_0 point)
     Ethereum(Vec<Vec<u8>>, Bytes32),
     Starknet,
 }
 
 pub enum BuildProofReturnTypes {
+    /// Ethereum (kzg_proof)
     Ethereum(KzgProof),
     Starknet,
 }
