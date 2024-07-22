@@ -13,18 +13,6 @@ pub enum SettlementVerificationStatus {
     Rejected(String),
 }
 
-pub enum BuildProofParams {
-    /// Ethereum (blob data, x_0 point)
-    Ethereum(Vec<Vec<u8>>, Bytes32),
-    Starknet,
-}
-
-pub enum BuildProofReturnTypes {
-    /// Ethereum (kzg_proof)
-    Ethereum(KzgProof),
-    Starknet,
-}
-
 /// Trait for every new Settlement Layer to implement
 #[automock]
 #[async_trait]
@@ -55,9 +43,6 @@ pub trait SettlementClient: Send + Sync {
 
     /// Should retrieves the last settled block in the settlement layer
     async fn get_last_settled_block(&self) -> Result<u64>;
-
-    /// Build the proof for respective settlement layer
-    async fn build_proof(&self, params: BuildProofParams) -> Result<BuildProofReturnTypes>;
 }
 
 /// Trait for every new SettlementConfig to implement

@@ -77,6 +77,34 @@ impl EthereumSettlementClient {
 
         EthereumSettlementClient { provider, core_contract_client, wallet, wallet_address }
     }
+
+    /// Build kzg proof for the x_0 point evaluation
+    async fn build_proof(&self, blob_data: Vec<Vec<u8>>, x_0_value: Bytes32) -> Result<KzgProof> {
+        // Asserting that there is only one blob in the whole Vec<Vec<u8>> array for now.
+        // Later we will add the support for multiple blob in single blob_data vec.
+        assert_eq!(blob_data.len(), 1);
+
+        let fixed_size_blob: [u8; BYTES_PER_BLOB] = blob_data[0].as_slice().try_into()?;
+
+        let blob = Blob::new(fixed_size_blob);
+        let commitment = KzgCommitment::blob_to_kzg_commitment(&blob, &KZG_SETTINGS)?;
+        let (kzg_proof, y_0_value) = KzgProof::compute_kzg_proof(&blob, &x_0_value, &KZG_SETTINGS)?;
+
+        // Verifying the proof for double check
+        let eval = KzgProof::verify_kzg_proof(
+            &commitment.to_bytes(),
+            &x_0_value,
+            &y_0_value,
+            &kzg_proof.to_bytes(),
+            &KZG_SETTINGS,
+        )?;
+
+        if !eval {
+            Err(eyre!("ERROR : Assertion failed, not able to verify the proof."))
+        } else {
+            Ok(BuildProofReturnTypes::Ethereum(kzg_proof))
+        }
+    }
 }
 
 #[automock]
@@ -192,39 +220,6 @@ impl SettlementClient for EthereumSettlementClient {
     async fn get_last_settled_block(&self) -> Result<u64> {
         let block_number = self.core_contract_client.state_block_number().await?;
         Ok(block_number.try_into()?)
-    }
-
-    /// Build kzg proof for the x_0 point evaluation
-    async fn build_proof(&self, params: BuildProofParams) -> Result<BuildProofReturnTypes> {
-        let (blob_data, x_0_value) = match params {
-            BuildProofParams::Ethereum(blob_data, x_0_value) => (blob_data, x_0_value),
-            _ => return Err(eyre!("Invalid params for build proof for ETH settlement.")),
-        };
-
-        // Asserting that there is only one blob in the whole Vec<Vec<u8>> array for now.
-        // Later we will add the support for multiple blob in single blob_data vec.
-        assert_eq!(blob_data.len(), 1);
-
-        let fixed_size_blob: [u8; BYTES_PER_BLOB] = blob_data[0].as_slice().try_into()?;
-
-        let blob = Blob::new(fixed_size_blob);
-        let commitment = KzgCommitment::blob_to_kzg_commitment(&blob, &KZG_SETTINGS)?;
-        let (kzg_proof, y_0_value) = KzgProof::compute_kzg_proof(&blob, &x_0_value, &KZG_SETTINGS)?;
-
-        // Verifying the proof for double check
-        let eval = KzgProof::verify_kzg_proof(
-            &commitment.to_bytes(),
-            &x_0_value,
-            &y_0_value,
-            &kzg_proof.to_bytes(),
-            &KZG_SETTINGS,
-        )?;
-
-        if !eval {
-            Err(eyre!("ERROR : Assertion failed, not able to verify the proof."))
-        } else {
-            Ok(BuildProofReturnTypes::Ethereum(kzg_proof))
-        }
     }
 }
 
