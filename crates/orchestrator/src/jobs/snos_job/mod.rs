@@ -49,7 +49,7 @@ impl Job for SnosJob {
 
     async fn process_job(&self, _config: &Config, job: &mut JobItem) -> Result<String> {
         // 0. Get block number from metadata
-        let block_number = self.get_block_number_from_metadata(job);
+        let block_number = self.get_block_number_from_metadata(job)?;
 
         // 1. Fetch SNOS input data from Madara
         let snos_input: StarknetOsInput = self.get_snos_input_from_madara(&block_number)?;
@@ -151,8 +151,8 @@ impl Job for SnosJob {
 
 impl SnosJob {
     // TODO: actually parse the metadata
-    fn get_block_number_from_metadata(&self, _job: &JobItem) -> BlockNumber {
-        BlockNumber(42_u64)
+    fn get_block_number_from_metadata(&self, _job: &JobItem) -> Result<BlockNumber> {
+        Ok(BlockNumber(42_u64))
     }
 
     fn get_snos_input_from_madara(&self, _block_number: &BlockNumber) -> Result<StarknetOsInput> {
