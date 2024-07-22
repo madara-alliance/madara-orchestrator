@@ -22,9 +22,7 @@ use starknet::{
 };
 use tokio::time::{sleep, Duration};
 
-use settlement_client_interface::{
-    BuildProofParams, BuildProofReturnTypes, SettlementClient, SettlementVerificationStatus, SETTLEMENT_SETTINGS_NAME,
-};
+use settlement_client_interface::{SettlementClient, SettlementVerificationStatus, SETTLEMENT_SETTINGS_NAME};
 use utils::env_utils::get_env_var_or_panic;
 use utils::settings::SettingsProvider;
 
@@ -202,10 +200,5 @@ impl SettlementClient for StarknetSettlementClient {
             return Err(eyre!("Could not fetch last block number from core contract."));
         }
         Ok(block_number[0].try_into()?)
-    }
-
-    /// Build the proof for starknet settlement
-    async fn build_proof(&self, _params: BuildProofParams) -> Result<BuildProofReturnTypes> {
-        unimplemented!("Build Proof not implemented for Starknet settlement.")
     }
 }

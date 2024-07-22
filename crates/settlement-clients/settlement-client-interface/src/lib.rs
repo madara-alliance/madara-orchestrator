@@ -1,5 +1,4 @@
 use async_trait::async_trait;
-use c_kzg::{Bytes32, KzgProof};
 use color_eyre::eyre::Result;
 use mockall::automock;
 use mockall::predicate::*;

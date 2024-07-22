@@ -4,7 +4,6 @@ use std::result::Result::{Err, Ok as OtherOk};
 use std::str::FromStr;
 
 use async_trait::async_trait;
-use aws_sdk_s3::primitives::ByteStream;
 use color_eyre::eyre::{eyre, Ok};
 use color_eyre::Result;
 use lazy_static::lazy_static;
@@ -277,7 +276,7 @@ async fn state_update_to_blob_data(
         blob_data.push(*compiled_class_hash);
     }
 
-    // saving the blob data of the block to S3 bucket
+    // saving the blob data of the block to storage client
     store_blob_data(blob_data.clone(), block_no, config).await?;
 
     Ok(blob_data)
@@ -285,7 +284,7 @@ async fn state_update_to_blob_data(
 
 /// To store the blob data using the storage client with path <block_number>/blob_data.txt
 async fn store_blob_data(blob_data: Vec<FieldElement>, block_number: u64, config: &Config) -> Result<()> {
-    let s3_client = config.storage();
+    let storage_client = config.storage();
     let key = block_number.to_string() + "/" + BLOB_DATA_FILE_NAME;
     let data_blob_big_uint = convert_to_biguint(blob_data.clone());
 
@@ -295,10 +294,10 @@ async fn store_blob_data(blob_data: Vec<FieldElement>, block_number: u64, config
     let blob = blobs_array.clone();
 
     // converting Vec<Vec<u8> into Vec<u8>
-    let blob_vec_u8 = bincode::serialize(&blob).unwrap();
+    let blob_vec_u8 = bincode::serialize(&blob)?;
 
     if !blobs_array.is_empty() {
-        s3_client.put_data(ByteStream::from(blob_vec_u8), &key).await?;
+        storage_client.put_data(blob_vec_u8.into(), &key).await?;
     }
 
     Ok(())

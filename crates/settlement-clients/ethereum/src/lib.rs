@@ -29,9 +29,7 @@ use std::str::FromStr;
 use std::sync::Arc;
 
 use crate::clients::interfaces::validity_interface::StarknetValidityContractTrait;
-use settlement_client_interface::{
-    BuildProofParams, BuildProofReturnTypes, SettlementClient, SettlementVerificationStatus, SETTLEMENT_SETTINGS_NAME,
-};
+use settlement_client_interface::{SettlementClient, SettlementVerificationStatus, SETTLEMENT_SETTINGS_NAME};
 use utils::{env_utils::get_env_var_or_panic, settings::SettingsProvider};
 
 use crate::clients::StarknetValidityContractClient;
@@ -79,7 +77,7 @@ impl EthereumSettlementClient {
     }
 
     /// Build kzg proof for the x_0 point evaluation
-    async fn build_proof(&self, blob_data: Vec<Vec<u8>>, x_0_value: Bytes32) -> Result<KzgProof> {
+    async fn build_proof(blob_data: Vec<Vec<u8>>, x_0_value: Bytes32) -> Result<KzgProof> {
         // Asserting that there is only one blob in the whole Vec<Vec<u8>> array for now.
         // Later we will add the support for multiple blob in single blob_data vec.
         assert_eq!(blob_data.len(), 1);
@@ -102,7 +100,7 @@ impl EthereumSettlementClient {
         if !eval {
             Err(eyre!("ERROR : Assertion failed, not able to verify the proof."))
         } else {
-            Ok(BuildProofReturnTypes::Ethereum(kzg_proof))
+            Ok(kzg_proof)
         }
     }
 }
@@ -154,17 +152,13 @@ impl SettlementClient for EthereumSettlementClient {
         let nonce = self.provider.get_transaction_count(self.wallet_address).await?.to_string().parse()?;
 
         // x_0_value : program_output[6]
-        let kzg_proof_build_params = BuildProofParams::Ethereum(
+        let kzg_proof = Self::build_proof(
             state_diff,
             Bytes32::from_bytes(program_output[6].as_slice()).expect("Not able to get x_0 point params."),
-        );
-        let kzg_proof = match Self::build_proof(self, kzg_proof_build_params)
-            .await
-            .expect("Unable to build KZG proof for given params.")
-        {
-            BuildProofReturnTypes::Ethereum(proof) => proof.to_bytes().into_inner(),
-            _ => return Err(eyre!("Invalid return type for build proof.")),
-        };
+        )
+        .await
+        .expect("Unable to build KZG proof for given params.")
+        .to_owned();
 
         let tx = TxEip4844 {
             chain_id,

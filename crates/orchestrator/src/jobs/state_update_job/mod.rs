@@ -1,18 +1,16 @@
-pub mod kzg;
+pub mod utils;
 
 use std::collections::HashMap;
-use std::path::PathBuf;
 
+use ::utils::collections::{has_dup, is_sorted};
 use async_trait::async_trait;
 use cairo_vm::Felt252;
 use color_eyre::eyre::eyre;
 use color_eyre::Result;
-use lazy_static::lazy_static;
 use snos::io::output::StarknetOsOutput;
 use uuid::Uuid;
 
 use settlement_client_interface::SettlementVerificationStatus;
-use utils::collections::{has_dup, is_sorted};
 
 use super::constants::{
     JOB_METADATA_STATE_UPDATE_ATTEMPT_PREFIX, JOB_METADATA_STATE_UPDATE_LAST_FAILED_BLOCK_NO,
@@ -22,14 +20,9 @@ use super::constants::{
 use crate::config::{config, Config};
 use crate::constants::SNOS_OUTPUT_FILE_NAME;
 use crate::jobs::constants::JOB_METADATA_STATE_UPDATE_BLOCKS_TO_SETTLE_KEY;
-use crate::jobs::state_update_job::kzg::fetch_blob_data_for_block;
+use crate::jobs::state_update_job::utils::fetch_blob_data_for_block;
 use crate::jobs::types::{JobItem, JobStatus, JobType, JobVerificationStatus};
 use crate::jobs::Job;
-
-// TODO: remove when data is correctly stored in DB/S3
-lazy_static! {
-    pub static ref CURRENT_PATH: PathBuf = std::env::current_dir().unwrap();
-}
 
 pub struct StateUpdateJob;
 #[async_trait]
@@ -213,7 +206,6 @@ impl StateUpdateJob {
     }
 
     /// Retrieves the SNOS output for the corresponding block.
-    /// TODO: remove the fetch_from_tests argument once we have proper fetching (db/s3)
     async fn fetch_snos_for_block(&self, block_no: u64) -> StarknetOsOutput {
         let config = config().await;
         let storage_client = config.storage();
