@@ -2,7 +2,6 @@ use mockall::predicate::eq;
 use rstest::*;
 use settlement_client_interface::MockSettlementClient;
 
-use async_std::prelude::FutureExt;
 use bytes::Bytes;
 use std::path::PathBuf;
 use std::{collections::HashMap, fs};
