@@ -1,9 +1,8 @@
 #![allow(missing_docs)]
 #![allow(clippy::missing_docs_in_private_items)]
-use std::str::FromStr;
 
 use alloy::network::Ethereum;
-use alloy::providers::{RootProvider};
+use alloy::providers::RootProvider;
 use alloy::transports::http::Http;
 use async_trait::async_trait;
 use color_eyre::Result;

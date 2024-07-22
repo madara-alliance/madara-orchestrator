@@ -44,8 +44,8 @@ pub async fn fetch_blob_data_for_block(block_number: u64) -> color_eyre::Result<
     let storage_client = config.storage();
     let key = block_number.to_string() + "/" + BLOB_DATA_FILE_NAME;
     let blob_data = storage_client.get_data(&key).await?;
-    let blob_vec_data: Vec<Vec<u8>> = bincode::deserialize(&blob_data)
-        .expect("Not able to convert Vec<u8> to Vec<Vec<u8>> during deserialization.");
+    let blob_vec_data: Vec<Vec<u8>> =
+        bincode::deserialize(&blob_data).expect("Not able to convert Vec<u8> to Vec<Vec<u8>> during deserialization.");
     Ok(blob_vec_data)
 }
 
