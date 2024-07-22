@@ -15,6 +15,9 @@ pub mod jobs;
 pub mod queue;
 /// Contains the routes for the service
 pub mod routes;
+/// Contains the RPC handler structure
+pub mod rpc;
+
 #[cfg(test)]
 mod tests;
 /// Contains workers which act like cron jobs

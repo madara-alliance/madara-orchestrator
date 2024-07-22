@@ -26,7 +26,6 @@ async fn test_proving_worker(#[case] incomplete_runs: bool) -> Result<(), Box<dy
     let mut queue = MockQueueProvider::new();
     let mut prover_client = MockProverClient::new();
     let settlement_client = MockSettlementClient::new();
-    let http_client = reqwest::Client::new();
 
     sleep(Duration::from_secs(10)).await;
 
@@ -87,7 +86,6 @@ async fn test_proving_worker(#[case] incomplete_runs: bool) -> Result<(), Box<dy
         Some(da_client),
         Some(prover_client),
         Some(settlement_client),
-        Some(http_client),
     )
     .await;
     config_force_init(config).await;

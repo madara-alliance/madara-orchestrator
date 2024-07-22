@@ -12,72 +12,27 @@ use cairo_vm::Felt252;
 use color_eyre::eyre::eyre;
 use color_eyre::Result;
 use num::FromPrimitive;
-use serde::{Deserialize, Serialize};
-use serde_json::json;
 use snos::execution::helper::ExecutionHelperWrapper;
 use snos::io::input::StarknetOsInput;
 use snos::run_os;
 use starknet_api::block::{BlockHash, BlockNumber, BlockTimestamp};
 use starknet_api::hash::StarkFelt;
 use starknet_core::types::FieldElement;
-use utils::env_utils::get_env_var_or_panic;
 use uuid::Uuid;
 
+use utils::conversions::try_non_zero_u128_from_u128;
 use utils::time::get_current_timestamp_in_secs;
 
 use crate::config::Config;
 use crate::jobs::snos_job::dummy_state::DummyState;
 use crate::jobs::types::{JobItem, JobStatus, JobType, JobVerificationStatus};
 use crate::jobs::Job;
+use crate::rpc::{
+    l1::{EthFeeHistory, L1HttpRpcRequests},
+    madara::MadaraHttpRpcClient,
+};
 
 use super::constants::JOB_METADATA_SNOS_BLOCK;
-
-// TODO: Those two structure should live somewhere else.
-
-#[derive(Clone, Debug, Default, PartialEq, Serialize, Deserialize)]
-pub struct RpcResponse<T> {
-    pub jsonrpc: String,
-    pub id: u64,
-    pub result: T,
-}
-
-// Reference: https://docs.alchemy.com/reference/eth-feehistory
-#[derive(Clone, Debug, Default, PartialEq, Serialize, Deserialize)]
-#[serde(rename_all = "camelCase")]
-pub struct EthFeeHistory {
-    /// An array of block base fees per gas.
-    /// This includes the next block after the newest of the returned range,
-    /// because this value can be derived from the newest block. Zeroes are
-    /// returned for pre-EIP-1559 blocks.
-    ///
-    /// # Note
-    ///
-    /// Empty list is skipped only for compatibility with Erigon and Geth.
-    #[serde(default, skip_serializing_if = "Vec::is_empty")]
-    pub base_fee_per_gas: Vec<String>,
-    /// An array of block gas used ratios. These are calculated as the ratio
-    /// of `gasUsed` and `gasLimit`.
-    ///
-    /// # Note
-    ///
-    /// The `Option` is only for compatibility with Erigon and Geth.
-    pub gas_used_ratio: Vec<f64>,
-    /// An array of block base fees per blob gas. This includes the next block after the newest
-    /// of  the returned range, because this value can be derived from the newest block. Zeroes
-    /// are returned for pre-EIP-4844 blocks.
-    #[serde(default, skip_serializing_if = "Vec::is_empty")]
-    pub base_fee_per_blob_gas: Vec<String>,
-    /// An array of block blob gas used ratios. These are calculated as the ratio of gasUsed and
-    /// gasLimit.
-    #[serde(default, skip_serializing_if = "Vec::is_empty")]
-    pub blob_gas_used_ratio: Vec<f64>,
-    /// Lowest number block of the returned range.
-    pub oldest_block: String,
-    /// An (optional) array of effective priority fee per gas data points from a single
-    /// block. All zeroes are returned if the block is empty.
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub reward: Option<Vec<Vec<u128>>>,
-}
 
 pub struct SnosJob;
 
@@ -211,44 +166,26 @@ impl SnosJob {
 
     /// Retrieves the [StarknetOsInput] for the provided block number from Madara.
     async fn get_snos_input_from_madara(&self, config: &Config, block_number: &BlockNumber) -> Result<StarknetOsInput> {
-        let rpc_request = json!(
-            {
-                "id": 1,
-                "jsonrpc": "2.0",
-                "method": "madara_getSnosInput",
-                "params": [{"block_number": block_number}]
-            }
-        );
-        let client = config.http_client();
-        let response: RpcResponse<StarknetOsInput> =
-            client.post(get_env_var_or_panic("MADARA_RPC_URL")).json(&rpc_request).send().await?.json().await?;
-        Ok(response.result)
+        let http_rpc_client = config.http_rpc_client();
+        let snos_input = http_rpc_client.get_snos_input(block_number).await?;
+        Ok(snos_input)
     }
 
     /// Retrieves the ETH & STRK gas prices and returns them in a [GasPrices].
     /// TODO: We only retrieve the ETH gas price for now. For STRK, we need to implement
-    /// a logic to fetch the price of ETH <=> STRK from an Oracle.
+    /// a logic to fetch the live price of ETH <=> STRK from an Oracle.
     async fn get_gas_prices_from_l1(&self, config: &Config) -> Result<GasPrices> {
-        let rpc_request = json!(
-            {
-                "id": 83,
-                "jsonrpc": "2.0",
-                "method": "eth_feeHistory",
-                "params": [300, "latest", []],
-            }
-        );
-        let client = config.http_client();
-        let fee_history: RpcResponse<EthFeeHistory> =
-            client.post(get_env_var_or_panic("ETHEREUM_RPC_URL")).json(&rpc_request).send().await?.json().await?;
+        let http_rpc_client = config.http_rpc_client();
+        let fee_history = http_rpc_client.get_eth_fee_history().await?;
 
-        let (eth_l1_gas_price, eth_l1_data_gas_price) = self.compute_eth_gas_prices_from_history(fee_history.result)?;
+        let (eth_l1_gas_price, eth_l1_data_gas_price) = self.compute_eth_gas_prices_from_history(fee_history)?;
 
         let gas_prices = GasPrices {
             eth_l1_gas_price,
             eth_l1_data_gas_price,
             // TODO: Logic for fetching from an Oracle
-            strk_l1_gas_price: NonZeroU128::new(0).unwrap(),
-            strk_l1_data_gas_price: NonZeroU128::new(0).unwrap(),
+            strk_l1_gas_price: try_non_zero_u128_from_u128(1)?,
+            strk_l1_data_gas_price: try_non_zero_u128_from_u128(1)?,
         };
         Ok(gas_prices)
     }
@@ -256,10 +193,6 @@ impl SnosJob {
     /// Compute the l1_gas_price and l1_data_gas_price from the [EthFeeHistory].
     /// Source: https://github.com/keep-starknet-strange/madara/blob/7b405924b5859fdfa24ec33f152e56a97a047e31/crates/client/l1-gas-price/src/worker.rs#L31
     fn compute_eth_gas_prices_from_history(&self, fee_history: EthFeeHistory) -> Result<(NonZeroU128, NonZeroU128)> {
-        // The RPC responds with 301 elements for some reason - probably because of the parameter "300" in the
-        // request.
-        // It's also just safer to manually take the last 300. We choose 300 to get average gas caprice for
-        // last one hour (300 * 12 sec block time).
         let (_, blob_fee_history_one_hour) =
             fee_history.base_fee_per_blob_gas.split_at(fee_history.base_fee_per_blob_gas.len().max(300) - 300);
 
@@ -277,7 +210,7 @@ impl SnosJob {
                 .trim_start_matches("0x"),
             16,
         )?;
-        // TODO: unsafe unwraps - handle errors
-        Ok((NonZeroU128::new(eth_gas_price).unwrap(), NonZeroU128::new(avg_blob_base_fee).unwrap()))
+
+        Ok((try_non_zero_u128_from_u128(eth_gas_price)?, try_non_zero_u128_from_u128(avg_blob_base_fee)?))
     }
 }

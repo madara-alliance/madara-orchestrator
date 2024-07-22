@@ -14,7 +14,7 @@ use crate::jobs::Job;
 #[rstest]
 #[tokio::test]
 async fn test_create_job() {
-    let config = init_config(None, None, None, None, None, None, None).await;
+    let config = init_config(None, None, None, None, None, None).await;
     let job = ProvingJob
         .create_job(
             &config,
@@ -40,7 +40,7 @@ async fn test_verify_job(#[from(default_job_item)] mut job_item: JobItem) {
     let mut prover_client = MockProverClient::new();
     prover_client.expect_get_task_status().times(1).returning(|_| Ok(TaskStatus::Succeeded));
 
-    let config = init_config(None, None, None, None, Some(prover_client), None, None).await;
+    let config = init_config(None, None, None, None, Some(prover_client), None).await;
     assert!(ProvingJob.verify_job(&config, &mut job_item).await.is_ok());
 }
 
@@ -52,16 +52,9 @@ async fn test_process_job() {
     let mut prover_client = MockProverClient::new();
     prover_client.expect_submit_task().times(1).returning(|_| Ok("task_id".to_string()));
 
-    let config = init_config(
-        Some(format!("http://localhost:{}", server.port())),
-        None,
-        None,
-        None,
-        Some(prover_client),
-        None,
-        None,
-    )
-    .await;
+    let config =
+        init_config(Some(format!("http://localhost:{}", server.port())), None, None, None, Some(prover_client), None)
+            .await;
 
     let cairo_pie_path = format!("{}/src/tests/artifacts/fibonacci.zip", env!("CARGO_MANIFEST_DIR"));
 

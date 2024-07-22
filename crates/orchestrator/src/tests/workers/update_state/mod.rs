@@ -86,7 +86,6 @@ async fn test_update_state_worker(
         Some(da_client),
         None,
         None,
-        None,
     )
     .await;
     config_force_init(config).await;

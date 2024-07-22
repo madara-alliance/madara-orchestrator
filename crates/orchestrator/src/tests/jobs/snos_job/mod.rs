@@ -12,7 +12,7 @@ use crate::jobs::{
 #[rstest]
 #[tokio::test]
 async fn test_create_job() {
-    let config = init_config(None, None, None, None, None, None, None).await;
+    let config = init_config(None, None, None, None, None, None).await;
 
     let job = SnosJob.create_job(&config, String::from("0"), HashMap::default()).await;
     assert!(job.is_ok());

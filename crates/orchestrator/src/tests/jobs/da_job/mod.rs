@@ -16,7 +16,7 @@ use crate::jobs::Job;
 #[rstest]
 #[tokio::test]
 async fn test_create_job() {
-    let config = init_config(None, None, None, None, None, None, None).await;
+    let config = init_config(None, None, None, None, None, None).await;
     let job = DaJob.create_job(&config, String::from("0"), HashMap::new()).await;
     assert!(job.is_ok());
 
@@ -36,7 +36,7 @@ async fn test_verify_job(#[from(default_job_item)] mut job_item: JobItem) {
     let mut da_client = MockDaClient::new();
     da_client.expect_verify_inclusion().times(1).returning(|_| Ok(DaVerificationStatus::Verified));
 
-    let config = init_config(None, None, None, Some(da_client), None, None, None).await;
+    let config = init_config(None, None, None, Some(da_client), None, None).await;
     assert!(DaJob.verify_job(&config, &mut job_item).await.is_ok());
 }
 
@@ -53,8 +53,7 @@ async fn test_process_job() {
     da_client.expect_max_blob_per_txn().times(1).returning(move || ETHEREUM_MAX_BLOB_PER_TXN);
 
     let config =
-        init_config(Some(format!("http://localhost:{}", server.port())), None, None, Some(da_client), None, None, None)
-            .await;
+        init_config(Some(format!("http://localhost:{}", server.port())), None, None, Some(da_client), None, None).await;
     let state_update = MaybePendingStateUpdate::Update(StateUpdate {
         block_hash: FieldElement::default(),
         new_root: FieldElement::default(),
