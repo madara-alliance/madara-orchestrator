@@ -8,12 +8,14 @@ use blockifier::block::{pre_process_block, BlockInfo, BlockNumberHashPair, GasPr
 use blockifier::context::{ChainInfo, FeeTokenAddresses};
 use blockifier::versioned_constants::VersionedConstants;
 use cairo_vm::types::layout_name::LayoutName;
+use cairo_vm::vm::runners::cairo_pie::CairoPie;
 use cairo_vm::Felt252;
 use color_eyre::eyre::eyre;
 use color_eyre::Result;
 use num::FromPrimitive;
 use snos::execution::helper::ExecutionHelperWrapper;
 use snos::io::input::StarknetOsInput;
+use snos::io::output::StarknetOsOutput;
 use snos::run_os;
 use starknet_api::block::{BlockHash, BlockNumber, BlockTimestamp};
 use starknet_api::hash::StarkFelt;
@@ -24,6 +26,7 @@ use utils::conversions::try_non_zero_u128_from_u128;
 use utils::time::get_current_timestamp_in_secs;
 
 use crate::config::Config;
+use crate::constants::{CAIRO_PIE_FILE_NAME, SNOS_OUTPUT_FILE_NAME};
 use crate::jobs::snos_job::dummy_state::DummyState;
 use crate::jobs::types::{JobItem, JobStatus, JobType, JobVerificationStatus};
 use crate::jobs::Job;
@@ -115,7 +118,7 @@ impl Job for SnosJob {
         );
 
         // 3. Import SNOS in Rust and execute it with the input data
-        let (_cairo_pie, _snos_output) = match run_os(
+        let (cairo_pie, snos_output) = match run_os(
             // TODO: what is this path?
             String::from("PATH/TO/THE/OS"),
             // TODO: which layout should we choose?
@@ -129,8 +132,10 @@ impl Job for SnosJob {
         };
 
         // 3. Store the received PIE in DB
-        // TODO: Store the PIE & the SnosOutput once S3 is implemented
-        todo!()
+        self.store_into_cloud_storage(config, &block_number, cairo_pie, snos_output).await?;
+
+        // TODO: which internal id do we want?
+        Ok("some_create_id?".into())
     }
 
     async fn verify_job(&self, _config: &Config, _job: &mut JobItem) -> Result<JobVerificationStatus> {
@@ -212,5 +217,29 @@ impl SnosJob {
         )?;
 
         Ok((try_non_zero_u128_from_u128(eth_gas_price)?, try_non_zero_u128_from_u128(avg_blob_base_fee)?))
+    }
+
+    /// Stores the [CairoPie] and the [StarknetOsOutput] in our Cloud storage.
+    /// The path will be:
+    ///     - [block_number]/cairo_pie.json
+    ///     - [block_number]/snos_output.json
+    async fn store_into_cloud_storage(
+        &self,
+        config: &Config,
+        block_number: &BlockNumber,
+        cairo_pie: CairoPie,
+        snos_output: StarknetOsOutput,
+    ) -> Result<()> {
+        let data_storage = config.storage();
+
+        let cairo_pie_key = format!("{block_number}/{CAIRO_PIE_FILE_NAME}");
+        let cairo_pie_json = serde_json::to_vec(&cairo_pie)?;
+        data_storage.put_data(cairo_pie_json.into(), &cairo_pie_key).await?;
+
+        let snos_output_key = format!("{block_number}/{SNOS_OUTPUT_FILE_NAME}");
+        let snos_output_json = serde_json::to_vec(&snos_output)?;
+        data_storage.put_data(snos_output_json.into(), &snos_output_key).await?;
+
+        Ok(())
     }
 }

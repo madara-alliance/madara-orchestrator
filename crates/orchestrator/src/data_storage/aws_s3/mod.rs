@@ -22,7 +22,6 @@ pub struct AWSS3 {
 impl AWSS3 {
     /// Initializes a new AWS S3 client by passing the config
     /// and returning it.
-    #[allow(dead_code)]
     pub async fn new(config: AWSS3Config) -> Self {
         // AWS cred building
         let credentials = Credentials::new(
