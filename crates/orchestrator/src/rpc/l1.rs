@@ -9,12 +9,12 @@ use super::{HttpRpcClient, RpcResponse};
 #[automock]
 #[async_trait]
 pub trait L1HttpRpcRequests {
-    async fn get_eth_fee_history(&self) -> Result<EthFeeHistory>;
+    async fn fee_history(&self) -> Result<EthFeeHistory>;
 }
 
 #[async_trait]
 impl L1HttpRpcRequests for HttpRpcClient {
-    async fn get_eth_fee_history(&self) -> Result<EthFeeHistory> {
+    async fn fee_history(&self) -> Result<EthFeeHistory> {
         let rpc_request = json!(
             {
                 "id": 83,

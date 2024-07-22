@@ -181,7 +181,7 @@ impl SnosJob {
     /// a logic to fetch the live price of ETH <=> STRK from an Oracle.
     async fn get_gas_prices_from_l1(&self, config: &Config) -> Result<GasPrices> {
         let http_rpc_client = config.http_rpc_client();
-        let fee_history = http_rpc_client.get_eth_fee_history().await?;
+        let fee_history = http_rpc_client.fee_history().await?;
 
         let (eth_l1_gas_price, eth_l1_data_gas_price) = self.compute_eth_gas_prices_from_history(fee_history)?;
 
