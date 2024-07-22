@@ -14,6 +14,7 @@ use starknet::providers::JsonRpcClient;
 use url::Url;
 
 use crate::config::Config;
+use crate::data_storage::MockDataStorage;
 use crate::database::MockDatabase;
 use crate::jobs::types::JobStatus::Created;
 use crate::jobs::types::JobType::DataSubmission;
@@ -28,6 +29,7 @@ pub async fn init_config(
     da_client: Option<MockDaClient>,
     prover_client: Option<MockProverClient>,
     settlement_client: Option<MockSettlementClient>,
+    storage_client: Option<MockDataStorage>,
 ) -> Config {
     let _ = tracing_subscriber::fmt().with_max_level(tracing::Level::INFO).with_target(false).try_init();
 
@@ -37,6 +39,7 @@ pub async fn init_config(
     let da_client = da_client.unwrap_or_default();
     let prover_client = prover_client.unwrap_or_default();
     let settlement_client = settlement_client.unwrap_or_default();
+    let storage_client = storage_client.unwrap_or_default();
 
     // init starknet client
     let provider = JsonRpcClient::new(HttpTransport::new(Url::parse(rpc_url.as_str()).expect("Failed to parse URL")));
@@ -51,6 +54,7 @@ pub async fn init_config(
         Box::new(settlement_client),
         Box::new(database),
         Box::new(queue),
+        Box::new(storage_client),
     )
 }
 
