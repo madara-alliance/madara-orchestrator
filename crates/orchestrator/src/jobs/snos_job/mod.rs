@@ -15,10 +15,11 @@ use snos::execution::helper::ExecutionHelperWrapper;
 use snos::io::input::StarknetOsInput;
 use snos::run_os;
 use starknet_api::block::{BlockHash, BlockNumber, BlockTimestamp};
-use starknet_api::core::{ChainId, ContractAddress, PatriciaKey};
 use starknet_api::hash::StarkFelt;
 use starknet_core::types::FieldElement;
 use uuid::Uuid;
+
+use utils::time::get_current_timestamp_in_secs;
 
 use crate::config::Config;
 use crate::jobs::snos_job::dummy_state::DummyState;
@@ -47,87 +48,79 @@ impl Job for SnosJob {
     }
 
     async fn process_job(&self, _config: &Config, _job: &mut JobItem) -> Result<String> {
+        // 0. Get block number from metadata
+        let block_number = BlockNumber(42_u64);
+
         // 1. Fetch SNOS input data from Madara
-        // TODO: JSON RPC call to `getSnosInput` for a specific block
-        let snos_input = StarknetOsInput::load(std::path::Path::new("snos_input.txt")).unwrap();
+        let snos_input: StarknetOsInput = self.get_snos_input_from_madara(&block_number)?;
 
         // 2. Build the required inputs for snos::run_os
-        // TODO import BlockifierStateAdapter from Deoxys RPC and use it here
+        // TODO: import BlockifierStateAdapter from Madara RPC and use it here
         let mut state = DummyState {};
 
-        // TODO: build the BlockNumberHashPair, should be in the metadata?
-        let old_block_number_and_hash =
-            BlockNumberHashPair { number: BlockNumber(42), hash: BlockHash(StarkFelt::from_u128(4242)) };
+        let block_number_and_hash = BlockNumberHashPair {
+            number: block_number,
+            // NOTE: 😹😹😹😹😹
+            hash: BlockHash(StarkFelt::from(
+                FieldElement::from_bytes_be(&snos_input.block_hash.clone().to_bytes_be())
+                    .expect("Could not convert Felt to FieldElement 😹"),
+            )),
+        };
 
-        // TODO: retrieve the actual gas prices - from deoxys..?
         let block_info = BlockInfo {
-            // TODO: get the block number from SnosInput block_hash
-            block_number: BlockNumber(69420),
-            // TODO: get the block timestamp from SnosInput block_hash
-            block_timestamp: BlockTimestamp(69420420),
-            // TODO: should be a constant?
-            sequencer_address: ContractAddress(PatriciaKey::from(42_u32)),
-            // TODO: retrieve them from Deoxys?
+            block_number,
+            // TODO: Assert that we really want current_timestamp?
+            block_timestamp: BlockTimestamp(get_current_timestamp_in_secs()),
+            sequencer_address: snos_input.general_config.sequencer_address,
+            // TODO: retrieve them from Madara? & assert that they're in gas_price_bounds?
             gas_prices: GasPrices {
-                eth_l1_gas_price: NonZeroU128::new(42).unwrap(),
-                strk_l1_gas_price: NonZeroU128::new(69).unwrap(),
-                eth_l1_data_gas_price: NonZeroU128::new(420).unwrap(),
-                strk_l1_data_gas_price: NonZeroU128::new(4269420).unwrap(),
+                eth_l1_gas_price: NonZeroU128::new(0).unwrap(),
+                strk_l1_gas_price: NonZeroU128::new(0).unwrap(),
+                eth_l1_data_gas_price: NonZeroU128::new(0).unwrap(),
+                strk_l1_data_gas_price: NonZeroU128::new(0).unwrap(),
             },
-            // TODO: where do we know that? In our configuration?
-            use_kzg_da: false,
+            use_kzg_da: snos_input.general_config.use_kzg_da,
         };
 
         let chain_info = ChainInfo {
-            // TODO: retrieve the chain_id from our configuration?
-            chain_id: ChainId(String::from("0x69420")),
-            // TODO: retrieve the fee token addresses from our configuration or deoxys?
+            chain_id: snos_input.general_config.starknet_os_config.chain_id.clone(),
             fee_token_addresses: FeeTokenAddresses {
-                strk_fee_token_address: ContractAddress(PatriciaKey::from(42_u32)),
-                eth_fee_token_address: ContractAddress(PatriciaKey::from(42_u32)),
+                eth_fee_token_address: snos_input.general_config.starknet_os_config.fee_token_address,
+                // TODO: assert that the STRK fee token address is deprecated_fee_token_address
+                strk_fee_token_address: snos_input.general_config.starknet_os_config.deprecated_fee_token_address,
             },
         };
 
-        // TODO: check this, lot of fields
-        let versioned_constants = VersionedConstants::default();
-
-        let old_block_number = old_block_number_and_hash.number.0;
-        let old_block_hash = old_block_number_and_hash.hash.0;
         let block_context = pre_process_block(
-            // TODO: what should be the state reader here? do we build our own & call deoxys?
-            // See: deoxys/crates/client/exec/src/blockifier_state_adapter.rs
             &mut state,
-            Some(old_block_number_and_hash),
+            Some(block_number_and_hash),
             block_info,
             chain_info,
-            versioned_constants,
+            VersionedConstants::latest_constants().clone(),
         )
-        .unwrap(); // TODO: handle the result instead of unsafe unwrap.
+        // TODO: Handle result instead of unsafe unwrap
+        .unwrap();
 
+        // TODO: contract_storage_map should be retrieved from the state?
+        let contract_storage_map = HashMap::default();
         let execution_helper = ExecutionHelperWrapper::new(
-            // TODO: build contract_storage_map from snosinput?
-            HashMap::default(),
-            // TODO: vec of TransactionExecutionInfo
-            vec![],
+            contract_storage_map,
+            vec![], // TODO: vec of TransactionExecutionInfo, how to get it?
             &block_context,
-            // TODO: should be old_block_number_and_hash
-            (
-                Felt252::from_u64(old_block_number).unwrap(),
-                Felt252::from_hex_unchecked(&FieldElement::from(old_block_hash).to_string()),
-            ),
+            (Felt252::from_u64(block_number.0).unwrap(), snos_input.block_hash),
         );
 
         // 3. Import SNOS in Rust and execute it with the input data
         let (_cairo_pie, _snos_output) = run_os(
-            // TODO: what is this?
+            // TODO: what is this path?
             String::from("PATH/TO/THE/OS"),
-            // TODO: what to choose?
+            // TODO: which layout should we choose?
             LayoutName::plain,
             snos_input,
             block_context,
             execution_helper,
-            // TODO: unsafe unwrap
         )
+        // TODO: Handle result instead of unsafe unwrap
         .unwrap();
 
         // 3. Store the received PIE in DB
@@ -146,11 +139,20 @@ impl Job for SnosJob {
     }
 
     fn max_verification_attempts(&self) -> u64 {
+        // TODO: isn't 10 a lot?
         10
     }
 
     fn verification_polling_delay_seconds(&self) -> u64 {
-        // TODO: adapt this value - what is an average run time for SNOS?
+        // TODO: what is an average run time for SNOS?
         60
+    }
+}
+
+impl SnosJob {
+    fn get_snos_input_from_madara(&self, _block_number: &BlockNumber) -> Result<StarknetOsInput> {
+        // TODO: JSON RPC call to `getSnosInput` for a specific block
+        let snos_input = StarknetOsInput::load(std::path::Path::new("i_do_not_exist_😹.txt")).unwrap();
+        Ok(snos_input)
     }
 }
