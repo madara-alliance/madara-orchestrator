@@ -2,9 +2,12 @@
 //! It just implements the State and StateReader traits provided by Blockifier.
 //!
 //! This module needs to be deleted as soon as we can import the structure
-//! [BlockifierStateAdapter] from Madara code.
-//! Currently, we have version conflicts between snos <=> deoxys <=> cairo-vm.
-//! This is an issue that needs to be tackled on its own.
+//! [BlockifierStateAdapter] from Madara code (Currently, we have version
+//! conflicts between snos <=> deoxys <=> cairo-vm)
+//! OR
+//! if it's not needed at all following the Snos code update. This update
+//! will make the run of the OS easier to integrate with Madara, it may
+//! not be needed to pass a State object.
 
 use std::collections::HashSet;
 

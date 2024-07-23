@@ -31,7 +31,7 @@ use crate::jobs::snos_job::dummy_state::DummyState;
 use crate::jobs::types::{JobItem, JobStatus, JobType, JobVerificationStatus};
 use crate::jobs::Job;
 use crate::rpc::{
-    l1::{EthFeeHistory, L1HttpRpcRequests},
+    l1::{EthFeeHistory, L1HttpRpcClient},
     madara::MadaraHttpRpcClient,
 };
 

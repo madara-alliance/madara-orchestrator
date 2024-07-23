@@ -10,12 +10,12 @@ const FEE_HISTORY_BLOCK_COUNT: u64 = 300;
 
 #[automock]
 #[async_trait]
-pub trait L1HttpRpcRequests {
+pub trait L1HttpRpcClient {
     async fn fee_history(&self) -> Result<EthFeeHistory>;
 }
 
 #[async_trait]
-impl L1HttpRpcRequests for HttpRpcClient {
+impl L1HttpRpcClient for HttpRpcClient {
     async fn fee_history(&self) -> Result<EthFeeHistory> {
         let rpc_request = json!(
             {
