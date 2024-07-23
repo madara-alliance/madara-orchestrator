@@ -1,6 +1,6 @@
 use crate::config::config;
 use crate::jobs::create_job;
-use crate::jobs::types::JobType;
+use crate::jobs::types::{JobStatus, JobType};
 use crate::workers::Worker;
 use async_trait::async_trait;
 use std::collections::HashMap;
@@ -20,7 +20,7 @@ impl Worker for DataSubmissionWorker {
         // provides latest completed proof creation job id
         let latest_proven_job_id = config
             .database()
-            .get_last_successful_job_by_type(JobType::ProofCreation)
+            .get_latest_job_by_type_and_status(JobType::ProofCreation, JobStatus::Completed)
             .await
             .unwrap()
             .map(|item| item.internal_id)

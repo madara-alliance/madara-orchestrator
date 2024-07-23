@@ -245,10 +245,14 @@ impl Database for MongoDb {
         Ok(vec_jobs)
     }
 
-    async fn get_last_successful_job_by_type(&self, job_type: JobType) -> Result<Option<JobItem>> {
+    async fn get_latest_job_by_type_and_status(
+        &self,
+        job_type: JobType,
+        job_status: JobStatus,
+    ) -> Result<Option<JobItem>> {
         let filter = doc! {
             "job_type": bson::to_bson(&job_type)?,
-            "job_status": bson::to_bson(&JobStatus::Completed)?
+            "job_status": bson::to_bson(&job_status)?
         };
         let find_options = FindOneOptions::builder().sort(doc! { "internal_id": -1 }).build();
 
@@ -256,7 +260,7 @@ impl Database for MongoDb {
             .get_job_collection()
             .find_one(filter, find_options)
             .await
-            .expect("Failed to fetch latest job by given job type"))
+            .expect("Failed to fetch the latest job for given type and status."))
     }
 
     async fn get_jobs_after_internal_id_by_job_type(
