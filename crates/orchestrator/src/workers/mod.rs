@@ -1,6 +1,6 @@
-use std::error::Error;
 use crate::{config::config, jobs::types::JobStatus};
 use async_trait::async_trait;
+use std::error::Error;
 
 pub mod data_submission;
 pub mod proof_registration;
@@ -10,7 +10,6 @@ pub mod update_state;
 
 #[async_trait]
 pub trait Worker: Send + Sync {
-
     async fn run_worker_if_enabled(&self) -> Result<(), Box<dyn Error>> {
         if !self.is_worker_enabled().await? {
             return Ok(());
@@ -29,14 +28,9 @@ pub trait Worker: Send + Sync {
     async fn is_worker_enabled(&self) -> Result<bool, Box<dyn Error>> {
         let config = config().await;
 
-        let failed_da_jobs = config
-        .database()
-        .get_jobs_by_status(
-            JobStatus::VerificationFailed,
-        )
-        .await?;
+        let failed_da_jobs = config.database().get_jobs_by_status(JobStatus::VerificationFailed).await?;
 
-        if failed_da_jobs.len() > 0 {
+        if !failed_da_jobs.is_empty() {
             return Ok(false);
         }
 

@@ -134,7 +134,7 @@ pub async fn verify_job(id: Uuid) -> Result<()> {
         JobVerificationStatus::Verified => {
             config.database().update_job_status(&job, JobStatus::Completed).await?;
         }
-        JobVerificationStatus::Rejected(_) => { 
+        JobVerificationStatus::Rejected(_) => {
             // TODO: change '_' to 'e' and add error 'e' to metadata of job status.
             config.database().update_job_status(&job, JobStatus::VerificationFailed).await?;
 

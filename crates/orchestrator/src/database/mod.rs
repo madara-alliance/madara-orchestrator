@@ -45,8 +45,7 @@ pub trait Database: Send + Sync {
     ) -> Result<Vec<JobItem>>;
 
     // TODO: can be extendible to support multiple status.
-    async fn get_jobs_by_status(&self, status : JobStatus ) -> Result<Vec<JobItem>>;
-
+    async fn get_jobs_by_status(&self, status: JobStatus) -> Result<Vec<JobItem>>;
 }
 
 pub trait DatabaseConfig {
