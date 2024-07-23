@@ -35,7 +35,7 @@ impl Worker for DataSubmissionWorker {
         // provides latest triggered data submission job id
         let latest_data_submission_job_id = config
             .database()
-            .get_latest_job_by_type_and_internal_id(JobType::DataSubmission)
+            .get_latest_job_by_type(JobType::DataSubmission)
             .await
             .unwrap()
             .map(|item| item.internal_id)

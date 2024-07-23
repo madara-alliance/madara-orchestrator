@@ -112,7 +112,7 @@ impl Database for MongoDb {
         Ok(())
     }
 
-    async fn get_latest_job_by_type_and_internal_id(&self, job_type: JobType) -> Result<Option<JobItem>> {
+    async fn get_latest_job_by_type(&self, job_type: JobType) -> Result<Option<JobItem>> {
         let filter = doc! {
             "job_type": mongodb::bson::to_bson(&job_type)?,
         };
