@@ -67,8 +67,7 @@ impl Job for SnosJob {
 
         // 2. Build the required inputs for snos::run_os
         // TODO: import BlockifierStateAdapter from Madara RPC and use it here.
-        // Currently not possible because of dependencies versions conflicts between
-        // SNOS, cairo-vm and madara.
+        // NOTE: This may not be needed at all with the upcoming update from snos.
         let mut state = DummyState {};
         let (block_info, chain_info) = self.build_info(config, &block_number, &snos_input).await?;
         let block_number_and_hash = BlockNumberHashPair {
@@ -90,19 +89,20 @@ impl Job for SnosJob {
             Err(e) => return Err(eyre!("pre_process_block failed for block #{}: {}", block_number, e)),
         };
 
+        // NOTE: Snos is currently being worked on so we don't need to pass this parameter
+        // to the run_os function in the context of Madara.
+        // We currently pass a dummy empty structure to make the code work.
         let execution_helper = ExecutionHelperWrapper::new(
-            HashMap::default(), // TODO: contract_storage_map should be retrieved from where?
-            vec![],             // TODO: vec of TransactionExecutionInfo, how to get it?
+            HashMap::default(),
+            vec![],
             &block_context,
             (Felt252::from_u64(block_number.0).unwrap(), snos_input.block_hash),
         );
 
         // 3. Import SNOS in Rust and execute it with the input data
         let (cairo_pie, snos_output) = match run_os(
-            // TODO: what is this path?
-            String::from("PATH/TO/THE/OS"),
-            // TODO: which layout should we choose?
-            LayoutName::plain,
+            String::from("PATH/TO/THE/MAINNET/OS"),
+            LayoutName::starknet_with_keccak,
             snos_input,
             block_context,
             execution_helper,

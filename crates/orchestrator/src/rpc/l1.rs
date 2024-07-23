@@ -6,6 +6,8 @@ use serde_json::json;
 
 use super::{HttpRpcClient, RpcResponse};
 
+const FEE_HISTORY_BLOCK_COUNT: u64 = 300;
+
 #[automock]
 #[async_trait]
 pub trait L1HttpRpcRequests {
@@ -23,7 +25,7 @@ impl L1HttpRpcRequests for HttpRpcClient {
                 // We choose 300 to get average gas caprice for last one
                 // hour (300 * 12 sec block time).
                 // TODO: "300" may need to be a parameter + adjusted depending on block time
-                "params": [300, "latest", []],
+                "params": [FEE_HISTORY_BLOCK_COUNT, "latest", []],
             }
         );
 
