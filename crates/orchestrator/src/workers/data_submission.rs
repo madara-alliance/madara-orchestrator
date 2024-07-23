@@ -15,6 +15,12 @@ impl Worker for DataSubmissionWorker {
     // 2. Fetch the latest DA job creation.
     // 3. Create jobs from after the lastest DA job already created till latest completed proving job.
     async fn run_worker(&self) -> Result<(), Box<dyn Error>> {
+
+        // Return without doing anything if the worker is not enabled.
+        if !self.is_worker_enabled().await? {
+            return Ok(());
+        }
+
         let config = config().await;
 
         // provides latest completed proof creation job id
@@ -37,13 +43,6 @@ impl Worker for DataSubmissionWorker {
 
         let latest_data_submission_id: u64 = latest_data_submission_job_id.parse()?;
         let latest_proven_id: u64 = latest_proven_job_id.parse()?;
-
-        let block_diff = latest_proven_id - latest_data_submission_id;
-
-        // if all blocks are processed
-        if block_diff == 0 {
-            return Ok(());
-        }
 
         // creating data submission jobs for latest blocks without pre-running data submission jobs jobs don't yet exist.
         for x in latest_data_submission_id + 1..latest_proven_id + 1 {

@@ -290,4 +290,30 @@ impl Database for MongoDb {
 
         Ok(results)
     }
+
+    async fn get_jobs_by_status(&self, job_status : JobStatus) -> Result<Vec<JobItem>> {
+       
+        let filter = doc! {
+            "job_status": bson::to_bson(&job_status)?
+        };
+
+        let mut jobs = self
+        .get_job_collection()
+        .find(filter, None)
+        .await
+        .expect("Failed to fetch jobs by given job type and status");
+
+        let mut results = Vec::new();
+
+        while let Some(result) = jobs.next().await {
+            match result {
+                Ok(job_item) => {
+                    results.push(job_item);
+                }
+                Err(e) => return Err(e.into()),
+            }
+        }
+
+        Ok(results)
+    }
 }
