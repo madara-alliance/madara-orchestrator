@@ -134,9 +134,13 @@ pub async fn verify_job(id: Uuid) -> Result<()> {
         JobVerificationStatus::Verified => {
             config.database().update_job_status(&job, JobStatus::Completed).await?;
         }
-        JobVerificationStatus::Rejected(_) => {
-            // TODO: change '_' to 'e' and add error 'e' to metadata of job status.
+        JobVerificationStatus::Rejected(e) => {
             config.database().update_job_status(&job, JobStatus::VerificationFailed).await?;
+            let mut metadata = job.metadata.clone();
+            metadata.insert("error".to_string(), e);
+            config.database().update_metadata(&job, metadata).await?;
+
+            log::error!("Invalid status {:?} for job with id {:?}. Cannot verify.", id, job.status);
 
             // retry job processing if we haven't exceeded the max limit
             let process_attempts = get_u64_from_metadata(&job.metadata, JOB_PROCESS_ATTEMPT_METADATA_KEY)?;
