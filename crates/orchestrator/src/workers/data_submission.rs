@@ -15,12 +15,6 @@ impl Worker for DataSubmissionWorker {
     // 2. Fetch the latest DA job creation.
     // 3. Create jobs from after the lastest DA job already created till latest completed proving job.
     async fn run_worker(&self) -> Result<(), Box<dyn Error>> {
-
-        // Return without doing anything if the worker is not enabled.
-        if !self.is_worker_enabled().await? {
-            return Ok(());
-        }
-
         let config = config().await;
 
         // provides latest completed proof creation job id

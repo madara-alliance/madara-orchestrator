@@ -10,6 +10,14 @@ pub mod update_state;
 
 #[async_trait]
 pub trait Worker: Send + Sync {
+
+    async fn run_worker_if_enabled(&self) -> Result<(), Box<dyn Error>> {
+        if !self.is_worker_enabled().await? {
+            return Ok(());
+        }
+        self.run_worker().await
+    }
+
     async fn run_worker(&self) -> Result<(), Box<dyn Error>>;
 
     // TODO: Assumption : False Negative
