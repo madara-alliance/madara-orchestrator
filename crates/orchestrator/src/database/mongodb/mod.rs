@@ -5,7 +5,7 @@ use async_trait::async_trait;
 use color_eyre::eyre::eyre;
 use color_eyre::Result;
 use mongodb::bson::{Bson, Document};
-use mongodb::options::{FindOneOptions, UpdateOptions};
+use mongodb::options::{FindOneOptions, FindOptions, UpdateOptions};
 use mongodb::{
     bson,
     bson::doc,
@@ -291,14 +291,19 @@ impl Database for MongoDb {
         Ok(results)
     }
 
-    async fn get_jobs_by_status(&self, job_status: JobStatus) -> Result<Vec<JobItem>> {
+    async fn get_jobs_by_status(&self, job_status: JobStatus, limit: Option<i64>) -> Result<Vec<JobItem>> {
         let filter = doc! {
             "job_status": bson::to_bson(&job_status)?
         };
 
+        let mut find_options = None;
+        if let Some(val) = limit {
+            find_options = Some(FindOptions::builder().limit(Some(val)).build())
+        };
+
         let mut jobs = self
             .get_job_collection()
-            .find(filter, None)
+            .find(filter, find_options)
             .await
             .expect("Failed to fetch jobs by given job type and status");
 

@@ -28,7 +28,7 @@ pub trait Worker: Send + Sync {
     async fn is_worker_enabled(&self) -> Result<bool, Box<dyn Error>> {
         let config = config().await;
 
-        let failed_da_jobs = config.database().get_jobs_by_status(JobStatus::VerificationFailed).await?;
+        let failed_da_jobs = config.database().get_jobs_by_status(JobStatus::VerificationFailed, Some(1)).await?;
 
         if !failed_da_jobs.is_empty() {
             return Ok(false);
