@@ -10,11 +10,11 @@ use crate::jobs::types::JobType;
 #[derive(Debug, Deserialize)]
 pub struct CreateJobRequest {
     /// Job type
-    job_type: JobType,
+    pub job_type: JobType,
     /// Internal id must be a way to identify the job. For example
     /// block_no, transaction_hash etc. The (job_type, internal_id)
     /// pair must be unique.
-    internal_id: String,
+    pub internal_id: String,
 }
 
 /// Create a job

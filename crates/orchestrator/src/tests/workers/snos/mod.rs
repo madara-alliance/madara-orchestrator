@@ -1,4 +1,5 @@
 use crate::config::config_force_init;
+use crate::constants::JOB_PROCESSING_QUEUE;
 use crate::database::MockDatabase;
 use crate::jobs::types::JobType;
 use crate::queue::MockQueueProvider;
@@ -25,8 +26,6 @@ async fn test_snos_worker(#[case] db_val: bool) -> Result<(), Box<dyn Error>> {
     let mut queue = MockQueueProvider::new();
     let start_job_index;
     let block;
-
-    const JOB_PROCESSING_QUEUE: &str = "madara_orchestrator_job_processing_queue";
 
     // Mocking db function expectations
     if !db_val {

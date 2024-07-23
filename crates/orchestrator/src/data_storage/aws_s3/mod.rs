@@ -1,5 +1,5 @@
 use crate::data_storage::aws_s3::config::AWSS3Config;
-use crate::data_storage::DataStorage;
+use crate::data_storage::{DataStorage};
 use async_trait::async_trait;
 use aws_sdk_s3::config::{Builder, Credentials, Region};
 use aws_sdk_s3::primitives::ByteStream;
@@ -22,7 +22,6 @@ pub struct AWSS3 {
 impl AWSS3 {
     /// Initializes a new AWS S3 client by passing the config
     /// and returning it.
-    #[allow(dead_code)]
     pub async fn new(config: AWSS3Config) -> Self {
         // AWS cred building
         let credentials = Credentials::new(
@@ -33,7 +32,11 @@ impl AWSS3 {
             "loaded_from_custom_env",
         );
         let region = Region::new(config.s3_bucket_region.clone().to_string());
-        let conf_builder = Builder::new().region(region).credentials_provider(credentials);
+        let conf_builder = Builder::new()
+            .region(region)
+            .credentials_provider(credentials)
+            .endpoint_url(config.endpoint_url.clone())
+            .force_path_style(true);
         let conf = conf_builder.build();
 
         // Building AWS S3 config
