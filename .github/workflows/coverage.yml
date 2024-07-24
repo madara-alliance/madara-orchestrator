@@ -10,8 +10,28 @@ jobs:
     # sadly, for now we have to "rebuild" for the coverage
     runs-on: ubuntu-latest
 
+    services:
+      localstack:
+        image: localstack/localstack
+        env:
+          SERVICES: s3, sqs
+          DEFAULT_REGION: us-east-1
+          AWS_ACCESS_KEY_ID: "AWS_ACCESS_KEY_ID"
+          AWS_SECRET_ACCESS_KEY: "AWS_SECRET_ACCESS_KEY"
+        ports:
+          - 4566:4566
+
     steps:
       - uses: actions/checkout@v3
+
+      - name: Set up Python
+        uses: actions/setup-python@v2
+        with:
+          python-version: '3.x'
+
+      - name: Install dependencies
+        run: |
+          pip install awscli-local
 
       # selecting a toolchain either by action or manual `rustup` calls should happen
       # before the plugin, as the cache uses the current rustc version as its cache key
@@ -25,7 +45,25 @@ jobs:
           cargo llvm-cov clean --workspace
 
       - name: Run llvm-cov
+        env:
+          AWS_ACCESS_KEY_ID: "AWS_ACCESS_KEY_ID"
+          AWS_SECRET_ACCESS_KEY: "AWS_SECRET_ACCESS_KEY"
+          AWS_S3_BUCKET_NAME: "madara-orchestrator-test-bucket"
+          AWS_S3_BUCKET_REGION: "us-east-1"
+          AWS_ENDPOINT_URL: "http://localhost.localstack.cloud:4566"
+          MADARA_RPC_URL: "http://localhost:3000"
+          ETHEREUM_RPC_URL: "http://localhost:3001"
+          MEMORY_PAGES_CONTRACT_ADDRESS: "0x000000000000000000000000000000000001dead"
+          PRIVATE_KEY: "0xdead"
+          ETHEREUM_PRIVATE_KEY: "0x000000000000000000000000000000000000000000000000000000000000beef"
+          STARKNET_SOLIDITY_CORE_CONTRACT_ADDRESS: "0x000000000000000000000000000000000002dead"
+          DA_LAYER: "ethereum"
+          PROVER_SERVICE: "sharp"
+          SETTLEMENT_LAYER: "ethereum"
+          DATA_STORAGE: "s3"
+          MONGODB_CONNECTION_STRING: "mongodb://localhost:27017"
         run: |
+          aws --endpoint-url=http://localhost:4566 s3api create-bucket --bucket madara-orchestrator-test-bucket
           cargo llvm-cov nextest --release --lcov --output-path lcov.info --test-threads=1
 
       - name: Upload coverage to codecov.io

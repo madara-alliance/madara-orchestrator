@@ -40,6 +40,10 @@ impl MongoDb {
         MongoDb { client }
     }
 
+    pub fn client(&self) -> Client {
+        self.client.clone()
+    }
+
     fn get_job_collection(&self) -> Collection<JobItem> {
         self.client.database("orchestrator").collection("jobs")
     }

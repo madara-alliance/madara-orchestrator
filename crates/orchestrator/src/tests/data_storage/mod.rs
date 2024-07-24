@@ -1,10 +1,10 @@
+use crate::data_storage::aws_s3::config::AWSS3Config;
+use crate::data_storage::aws_s3::AWSS3;
+use crate::data_storage::{DataStorage, DataStorageConfig};
 use bytes::Bytes;
 use dotenvy::dotenv;
 use rstest::rstest;
 use serde_json::json;
-use crate::data_storage::aws_s3::AWSS3;
-use crate::data_storage::aws_s3::config::AWSS3Config;
-use crate::data_storage::{DataStorage, DataStorageConfig};
 
 #[rstest]
 #[tokio::test]

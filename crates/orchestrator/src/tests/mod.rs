@@ -8,5 +8,5 @@ pub mod queue;
 
 pub mod common;
 mod controllers;
-pub mod workers;
 mod data_storage;
+pub mod workers;

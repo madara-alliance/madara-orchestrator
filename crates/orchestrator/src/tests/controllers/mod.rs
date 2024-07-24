@@ -19,12 +19,9 @@ async fn test_create_job_jobs_controller() -> color_eyre::Result<()> {
     // mocking db get function (when creating job it should return no job existing)
     db.expect_get_last_successful_job_by_type().times(1).with(eq(JobType::SnosRun)).returning(|_| Ok(None));
     // mocking db get function (when creating job to pre-check if job is not existing : worker module)
-    db.expect_get_job_by_internal_id_and_type()
-        .times(1)
-        .with(eq("1"), eq(JobType::SnosRun))
-        .returning(|_, _| Ok(None));
+    db.expect_get_job_by_internal_id_and_type().times(1).with(eq("1"), eq(JobType::SnosRun)).returning(|_, _| Ok(None));
     // mocking creation of the job
-    db.expect_create_job().times(1).withf(move |item| item.internal_id == "1".to_string()).returning(move |_| {
+    db.expect_create_job().times(1).withf(move |item| item.internal_id == *"1").returning(move |_| {
         Ok(JobItem {
             id: Uuid::new_v4(),
             internal_id: "1".to_string(),
@@ -46,9 +43,7 @@ async fn test_create_job_jobs_controller() -> color_eyre::Result<()> {
 
     let create_job_request = CreateJobRequest { job_type: JobType::SnosRun, internal_id: "1".to_string() };
 
-    let create_job_call = create_job(Json::from(create_job_request)).await.unwrap();
-    // comparing the output (safety check not really necessary)
-    assert_eq!(create_job_call.0, Json::from(()).0);
+    let _ = create_job(Json::from(create_job_request)).await.unwrap();
 
     Ok(())
 }
