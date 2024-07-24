@@ -187,13 +187,16 @@ pub async fn verify_job(id: Uuid) -> Result<()> {
 }
 
 /// Terminates the job and updates the status of the job in the DB.
-pub async fn terminate_job(id: Uuid) -> Result<()> {
+pub async fn handle_job_failure(id: Uuid) -> Result<()> {
     let config = config().await;
-    let job = get_job(id).await?;
+
+    let mut job = get_job(id).await?.clone();
     let mut metadata = job.metadata.clone();
     metadata.insert("last_job_status".to_string(), job.status.to_string());
-    config.database().update_metadata(&job, metadata).await?;
-    config.database().update_job_status(&job, JobStatus::Failed).await?;
+    job.metadata = metadata;
+    job.status = JobStatus::Failed;
+
+    config.database().update_job(&job).await?;
 
     Ok(())
 }
