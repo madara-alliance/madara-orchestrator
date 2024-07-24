@@ -41,7 +41,6 @@ jobs:
       - name: Install dependencies
         run: |
           pip install awscli-local
-          npm ci
 
       - name: Verify MongoDB connection
         run: |
