@@ -10,10 +10,11 @@ use tracing::log;
 use uuid::Uuid;
 
 use crate::config::config;
-use crate::jobs::{process_job, verify_job};
+use crate::jobs::{process_job, terminate_job, verify_job};
 
-pub const JOB_PROCESSING_QUEUE: &str = "madara_orchestrator_job_processing_queue";
-pub const JOB_VERIFICATION_QUEUE: &str = "madara_orchestrator_job_verification_queue";
+const JOB_PROCESSING_QUEUE: &str = "madara_orchestrator_job_processing_queue";
+const JOB_VERIFICATION_QUEUE: &str = "madara_orchestrator_job_verification_queue";
+const JOB_TERMINATION_QUEUE: &str = "madara_orchestrator_job_termination_queue";
 
 #[derive(Debug, Serialize, Deserialize)]
 pub struct JobQueueMessage {
@@ -84,6 +85,15 @@ pub async fn init_consumers() -> Result<()> {
             match consume_job_from_queue(JOB_VERIFICATION_QUEUE.to_string(), verify_job).await {
                 Ok(_) => {}
                 Err(e) => log::error!("Failed to consume from queue {:?}. Error: {:?}", JOB_VERIFICATION_QUEUE, e),
+            }
+            sleep(Duration::from_secs(1)).await;
+        }
+    });
+    tokio::spawn(async move {
+        loop {
+            match consume_job_from_queue(JOB_TERMINATION_QUEUE.to_string(), terminate_job).await {
+                Ok(_) => {}
+                Err(e) => log::error!("Failed to consume from queue {:?}. Error: {:?}", JOB_TERMINATION_QUEUE, e),
             }
             sleep(Duration::from_secs(1)).await;
         }
