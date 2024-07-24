@@ -63,7 +63,8 @@ jobs:
           DATA_STORAGE: "s3"
           MONGODB_CONNECTION_STRING: "mongodb://localhost:27017"
         run: |
-          aws --endpoint-url=http://localhost:4566 s3api create-bucket --bucket madara-orchestrator-test-bucket
+          awslocal s3api create-bucket --bucket madara-orchestrator-test-bucket
+          awslocal s3 ls
           cargo llvm-cov nextest --release --lcov --output-path lcov.info --test-threads=1
 
       - name: Upload coverage to codecov.io

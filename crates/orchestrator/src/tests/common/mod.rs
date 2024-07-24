@@ -110,14 +110,8 @@ pub async fn build_config() -> color_eyre::Result<()> {
     Ok(())
 }
 
-#[fixture]
-pub async fn get_database_client() -> Client {
-    MongoDb::new(MongoDbConfig::new_from_env()).await.client()
-}
-
-#[fixture]
 pub async fn drop_database() -> color_eyre::Result<()> {
-    let db_client: Client = get_database_client().await;
+    let db_client: Client = MongoDb::new(MongoDbConfig::new_from_env()).await.client();
     // dropping `jobs` collection.
     db_client.database("orchestrator").collection::<JobItem>("jobs").drop(None).await?;
     Ok(())
