@@ -186,6 +186,28 @@ pub async fn verify_job(id: Uuid) -> Result<()> {
     Ok(())
 }
 
+/// Terminates the job and updates the status of the job in the DB.
+pub async fn terminate_job(id: Uuid) -> Result<()> {
+    let config = config().await;
+    let job = get_job(id).await?;
+    let mut metadata = job.metadata.clone();
+    metadata.insert("last_job_status".to_string(), job.status.to_string());
+    config.database().update_metadata(&job, metadata).await?;
+    config.database().update_job_status(&job, JobStatus::Failed).await?;
+
+    Ok(())
+}
+
+fn get_job_handler(job_type: &JobType) -> Box<dyn Job> {
+    match job_type {
+        JobType::DataSubmission => Box::new(da_job::DaJob),
+        JobType::SnosRun => Box::new(snos_job::SnosJob),
+        JobType::ProofCreation => Box::new(proving_job::ProvingJob),
+        JobType::StateTransition => Box::new(state_update_job::StateUpdateJob),
+        _ => unimplemented!("Job type not implemented yet."),
+    }
+}
+
 async fn get_job(id: Uuid) -> Result<JobItem> {
     let config = config().await;
     let job = config.database().get_job_by_id(id).await?;
