@@ -20,6 +20,10 @@ jobs:
           AWS_SECRET_ACCESS_KEY: "AWS_SECRET_ACCESS_KEY"
         ports:
           - 4566:4566
+      mongodb:
+        image: mongo:latest
+        ports:
+          - 27017:27017
 
     steps:
       - uses: actions/checkout@v3
@@ -29,9 +33,20 @@ jobs:
         with:
           python-version: "3.x"
 
+      - name: Set up Node.js
+        uses: actions/setup-node@v2
+        with:
+          node-version: "14"
+
       - name: Install dependencies
         run: |
           pip install awscli-local
+          npm ci
+
+      - name: Verify MongoDB connection
+        run: |
+          sudo apt-get install -y mongodb-clients
+          mongosh --eval "db.runCommand({ping:1})"
 
       # selecting a toolchain either by action or manual `rustup` calls should happen
       # before the plugin, as the cache uses the current rustc version as its cache key
