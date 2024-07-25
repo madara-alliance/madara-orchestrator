@@ -118,11 +118,7 @@ impl Database for MongoDb {
             "job_type": mongodb::bson::to_bson(&job_type)?,
         };
         let find_options = FindOneOptions::builder().sort(doc! { "internal_id": -1 }).build();
-        Ok(self
-            .get_job_collection()
-            .find_one(filter, find_options)
-            .await
-            .expect("Failed to fetch latest job by given job type"))
+        Ok(self.get_job_collection().find_one(filter, find_options).await?)
     }
 
     /// function to get jobs that don't have a successor job.
@@ -227,8 +223,7 @@ impl Database for MongoDb {
         //     }
         // }
 
-        let collection = self.get_job_collection();
-        let mut cursor = collection.aggregate(pipeline, None).await?;
+        let mut cursor = self.get_job_collection().aggregate(pipeline, None).await?;
 
         let mut vec_jobs: Vec<JobItem> = Vec::new();
 
@@ -257,11 +252,7 @@ impl Database for MongoDb {
         };
         let find_options = FindOneOptions::builder().sort(doc! { "internal_id": -1 }).build();
 
-        Ok(self
-            .get_job_collection()
-            .find_one(filter, find_options)
-            .await
-            .expect("Failed to fetch the latest job for given type and status."))
+        Ok(self.get_job_collection().find_one(filter, find_options).await?)
     }
 
     async fn get_jobs_after_internal_id_by_job_type(
@@ -276,24 +267,9 @@ impl Database for MongoDb {
             "internal_id": { "$gt": internal_id }
         };
 
-        let mut jobs = self
-            .get_job_collection()
-            .find(filter, None)
-            .await
-            .expect("Failed to fetch latest jobs by given job type and internal_od conditions");
+        let jobs = self.get_job_collection().find(filter, None).await?.try_collect().await?;
 
-        let mut results = Vec::new();
-
-        while let Some(result) = jobs.next().await {
-            match result {
-                Ok(job_item) => {
-                    results.push(job_item);
-                }
-                Err(e) => return Err(e.into()),
-            }
-        }
-
-        Ok(results)
+        Ok(jobs)
     }
 
     async fn get_jobs_by_status(&self, job_status: JobStatus, limit: Option<i64>) -> Result<Vec<JobItem>> {
