@@ -306,12 +306,7 @@ impl Database for MongoDb {
             find_options = Some(FindOptions::builder().limit(Some(val)).build())
         };
 
-        let jobs = self
-            .get_job_collection()  
-            .find(filter, find_options)  
-            .await?       
-            .try_collect()
-            .await?;
+        let jobs = self.get_job_collection().find(filter, find_options).await?.try_collect().await?;
 
         Ok(jobs)
     }
