@@ -2,14 +2,14 @@ use crate::data_storage::aws_s3::config::AWSS3Config;
 use crate::data_storage::aws_s3::AWSS3;
 use crate::data_storage::{DataStorage, DataStorageConfig};
 use bytes::Bytes;
-use dotenvy::dotenv;
 use rstest::rstest;
 use serde_json::json;
 
 #[rstest]
 #[tokio::test]
 async fn test_put_and_get_data_s3() -> color_eyre::Result<()> {
-    dotenv().ok();
+    dotenvy::from_filename("../.env.test")?;
+
     let config = AWSS3Config::new_from_env();
     let s3_client = AWSS3::new(config).await;
 

@@ -13,6 +13,7 @@ pub struct AWSS3Config {
     /// S3 Bucket region
     pub s3_bucket_region: String,
     /// Endpoint url
+    #[cfg(test)]
     pub endpoint_url: String,
 }
 
@@ -25,6 +26,7 @@ impl DataStorageConfig for AWSS3Config {
             s3_key_secret: get_env_var_or_panic("AWS_SECRET_ACCESS_KEY"),
             s3_bucket_name: get_env_var_or_panic("AWS_S3_BUCKET_NAME"),
             s3_bucket_region: get_env_var_or_panic("AWS_S3_BUCKET_REGION"),
+            #[cfg(test)]
             endpoint_url: get_env_var_or_panic("AWS_ENDPOINT_URL"),
         }
     }

@@ -6,7 +6,6 @@ use std::sync::Arc;
 use ::uuid::Uuid;
 use constants::*;
 use da_client_interface::MockDaClient;
-use dotenvy::dotenv;
 use mongodb::Client;
 use prover_client_interface::MockProverClient;
 use rstest::*;
@@ -17,7 +16,7 @@ use url::Url;
 use utils::env_utils::get_env_var_or_panic;
 use utils::settings::default::DefaultSettingsProvider;
 
-use crate::config::{config_force_init, Config};
+use crate::config::{build_storage_client, config_force_init, Config};
 use crate::data_storage::MockDataStorage;
 use crate::database::mongodb::config::MongoDbConfig;
 use crate::database::mongodb::MongoDb;
@@ -84,7 +83,8 @@ pub fn custom_job_item(default_job_item: JobItem, #[default(String::from("0"))] 
 /// For implementation of integration tests
 #[fixture]
 pub async fn build_config() -> color_eyre::Result<()> {
-    dotenv().ok();
+    // Getting .env.test variables
+    dotenvy::from_filename("../.env.test")?;
 
     // init starknet client
     let provider = JsonRpcClient::new(HttpTransport::new(
@@ -101,7 +101,10 @@ pub async fn build_config() -> color_eyre::Result<()> {
     let settings_provider = DefaultSettingsProvider {};
     let settlement_client = crate::config::build_settlement_client(&settings_provider).await;
     let prover_client = crate::config::build_prover_service(&settings_provider);
-    let storage_client = crate::config::build_storage_client().await;
+    let storage_client = build_storage_client().await;
+
+    // building a test bucket :
+    storage_client.build_test_bucket(&get_env_var_or_panic("AWS_S3_BUCKET_NAME")).await?;
 
     let config =
         Config::new(Arc::new(provider), da_client, prover_client, settlement_client, database, queue, storage_client);

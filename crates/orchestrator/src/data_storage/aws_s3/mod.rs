@@ -32,11 +32,15 @@ impl AWSS3 {
             "loaded_from_custom_env",
         );
         let region = Region::new(config.s3_bucket_region.clone().to_string());
-        let conf_builder = Builder::new()
-            .region(region)
-            .credentials_provider(credentials)
-            .endpoint_url(config.endpoint_url.clone())
-            .force_path_style(true);
+
+        #[allow(unused_mut)]
+        let mut conf_builder = Builder::new().region(region).credentials_provider(credentials).force_path_style(true);
+
+        #[cfg(test)]
+        {
+            conf_builder = conf_builder.endpoint_url(config.endpoint_url.clone().to_string());
+        }
+
         let conf = conf_builder.build();
 
         // Building AWS S3 config
@@ -70,6 +74,12 @@ impl DataStorage for AWSS3 {
             .send()
             .await?;
 
+        Ok(())
+    }
+
+    #[cfg(test)]
+    async fn build_test_bucket(&self, bucket_name: &str) -> Result<()> {
+        self.client.create_bucket().bucket(bucket_name).send().await?;
         Ok(())
     }
 }
