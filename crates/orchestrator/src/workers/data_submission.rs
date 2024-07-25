@@ -38,7 +38,7 @@ impl Worker for DataSubmissionWorker {
         let latest_data_submission_id: u64 = latest_data_submission_job_id.parse()?;
         let latest_proven_id: u64 = latest_proven_job_id.parse()?;
 
-        // creating data submission jobs for latest blocks without pre-running data submission jobs jobs don't yet exist.
+        // creating data submission jobs for latest blocks that don't have pre-running data submission jobs yet.
         for new_job_id in latest_data_submission_id + 1..latest_proven_id + 1 {
             create_job(JobType::DataSubmission, new_job_id.to_string(), HashMap::new()).await?;
         }

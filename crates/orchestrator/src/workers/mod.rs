@@ -24,11 +24,15 @@ pub trait Worker: Send + Sync {
     // for a single block, the code might fail to work as expected if this happens.
 
     // Checks if any of the jobs have failed
+    // Failure : JobStatus::VerificationFailed, JobStatus::VerificationTimeout, JobStatus::Failed
     // Halts any new job creation till all the count of failed jobs is not Zero.
     async fn is_worker_enabled(&self) -> Result<bool, Box<dyn Error>> {
         let config = config().await;
 
-        let failed_jobs = config.database().get_jobs_by_status(JobStatus::VerificationFailed, Some(1)).await?;
+        let failed_jobs = config
+            .database()
+            .get_jobs_by_statuses(vec![JobStatus::VerificationFailed, JobStatus::VerificationTimeout], Some(1))
+            .await?;
 
         if !failed_jobs.is_empty() {
             return Ok(false);

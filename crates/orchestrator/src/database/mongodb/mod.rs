@@ -272,15 +272,15 @@ impl Database for MongoDb {
         Ok(jobs)
     }
 
-    async fn get_jobs_by_status(&self, job_status: JobStatus, limit: Option<i64>) -> Result<Vec<JobItem>> {
+    async fn get_jobs_by_statuses(&self, job_status: Vec<JobStatus>, limit: Option<i64>) -> Result<Vec<JobItem>> {
         let filter = doc! {
-            "job_status": bson::to_bson(&job_status)?
+            "job_status": {
+                // TODO: Check that the conversion leads to valid output!
+                "$in": job_status.iter().map(|status| bson::to_bson(status).unwrap_or(Bson::Null)).collect::<Vec<Bson>>()
+            }
         };
 
-        let mut find_options = None;
-        if let Some(val) = limit {
-            find_options = Some(FindOptions::builder().limit(Some(val)).build())
-        };
+        let find_options = limit.map(|val| FindOptions::builder().limit(Some(val)).build());
 
         let jobs = self.get_job_collection().find(filter, find_options).await?.try_collect().await?;
 
