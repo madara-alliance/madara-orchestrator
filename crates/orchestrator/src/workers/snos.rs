@@ -22,7 +22,7 @@ impl Worker for SnosWorker {
         let latest_block_number = provider.block_number().await?;
         let latest_block_processed_data = config
             .database()
-            .get_latest_job_by_type_and_status(JobType::ProofCreation, JobStatus::Completed)
+            .get_latest_job_by_type_and_status(JobType::SnosRun, JobStatus::Completed)
             .await
             .unwrap()
             .map(|item| item.internal_id)

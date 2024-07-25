@@ -135,10 +135,11 @@ pub async fn verify_job(id: Uuid) -> Result<()> {
             config.database().update_job_status(&job, JobStatus::Completed).await?;
         }
         JobVerificationStatus::Rejected(e) => {
-            config.database().update_job_status(&job, JobStatus::VerificationFailed).await?;
-            let mut metadata = job.metadata.clone();
-            metadata.insert("error".to_string(), e);
-            config.database().update_metadata(&job, metadata).await?;
+            let mut new_job = job.clone();
+            new_job.metadata.insert("error".to_string(), e);
+            new_job.status = JobStatus::VerificationFailed;
+
+            config.database().update_job(&new_job).await?;
 
             log::error!("Invalid status {:?} for job with id {:?}. Cannot verify.", id, job.status);
 

@@ -1,4 +1,5 @@
 use async_std::stream::StreamExt;
+use futures::TryStreamExt;
 use std::collections::HashMap;
 
 use async_trait::async_trait;
@@ -305,23 +306,13 @@ impl Database for MongoDb {
             find_options = Some(FindOptions::builder().limit(Some(val)).build())
         };
 
-        let mut jobs = self
-            .get_job_collection()
-            .find(filter, find_options)
-            .await
-            .expect("Failed to fetch jobs by given job type and status");
+        let jobs = self
+            .get_job_collection()  
+            .find(filter, find_options)  
+            .await?       
+            .try_collect()
+            .await?;
 
-        let mut results = Vec::new();
-
-        while let Some(result) = jobs.next().await {
-            match result {
-                Ok(job_item) => {
-                    results.push(job_item);
-                }
-                Err(e) => return Err(e.into()),
-            }
-        }
-
-        Ok(results)
+        Ok(jobs)
     }
 }

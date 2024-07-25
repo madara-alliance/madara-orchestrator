@@ -19,7 +19,7 @@ pub trait Worker: Send + Sync {
 
     async fn run_worker(&self) -> Result<(), Box<dyn Error>>;
 
-    // TODO: Assumption : False Negative
+    // Assumption : False Negative
     // we are assuming that the worker will spawn only 1 job for a block and no two jobs will ever exist
     // for a single block, the code might fail to work as expected if this happens.
 
