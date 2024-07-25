@@ -141,7 +141,7 @@ pub async fn verify_job(id: Uuid) -> Result<()> {
 
             config.database().update_job(&new_job).await?;
 
-            log::error!("Invalid status {:?} for job with id {:?}. Cannot verify.", id, job.status);
+            log::error!("Verification failed for job with id {:?}. Cannot verify.", id);
 
             // retry job processing if we haven't exceeded the max limit
             let process_attempts = get_u64_from_metadata(&job.metadata, JOB_PROCESS_ATTEMPT_METADATA_KEY)?;
