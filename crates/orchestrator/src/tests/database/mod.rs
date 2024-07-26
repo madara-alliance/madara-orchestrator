@@ -55,6 +55,134 @@ async fn test_database_create_job() -> color_eyre::Result<()> {
     Ok(())
 }
 
+/// Test for `get_jobs_without_successor` operation in database trait.
+/// Creates jobs in the following sequence :
+///
+/// - Creates 3 snos run jobs with completed status
+///
+/// - Creates 2 proof creation jobs with succession of the 2 snos jobs
+///
+/// - Should return one snos job without the successor job of proof creation
+#[rstest]
+#[tokio::test]
+async fn test_database_get_jobs_without_successor() -> color_eyre::Result<()> {
+    let init_config = build_config().await.is_ok();
+    if !init_config {
+        return Err(eyre!("Not able to init config."));
+    }
+
+    drop_database().await.unwrap();
+
+    let config = config().await;
+    let database_client = config.database();
+
+    let job_vec = [
+        build_job_item(JobType::SnosRun, JobStatus::Completed, 1),
+        build_job_item(JobType::SnosRun, JobStatus::Completed, 2),
+        build_job_item(JobType::SnosRun, JobStatus::Completed, 3),
+        build_job_item(JobType::ProofCreation, JobStatus::Created, 1),
+        build_job_item(JobType::ProofCreation, JobStatus::Created, 3),
+    ];
+
+    database_client.create_job(job_vec[0].clone()).await.unwrap();
+    database_client.create_job(job_vec[1].clone()).await.unwrap();
+    database_client.create_job(job_vec[2].clone()).await.unwrap();
+    database_client.create_job(job_vec[3].clone()).await.unwrap();
+    database_client.create_job(job_vec[4].clone()).await.unwrap();
+
+    let jobs_without_successor = database_client
+        .get_jobs_without_successor(JobType::SnosRun, JobStatus::Completed, JobType::ProofCreation)
+        .await
+        .unwrap();
+
+    assert_eq!(jobs_without_successor.len(), 1, "Expected number of jobs assertion failed.");
+    assert_eq!(jobs_without_successor[0], job_vec[1], "Expected job assertion failed.");
+
+    Ok(())
+}
+
+/// Test for `get_last_successful_job_by_type` operation in database trait.
+/// Creates the jobs in following sequence :
+///
+/// - Creates 3 successful jobs.
+///
+/// - Should return the last successful job
+#[rstest]
+#[tokio::test]
+async fn test_database_get_last_successful_job_by_type() -> color_eyre::Result<()> {
+    let init_config = build_config().await.is_ok();
+    if !init_config {
+        return Err(eyre!("Not able to init config."));
+    }
+
+    drop_database().await.unwrap();
+
+    let config = config().await;
+    let database_client = config.database();
+
+    let job_vec = [
+        build_job_item(JobType::SnosRun, JobStatus::Completed, 1),
+        build_job_item(JobType::SnosRun, JobStatus::Completed, 2),
+        build_job_item(JobType::SnosRun, JobStatus::Completed, 3),
+    ];
+
+    database_client.create_job(job_vec[0].clone()).await.unwrap();
+    database_client.create_job(job_vec[1].clone()).await.unwrap();
+    database_client.create_job(job_vec[2].clone()).await.unwrap();
+
+    let last_successful_job = database_client.get_last_successful_job_by_type(JobType::SnosRun).await.unwrap();
+
+    assert_eq!(last_successful_job.unwrap(), job_vec[2], "Expected job assertion failed");
+
+    Ok(())
+}
+
+/// Test for `get_jobs_after_internal_id_by_job_type` operation in database trait.
+/// Creates the jobs in following sequence :
+///
+/// - Creates 5 successful jobs.
+///
+/// - Should return the jobs after internal id
+#[rstest]
+#[tokio::test]
+async fn test_database_get_jobs_after_internal_id_by_job_type() -> color_eyre::Result<()> {
+    let init_config = build_config().await.is_ok();
+    if !init_config {
+        return Err(eyre!("Not able to init config."));
+    }
+
+    drop_database().await.unwrap();
+
+    let config = config().await;
+    let database_client = config.database();
+
+    let job_vec = [
+        build_job_item(JobType::SnosRun, JobStatus::Completed, 1),
+        build_job_item(JobType::SnosRun, JobStatus::Completed, 2),
+        build_job_item(JobType::SnosRun, JobStatus::Completed, 3),
+        build_job_item(JobType::SnosRun, JobStatus::Completed, 4),
+        build_job_item(JobType::SnosRun, JobStatus::Completed, 5),
+    ];
+
+    database_client.create_job(job_vec[0].clone()).await.unwrap();
+    database_client.create_job(job_vec[1].clone()).await.unwrap();
+    database_client.create_job(job_vec[2].clone()).await.unwrap();
+    database_client.create_job(job_vec[3].clone()).await.unwrap();
+    database_client.create_job(job_vec[4].clone()).await.unwrap();
+
+    let jobs_after_internal_id = database_client
+        .get_jobs_after_internal_id_by_job_type(JobType::SnosRun, JobStatus::Completed, "2".to_string())
+        .await
+        .unwrap();
+
+    assert_eq!(jobs_after_internal_id.len(), 3, "Number of jobs assertion failed");
+    assert_eq!(jobs_after_internal_id[0], job_vec[2]);
+    assert_eq!(jobs_after_internal_id[1], job_vec[3]);
+    assert_eq!(jobs_after_internal_id[0], job_vec[4]);
+
+    Ok(())
+}
+
 // Test Util Functions
 // ==========================================
 
