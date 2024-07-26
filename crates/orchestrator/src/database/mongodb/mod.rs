@@ -51,11 +51,14 @@ impl MongoDb {
     /// Updates the job in the database optimistically. This means that the job is updated only if
     /// the version of the job in the database is the same as the version of the job passed in.
     /// If the version is different, the update fails.
-    async fn update_job_optimistically(&self, current_job: &JobItem, update: Document) -> Result<()> {
+    async fn update_job_optimistically(&self, current_job: &JobItem, mut update: Document) -> Result<()> {
         let filter = doc! {
             "id": current_job.id,
             "version": current_job.version,
         };
+
+        update.insert("$inc", doc! { "version" : 1 });
+
         let options = UpdateOptions::builder().upsert(false).build();
         let result = self.get_job_collection().update_one(filter, update, options).await?;
         if result.modified_count == 0 {

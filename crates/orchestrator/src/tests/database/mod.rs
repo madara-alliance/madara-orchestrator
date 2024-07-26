@@ -58,10 +58,7 @@ async fn test_database_create_job() -> color_eyre::Result<()> {
 #[rstest]
 #[tokio::test]
 async fn test_database_get_jobs_without_successor() -> color_eyre::Result<()> {
-    let init_config = build_config().await.is_ok();
-    if !init_config {
-        return Err(eyre!("Not able to init config."));
-    }
+    TestConfigBuilder::new().build().await;
 
     drop_database().await.unwrap();
 
@@ -102,10 +99,7 @@ async fn test_database_get_jobs_without_successor() -> color_eyre::Result<()> {
 #[rstest]
 #[tokio::test]
 async fn test_database_get_last_successful_job_by_type() -> color_eyre::Result<()> {
-    let init_config = build_config().await.is_ok();
-    if !init_config {
-        return Err(eyre!("Not able to init config."));
-    }
+    TestConfigBuilder::new().build().await;
 
     drop_database().await.unwrap();
 
@@ -138,10 +132,7 @@ async fn test_database_get_last_successful_job_by_type() -> color_eyre::Result<(
 #[rstest]
 #[tokio::test]
 async fn test_database_get_jobs_after_internal_id_by_job_type() -> color_eyre::Result<()> {
-    let init_config = build_config().await.is_ok();
-    if !init_config {
-        return Err(eyre!("Not able to init config."));
-    }
+    TestConfigBuilder::new().build().await;
 
     drop_database().await.unwrap();
 
@@ -178,10 +169,7 @@ async fn test_database_get_jobs_after_internal_id_by_job_type() -> color_eyre::R
 #[rstest]
 #[tokio::test]
 async fn test_database_update_job_status_passing_case() -> color_eyre::Result<()> {
-    let init_config = build_config().await.is_ok();
-    if !init_config {
-        return Err(eyre!("Not able to init config."));
-    }
+    TestConfigBuilder::new().build().await;
 
     drop_database().await.unwrap();
 
@@ -204,26 +192,28 @@ async fn test_database_update_job_status_passing_case() -> color_eyre::Result<()
 #[rstest]
 #[tokio::test]
 async fn test_database_update_job_status_failing_case() -> color_eyre::Result<()> {
-    let init_config = build_config().await.is_ok();
-    if !init_config {
-        return Err(eyre!("Not able to init config."));
-    }
+    TestConfigBuilder::new().build().await;
 
     drop_database().await.unwrap();
 
     let config = config().await;
     let database_client = config.database();
 
+    // Scenario :
+
+    // Worker 1 :
+    // Job is created
     let job = build_job_item(JobType::SnosRun, JobStatus::Created, 1);
+    database_client.create_job(job.clone()).await.unwrap();
 
-    // Creating the job with updated version
-    let mut job_updated_version = job.clone();
-    job_updated_version.version = 1;
+    // Worker 2 :
+    // Job is updated
+    let updating_job_res = database_client.update_job_status(&job, JobStatus::Completed).await.is_ok();
+    assert!(updating_job_res, "Job result assertion failed");
 
-    database_client.create_job(job_updated_version).await.unwrap();
-
-    let updating_job_res = database_client.update_job_status(&job, JobStatus::Completed).await.is_err();
-
+    // Worker 1 :
+    // Job update try (update should fail)
+    let updating_job_res = database_client.update_job_status(&job, JobStatus::PendingVerification).await.is_err();
     assert!(updating_job_res, "Job result assertion failed");
 
     Ok(())
