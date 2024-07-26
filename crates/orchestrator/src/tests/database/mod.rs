@@ -56,8 +56,10 @@ async fn test_database_create_job() -> color_eyre::Result<()> {
 ///
 /// - Should return one snos job without the successor job of proof creation
 #[rstest]
+#[case(true)]
+#[case(false)]
 #[tokio::test]
-async fn test_database_get_jobs_without_successor() -> color_eyre::Result<()> {
+async fn test_database_get_jobs_without_successor(#[case] is_successor: bool) -> color_eyre::Result<()> {
     TestConfigBuilder::new().build().await;
 
     drop_database().await.unwrap();
@@ -70,6 +72,7 @@ async fn test_database_get_jobs_without_successor() -> color_eyre::Result<()> {
         build_job_item(JobType::SnosRun, JobStatus::Completed, 2),
         build_job_item(JobType::SnosRun, JobStatus::Completed, 3),
         build_job_item(JobType::ProofCreation, JobStatus::Created, 1),
+        build_job_item(JobType::ProofCreation, JobStatus::Created, 2),
         build_job_item(JobType::ProofCreation, JobStatus::Created, 3),
     ];
 
@@ -77,16 +80,22 @@ async fn test_database_get_jobs_without_successor() -> color_eyre::Result<()> {
     database_client.create_job(job_vec[1].clone()).await.unwrap();
     database_client.create_job(job_vec[2].clone()).await.unwrap();
     database_client.create_job(job_vec[3].clone()).await.unwrap();
-    database_client.create_job(job_vec[4].clone()).await.unwrap();
+    database_client.create_job(job_vec[5].clone()).await.unwrap();
+    if is_successor {
+        database_client.create_job(job_vec[4].clone()).await.unwrap();
+    }
 
     let jobs_without_successor = database_client
         .get_jobs_without_successor(JobType::SnosRun, JobStatus::Completed, JobType::ProofCreation)
         .await
         .unwrap();
 
-    assert_eq!(jobs_without_successor.len(), 1, "Expected number of jobs assertion failed.");
-    assert_eq!(jobs_without_successor[0], job_vec[1], "Expected job assertion failed.");
-
+    if is_successor {
+        assert_eq!(jobs_without_successor.len(), 0, "Expected number of jobs assertion failed.");
+    } else {
+        assert_eq!(jobs_without_successor.len(), 1, "Expected number of jobs assertion failed.");
+        assert_eq!(jobs_without_successor[0], job_vec[1], "Expected job assertion failed.");
+    }
     Ok(())
 }
 
