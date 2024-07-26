@@ -170,15 +170,69 @@ async fn test_database_get_jobs_after_internal_id_by_job_type() -> color_eyre::R
     database_client.create_job(job_vec[3].clone()).await.unwrap();
     database_client.create_job(job_vec[4].clone()).await.unwrap();
 
-    let jobs_after_internal_id = database_client
-        .get_jobs_after_internal_id_by_job_type(JobType::SnosRun, JobStatus::Completed, "2".to_string())
-        .await
-        .unwrap();
+    let jobs_after_internal_id =
+        database_client.get_jobs_after_internal_id_by_job_type(JobType::SnosRun, "2".to_string()).await.unwrap();
 
     assert_eq!(jobs_after_internal_id.len(), 3, "Number of jobs assertion failed");
     assert_eq!(jobs_after_internal_id[0], job_vec[2]);
     assert_eq!(jobs_after_internal_id[1], job_vec[3]);
-    assert_eq!(jobs_after_internal_id[0], job_vec[4]);
+    assert_eq!(jobs_after_internal_id[2], job_vec[4]);
+
+    Ok(())
+}
+
+/// Test for `update_job_status` operation in database trait.
+/// Happy Case : Creating a job with version 0 and updating the job with version 0 update only.
+#[rstest]
+#[tokio::test]
+async fn test_database_update_job_status_passing_case() -> color_eyre::Result<()> {
+    let init_config = build_config().await.is_ok();
+    if !init_config {
+        return Err(eyre!("Not able to init config."));
+    }
+
+    drop_database().await.unwrap();
+
+    let config = config().await;
+    let database_client = config.database();
+
+    let job = build_job_item(JobType::SnosRun, JobStatus::Created, 1);
+
+    database_client.create_job(job.clone()).await.unwrap();
+
+    let updating_job_res = database_client.update_job_status(&job, JobStatus::Completed).await.is_ok();
+
+    assert!(updating_job_res, "Job result assertion failed");
+
+    Ok(())
+}
+
+/// Test for `update_job_status` operation in database trait.
+/// Failing Case : Creating a job with version 1 and updating the job with version 0 update only.
+#[rstest]
+#[tokio::test]
+async fn test_database_update_job_status_failing_case() -> color_eyre::Result<()> {
+    let init_config = build_config().await.is_ok();
+    if !init_config {
+        return Err(eyre!("Not able to init config."));
+    }
+
+    drop_database().await.unwrap();
+
+    let config = config().await;
+    let database_client = config.database();
+
+    let job = build_job_item(JobType::SnosRun, JobStatus::Created, 1);
+
+    // Creating the job with updated version
+    let mut job_updated_version = job.clone();
+    job_updated_version.version = 1;
+
+    database_client.create_job(job_updated_version).await.unwrap();
+
+    let updating_job_res = database_client.update_job_status(&job, JobStatus::Completed).await.is_err();
+
+    assert!(updating_job_res, "Job result assertion failed");
 
     Ok(())
 }

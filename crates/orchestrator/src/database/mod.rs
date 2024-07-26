@@ -40,7 +40,6 @@ pub trait Database: Send + Sync {
     async fn get_jobs_after_internal_id_by_job_type(
         &self,
         job_type: JobType,
-        job_status: JobStatus,
         internal_id: String,
     ) -> Result<Vec<JobItem>>;
 }

@@ -2,7 +2,7 @@ use std::error::Error;
 
 use crate::config::config;
 use crate::jobs::create_job;
-use crate::jobs::types::{JobStatus, JobType};
+use crate::jobs::types::JobType;
 use async_trait::async_trait;
 
 use crate::workers::Worker;
@@ -24,11 +24,7 @@ impl Worker for UpdateStateWorker {
 
                 let successful_proving_jobs = config
                     .database()
-                    .get_jobs_after_internal_id_by_job_type(
-                        JobType::ProofCreation,
-                        JobStatus::Completed,
-                        latest_successful_job_internal_id,
-                    )
+                    .get_jobs_after_internal_id_by_job_type(JobType::ProofCreation, latest_successful_job_internal_id)
                     .await?;
 
                 for job in successful_proving_jobs {
