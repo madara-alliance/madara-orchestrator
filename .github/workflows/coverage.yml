@@ -41,22 +41,6 @@ jobs:
 
       - name: Run llvm-cov
         run: |
-          echo 'AWS_ACCESS_KEY_ID="AWS_ACCESS_KEY_ID"' >> .env.test
-          echo 'AWS_SECRET_ACCESS_KEY="AWS_SECRET_ACCESS_KEY"' >> .env.test
-          echo 'AWS_S3_BUCKET_NAME="madara-orchestrator-test-bucket"' >> .env.test
-          echo 'AWS_S3_BUCKET_REGION="us-east-1"' >> .env.test
-          echo 'AWS_ENDPOINT_URL="http://localhost.localstack.cloud:4566"' >> .env.test
-          echo 'MADARA_RPC_URL="http://localhost:3000"' >> .env.test
-          echo 'ETHEREUM_RPC_URL="http://localhost:3001"' >> .env.test
-          echo 'MEMORY_PAGES_CONTRACT_ADDRESS="0x000000000000000000000000000000000001dead"' >> .env.test
-          echo 'PRIVATE_KEY="0xdead"' >> .env.test
-          echo 'ETHEREUM_PRIVATE_KEY="0x000000000000000000000000000000000000000000000000000000000000beef"' >> .env.test
-          echo 'STARKNET_SOLIDITY_CORE_CONTRACT_ADDRESS="0x000000000000000000000000000000000002dead"' >> .env.test
-          echo 'DA_LAYER="ethereum"' >> .env.test
-          echo 'PROVER_SERVICE="sharp"' >> .env.test
-          echo 'SETTLEMENT_LAYER="ethereum"' >> .env.test
-          echo 'DATA_STORAGE="s3"' >> .env.test
-          echo 'MONGODB_CONNECTION_STRING="mongodb://localhost:27017"' >> .env.test
           cargo llvm-cov nextest --release --lcov --output-path lcov.info --test-threads=1
 
       - name: Upload coverage to codecov.io

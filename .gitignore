@@ -2,7 +2,6 @@
 .env
 .idea
 .DS_Store
-.env.test
 
 *.code-workspace
 .vscode
