@@ -5,6 +5,7 @@ use crate::data_storage::{DataStorage, DataStorageConfig};
 use bytes::Bytes;
 use rstest::rstest;
 use serde_json::json;
+use utils::env_utils::get_env_var_or_panic;
 
 #[rstest]
 #[tokio::test]
@@ -15,6 +16,7 @@ async fn test_put_and_get_data_s3() -> color_eyre::Result<()> {
 
     let config = AWSS3Config::new_from_env();
     let s3_client = AWSS3::new(config).await;
+    s3_client.build_test_bucket(&get_env_var_or_panic("AWS_S3_BUCKET_NAME")).await.unwrap();
 
     let mock_data = json!(
         {
