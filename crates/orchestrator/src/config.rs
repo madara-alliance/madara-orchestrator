@@ -238,7 +238,7 @@ impl TestConfigBuilder {
     }
 
     pub async fn build(mut self) -> MockServer {
-        dotenv().ok();
+        dotenvy::from_filename("../.env.test").expect("Failed to load the .env file");
 
         // init starknet client
         if self.starknet_client.is_none() {
@@ -293,8 +293,6 @@ impl TestConfigBuilder {
 
         config_force_init(config).await;
 
-        let server = MockServer::connect(get_env_var_or_panic("MADARA_RPC_URL").as_str());
-
-        server
+        MockServer::start()
     }
 }
