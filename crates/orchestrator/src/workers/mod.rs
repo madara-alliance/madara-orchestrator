@@ -19,9 +19,9 @@ pub trait Worker: Send + Sync {
 
     async fn run_worker(&self) -> Result<(), Box<dyn Error>>;
 
-    // Assumption : False Negative
-    // we are assuming that the worker will spawn only 1 job for a block and no two jobs will ever exist
-    // for a single block, the code might fail to work as expected if this happens.
+    // Assumption
+    // If say a job for block X fails, we don't want the worker to respawn another job for the same block
+    // we will resolve the existing failed job first
 
     // Checks if any of the jobs have failed
     // Failure : JobStatus::VerificationFailed, JobStatus::VerificationTimeout, JobStatus::Failed
