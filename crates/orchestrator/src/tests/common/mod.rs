@@ -13,10 +13,8 @@ use settlement_client_interface::MockSettlementClient;
 use starknet::providers::jsonrpc::HttpTransport;
 use starknet::providers::JsonRpcClient;
 use url::Url;
-use utils::env_utils::get_env_var_or_panic;
-use utils::settings::default::DefaultSettingsProvider;
 
-use crate::config::{build_storage_client, config_force_init, Config};
+use crate::config::Config;
 use crate::data_storage::MockDataStorage;
 use crate::database::mongodb::config::MongoDbConfig;
 use crate::database::mongodb::MongoDb;
@@ -78,39 +76,6 @@ pub fn custom_job_item(default_job_item: JobItem, #[default(String::from("0"))] 
     job_item.internal_id = internal_id;
 
     job_item
-}
-
-/// For implementation of integration tests
-#[fixture]
-pub async fn build_config() -> color_eyre::Result<()> {
-    // Getting .env.test variables
-    dotenvy::from_filename("../.env.test")?;
-
-    // init starknet client
-    let provider = JsonRpcClient::new(HttpTransport::new(
-        Url::parse(get_env_var_or_panic("MADARA_RPC_URL").as_str()).expect("Failed to parse URL"),
-    ));
-
-    // init database
-    let database = Box::new(MongoDb::new(MongoDbConfig::new_from_env()).await);
-
-    // init the queue
-    let queue = Box::new(crate::queue::sqs::SqsQueue {});
-
-    let da_client = crate::config::build_da_client().await;
-    let settings_provider = DefaultSettingsProvider {};
-    let settlement_client = crate::config::build_settlement_client(&settings_provider).await;
-    let prover_client = crate::config::build_prover_service(&settings_provider);
-    let storage_client = build_storage_client().await;
-
-    // building a test bucket :
-    storage_client.build_test_bucket(&get_env_var_or_panic("AWS_S3_BUCKET_NAME")).await?;
-
-    let config =
-        Config::new(Arc::new(provider), da_client, prover_client, settlement_client, database, queue, storage_client);
-    config_force_init(config).await;
-
-    Ok(())
 }
 
 pub async fn drop_database() -> color_eyre::Result<()> {

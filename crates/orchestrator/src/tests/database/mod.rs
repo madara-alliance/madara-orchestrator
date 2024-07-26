@@ -1,18 +1,13 @@
-use crate::config::config;
+use crate::config::{config, TestConfigBuilder};
 use crate::jobs::types::{ExternalId, JobItem, JobStatus, JobType};
-use crate::tests::common::{build_config, drop_database};
-use color_eyre::eyre::eyre;
+use crate::tests::common::drop_database;
 use rstest::*;
 use uuid::Uuid;
 
 #[rstest]
 #[tokio::test]
 async fn test_database_connection() -> color_eyre::Result<()> {
-    let init_config_error = build_config().await.is_err();
-    if init_config_error {
-        return Err(eyre!("Not able to init config."));
-    }
-
+    TestConfigBuilder::new().build().await;
     Ok(())
 }
 
@@ -21,10 +16,7 @@ async fn test_database_connection() -> color_eyre::Result<()> {
 #[rstest]
 #[tokio::test]
 async fn test_database_create_job() -> color_eyre::Result<()> {
-    let init_config = build_config().await.is_ok();
-    if !init_config {
-        return Err(eyre!("Not able to init config."));
-    }
+    TestConfigBuilder::new().build().await;
 
     drop_database().await.unwrap();
 
