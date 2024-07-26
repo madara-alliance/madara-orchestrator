@@ -184,7 +184,7 @@ async fn test_database_get_jobs_after_internal_id_by_job_type() -> color_eyre::R
 }
 
 // Test Util Functions
-// ==========================================
+// =========================================
 
 fn build_job_item(job_type: JobType, job_status: JobStatus, internal_id: u64) -> JobItem {
     JobItem {
