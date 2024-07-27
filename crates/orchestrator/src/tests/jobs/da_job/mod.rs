@@ -26,7 +26,6 @@ use majin_blob_types::state_diffs::UnorderedEq;
 // use majin_blob_types::serde;
 use crate::data_storage::MockDataStorage;
 use rstest::rstest;
-use serial_test::serial;
 
 use crate::tests::common::init_config;
 
@@ -51,7 +50,6 @@ use crate::tests::common::init_config;
     110
 )]
 #[tokio::test]
-#[serial]
 async fn test_da_job_process_job_failure_on_impossible_blob_length(
     #[case] state_update_file: String,
     #[case] noances_file: String,
