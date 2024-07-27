@@ -29,6 +29,7 @@ use rstest::rstest;
 
 use crate::tests::common::init_config;
 
+/// This testcase evaluates the DA Job on a blob length that is greater than supported.
 #[rstest]
 #[case(
     "src/tests/jobs/da_job/test_data/state_update/640641.txt",
@@ -49,14 +50,13 @@ use crate::tests::common::init_config;
     110
 )]
 #[tokio::test]
+
 async fn test_da_job_process_job_failure_on_impossible_blob_length(
     #[case] state_update_file: String,
     #[case] noances_file: String,
     #[case] internal_id: String,
     #[case] current_blob_length: u64,
 ) -> Result<()> {
-    dotenvy::from_filename("../.env.test").expect("Failed to load the .env file");
-
     // Mocking DA client calls
     let mut da_client = MockDaClient::new();
     // dummy state will have more than 1200 bytes
@@ -96,20 +96,20 @@ async fn test_da_job_process_job_failure_on_impossible_blob_length(
         )
         .await;
 
-    let expected = eyre!(
-        "Exceeded the maximum number of blobs per transaction: allowed {}, found {} for block {} and job id {}",
-        max_blob_per_txn,
-        current_blob_length,
-        internal_id.to_string(),
-        Uuid::default()
-    )
-    .to_string();
-
     match response {
-        Ok(_) => return Err(eyre!("This testcase should not have processed the job correctly.")),
+        Ok(_) => {
+            return Err(eyre!("This testcase's process_job was supposed to throw an error, it successed instead."))
+        }
         Err(e) => {
-            println!("answer : {}", e.to_string());
-            println!("expected : {}", expected);
+            let expected = eyre!(
+                "Exceeded the maximum number of blobs per transaction: allowed {}, found {} for block {} and job id {}",
+                max_blob_per_txn,
+                current_blob_length,
+                internal_id.to_string(),
+                Uuid::default()
+            )
+            .to_string();
+
             assert_eq!(e.to_string(), expected);
         }
     }
@@ -122,8 +122,6 @@ async fn test_da_job_process_job_failure_on_impossible_blob_length(
 #[rstest]
 #[tokio::test]
 async fn test_da_job_process_job_failure_on_pending_block() -> Result<()> {
-    dotenvy::from_filename("../.env.test").expect("Failed to load the .env file");
-
     let server = TestConfigBuilder::new().build().await;
     let config = config().await;
     let internal_id = "1";
@@ -163,16 +161,16 @@ async fn test_da_job_process_job_failure_on_pending_block() -> Result<()> {
         )
         .await;
 
-    let expected = eyre!(
-        "Cannot process block {} for job id {} as it's still in pending state",
-        internal_id.to_string(),
-        Uuid::default()
-    )
-    .to_string();
-
     match response {
         Ok(_) => return Err(eyre!("This testcase should not have processed the job correctly.")),
         Err(e) => {
+            let expected = eyre!(
+                "Cannot process block {} for job id {} as it's still in pending state",
+                internal_id.to_string(),
+                Uuid::default()
+            )
+            .to_string();
+
             assert_eq!(e.to_string(), expected);
         }
     }
@@ -192,8 +190,6 @@ async fn test_da_job_process_job_success(
     #[case] noances_file: String,
     #[case] internal_id: String,
 ) -> Result<()> {
-    dotenvy::from_filename("../.env.test").expect("Failed to load the .env file");
-
     // Mocking DA client calls
     let mut da_client = MockDaClient::new();
     da_client.expect_publish_state_diff().with(always(), always()).returning(|_, _| Ok("Done".to_string()));
@@ -248,7 +244,7 @@ async fn test_da_job_process_job_success(
 #[case(false, 1, 0, "18446744073709551616")]
 #[case(false, 0, 6, "6")]
 #[case(true, 1, 0, "340282366920938463481821351505477763072")]
-fn da_word_works(#[case] class_flag: bool, #[case] new_nonce: u64, #[case] num_changes: u64, #[case] expected: String) {
+fn test_da_word(#[case] class_flag: bool, #[case] new_nonce: u64, #[case] num_changes: u64, #[case] expected: String) {
     let new_nonce = if new_nonce > 0 { Some(FieldElement::from(new_nonce)) } else { None };
     let da_word = da_word(class_flag, new_nonce, num_changes);
     let expected = FieldElement::from_dec_str(expected.as_str()).unwrap();
@@ -258,21 +254,21 @@ fn da_word_works(#[case] class_flag: bool, #[case] new_nonce: u64, #[case] num_c
 #[rstest]
 #[case(
     631861,
-    "src/jobs/da_job/test_data/state_update_from_block_631861.txt",
-    "src/jobs/da_job/test_data/test_blob_631861.txt",
-    "src/jobs/da_job/test_data/nonces_from_block_631861.txt"
+    "src/tests/jobs/da_job/test_data/state_update/631861.txt",
+    "src/tests/jobs/da_job/test_data/test_blob/631861.txt",
+    "src/tests/jobs/da_job/test_data/nonces/631861.txt"
 )]
 #[case(
     638353,
-    "src/jobs/da_job/test_data/state_update_from_block_638353.txt",
-    "src/jobs/da_job/test_data/test_blob_638353.txt",
-    "src/jobs/da_job/test_data/nonces_from_block_638353.txt"
+    "src/tests/jobs/da_job/test_data/state_update/638353.txt",
+    "src/tests/jobs/da_job/test_data/test_blob/638353.txt",
+    "src/tests/jobs/da_job/test_data/nonces/638353.txt"
 )]
 #[case(
     640641,
-    "src/jobs/da_job/test_data/state_update_from_block_640641.txt",
-    "src/jobs/da_job/test_data/test_blob_640641.txt",
-    "src/jobs/da_job/test_data/nonces_from_block_640641.txt"
+    "src/tests/jobs/da_job/test_data/state_update/640641.txt",
+    "src/tests/jobs/da_job/test_data/test_blob/640641.txt",
+    "src/tests/jobs/da_job/test_data/nonces/640641.txt"
 )]
 #[tokio::test]
 async fn test_state_update_to_blob_data(
@@ -325,13 +321,13 @@ async fn test_state_update_to_blob_data(
 }
 
 #[rstest]
-#[case("src/jobs/da_job/test_data/test_blob_631861.txt")]
-#[case("src/jobs/da_job/test_data/test_blob_638353.txt")]
-#[case("src/jobs/da_job/test_data/test_blob_639404.txt")]
-#[case("src/jobs/da_job/test_data/test_blob_640641.txt")]
-#[case("src/jobs/da_job/test_data/test_blob_640644.txt")]
-#[case("src/jobs/da_job/test_data/test_blob_640646.txt")]
-#[case("src/jobs/da_job/test_data/test_blob_640647.txt")]
+#[case("src/tests/jobs/da_job/test_data/test_blob/638353.txt")]
+#[case("src/tests/jobs/da_job/test_data/test_blob/631861.txt")]
+#[case("src/tests/jobs/da_job/test_data/test_blob/639404.txt")]
+#[case("src/tests/jobs/da_job/test_data/test_blob/640641.txt")]
+#[case("src/tests/jobs/da_job/test_data/test_blob/640644.txt")]
+#[case("src/tests/jobs/da_job/test_data/test_blob/640646.txt")]
+#[case("src/tests/jobs/da_job/test_data/test_blob/640647.txt")]
 fn test_fft_transformation(#[case] file_to_check: &str) {
     // parsing the blob hex to the bigUints
 
@@ -356,7 +352,7 @@ fn test_bincode() {
     assert_eq!(data, deserialize_data);
 }
 
-pub fn read_state_update_from_file(file_path: &str) -> Result<StateUpdate> {
+fn read_state_update_from_file(file_path: &str) -> Result<StateUpdate> {
     // let file_path = format!("state_update_block_no_{}.txt", block_no);
     let mut file = File::open(file_path)?;
     let mut json = String::new();
@@ -371,7 +367,7 @@ struct NonceAddress {
     address: String,
 }
 
-pub fn get_nonce_attached(server: &MockServer, file_path: &str) {
+fn get_nonce_attached(server: &MockServer, file_path: &str) {
     // Read the file
     let file_content = fs::read_to_string(file_path).expect("Unable to read file");
 
