@@ -69,7 +69,6 @@ with_mongodb = ["mongodb"]
 with_sqs = ["omniqueue"]
 
 [dev-dependencies]
-serial_test = "0.5"
 hyper = { version = "0.14", features = ["full"] }
 rstest = { workspace = true }
 httpmock = { workspace = true, features = ["remote"] }
