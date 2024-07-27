@@ -63,6 +63,7 @@ impl Job for DaJob {
 
     async fn process_job(&self, config: &Config, job: &mut JobItem) -> Result<String> {
         let block_no = job.internal_id.parse::<u64>()?;
+
         let state_update = config.starknet_client().get_state_update(BlockId::Number(block_no)).await?;
 
         let state_update = match state_update {
