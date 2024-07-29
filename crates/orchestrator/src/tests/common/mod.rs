@@ -80,7 +80,9 @@ pub fn custom_job_item(default_job_item: JobItem, #[default(String::from("0"))] 
 
 pub async fn drop_database() -> color_eyre::Result<()> {
     let db_client: Client = MongoDb::new(MongoDbConfig::new_from_env()).await.client();
-    // dropping `jobs` collection.
-    db_client.database("orchestrator").collection::<JobItem>("jobs").drop(None).await?;
+    // dropping all the collection.
+    // use .collection::<JobItem>("<collection_name>")
+    // if only particular collection is to be dropped
+    db_client.database("orchestrator").drop(None).await?;
     Ok(())
 }
