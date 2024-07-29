@@ -18,18 +18,20 @@ use std::fs;
 use std::fs::File;
 use std::io::Read;
 
+use crate::data_storage::MockDataStorage;
 use ::serde::{Deserialize, Serialize};
 use httpmock::prelude::*;
 use majin_blob_core::blob;
 use majin_blob_types::serde;
 use majin_blob_types::state_diffs::UnorderedEq;
-// use majin_blob_types::serde;
-use crate::data_storage::MockDataStorage;
 use rstest::rstest;
 
 use crate::tests::common::init_config;
 
-/// This testcase evaluates the DA Job on a blob length that is greater than supported.
+/// Tests the DA Job's handling of a blob length exceeding the supported size.
+/// It mocks the DA client to simulate the environment and expects an error on job processing.
+/// Validates the error message for exceeding blob limits against the expected output.
+/// Asserts correct behavior by comparing the received and expected error messages.
 #[rstest]
 #[case(
     "src/tests/jobs/da_job/test_data/state_update/640641.txt",
@@ -118,6 +120,10 @@ async fn test_da_job_process_job_failure_on_impossible_blob_length(
     Ok(())
 }
 
+/// Tests DA Job processing failure when a block is in pending state.
+/// Simulates a pending block state update and expects job processing to fail.
+/// Validates that the error message matches the expected pending state error.
+/// Asserts correct behavior by comparing the received and expected error messages.
 #[rstest]
 #[tokio::test]
 async fn test_da_job_process_job_failure_on_pending_block() -> Result<()> {
@@ -177,6 +183,10 @@ async fn test_da_job_process_job_failure_on_pending_block() -> Result<()> {
     Ok(())
 }
 
+/// Tests successful DA Job processing with valid state update and nonces files.
+/// Mocks DA client to simulate environment and expects job to process without errors.
+/// Validates the successful job processing by checking the return message "Done".
+/// Asserts correct behavior by comparing the received and expected success messages.
 #[rstest]
 #[case(
     "src/tests/jobs/da_job/test_data/state_update/638353.txt",
@@ -225,11 +235,8 @@ async fn test_da_job_process_job_success(
         )
         .await;
 
-    match response {
-        Ok(message) => {
-            assert_eq!(message, eyre!("Done").to_string());
-        }
-        Err(_) => {}
+    if let Ok(message) = response {
+        assert_eq!(message, eyre!("Done").to_string());
     }
 
     state_update_mock.assert();
@@ -238,6 +245,10 @@ async fn test_da_job_process_job_success(
     Ok(())
 }
 
+/// Tests `da_word` function with various inputs for class flag, new nonce, and number of changes.
+/// Verifies that `da_word` produces the correct FieldElement based on the provided parameters.
+/// Uses test cases with different combinations of inputs and expected output strings.
+/// Asserts the function's correctness by comparing the computed and expected FieldElements.
 #[rstest]
 #[case(false, 1, 1, "18446744073709551617")]
 #[case(false, 1, 0, "18446744073709551616")]
@@ -250,6 +261,10 @@ fn test_da_word(#[case] class_flag: bool, #[case] new_nonce: u64, #[case] num_ch
     assert_eq!(da_word, expected);
 }
 
+/// Tests `state_update_to_blob_data` conversion with different state update files and block numbers.
+/// Mocks DA client and storage client interactions for the test environment.
+/// Compares the generated blob data against expected values to ensure correctness.
+/// Verifies the data integrity by checking that the parsed state diffs match the expected diffs.
 #[rstest]
 #[case(
     631861,
@@ -319,6 +334,10 @@ async fn test_state_update_to_blob_data(
     assert!(block_data_state_diffs.unordered_eq(&blob_data_state_diffs), "value of data json should be identical");
 }
 
+/// Tests the `fft_transformation` function with various test blob files.
+/// Verifies the correctness of FFT and IFFT transformations by ensuring round-trip consistency.
+/// Parses the original blob data, recovers it using IFFT, and re-applies FFT.
+/// Asserts that the transformed data matches the original pre-IFFT data, ensuring integrity.
 #[rstest]
 #[case("src/tests/jobs/da_job/test_data/test_blob/638353.txt")]
 #[case("src/tests/jobs/da_job/test_data/test_blob/631861.txt")]
@@ -341,6 +360,10 @@ fn test_fft_transformation(#[case] file_to_check: &str) {
     assert_eq!(fft_blob_data, original_blob_data);
 }
 
+/// Tests the serialization and deserialization process using bincode.
+/// Serializes a nested vector of integers and then deserializes it back.
+/// Verifies that the original data matches the deserialized data.
+/// Ensures the integrity and correctness of bincode's (de)serialization.
 #[rstest]
 fn test_bincode() {
     let data = vec![vec![1, 2], vec![3, 4]];
@@ -394,8 +417,6 @@ fn vec_u8_to_hex_string(data: &[u8]) -> String {
 
     let mut new_hex_chars = hex_chars.join("");
     new_hex_chars = new_hex_chars.trim_start_matches('0').to_string();
-
-    // Handle the case where the trimmed string is empty (e.g., data was all zeros)
     if new_hex_chars.is_empty() {
         "0x0".to_string()
     } else {
