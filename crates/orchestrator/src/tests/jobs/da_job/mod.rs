@@ -54,7 +54,7 @@ use crate::tests::common::init_config;
 #[tokio::test]
 async fn test_da_job_process_job_failure_on_impossible_blob_length(
     #[case] state_update_file: String,
-    #[case] noances_file: String,
+    #[case] nonces_file: String,
     #[case] internal_id: String,
     #[case] current_blob_length: u64,
 ) -> Result<()> {
