@@ -4,6 +4,7 @@ use std::time::Duration;
 use async_trait::async_trait;
 use color_eyre::eyre::eyre;
 use color_eyre::Result;
+use mockall::automock;
 use tracing::log;
 use uuid::Uuid;
 
@@ -18,11 +19,10 @@ pub mod proving_job;
 pub mod register_proof_job;
 pub mod snos_job;
 pub mod state_update_job;
-pub mod types;
-
 /// The Job trait is used to define the methods that a job
 /// should implement to be used as a job for the orchestrator. The orchestrator automatically
 /// handles queueing and processing of jobs as long as they implement the trait.
+#[automock]
 #[async_trait]
 pub trait Job: Send + Sync {
     /// Should build a new job item and return it
@@ -50,6 +50,8 @@ pub trait Job: Send + Sync {
     fn verification_polling_delay_seconds(&self) -> u64;
 }
 
+pub mod types;
+
 /// Creates the job in the DB in the created state and adds it to the process queue
 pub async fn create_job(job_type: JobType, internal_id: String, metadata: HashMap<String, String>) -> Result<()> {
     let config = config().await;
@@ -65,6 +67,7 @@ pub async fn create_job(job_type: JobType, internal_id: String, metadata: HashMa
 
     let job_handler = get_job_handler(&job_type);
     let job_item = job_handler.create_job(config.as_ref(), internal_id, metadata).await?;
+    println!(">>>> job_item : {:?}", job_item);
     config.database().create_job(job_item.clone()).await?;
 
     add_job_to_process_queue(job_item.id).await?;
@@ -173,7 +176,12 @@ pub async fn verify_job(id: Uuid) -> Result<()> {
     Ok(())
 }
 
-fn get_job_handler(job_type: &JobType) -> Box<dyn Job> {
+
+async fn get_job_handler(job_type: &JobType) -> Box<&dyn Job> {
+    #[cfg(test)]
+    return Box::new(config().await.job_handler.as_ref());
+
+    #[cfg(not(test))]
     match job_type {
         JobType::DataSubmission => Box::new(da_job::DaJob),
         JobType::SnosRun => Box::new(snos_job::SnosJob),

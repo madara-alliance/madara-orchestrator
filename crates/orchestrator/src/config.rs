@@ -22,6 +22,7 @@ use utils::settings::SettingsProvider;
 use crate::database::mongodb::config::MongoDbConfig;
 use crate::database::mongodb::MongoDb;
 use crate::database::{Database, DatabaseConfig};
+use crate::jobs::MockJob;
 use crate::queue::sqs::SqsQueue;
 use crate::queue::QueueProvider;
 
@@ -42,6 +43,9 @@ pub struct Config {
     queue: Box<dyn QueueProvider>,
     /// Storage client
     storage: Box<dyn DataStorage>,
+    /// Job Handler (to be used during testing only.)
+    #[cfg(test)]
+    pub(crate) job_handler: Box<crate::jobs::MockJob>,
 }
 
 /// Initializes the app config
@@ -67,7 +71,7 @@ pub async fn init_config() -> Config {
 
     let storage_client = build_storage_client().await;
 
-    Config::new(Arc::new(provider), da_client, prover_client, settlement_client, database, queue, storage_client)
+    Config::new(Arc::new(provider), da_client, prover_client, settlement_client, database, queue, storage_client, Box::new(MockJob::new()))
 }
 
 impl Config {
@@ -80,8 +84,21 @@ impl Config {
         database: Box<dyn Database>,
         queue: Box<dyn QueueProvider>,
         storage: Box<dyn DataStorage>,
+        // to be used in test environment only
+        #[allow(unused_variables)]
+        job_handler: Box<MockJob>
     ) -> Self {
-        Self { starknet_client, da_client, prover_client, settlement_client, database, queue, storage }
+        Self {
+            starknet_client,
+            da_client,
+            prover_client,
+            settlement_client,
+            database,
+            queue,
+            storage,
+            #[cfg(test)]
+            job_handler,
+        }
     }
 
     /// Returns the starknet client
@@ -117,6 +134,12 @@ impl Config {
     /// Returns the storage provider
     pub fn storage(&self) -> &dyn DataStorage {
         self.storage.as_ref()
+    }
+    
+    /// Returns the job handler (used in test environment)
+    #[cfg(test)]
+    pub fn job_handler(&self) -> &MockJob {
+        self.job_handler.as_ref()
     }
 }
 
