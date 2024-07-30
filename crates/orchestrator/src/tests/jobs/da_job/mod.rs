@@ -196,7 +196,7 @@ async fn test_da_job_process_job_failure_on_pending_block() -> Result<()> {
 #[tokio::test]
 async fn test_da_job_process_job_success(
     #[case] state_update_file: String,
-    #[case] noances_file: String,
+    #[case] nonces_file: String,
     #[case] internal_id: String,
 ) -> Result<()> {
     // Mocking DA client calls
