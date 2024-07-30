@@ -155,7 +155,7 @@ async fn test_da_job_process_job_failure_on_pending_block() -> Result<()> {
         .await;
 
     match response {
-        Ok(_) => return Err(eyre!("This testcase should not have processed the job correctly.")),
+        Ok(_) => panic!("This testcase should not have processed the job correctly."),
         Err(e) => {
             let expected = eyre!(
                 "Cannot process block {} for job id {} as it's still in pending state",
