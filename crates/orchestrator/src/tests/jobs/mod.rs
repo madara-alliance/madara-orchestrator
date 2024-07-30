@@ -63,7 +63,7 @@ mod job_handler_tests {
         //     job_handler.expect_create_job().times(1);
         // }
 
-        TestConfigBuilder::new().build_with_mock_job(job_handler).await;
+        TestConfigBuilder::new().mock_job_handler(job_handler).await;
         drop_database().await.unwrap();
 
         let config = config().await;

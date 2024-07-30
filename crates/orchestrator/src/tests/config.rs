@@ -71,76 +71,9 @@ impl TestConfigBuilder {
         self
     }
 
-    pub async fn build_with_mock_job(mut self, mock_job: MockJob) -> MockServer {
-        dotenvy::from_filename("../.env.test").expect("Failed to load the .env file");
-
-        let server = MockServer::start();
-
-        // init starknet client
-        if self.starknet_client.is_none() {
-            let provider = JsonRpcClient::new(HttpTransport::new(
-                Url::parse(format!("http://localhost:{}", server.port()).as_str()).expect("Failed to parse URL"),
-            ));
-            self.starknet_client = Some(Arc::new(provider));
-        }
-
-        // init database
-        if self.database.is_none() {
-            self.database = Some(Box::new(MongoDb::new(MongoDbConfig::new_from_env()).await));
-        }
-
-        // init queue
-        if self.queue.is_none() {
-            self.queue = Some(Box::new(SqsQueue {}));
-        }
-
-        // init the DA client
-        if self.da_client.is_none() {
-            self.da_client = Some(build_da_client().await);
-        }
-
-        let settings_provider = DefaultSettingsProvider {};
-
-        // init the Settings client
-        if self.settlement_client.is_none() {
-            self.settlement_client = Some(build_settlement_client(&settings_provider).await);
-        }
-
-        // init the Prover client
-        if self.prover_client.is_none() {
-            self.prover_client = Some(build_prover_service(&settings_provider));
-        }
-
-        // init the storage client
-        if self.storage.is_none() {
-            self.storage = Some(build_storage_client().await);
-            match get_env_var_or_panic("DATA_STORAGE").as_str() {
-                "s3" => self
-                    .storage
-                    .as_ref()
-                    .unwrap()
-                    .build_test_bucket(&get_env_var_or_panic("AWS_S3_BUCKET_NAME"))
-                    .await
-                    .unwrap(),
-                _ => panic!("Unsupported Storage Client"),
-            }
-        }
-
-        // return config and server as tuple
-        let config = Config::new(
-            self.starknet_client.unwrap(),
-            self.da_client.unwrap(),
-            self.prover_client.unwrap(),
-            self.settlement_client.unwrap(),
-            self.database.unwrap(),
-            self.queue.unwrap(),
-            self.storage.unwrap(),
-            Box::new(mock_job)
-        );
-
-        config_force_init(config).await;
-
-        server
+    pub async fn mock_job_handler(mut self, mock_job: MockJob) -> TestConfigBuilder {
+        self.job_handler = Some(mock_job);
+        self
     }
 
     pub async fn build(mut self) -> MockServer {
@@ -183,6 +116,13 @@ impl TestConfigBuilder {
             self.prover_client = Some(build_prover_service(&settings_provider));
         }
 
+        // init job handler
+        if self.job_handler.is_none() {
+            self.job_handler = Some(MockJob::new());
+        }
+        let mut temp_job_handler = MockJob::new();
+        temp_job_handler.expect_clone().return_const(self.job_handler.unwrap());
+
         // init the storage client
         if self.storage.is_none() {
             self.storage = Some(build_storage_client().await);
@@ -207,7 +147,7 @@ impl TestConfigBuilder {
             self.database.unwrap(),
             self.queue.unwrap(),
             self.storage.unwrap(),
-            Box::new(MockJob::new())
+            MockJob::new(),
         );
 
         config_force_init(config).await;

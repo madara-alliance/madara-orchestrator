@@ -19,10 +19,10 @@ use crate::data_storage::MockDataStorage;
 use crate::database::mongodb::config::MongoDbConfig;
 use crate::database::mongodb::MongoDb;
 use crate::database::{DatabaseConfig, MockDatabase};
-use crate::jobs::MockJob;
 use crate::jobs::types::JobStatus::Created;
 use crate::jobs::types::JobType::DataSubmission;
 use crate::jobs::types::{ExternalId, JobItem};
+use crate::jobs::MockJob;
 use crate::queue::MockQueueProvider;
 
 pub async fn init_config(
@@ -55,7 +55,7 @@ pub async fn init_config(
         Box::new(database),
         Box::new(queue),
         Box::new(storage_client),
-        Box::new(MockJob::new())
+        MockJob::new(),
     )
 }
 

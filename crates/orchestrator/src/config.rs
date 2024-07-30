@@ -45,7 +45,7 @@ pub struct Config {
     storage: Box<dyn DataStorage>,
     /// Job Handler (to be used during testing only.)
     #[cfg(test)]
-    pub(crate) job_handler: Box<crate::jobs::MockJob>,
+    pub job_handler: MockJob,
 }
 
 /// Initializes the app config
@@ -71,7 +71,17 @@ pub async fn init_config() -> Config {
 
     let storage_client = build_storage_client().await;
 
-    Config::new(Arc::new(provider), da_client, prover_client, settlement_client, database, queue, storage_client, Box::new(MockJob::new()))
+    Config::new(
+        Arc::new(provider),
+        da_client,
+        prover_client,
+        settlement_client,
+        database,
+        queue,
+        storage_client,
+        #[cfg(test)]
+        MockJob::new(),
+    )
 }
 
 impl Config {
@@ -85,8 +95,7 @@ impl Config {
         queue: Box<dyn QueueProvider>,
         storage: Box<dyn DataStorage>,
         // to be used in test environment only
-        #[allow(unused_variables)]
-        job_handler: Box<MockJob>
+        #[cfg(test)] job_handler: MockJob,
     ) -> Self {
         Self {
             starknet_client,
@@ -134,12 +143,6 @@ impl Config {
     /// Returns the storage provider
     pub fn storage(&self) -> &dyn DataStorage {
         self.storage.as_ref()
-    }
-    
-    /// Returns the job handler (used in test environment)
-    #[cfg(test)]
-    pub fn job_handler(&self) -> &MockJob {
-        self.job_handler.as_ref()
     }
 }
 

@@ -4,7 +4,7 @@ use std::time::Duration;
 use async_trait::async_trait;
 use color_eyre::eyre::eyre;
 use color_eyre::Result;
-use mockall::automock;
+use mockall::{automock, mock};
 use tracing::log;
 use uuid::Uuid;
 
@@ -22,7 +22,6 @@ pub mod state_update_job;
 /// The Job trait is used to define the methods that a job
 /// should implement to be used as a job for the orchestrator. The orchestrator automatically
 /// handles queueing and processing of jobs as long as they implement the trait.
-#[automock]
 #[async_trait]
 pub trait Job: Send + Sync {
     /// Should build a new job item and return it
@@ -50,6 +49,28 @@ pub trait Job: Send + Sync {
     fn verification_polling_delay_seconds(&self) -> u64;
 }
 
+mock! {
+    pub Job {}
+    impl Clone for Job {
+        fn clone(&self) -> Self;
+    }
+
+    #[async_trait]
+    impl Job for Job {
+        async fn create_job(
+            &self,
+            config: &Config,
+            internal_id: String,
+            metadata: HashMap<String, String>,
+        ) -> Result<JobItem>;
+        async fn process_job(&self, config: &Config, job: &mut JobItem) -> Result<String>;
+        async fn verify_job(&self, config: &Config, job: &mut JobItem) -> Result<JobVerificationStatus>;
+        fn max_process_attempts(&self) -> u64;
+        fn max_verification_attempts(&self) -> u64;
+        fn verification_polling_delay_seconds(&self) -> u64;
+    }
+}
+
 pub mod types;
 
 /// Creates the job in the DB in the created state and adds it to the process queue
@@ -65,7 +86,7 @@ pub async fn create_job(job_type: JobType, internal_id: String, metadata: HashMa
         ));
     }
 
-    let job_handler = get_job_handler(&job_type);
+    let job_handler = get_job_handler(&job_type).await;
     let job_item = job_handler.create_job(config.as_ref(), internal_id, metadata).await?;
     println!(">>>> job_item : {:?}", job_item);
     config.database().create_job(job_item.clone()).await?;
@@ -96,7 +117,7 @@ pub async fn process_job(id: Uuid) -> Result<()> {
     // outdated
     config.database().update_job_status(&job, JobStatus::LockedForProcessing).await?;
 
-    let job_handler = get_job_handler(&job.job_type);
+    let job_handler = get_job_handler(&job.job_type).await;
     let external_id = job_handler.process_job(config.as_ref(), &mut job).await?;
     let metadata = increment_key_in_metadata(&job.metadata, JOB_PROCESS_ATTEMPT_METADATA_KEY)?;
 
@@ -130,7 +151,7 @@ pub async fn verify_job(id: Uuid) -> Result<()> {
         }
     }
 
-    let job_handler = get_job_handler(&job.job_type);
+    let job_handler = get_job_handler(&job.job_type).await;
     let verification_status = job_handler.verify_job(config.as_ref(), &mut job).await?;
 
     match verification_status {
@@ -176,12 +197,8 @@ pub async fn verify_job(id: Uuid) -> Result<()> {
     Ok(())
 }
 
-
-async fn get_job_handler(job_type: &JobType) -> Box<&dyn Job> {
-    #[cfg(test)]
-    return Box::new(config().await.job_handler.as_ref());
-
-    #[cfg(not(test))]
+#[cfg(not(test))]
+async fn get_job_handler(job_type: &JobType) -> Box<dyn Job> {
     match job_type {
         JobType::DataSubmission => Box::new(da_job::DaJob),
         JobType::SnosRun => Box::new(snos_job::SnosJob),
@@ -189,6 +206,11 @@ async fn get_job_handler(job_type: &JobType) -> Box<&dyn Job> {
         JobType::StateTransition => Box::new(state_update_job::StateUpdateJob),
         _ => unimplemented!("Job type not implemented yet."),
     }
+}
+
+#[cfg(test)]
+async fn get_job_handler<'a>(_job_type: &JobType) -> Box<dyn Job> {
+    return Box::new(config().await.job_handler.clone());
 }
 
 async fn get_job(id: Uuid) -> Result<JobItem> {
