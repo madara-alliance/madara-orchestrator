@@ -23,7 +23,7 @@ pub struct CelestiaDaConfigAndClient {
 
 #[async_trait]
 impl DaClient for CelestiaDaClient {
-    async fn publish_state_diff(&self, state_diff: Vec<Vec<u8>>, to: &[u8; 32]) -> Result<String> {
+    async fn publish_state_diff(&self, state_diff: Vec<Vec<u8>>, _to: &[u8; 32]) -> Result<String> {
         // Convert the state_diffs into Blobs
         let blobs: Result<Vec<Blob>, _> =
             state_diff.into_iter().map(|blob_data| Blob::new(self.nid, blob_data)).collect();
@@ -35,7 +35,7 @@ impl DaClient for CelestiaDaClient {
         Ok(height.to_string())
     }
 
-    async fn verify_inclusion(&self, external_id: &str) -> Result<DaVerificationStatus> {
+    async fn verify_inclusion(&self, _external_id: &str) -> Result<DaVerificationStatus> {
         // https://node-rpc-docs.celestia.org/?version=v0.13.7#blob.Submit
         // Our Oberservation:
         // 1) Submit sends Blobs and reports the height in which they were included.
