@@ -24,12 +24,15 @@ use crate::database::mongodb::MongoDb;
 use crate::database::{Database, DatabaseConfig};
 use crate::queue::sqs::SqsQueue;
 use crate::queue::QueueProvider;
+use crate::rpc::{config::HttpRpcConfig, HttpRpcClient};
 
 /// The app config. It can be accessed from anywhere inside the service
 /// by calling `config` function.
 pub struct Config {
     /// The starknet client to get data from the node
     starknet_client: Arc<JsonRpcClient<HttpTransport>>,
+    /// An HTTP client used for RPC requests to L1/L2 nodes
+    http_rpc_client: Arc<HttpRpcClient>,
     /// The DA client to interact with the DA layer
     da_client: Box<dyn DaClient>,
     /// The service that produces proof and registers it onchain
@@ -52,6 +55,8 @@ pub async fn init_config() -> Config {
     let provider = JsonRpcClient::new(HttpTransport::new(
         Url::parse(get_env_var_or_panic("MADARA_RPC_URL").as_str()).expect("Failed to parse URL"),
     ));
+    // init http client for rpc requests
+    let http_rpc_client = HttpRpcClient::new(HttpRpcConfig::new_from_env());
 
     // init database
     let database = Box::new(MongoDb::new(MongoDbConfig::new_from_env()).await);
@@ -64,16 +69,26 @@ pub async fn init_config() -> Config {
     let settings_provider = DefaultSettingsProvider {};
     let settlement_client = build_settlement_client(&settings_provider).await;
     let prover_client = build_prover_service(&settings_provider);
+    let storage = build_storage_client().await;
 
-    let storage_client = build_storage_client().await;
-
-    Config::new(Arc::new(provider), da_client, prover_client, settlement_client, database, queue, storage_client)
+    Config::new(
+        Arc::new(provider),
+        Arc::new(http_rpc_client),
+        da_client,
+        prover_client,
+        settlement_client,
+        database,
+        queue,
+        storage,
+    )
 }
 
 impl Config {
     /// Create a new config
+    #[allow(clippy::too_many_arguments)]
     pub fn new(
         starknet_client: Arc<JsonRpcClient<HttpTransport>>,
+        http_rpc_client: Arc<HttpRpcClient>,
         da_client: Box<dyn DaClient>,
         prover_client: Box<dyn ProverClient>,
         settlement_client: Box<dyn SettlementClient>,
@@ -81,7 +96,7 @@ impl Config {
         queue: Box<dyn QueueProvider>,
         storage: Box<dyn DataStorage>,
     ) -> Self {
-        Self { starknet_client, da_client, prover_client, settlement_client, database, queue, storage }
+        Self { starknet_client, http_rpc_client, da_client, prover_client, settlement_client, database, queue, storage }
     }
 
     /// Returns the starknet client
@@ -102,6 +117,11 @@ impl Config {
     /// Returns the settlement client
     pub fn settlement_client(&self) -> &dyn SettlementClient {
         self.settlement_client.as_ref()
+    }
+
+    /// Returns the http client
+    pub fn http_rpc_client(&self) -> &Arc<HttpRpcClient> {
+        &self.http_rpc_client
     }
 
     /// Returns the database client

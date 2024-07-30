@@ -10,6 +10,7 @@ use mockall::automock;
 /// the cloud provider storage.
 /// The proposed storage format is :
 ///     ----<block_number>
+///         ----<cairo_pie.json> (stored during the SNOS job)
 ///         ----<snos_output.json> (stored during the SNOS job)
 ///         ----<blob_data.txt> (stored during the DA job)
 #[automock]

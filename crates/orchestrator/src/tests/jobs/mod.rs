@@ -1,6 +1,9 @@
 use rstest::rstest;
 
 #[cfg(test)]
+pub mod snos_job;
+
+#[cfg(test)]
 pub mod da_job;
 
 #[cfg(test)]

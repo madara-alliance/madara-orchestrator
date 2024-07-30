@@ -20,6 +20,7 @@ use crate::jobs::types::JobStatus::Created;
 use crate::jobs::types::JobType::DataSubmission;
 use crate::jobs::types::{ExternalId, JobItem};
 use crate::queue::MockQueueProvider;
+use crate::rpc::{config::HttpRpcConfig, HttpRpcClient};
 
 pub async fn init_config(
     rpc_url: Option<String>,
@@ -42,9 +43,12 @@ pub async fn init_config(
 
     // init starknet client
     let provider = JsonRpcClient::new(HttpTransport::new(Url::parse(rpc_url.as_str()).expect("Failed to parse URL")));
+    // init http rpc client
+    let http_rpc_client = HttpRpcClient::new(HttpRpcConfig { l1_rpc_url: rpc_url.clone(), madara_rpc_url: rpc_url });
 
     Config::new(
         Arc::new(provider),
+        Arc::new(http_rpc_client),
         Box::new(da_client),
         Box::new(prover_client),
         Box::new(settlement_client),
