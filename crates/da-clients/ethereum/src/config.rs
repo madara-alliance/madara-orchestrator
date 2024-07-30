@@ -24,6 +24,7 @@ impl DaConfig<EthereumDaClient> for EthereumDaConfig {
             private_key: get_env_var_or_panic("PRIVATE_KEY"),
         }
     }
+
     async fn build_client(&self) -> EthereumDaClient {
         let client =
             RpcClient::new_http(Url::from_str(self.rpc_url.as_str()).expect("Failed to parse ETHEREUM_RPC_URL"));

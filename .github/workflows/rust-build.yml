@@ -17,6 +17,8 @@ jobs:
 
       - uses: Swatinem/rust-cache@v2
 
+      - uses: arduino/setup-protoc@v3
+
       - name: Build the project
         run: |
           cargo build --release --workspace

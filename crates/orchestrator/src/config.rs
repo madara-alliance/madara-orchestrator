@@ -4,6 +4,7 @@ use crate::data_storage::aws_s3::config::AWSS3Config;
 use crate::data_storage::aws_s3::AWSS3;
 use crate::data_storage::{DataStorage, DataStorageConfig};
 use arc_swap::{ArcSwap, Guard};
+use celestia_da_client::config::CelestiaDaConfig;
 use da_client_interface::{DaClient, DaConfig};
 use dotenvy::dotenv;
 use ethereum_da_client::config::EthereumDaConfig;
@@ -153,6 +154,11 @@ async fn build_da_client() -> Box<dyn DaClient + Send + Sync> {
         "ethereum" => {
             let config = EthereumDaConfig::new_from_env();
             Box::new(config.build_client().await)
+        }
+        "celestia" => {
+            let config: CelestiaDaConfig = CelestiaDaConfig::new_from_env();
+            let client = config.build_client().await;
+            Box::new(client)
         }
         _ => panic!("Unsupported DA layer"),
     }
