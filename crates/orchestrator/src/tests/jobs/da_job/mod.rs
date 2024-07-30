@@ -177,6 +177,16 @@ async fn test_da_job_process_job_failure_on_pending_block() -> Result<()> {
 /// Asserts correct behavior by comparing the received and expected success messages.
 #[rstest]
 #[case(
+    "src/tests/jobs/da_job/test_data/state_update/631861.txt",
+    "src/tests/jobs/da_job/test_data/nonces/631861.txt",
+    "631861"
+)]
+#[case(
+    "src/tests/jobs/da_job/test_data/state_update/640641.txt",
+    "src/tests/jobs/da_job/test_data/nonces/640641.txt",
+    "640641"
+)]
+#[case(
     "src/tests/jobs/da_job/test_data/state_update/638353.txt",
     "src/tests/jobs/da_job/test_data/nonces/638353.txt",
     "638353"
