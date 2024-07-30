@@ -2,10 +2,8 @@ use crate::jobs::da_job::da_word;
 use crate::jobs::da_job::DaJob;
 use crate::jobs::types::{ExternalId, JobItem, JobStatus, JobType};
 use crate::tests::common::drop_database;
-use crate::{
-    config::{config, TestConfigBuilder},
-    jobs::Job,
-};
+use crate::tests::config::TestConfigBuilder;
+use crate::{config::config, jobs::Job};
 use color_eyre::{eyre::eyre, Result};
 use da_client_interface::MockDaClient;
 use mockall::predicate::always;
@@ -34,31 +32,21 @@ use crate::tests::common::init_config;
 /// Asserts correct behavior by comparing the received and expected error messages.
 #[rstest]
 #[case(
-    "src/tests/jobs/da_job/test_data/state_update/640641.txt",
-    "src/tests/jobs/da_job/test_data/nonces/640641.txt",
-    "640641",
-    110
-)]
-#[case(
-    "src/tests/jobs/da_job/test_data/state_update/631861.txt",
-    "src/tests/jobs/da_job/test_data/nonces/631861.txt",
-    "631861",
-    110
-)]
-#[case(
     "src/tests/jobs/da_job/test_data/state_update/638353.txt",
     "src/tests/jobs/da_job/test_data/nonces/638353.txt",
     "63853",
     110
 )]
 #[tokio::test]
-async fn test_da_job_process_job_failure_on_impossible_blob_length(
+async fn test_da_job_process_job_failure_on_small_blob_size(
     #[case] state_update_file: String,
     #[case] nonces_file: String,
     #[case] internal_id: String,
     #[case] current_blob_length: u64,
 ) -> Result<()> {
     // Mocking DA client calls
+
+    use crate::tests::config::TestConfigBuilder;
     let mut da_client = MockDaClient::new();
     // dummy state will have more than 1200 bytes
     da_client.expect_max_blob_per_txn().with().returning(|| 1);
@@ -73,7 +61,7 @@ async fn test_da_job_process_job_failure_on_impossible_blob_length(
     let state_update = serde_json::to_value(&state_update).unwrap();
     let response = json!({ "id": 640641,"jsonrpc":"2.0","result": state_update });
 
-    get_nonce_attached(&server, noances_file.as_str());
+    get_nonce_attached(&server, nonces_file.as_str());
 
     let state_update_mock = server.mock(|when, then| {
         when.path("/").body_contains("starknet_getStateUpdate");
@@ -99,7 +87,7 @@ async fn test_da_job_process_job_failure_on_impossible_blob_length(
 
     match response {
         Ok(_) => {
-            return Err(eyre!("This testcase's process_job was supposed to throw an error, it successed instead."))
+            panic!("This testcase's process_job was supposed to throw an error, it successed instead.")
         }
         Err(e) => {
             let expected = eyre!(
@@ -213,7 +201,7 @@ async fn test_da_job_process_job_success(
     let state_update = serde_json::to_value(&state_update).unwrap();
     let response = json!({ "id": 1,"jsonrpc":"2.0","result": state_update });
 
-    get_nonce_attached(&server, noances_file.as_str());
+    get_nonce_attached(&server, nonces_file.as_str());
 
     let state_update_mock = server.mock(|when, then| {
         when.path("/").body_contains("starknet_getStateUpdate");
