@@ -6,10 +6,10 @@ use async_trait::async_trait;
 use std::collections::HashMap;
 use std::error::Error;
 
-pub struct DataSubmissionWorker;
+pub struct DataAvailabilitySynchronizer;
 
 #[async_trait]
-impl Worker for DataSubmissionWorker {
+impl Worker for DataAvailabilitySynchronizer {
     // 0. All ids are assumed to be block numbers.
     // 1. Fetch the latest completed Proving job.
     // 2. Fetch the latest DA job creation.
@@ -38,7 +38,7 @@ impl Worker for DataSubmissionWorker {
         let latest_data_submission_id: u64 = latest_data_submission_job_id.parse()?;
         let latest_proven_id: u64 = latest_proven_job_id.parse()?;
 
-        // creating data submission jobs for latest blocks that don't have pre-running data submission jobs yet.
+        // creating data submission jobs for latest blocks that don't have existing data submission jobs yet.
         for new_job_id in latest_data_submission_id + 1..latest_proven_id + 1 {
             create_job(JobType::DataSubmission, new_job_id.to_string(), HashMap::new()).await?;
         }
