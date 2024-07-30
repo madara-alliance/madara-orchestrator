@@ -98,9 +98,11 @@ mod tests {
             0x22, 0x33, 0x44, 0x55, 0x66, 0x77, 0x88, 0x99, 0xaa, 0xbb, 0xcc, 0xdd, 0xee, 0xff,
         ];
 
-        let height_id = celestia_da_client.publish_state_diff(state_diff, &to).await.expect("Failed to publish state diff:");
+        let height_id =
+            celestia_da_client.publish_state_diff(state_diff, &to).await.expect("Failed to publish state diff:");
 
-        let inclusion_response = celestia_da_client.verify_inclusion(&height_id).await.expect("Failed to verify inclusion:");
+        let inclusion_response =
+            celestia_da_client.verify_inclusion(&height_id).await.expect("Failed to verify inclusion:");
 
         assert_eq!(inclusion_response, DaVerificationStatus::Verified);
     }
