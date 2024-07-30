@@ -18,6 +18,7 @@ use crate::database::{Database, DatabaseConfig};
 use crate::queue::sqs::SqsQueue;
 use crate::queue::QueueProvider;
 
+use super::common::drop_database;
 use httpmock::MockServer;
 // Inspiration : https://rust-unofficial.github.io/patterns/patterns/creational/builder.html
 // TestConfigBuilder allows to heavily customise the global configs based on the test's requirement.
@@ -131,6 +132,8 @@ impl TestConfigBuilder {
             self.queue.unwrap(),
             self.storage.unwrap(),
         );
+
+        drop_database().await.unwrap();
 
         config_force_init(config).await;
 

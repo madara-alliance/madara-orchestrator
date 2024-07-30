@@ -12,10 +12,10 @@ use uuid::Uuid;
 use crate::config::config;
 use crate::jobs::{handle_job_failure, process_job, verify_job};
 
-const JOB_PROCESSING_QUEUE: &str = "madara_orchestrator_job_processing_queue";
-const JOB_VERIFICATION_QUEUE: &str = "madara_orchestrator_job_verification_queue";
+pub const JOB_PROCESSING_QUEUE: &str = "madara_orchestrator_job_processing_queue";
+pub const JOB_VERIFICATION_QUEUE: &str = "madara_orchestrator_job_verification_queue";
 // Below is the Data Letter Queue for the the above two jobs.
-const JOB_HANDLE_FAILURE_QUEUE: &str = "madara_orchestrator_job_handle_failure_queue";
+pub const JOB_HANDLE_FAILURE_QUEUE: &str = "madara_orchestrator_job_handle_failure_queue";
 
 #[derive(Debug, Serialize, Deserialize)]
 pub struct JobQueueMessage {
