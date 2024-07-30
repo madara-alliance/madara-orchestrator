@@ -547,11 +547,12 @@ impl FromStr for JobType {
 #[case("SnosRun", "PendingVerification")]
 #[case("ProofCreation", "LockedForProcessing")]
 #[case("ProofRegistration", "Created")]
+#[case("DataSubmission", "Failed")]
 #[case("StateTransition", "Completed")]
 #[case("ProofCreation", "VerificationTimeout")]
 #[case("DataSubmission", "VerificationFailed()")]
 #[tokio::test]
-async fn test_handle_job_failure(#[case] job_type: JobType, #[case] error_type: JobStatus) -> color_eyre::Result<()> {
+async fn test_handle_job_failure(#[case] job_type: JobType, #[case] job_status: JobStatus) -> color_eyre::Result<()> {
     use color_eyre::eyre::eyre;
 
     TestConfigBuilder::new().build().await;
@@ -563,8 +564,15 @@ async fn test_handle_job_failure(#[case] job_type: JobType, #[case] error_type: 
     let database_client = config.database();
 
     // create a job
-    let job = build_job_item(job_type, error_type, internal_id);
+    let mut job = build_job_item(job_type.clone(), job_status.clone(), internal_id);
     let job_id = job.id;
+
+    // if testcase is for Failure, add last_job_status to job's metadata
+    if job_status == JobStatus::Failed {
+        let mut metadata = job.metadata.clone();
+        metadata.insert("last_job_status".to_string(), "VerificationTimeout".to_string());
+        job.metadata = metadata;
+    }
 
     // feeding the job to DB
     database_client.create_job(job.clone()).await.unwrap();
