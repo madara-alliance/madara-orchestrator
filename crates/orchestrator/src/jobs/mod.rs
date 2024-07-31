@@ -1,10 +1,7 @@
 use std::collections::HashMap;
-use std::num::ParseIntError;
 use std::time::Duration;
 
 use async_trait::async_trait;
-use color_eyre::eyre::eyre;
-use color_eyre::Result;
 use mockall::automock;
 use mockall_double::double;
 use color_eyre::eyre::Context;
@@ -17,6 +14,7 @@ use crate::jobs::constants::{JOB_PROCESS_ATTEMPT_METADATA_KEY, JOB_VERIFICATION_
 use crate::jobs::job_handler_factory::factory;
 use crate::jobs::types::{JobItem, JobStatus, JobType, JobVerificationStatus};
 use crate::queue::job_queue::{add_job_to_process_queue, add_job_to_verification_queue};
+use da_job::DaError;
 
 pub mod constants;
 pub mod da_job;
@@ -40,15 +38,15 @@ pub trait Job: Send + Sync {
         config: &Config,
         internal_id: String,
         metadata: HashMap<String, String>,
-    ) -> color_eyre::Result<JobItem>;
+    ) -> Result<JobItem, JobError>;
     /// Should process the job and return the external_id which can be used to
     /// track the status of the job. For example, a DA job will submit the state diff
     /// to the DA layer and return the txn hash.
-    async fn process_job(&self, config: &Config, job: &mut JobItem) -> color_eyre::Result<String>;
+    async fn process_job(&self, config: &Config, job: &mut JobItem) -> Result<String, JobError>;
     /// Should verify the job and return the status of the verification. For example,
     /// a DA job will verify the inclusion of the state diff in the DA layer and return
     /// the status of the verification.
-    async fn verify_job(&self, config: &Config, job: &mut JobItem) -> color_eyre::Result<JobVerificationStatus>;
+    async fn verify_job(&self, config: &Config, job: &mut JobItem) -> Result<JobVerificationStatus, JobError>;
     /// Should return the maximum number of attempts to process the job. A new attempt is made
     /// every time the verification returns `JobVerificationStatus::Rejected`
     fn max_process_attempts(&self) -> u64;
@@ -246,6 +244,9 @@ pub enum JobError {
 
     #[error("Arithmetic error: {0}")]
     Arithmetic(String),
+
+    #[error("DA Error: {0}")]
+    DaJobError(#[from] DaError),
 
     #[error("Other error: {0}")]
     Other(#[from] color_eyre::eyre::Error),
