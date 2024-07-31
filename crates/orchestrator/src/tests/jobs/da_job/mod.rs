@@ -4,6 +4,7 @@ use crate::jobs::types::{ExternalId, JobItem, JobStatus, JobType};
 use crate::tests::common::drop_database;
 use crate::tests::config::TestConfigBuilder;
 use crate::{config::config, jobs::Job};
+use assert_matches::assert_matches;
 use color_eyre::{eyre::eyre, Result};
 use da_client_interface::MockDaClient;
 use mockall::predicate::always;
@@ -84,12 +85,9 @@ async fn test_da_job_process_job_failure_on_small_blob_size(
         )
         .await;
 
-    match response {
-        Ok(_) => {
-            panic!("This test's process_job was supposed to throw an error, it succeeded instead.")
-        }
+    assert_matches!(response,
         Err(e) => {
-            let expected = eyre!(
+            let expected_error = eyre!(
                 "Exceeded the maximum number of blobs per transaction: allowed {}, found {} for block {} and job id {}",
                 max_blob_per_txn,
                 current_blob_length,
@@ -97,10 +95,10 @@ async fn test_da_job_process_job_failure_on_small_blob_size(
                 Uuid::default()
             )
             .to_string();
-
-            assert_eq!(e.to_string(), expected);
+            assert_eq!(e.to_string(), expected_error);
         }
-    }
+    );
+
     state_update_mock.assert();
     let _ = drop_database().await;
 }
@@ -151,19 +149,18 @@ async fn test_da_job_process_job_failure_on_pending_block() {
         )
         .await;
 
-    match response {
-        Ok(_) => panic!("This testcase should not have processed the job correctly."),
+    assert_matches!(response,
         Err(e) => {
-            let expected = eyre!(
+            let expected_error = eyre!(
                 "Cannot process block {} for job id {} as it's still in pending state",
                 internal_id.to_string(),
                 Uuid::default()
             )
             .to_string();
-
-            assert_eq!(e.to_string(), expected);
+            assert_eq!(e.to_string(), expected_error);
         }
-    }
+    );
+
     state_update_mock.assert();
 }
 
@@ -229,9 +226,11 @@ async fn test_da_job_process_job_success(
         )
         .await;
 
-    if let Ok(message) = response {
-        assert_eq!(message, eyre!("Done").to_string());
-    }
+    assert_matches!(response,
+        Ok(msg) => {
+            assert_eq!(msg, eyre!("Done").to_string());
+        }
+    );
 
     state_update_mock.assert();
     let _ = drop_database().await;
