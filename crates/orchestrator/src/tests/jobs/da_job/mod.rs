@@ -1,7 +1,5 @@
 use std::collections::HashMap;
 
-use crate::config::{config, config_force_init};
-use crate::data_storage::MockDataStorage;
 use da_client_interface::{DaVerificationStatus, MockDaClient};
 use httpmock::prelude::*;
 use rstest::*;
@@ -11,6 +9,8 @@ use uuid::Uuid;
 
 use super::super::common::constants::{ETHEREUM_MAX_BLOB_PER_TXN, ETHEREUM_MAX_BYTES_PER_BLOB};
 use super::super::common::{default_job_item, init_config};
+use crate::config::{config, config_force_init};
+use crate::data_storage::MockDataStorage;
 use crate::jobs::da_job::DaJob;
 use crate::jobs::types::{ExternalId, JobItem, JobStatus, JobType};
 use crate::jobs::Job;

@@ -1,10 +1,7 @@
 use std::sync::Arc;
 
-use crate::config::{
-    build_da_client, build_prover_service, build_settlement_client, build_storage_client, config_force_init, Config,
-};
-use crate::data_storage::DataStorage;
 use da_client_interface::DaClient;
+use httpmock::MockServer;
 use prover_client_interface::ProverClient;
 use settlement_client_interface::SettlementClient;
 use starknet::providers::jsonrpc::HttpTransport;
@@ -12,14 +9,15 @@ use starknet::providers::{JsonRpcClient, Url};
 use utils::env_utils::get_env_var_or_panic;
 use utils::settings::default::DefaultSettingsProvider;
 
+use crate::config::{
+    build_da_client, build_prover_service, build_settlement_client, build_storage_client, config_force_init, Config,
+};
+use crate::data_storage::DataStorage;
 use crate::database::mongodb::config::MongoDbConfig;
 use crate::database::mongodb::MongoDb;
 use crate::database::{Database, DatabaseConfig};
 use crate::queue::sqs::SqsQueue;
 use crate::queue::QueueProvider;
-
-use crate::jobs::MockJob;
-use httpmock::MockServer;
 // Inspiration : https://rust-unofficial.github.io/patterns/patterns/creational/builder.html
 // TestConfigBuilder allows to heavily customise the global configs based on the test's requirement.
 // Eg: We want to mock only the da client and leave rest to be as it is, use mock_da_client.
@@ -40,9 +38,6 @@ pub struct TestConfigBuilder {
     queue: Option<Box<dyn QueueProvider>>,
     /// Storage client
     storage: Option<Box<dyn DataStorage>>,
-    /// Job Handler
-    #[allow(dead_code)]
-    job_handler: Option<MockJob>,
 }
 
 impl Default for TestConfigBuilder {
@@ -62,17 +57,11 @@ impl TestConfigBuilder {
             database: None,
             queue: None,
             storage: None,
-            job_handler: None,
         }
     }
 
     pub fn mock_da_client(mut self, da_client: Box<dyn DaClient>) -> TestConfigBuilder {
         self.da_client = Some(da_client);
-        self
-    }
-
-    pub async fn mock_job_handler(mut self, mock_job: MockJob) -> TestConfigBuilder {
-        self.job_handler = Some(mock_job);
         self
     }
 
@@ -116,13 +105,6 @@ impl TestConfigBuilder {
             self.prover_client = Some(build_prover_service(&settings_provider));
         }
 
-        // init job handler
-        if self.job_handler.is_none() {
-            self.job_handler = Some(MockJob::new());
-        }
-        let mut temp_job_handler = MockJob::new();
-        temp_job_handler.expect_clone().return_const(self.job_handler.unwrap());
-
         // init the storage client
         if self.storage.is_none() {
             self.storage = Some(build_storage_client().await);
@@ -147,7 +129,6 @@ impl TestConfigBuilder {
             self.database.unwrap(),
             self.queue.unwrap(),
             self.storage.unwrap(),
-            MockJob::new(),
         );
 
         config_force_init(config).await;

@@ -319,7 +319,12 @@ fn da_word(class_flag: bool, nonce_change: Option<FieldElement>, num_changes: u6
 
     // checking for nonce here
     if let Some(_new_nonce) = nonce_change {
-        let bytes: [u8; 32] = nonce_change.expect("Not able to convert the nonce_change var into [u8; 32] type. Possible Error : Improper parameter length.").to_bytes_be();
+        let bytes: [u8; 32] = nonce_change
+            .expect(
+                "Not able to convert the nonce_change var into [u8; 32] type. Possible Error : Improper parameter \
+                 length.",
+            )
+            .to_bytes_be();
         let biguint = BigUint::from_bytes_be(&bytes);
         let binary_string_local = format!("{:b}", biguint);
         let padded_binary_string = format!("{:0>64}", binary_string_local);
@@ -348,17 +353,17 @@ mod tests {
     use std::io::Read;
 
     use ::serde::{Deserialize, Serialize};
+    use da_client_interface::MockDaClient;
     use httpmock::prelude::*;
     use majin_blob_core::blob;
     use majin_blob_types::serde;
     use majin_blob_types::state_diffs::UnorderedEq;
-    // use majin_blob_types::serde;
-    use crate::data_storage::MockDataStorage;
-    use da_client_interface::MockDaClient;
     use rstest::rstest;
     use serde_json::json;
 
     use super::*;
+    // use majin_blob_types::serde;
+    use crate::data_storage::MockDataStorage;
     use crate::tests::common::init_config;
 
     #[rstest]
@@ -521,10 +526,6 @@ mod tests {
         new_hex_chars = new_hex_chars.trim_start_matches('0').to_string();
 
         // Handle the case where the trimmed string is empty (e.g., data was all zeros)
-        if new_hex_chars.is_empty() {
-            "0x0".to_string()
-        } else {
-            format!("0x{}", new_hex_chars)
-        }
+        if new_hex_chars.is_empty() { "0x0".to_string() } else { format!("0x{}", new_hex_chars) }
     }
 }

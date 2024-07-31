@@ -1,8 +1,5 @@
 use std::sync::Arc;
 
-use crate::data_storage::aws_s3::config::AWSS3Config;
-use crate::data_storage::aws_s3::AWSS3;
-use crate::data_storage::{DataStorage, DataStorageConfig};
 use arc_swap::{ArcSwap, Guard};
 use da_client_interface::{DaClient, DaConfig};
 use dotenvy::dotenv;
@@ -19,10 +16,12 @@ use utils::env_utils::get_env_var_or_panic;
 use utils::settings::default::DefaultSettingsProvider;
 use utils::settings::SettingsProvider;
 
+use crate::data_storage::aws_s3::config::AWSS3Config;
+use crate::data_storage::aws_s3::AWSS3;
+use crate::data_storage::{DataStorage, DataStorageConfig};
 use crate::database::mongodb::config::MongoDbConfig;
 use crate::database::mongodb::MongoDb;
 use crate::database::{Database, DatabaseConfig};
-use crate::jobs::MockJob;
 use crate::queue::sqs::SqsQueue;
 use crate::queue::QueueProvider;
 
@@ -43,9 +42,6 @@ pub struct Config {
     queue: Box<dyn QueueProvider>,
     /// Storage client
     storage: Box<dyn DataStorage>,
-    /// Job Handler (to be used during testing only.)
-    #[cfg(test)]
-    pub job_handler: MockJob,
 }
 
 /// Initializes the app config
@@ -71,17 +67,7 @@ pub async fn init_config() -> Config {
 
     let storage_client = build_storage_client().await;
 
-    Config::new(
-        Arc::new(provider),
-        da_client,
-        prover_client,
-        settlement_client,
-        database,
-        queue,
-        storage_client,
-        #[cfg(test)]
-        MockJob::new(),
-    )
+    Config::new(Arc::new(provider), da_client, prover_client, settlement_client, database, queue, storage_client)
 }
 
 impl Config {
@@ -94,20 +80,8 @@ impl Config {
         database: Box<dyn Database>,
         queue: Box<dyn QueueProvider>,
         storage: Box<dyn DataStorage>,
-        // to be used in test environment only
-        #[cfg(test)] job_handler: MockJob,
     ) -> Self {
-        Self {
-            starknet_client,
-            da_client,
-            prover_client,
-            settlement_client,
-            database,
-            queue,
-            storage,
-            #[cfg(test)]
-            job_handler,
-        }
+        Self { starknet_client, da_client, prover_client, settlement_client, database, queue, storage }
     }
 
     /// Returns the starknet client

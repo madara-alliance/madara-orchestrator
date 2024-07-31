@@ -1,12 +1,12 @@
 use std::collections::HashMap;
 
-use crate::config::{config, config_force_init};
 use httpmock::prelude::*;
 use prover_client_interface::{MockProverClient, TaskStatus};
 use rstest::*;
 use uuid::Uuid;
 
 use super::super::common::{default_job_item, init_config};
+use crate::config::{config, config_force_init};
 use crate::jobs::constants::JOB_METADATA_CAIRO_PIE_PATH_KEY;
 use crate::jobs::proving_job::ProvingJob;
 use crate::jobs::types::{JobItem, JobStatus, JobType};

@@ -1,6 +1,8 @@
 use std::str::FromStr;
 
-use alloy::{network::Ethereum, providers::ProviderBuilder, rpc::client::RpcClient};
+use alloy::network::Ethereum;
+use alloy::providers::ProviderBuilder;
+use alloy::rpc::client::RpcClient;
 use async_trait::async_trait;
 use da_client_interface::DaConfig;
 use url::Url;

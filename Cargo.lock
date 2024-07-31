@@ -3489,7 +3489,7 @@ dependencies = [
  "async-trait",
  "axum 0.7.5",
  "color-eyre",
- "mockall",
+ "mockall 0.12.1",
  "starknet",
 ]
 
@@ -4064,7 +4064,7 @@ dependencies = [
  "color-eyre",
  "da-client-interface",
  "dotenv",
- "mockall",
+ "mockall 0.12.1",
  "reqwest 0.12.5",
  "rstest 0.18.2",
  "serde",
@@ -4084,7 +4084,7 @@ dependencies = [
  "c-kzg",
  "color-eyre",
  "dotenv",
- "mockall",
+ "mockall 0.12.1",
  "reqwest 0.12.5",
  "rstest 0.18.2",
  "serde",
@@ -5881,7 +5881,21 @@ dependencies = [
  "downcast",
  "fragile",
  "lazy_static",
- "mockall_derive",
+ "mockall_derive 0.12.1",
+ "predicates",
+ "predicates-tree",
+]
+
+[[package]]
+name = "mockall"
+version = "0.13.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "d4c28b3fb6d753d28c20e826cd46ee611fda1cf3cde03a443a974043247c065a"
+dependencies = [
+ "cfg-if",
+ "downcast",
+ "fragile",
+ "mockall_derive 0.13.0",
  "predicates",
  "predicates-tree",
 ]
@@ -5891,6 +5905,30 @@ name = "mockall_derive"
 version = "0.12.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "af7cbce79ec385a1d4f54baa90a76401eb15d9cab93685f62e7e9f942aa00ae2"
+dependencies = [
+ "cfg-if",
+ "proc-macro2",
+ "quote",
+ "syn 2.0.66",
+]
+
+[[package]]
+name = "mockall_derive"
+version = "0.13.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "341014e7f530314e9a1fdbc7400b244efea7122662c96bfa248c31da5bfb2020"
+dependencies = [
+ "cfg-if",
+ "proc-macro2",
+ "quote",
+ "syn 2.0.66",
+]
+
+[[package]]
+name = "mockall_double"
+version = "0.3.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "f1ca96e5ac35256ae3e13536edd39b172b88f41615e1d7b653c8ad24524113e8"
 dependencies = [
  "cfg-if",
  "proc-macro2",
@@ -6301,7 +6339,8 @@ dependencies = [
  "log",
  "majin-blob-core",
  "majin-blob-types",
- "mockall",
+ "mockall 0.13.0",
+ "mockall_double",
  "mongodb",
  "num",
  "num-bigint",
@@ -7013,7 +7052,7 @@ dependencies = [
  "async-trait",
  "cairo-vm 1.0.0-rc3",
  "gps-fact-checker",
- "mockall",
+ "mockall 0.12.1",
  "snos",
  "thiserror",
  "utils",
@@ -8165,7 +8204,7 @@ dependencies = [
  "axum 0.7.5",
  "c-kzg",
  "color-eyre",
- "mockall",
+ "mockall 0.12.1",
  "starknet",
 ]
 
@@ -8690,7 +8729,7 @@ dependencies = [
  "color-eyre",
  "dotenv",
  "lazy_static",
- "mockall",
+ "mockall 0.12.1",
  "reqwest 0.12.5",
  "rstest 0.18.2",
  "serde",

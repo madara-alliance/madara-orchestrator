@@ -1,6 +1,7 @@
+use color_eyre::eyre::eyre;
+
 use crate::config::config;
 use crate::constants::BLOB_DATA_FILE_NAME;
-use color_eyre::eyre::eyre;
 
 /// Fetching the blob data (stored in remote storage during DA job) for a particular block
 pub async fn fetch_blob_data_for_block(block_number: u64) -> color_eyre::Result<Vec<Vec<u8>>> {

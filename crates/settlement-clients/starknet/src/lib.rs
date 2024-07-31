@@ -7,22 +7,18 @@ use async_trait::async_trait;
 use color_eyre::eyre::eyre;
 use color_eyre::Result;
 use lazy_static::lazy_static;
-use mockall::{automock, predicate::*};
-use starknet::accounts::ConnectedAccount;
-use starknet::core::types::{ExecutionResult, MaybePendingTransactionReceipt};
-use starknet::providers::Provider;
-use starknet::{
-    accounts::{Account, Call, ExecutionEncoding, SingleOwnerAccount},
-    core::{
-        types::{BlockId, BlockTag, FieldElement, FunctionCall},
-        utils::get_selector_from_name,
-    },
-    providers::{jsonrpc::HttpTransport, JsonRpcClient},
-    signers::{LocalWallet, SigningKey},
-};
-use tokio::time::{sleep, Duration};
-
+use mockall::automock;
+use mockall::predicate::*;
 use settlement_client_interface::{SettlementClient, SettlementVerificationStatus, SETTLEMENT_SETTINGS_NAME};
+use starknet::accounts::{Account, Call, ConnectedAccount, ExecutionEncoding, SingleOwnerAccount};
+use starknet::core::types::{
+    BlockId, BlockTag, ExecutionResult, FieldElement, FunctionCall, MaybePendingTransactionReceipt,
+};
+use starknet::core::utils::get_selector_from_name;
+use starknet::providers::jsonrpc::HttpTransport;
+use starknet::providers::{JsonRpcClient, Provider};
+use starknet::signers::{LocalWallet, SigningKey};
+use tokio::time::{sleep, Duration};
 use utils::env_utils::get_env_var_or_panic;
 use utils::settings::SettingsProvider;
 
@@ -85,8 +81,8 @@ lazy_static! {
         get_selector_from_name("stateBlockNumber").expect("Invalid update state selector");
 }
 
-// TODO: Note that we already have an implementation of the appchain core contract client available here:
-// https://github.com/keep-starknet-strange/zaun/tree/main/crates/l3/appchain-core-contract-client
+// TODO: Note that we already have an implementation of the appchain core contract client available
+// here: https://github.com/keep-starknet-strange/zaun/tree/main/crates/l3/appchain-core-contract-client
 // However, this implementation uses different FieldElement types, and incorporating all of them
 // into this repository would introduce unnecessary complexity.
 // Therefore, we will wait for the update of starknet_rs in the Zaun repository before adapting
