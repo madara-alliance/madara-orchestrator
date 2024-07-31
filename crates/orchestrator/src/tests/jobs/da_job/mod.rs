@@ -43,9 +43,8 @@ async fn test_da_job_process_job_failure_on_small_blob_size(
     #[case] nonces_file: String,
     #[case] internal_id: String,
     #[case] current_blob_length: u64,
-) -> Result<()> {
+) {
     // Mocking DA client calls
-
     use crate::tests::config::TestConfigBuilder;
     let mut da_client = MockDaClient::new();
     // dummy state will have more than 1200 bytes
@@ -87,7 +86,7 @@ async fn test_da_job_process_job_failure_on_small_blob_size(
 
     match response {
         Ok(_) => {
-            panic!("This testcase's process_job was supposed to throw an error, it succeeded instead.")
+            panic!("This test's process_job was supposed to throw an error, it succeeded instead.")
         }
         Err(e) => {
             let expected = eyre!(
@@ -104,8 +103,6 @@ async fn test_da_job_process_job_failure_on_small_blob_size(
     }
     state_update_mock.assert();
     let _ = drop_database().await;
-
-    Ok(())
 }
 
 /// Tests DA Job processing failure when a block is in pending state.
@@ -114,7 +111,7 @@ async fn test_da_job_process_job_failure_on_small_blob_size(
 /// Asserts correct behavior by comparing the received and expected error messages.
 #[rstest]
 #[tokio::test]
-async fn test_da_job_process_job_failure_on_pending_block() -> Result<()> {
+async fn test_da_job_process_job_failure_on_pending_block() {
     let server = TestConfigBuilder::new().build().await;
     let config = config().await;
     let internal_id = "1";
@@ -168,7 +165,6 @@ async fn test_da_job_process_job_failure_on_pending_block() -> Result<()> {
         }
     }
     state_update_mock.assert();
-    Ok(())
 }
 
 /// Tests successful DA Job processing with valid state update and nonces files.
@@ -196,7 +192,7 @@ async fn test_da_job_process_job_success(
     #[case] state_update_file: String,
     #[case] nonces_file: String,
     #[case] internal_id: String,
-) -> Result<()> {
+) {
     // Mocking DA client calls
     let mut da_client = MockDaClient::new();
     da_client.expect_publish_state_diff().with(always(), always()).returning(|_, _| Ok("Done".to_string()));
@@ -239,8 +235,6 @@ async fn test_da_job_process_job_success(
 
     state_update_mock.assert();
     let _ = drop_database().await;
-
-    Ok(())
 }
 
 /// Tests `da_word` function with various inputs for class flag, new nonce, and number of changes.
