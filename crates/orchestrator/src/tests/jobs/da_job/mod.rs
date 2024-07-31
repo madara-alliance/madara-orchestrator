@@ -87,7 +87,7 @@ async fn test_da_job_process_job_failure_on_small_blob_size(
 
     match response {
         Ok(_) => {
-            panic!("This testcase's process_job was supposed to throw an error, it successed instead.")
+            panic!("This testcase's process_job was supposed to throw an error, it succeeded instead.")
         }
         Err(e) => {
             let expected = eyre!(
