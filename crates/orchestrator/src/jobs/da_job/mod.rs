@@ -526,6 +526,10 @@ mod tests {
         new_hex_chars = new_hex_chars.trim_start_matches('0').to_string();
 
         // Handle the case where the trimmed string is empty (e.g., data was all zeros)
-        if new_hex_chars.is_empty() { "0x0".to_string() } else { format!("0x{}", new_hex_chars) }
+        if new_hex_chars.is_empty() {
+            "0x0".to_string()
+        } else {
+            format!("0x{}", new_hex_chars)
+        }
     }
 }

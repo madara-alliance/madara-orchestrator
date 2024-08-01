@@ -163,7 +163,7 @@ pub async fn verify_job(id: Uuid) -> Result<()> {
             let verify_attempts = get_u64_from_metadata(&job.metadata, JOB_VERIFICATION_ATTEMPT_METADATA_KEY)?;
             if verify_attempts >= job_handler.max_verification_attempts() {
                 // TODO: send alert
-                log::info!("Verification attempts exceeded for job {}. Marking as timedout.", job.id);
+                log::info!("Verification attempts exceeded for job {}. Marking as timed out.", job.id);
                 config.database().update_job_status(&job, JobStatus::VerificationTimeout).await?;
                 return Ok(());
             }
@@ -192,7 +192,7 @@ async fn get_job(id: Uuid) -> Result<JobItem> {
     }
 }
 
-fn increment_key_in_metadata(metadata: &HashMap<String, String>, key: &str) -> Result<HashMap<String, String>> {
+pub fn increment_key_in_metadata(metadata: &HashMap<String, String>, key: &str) -> Result<HashMap<String, String>> {
     let mut new_metadata = metadata.clone();
     let attempt = get_u64_from_metadata(metadata, key)?;
     let incremented_value = attempt.checked_add(1);

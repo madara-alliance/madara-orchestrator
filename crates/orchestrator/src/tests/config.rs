@@ -65,6 +65,11 @@ impl TestConfigBuilder {
         self
     }
 
+    pub fn mock_db_client(mut self, db_client: Box<dyn Database>) -> TestConfigBuilder {
+        self.database = Some(db_client);
+        self
+    }
+
     pub async fn build(mut self) -> MockServer {
         dotenvy::from_filename("../.env.test").expect("Failed to load the .env file");
 
