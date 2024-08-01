@@ -6,7 +6,7 @@ use ::utils::collections::{has_dup, is_sorted};
 use async_trait::async_trait;
 use cairo_vm::Felt252;
 use color_eyre::eyre::eyre;
-use color_eyre::Result;
+use color_eyre::Result as EyreResult;
 use snos::io::output::StarknetOsOutput;
 use thiserror::Error;
 use uuid::Uuid;
@@ -49,7 +49,9 @@ impl Job for StateUpdateJob {
     }
 
     async fn process_job(&self, config: &Config, job: &mut JobItem) -> Result<String, JobError> {
-        let attempt_no = job
+        let job_cloned = job.clone();
+
+        let attempt_no = job_cloned
             .metadata
             .get(JOB_PROCESS_ATTEMPT_METADATA_KEY)
             .ok_or_else(|| StateUpdateError::AttemptNumberNotFound)?;
@@ -76,7 +78,7 @@ impl Job for StateUpdateJob {
 
                 self.insert_attempts_into_metadata(job, &attempt_no, &sent_tx_hashes);
 
-                eyre!("Block #{block_no} - Error occured during the state update: {e}")
+                StateUpdateError::Other(eyre!("Block #{block_no} - Error occurred during the state update: {e}"))
             })?;
             sent_tx_hashes.push(tx_hash);
         }
@@ -84,7 +86,9 @@ impl Job for StateUpdateJob {
         self.insert_attempts_into_metadata(job, &attempt_no, &sent_tx_hashes);
 
         // external_id returned corresponds to the last block number settled
-        Ok(block_numbers.last().expect("Last number in block_numbers array returned as None. Possible Error : Delay in job processing or Failed job execution.").to_string())
+        let val = block_numbers.last().ok_or_else(|| StateUpdateError::LastNumberReturnedError)?;
+
+        Ok(val.to_string())
     }
 
     /// Returns the status of the passed job.
@@ -164,7 +168,7 @@ impl Job for StateUpdateJob {
 
 impl StateUpdateJob {
     /// Read the metadata and parse the block numbers
-    fn get_block_numbers_from_metadata(&self, job: &JobItem) -> Result<Vec<u64>> {
+    fn get_block_numbers_from_metadata(&self, job: &JobItem) -> EyreResult<Vec<u64>> {
         let blocks_to_settle = job.metadata.get(JOB_METADATA_STATE_UPDATE_BLOCKS_TO_SETTLE_KEY).ok_or_else(|| {
             eyre!("Block numbers to settle must be specified (state update job #{})", job.internal_id)
         })?;
@@ -172,7 +176,7 @@ impl StateUpdateJob {
     }
 
     /// Parse a list of blocks comma separated
-    fn parse_block_numbers(&self, blocks_to_settle: &str) -> Result<Vec<u64>> {
+    fn parse_block_numbers(&self, blocks_to_settle: &str) -> EyreResult<Vec<u64>> {
         let sanitized_blocks = blocks_to_settle.replace(' ', "");
         let block_numbers: Vec<u64> = sanitized_blocks
             .split(',')
@@ -183,7 +187,7 @@ impl StateUpdateJob {
     }
 
     /// Validate that the list of block numbers to process is valid.
-    async fn validate_block_numbers(&self, config: &Config, block_numbers: &[u64]) -> Result<()> {
+    async fn validate_block_numbers(&self, config: &Config, block_numbers: &[u64]) -> EyreResult<()> {
         if block_numbers.is_empty() {
             return Err(eyre!("No block numbers found."));
         }
@@ -202,7 +206,12 @@ impl StateUpdateJob {
     }
 
     /// Update the state for the corresponding block using the settlement layer.
-    async fn update_state_for_block(&self, config: &Config, block_no: u64, snos: StarknetOsOutput) -> Result<String> {
+    async fn update_state_for_block(
+        &self,
+        config: &Config,
+        block_no: u64,
+        snos: StarknetOsOutput,
+    ) -> EyreResult<String> {
         let settlement_client = config.settlement_client();
         let last_tx_hash_executed = if snos.use_kzg_da == Felt252::ZERO {
             unimplemented!("update_state_for_block not implemented as of now for calldata DA.")
@@ -254,6 +263,9 @@ pub enum StateUpdateError {
 
     #[error("Exceeded the maximum number of blobs per transaction: allowed {max_blob_per_txn:?}, found {current_blob_length:?} for block {block_no:?} and job id {job_id:?}")]
     MaxBlobsLimitExceeded { max_blob_per_txn: u64, current_blob_length: u64, block_no: u64, job_id: Uuid },
+
+    #[error("Last number in block_numbers array returned as None. Possible Error : Delay in job processing or Failed job execution.")]
+    LastNumberReturnedError,
 
     #[error("Other error: {0}")]
     Other(#[from] color_eyre::eyre::Error),
