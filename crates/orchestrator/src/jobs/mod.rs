@@ -9,6 +9,7 @@ use async_trait::async_trait;
 use color_eyre::eyre::WrapErr;
 use da_job::DaError;
 use proving_job::ProvingError;
+use state_update_job::StateUpdateError;
 use tracing::log;
 use uuid::Uuid;
 
@@ -236,6 +237,9 @@ pub enum JobError {
 
     #[error("Proving Error: {0}")]
     ProvingJobError(#[from] ProvingError),
+
+    #[error("Proving Error: {0}")]
+    StateUpdateJobError(#[from] StateUpdateError),
 
     #[error("Other error: {0}")]
     Other(#[from] color_eyre::eyre::Error),
