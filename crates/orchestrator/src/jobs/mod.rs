@@ -8,6 +8,7 @@ use crate::queue::job_queue::{add_job_to_process_queue, add_job_to_verification_
 use async_trait::async_trait;
 use color_eyre::eyre::WrapErr;
 use da_job::DaError;
+use proving_job::ProvingError;
 use tracing::log;
 use uuid::Uuid;
 
@@ -232,6 +233,9 @@ pub enum JobError {
 
     #[error("DA Error: {0}")]
     DaJobError(#[from] DaError),
+
+    #[error("Proving Error: {0}")]
+    ProvingJobError(#[from] ProvingError),
 
     #[error("Other error: {0}")]
     Other(#[from] color_eyre::eyre::Error),
