@@ -6316,6 +6316,7 @@ version = "0.1.0"
 dependencies = [
  "alloy 0.1.2",
  "arc-swap",
+ "assert_matches",
  "async-std",
  "async-trait",
  "aws-config",

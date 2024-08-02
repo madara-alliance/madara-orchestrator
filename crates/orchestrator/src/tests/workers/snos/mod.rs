@@ -71,10 +71,10 @@ async fn test_snos_worker(#[case] db_val: bool) -> Result<(), Box<dyn Error>> {
             .returning(move |_| Ok(job_item.clone()));
     }
 
-    let y: Arc<Box<dyn Job>> = Arc::new(Box::new(job_handler));
+    let job_handler: Arc<Box<dyn Job>> = Arc::new(Box::new(job_handler));
     let ctx = mock_factory::get_job_handler_context();
     // Mocking the `get_job_handler` call in create_job function.
-    ctx.expect().times(5).with(eq(JobType::SnosRun)).returning(move |_| Arc::clone(&y));
+    ctx.expect().times(5).with(eq(JobType::SnosRun)).returning(move |_| Arc::clone(&job_handler));
 
     // Queue function call simulations
     queue

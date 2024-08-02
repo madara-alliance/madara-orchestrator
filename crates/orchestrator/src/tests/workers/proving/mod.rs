@@ -97,13 +97,13 @@ async fn test_proving_worker(#[case] incomplete_runs: bool) -> Result<(), Box<dy
     .await;
     config_force_init(config).await;
 
-    let y: Arc<Box<dyn Job>> = Arc::new(Box::new(job_handler));
+    let job_handler: Arc<Box<dyn Job>> = Arc::new(Box::new(job_handler));
     let ctx = mock_factory::get_job_handler_context();
     // Mocking the `get_job_handler` call in create_job function.
     if incomplete_runs {
-        ctx.expect().times(4).with(eq(JobType::ProofCreation)).returning(move |_| Arc::clone(&y));
+        ctx.expect().times(4).with(eq(JobType::ProofCreation)).returning(move |_| Arc::clone(&job_handler));
     } else {
-        ctx.expect().times(5).with(eq(JobType::ProofCreation)).returning(move |_| Arc::clone(&y));
+        ctx.expect().times(5).with(eq(JobType::ProofCreation)).returning(move |_| Arc::clone(&job_handler));
     }
 
     let proving_worker = ProvingWorker {};
