@@ -17,7 +17,9 @@ use starknet::providers::JsonRpcClient;
 use url::Url;
 
 use crate::config::Config;
-use crate::data_storage::MockDataStorage;
+use crate::data_storage::aws_s3::config::{AWSS3ConfigType, S3LocalStackConfig};
+use crate::data_storage::aws_s3::AWSS3;
+use crate::data_storage::{DataStorage, DataStorageConfig, MockDataStorage};
 use crate::database::mongodb::config::MongoDbConfig;
 use crate::database::mongodb::MongoDb;
 use crate::database::{DatabaseConfig, MockDatabase};
@@ -121,4 +123,7 @@ async fn get_sqs_client() -> aws_sdk_sqs::Client {
 #[derive(Deserialize, Debug)]
 pub struct MessagePayloadType {
     pub(crate) id: Uuid,
+
+pub async fn get_storage_client() -> Box<dyn DataStorage + Send + Sync> {
+    Box::new(AWSS3::new(AWSS3ConfigType::WithEndpoint(S3LocalStackConfig::new_from_env())).await)
 }

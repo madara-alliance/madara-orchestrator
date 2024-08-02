@@ -1,5 +1,7 @@
 use std::sync::Arc;
 
+use crate::config::{build_da_client, build_prover_service, build_settlement_client, config_force_init, Config};
+use crate::data_storage::DataStorage;
 use da_client_interface::DaClient;
 use httpmock::MockServer;
 use prover_client_interface::ProverClient;
@@ -19,6 +21,9 @@ use crate::database::{Database, DatabaseConfig};
 use crate::queue::sqs::SqsQueue;
 use crate::queue::QueueProvider;
 use crate::tests::common::{create_sqs_queues, drop_database};
+
+use crate::tests::common::{drop_database, get_storage_client};
+use httpmock::MockServer;
 // Inspiration : https://rust-unofficial.github.io/patterns/patterns/creational/builder.html
 // TestConfigBuilder allows to heavily customise the global configs based on the test's requirement.
 // Eg: We want to mock only the da client and leave rest to be as it is, use mock_da_client.
@@ -75,23 +80,11 @@ impl TestConfigBuilder {
         dotenvy::from_filename("../.env.test").expect("Failed to load the .env file");
 
         let server = MockServer::start();
-
-        // init starknet client
-        if self.starknet_client.is_none() {
-            let provider = JsonRpcClient::new(HttpTransport::new(
-                Url::parse(format!("http://localhost:{}", server.port()).as_str()).expect("Failed to parse URL"),
-            ));
-            self.starknet_client = Some(Arc::new(provider));
-        }
+        let settings_provider = DefaultSettingsProvider {};
 
         // init database
         if self.database.is_none() {
             self.database = Some(Box::new(MongoDb::new(MongoDbConfig::new_from_env()).await));
-        }
-
-        // init queue
-        if self.queue.is_none() {
-            self.queue = Some(Box::new(SqsQueue {}));
         }
 
         // init the DA client
@@ -99,21 +92,14 @@ impl TestConfigBuilder {
             self.da_client = Some(build_da_client().await);
         }
 
-        let settings_provider = DefaultSettingsProvider {};
-
         // init the Settings client
         if self.settlement_client.is_none() {
             self.settlement_client = Some(build_settlement_client(&settings_provider).await);
         }
 
-        // init the Prover client
-        if self.prover_client.is_none() {
-            self.prover_client = Some(build_prover_service(&settings_provider));
-        }
-
         // init the storage client
         if self.storage.is_none() {
-            self.storage = Some(build_storage_client().await);
+            self.storage = Some(get_storage_client().await);
             match get_env_var_or_panic("DATA_STORAGE").as_str() {
                 "s3" => self
                     .storage
@@ -133,12 +119,17 @@ impl TestConfigBuilder {
 
         // return config and server as tuple
         let config = Config::new(
-            self.starknet_client.unwrap(),
+            self.starknet_client.unwrap_or_else(|| {
+                let provider = JsonRpcClient::new(HttpTransport::new(
+                    Url::parse(format!("http://localhost:{}", server.port()).as_str()).expect("Failed to parse URL"),
+                ));
+                Arc::new(provider)
+            }),
             self.da_client.unwrap(),
-            self.prover_client.unwrap(),
+            self.prover_client.unwrap_or_else(|| build_prover_service(&settings_provider)),
             self.settlement_client.unwrap(),
             self.database.unwrap(),
-            self.queue.unwrap(),
+            self.queue.unwrap_or_else(|| Box::new(SqsQueue {})),
             self.storage.unwrap(),
         );
 
