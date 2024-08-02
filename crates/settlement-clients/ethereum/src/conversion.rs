@@ -1,13 +1,14 @@
 use alloy::primitives::U256;
+use color_eyre::{eyre::ContextCompat, Result as EyreResult};
 /// Converts a `&[Vec<u8>]` to `Vec<U256>`. Each inner slice is expected to be exactly 32 bytes long.
 /// Pads with zeros if any inner slice is shorter than 32 bytes.
-pub(crate) fn slice_slice_u8_to_vec_u256(slices: &[[u8; 32]]) -> Vec<U256> {
+pub(crate) fn slice_slice_u8_to_vec_u256(slices: &[[u8; 32]]) -> EyreResult<Vec<U256>> {
     slices.iter().map(|slice| slice_u8_to_u256(slice)).collect()
 }
 
 /// Converts a `&[u8]` to `U256`.
-pub(crate) fn slice_u8_to_u256(slice: &[u8]) -> U256 {
-    U256::try_from_be_slice(slice).expect("could not convert u8 slice to U256")
+pub(crate) fn slice_u8_to_u256(slice: &[u8]) -> EyreResult<U256> {
+    U256::try_from_be_slice(slice).wrap_err_with(|| "could not convert &[u8] to U256".to_string())
 }
 
 #[cfg(test)]
@@ -27,14 +28,28 @@ mod tests {
     #[case::short(&[0xFF; 16], U256::from_be_slice(&[0xFF; 16]))]
     #[case::empty(&[], U256::ZERO)]
     fn slice_u8_to_u256_works(#[case] slice: &[u8], #[case] expected: U256) {
-        assert_eq!(slice_u8_to_u256(slice), expected);
+        match slice_u8_to_u256(slice) {
+            Ok(response) => {
+                assert_eq!(response, expected);
+            }
+            Err(e) => {
+                panic!("{}", e);
+            }
+        }
     }
 
     #[rstest]
-    #[should_panic]
     #[case::over(&[0xFF; 33])]
     fn slice_u8_to_u256_panics(#[case] slice: &[u8]) {
-        slice_u8_to_u256(slice);
+        let result: Result<alloy::primitives::Uint<256, 4>, color_eyre::eyre::Error> = slice_u8_to_u256(slice);
+        match result {
+            Ok(_) => {
+                panic!("{}", "Should not have passed");
+            }
+            Err(report) => {
+                assert_eq!(report.to_string(), "could not convert &[u8] to U256")
+            }
+        }
     }
 
     #[rstest]
@@ -68,7 +83,13 @@ mod tests {
         ]
     )]
     fn slice_slice_u8_to_vec_u256_works(#[case] slices: &[[u8; 32]], #[case] expected: Vec<U256>) {
-        let response = slice_slice_u8_to_vec_u256(slices);
-        assert_eq!(response, expected);
+        match slice_slice_u8_to_vec_u256(slices) {
+            Ok(response) => {
+                assert_eq!(response, expected);
+            }
+            Err(e) => {
+                panic!("{}", e);
+            }
+        }
     }
 }
