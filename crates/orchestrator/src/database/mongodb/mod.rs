@@ -42,7 +42,6 @@ impl MongoDb {
 
     /// Mongodb client uses Arc internally, reducing the cost of clone.
     /// Directly using clone is not recommended for libraries not using Arc internally.
-    /// Dev might want to pass an Arc manually.
     pub fn client(&self) -> Client {
         self.client.clone()
     }
