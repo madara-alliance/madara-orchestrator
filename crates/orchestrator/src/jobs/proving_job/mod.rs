@@ -56,14 +56,14 @@ impl Job for ProvingJob {
             .prover_client()
             .submit_task(Task::CairoPie(cairo_pie))
             .await
-            .wrap_err_with(|| format!("Prover Client Error"))?;
+            .wrap_err_with(|| "Prover Client Error".to_string())?;
         Ok(external_id)
     }
 
     async fn verify_job(&self, config: &Config, job: &mut JobItem) -> Result<JobVerificationStatus, JobError> {
         let task_id: String = job.external_id.unwrap_string()?.into();
         let task_status =
-            config.prover_client().get_task_status(&task_id).await.wrap_err_with(|| format!("Prover Client Error"))?;
+            config.prover_client().get_task_status(&task_id).await.wrap_err_with(|| "Prover Client Error".to_string())?;
 
         match task_status {
             TaskStatus::Processing => Ok(JobVerificationStatus::Pending),
@@ -98,9 +98,6 @@ pub enum ProvingError {
 
     #[error("Not able to read the cairo PIE file from the zip file provided.")]
     CairoPIENotReadable,
-
-    #[error("Exceeded the maximum number of blobs per transaction: allowed {max_blob_per_txn:?}, found {current_blob_length:?} for block {block_no:?} and job id {job_id:?}")]
-    MaxBlobsLimitExceeded { max_blob_per_txn: u64, current_blob_length: u64, block_no: u64, job_id: Uuid },
 
     #[error("Other error: {0}")]
     Other(#[from] color_eyre::eyre::Error),

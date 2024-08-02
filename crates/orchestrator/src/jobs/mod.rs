@@ -60,7 +60,6 @@ pub async fn create_job(
     let config = config().await;
     let existing_job = config.database().get_job_by_internal_id_and_type(internal_id.as_str(), &job_type).await?;
     if existing_job.is_some() {
-        log::debug!("Job already exists for internal_id {:?} and job_type {:?}. Skipping.", internal_id, job_type);
         return Err(JobError::JobAlreadyExists { internal_id, job_type });
     }
 
@@ -85,7 +84,6 @@ pub async fn process_job(id: Uuid) -> Result<(), JobError> {
             log::info!("Processing job with id {:?}", id);
         }
         _ => {
-            log::error!("Invalid status {:?} for job with id {:?}. Cannot process.", id, job.status);
             return Err(JobError::InvalidStatus { id, job_status: job.status });
         }
     }
@@ -123,7 +121,6 @@ pub async fn verify_job(id: Uuid) -> Result<(), JobError> {
             log::info!("Verifying job with id {:?}", id);
         }
         _ => {
-            log::error!("Invalid status {:?} for job with id {:?}. Cannot verify.", id, job.status);
             return Err(JobError::InvalidStatus { id, job_status: job.status });
         }
     }
@@ -189,10 +186,7 @@ async fn get_job(id: Uuid) -> Result<JobItem, JobError> {
     let job = config.database().get_job_by_id(id).await?;
     match job {
         Some(job) => Ok(job),
-        None => {
-            log::error!("Failed to find job with id {:?}", id);
-            Err(JobError::JobNotFound { id })
-        }
+        None => Err(JobError::JobNotFound { id }),
     }
 }
 
@@ -204,7 +198,7 @@ fn increment_key_in_metadata(
     let attempt = get_u64_from_metadata(metadata, key)?;
     let incremented_value = attempt.checked_add(1);
     if incremented_value.is_none() {
-        return Err(JobError::Arithmetic(format!("Incrementing key {} in metadata would exceed u64::MAX", key)));
+        return Err(JobError::KeyOutOfBounds { key: key.to_string() });
     }
     new_metadata.insert(key.to_string(), incremented_value.unwrap().to_string());
     Ok(new_metadata)
@@ -229,8 +223,8 @@ pub enum JobError {
     #[error("Failed to find job with id {id:?}")]
     JobNotFound { id: Uuid },
 
-    #[error("Arithmetic error: {0}")]
-    Arithmetic(String),
+    #[error("Incrementing key {} in metadata would exceed u64::MAX", key)]
+    KeyOutOfBounds { key: String },
 
     #[error("DA Error: {0}")]
     DaJobError(#[from] DaError),

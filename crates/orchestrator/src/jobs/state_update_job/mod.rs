@@ -6,7 +6,6 @@ use ::utils::collections::{has_dup, is_sorted};
 use async_trait::async_trait;
 use cairo_vm::Felt252;
 use color_eyre::eyre::eyre;
-use color_eyre::Result as EyreResult;
 use snos::io::output::StarknetOsOutput;
 use thiserror::Error;
 use uuid::Uuid;
@@ -49,12 +48,11 @@ impl Job for StateUpdateJob {
     }
 
     async fn process_job(&self, config: &Config, job: &mut JobItem) -> Result<String, JobError> {
-        let job_cloned = job.clone();
-
-        let attempt_no = job_cloned
+        let attempt_no = job
             .metadata
             .get(JOB_PROCESS_ATTEMPT_METADATA_KEY)
-            .ok_or_else(|| StateUpdateError::AttemptNumberNotFound)?;
+            .ok_or_else(|| StateUpdateError::AttemptNumberNotFound)?
+            .clone();
 
         // Read the metadata to get the blocks for which state update will be performed.
         // We assume that blocks nbrs are formatted as follow: "2,3,4,5,6".
@@ -168,15 +166,17 @@ impl Job for StateUpdateJob {
 
 impl StateUpdateJob {
     /// Read the metadata and parse the block numbers
-    fn get_block_numbers_from_metadata(&self, job: &JobItem) -> EyreResult<Vec<u64>> {
-        let blocks_to_settle = job.metadata.get(JOB_METADATA_STATE_UPDATE_BLOCKS_TO_SETTLE_KEY).ok_or_else(|| {
-            eyre!("Block numbers to settle must be specified (state update job #{})", job.internal_id)
-        })?;
+    fn get_block_numbers_from_metadata(&self, job: &JobItem) -> Result<Vec<u64>, JobError> {
+        let blocks_to_settle = job
+            .metadata
+            .get(JOB_METADATA_STATE_UPDATE_BLOCKS_TO_SETTLE_KEY)
+            .ok_or_else(|| StateUpdateError::UnspecifiedBlockNumber { internal_id: job.internal_id.clone() })?;
+
         self.parse_block_numbers(blocks_to_settle)
     }
 
     /// Parse a list of blocks comma separated
-    fn parse_block_numbers(&self, blocks_to_settle: &str) -> EyreResult<Vec<u64>> {
+    fn parse_block_numbers(&self, blocks_to_settle: &str) -> Result<Vec<u64>, JobError> {
         let sanitized_blocks = blocks_to_settle.replace(' ', "");
         let block_numbers: Vec<u64> = sanitized_blocks
             .split(',')
@@ -187,20 +187,20 @@ impl StateUpdateJob {
     }
 
     /// Validate that the list of block numbers to process is valid.
-    async fn validate_block_numbers(&self, config: &Config, block_numbers: &[u64]) -> EyreResult<()> {
+    async fn validate_block_numbers(&self, config: &Config, block_numbers: &[u64]) -> Result<(), JobError> {
         if block_numbers.is_empty() {
-            return Err(eyre!("No block numbers found."));
+            Err(StateUpdateError::BlockNumberNotFound)?;
         }
         if has_dup(block_numbers) {
-            return Err(eyre!("Duplicated block numbers."));
+            Err(StateUpdateError::DuplicateBlockNumbers)?;
         }
         if !is_sorted(block_numbers) {
-            return Err(eyre!("Block numbers aren't sorted in increasing order."));
+            Err(StateUpdateError::UnsortedBlockNumbers)?;
         }
         // Check for gap between the last settled block and the first block to settle
         let last_settled_block: u64 = config.settlement_client().get_last_settled_block().await?;
         if last_settled_block + 1 != block_numbers[0] {
-            return Err(eyre!("Gap detected between the first block to settle and the last one settled."));
+            Err(StateUpdateError::GapBetweenFirstAndLastBlock)?;
         }
         Ok(())
     }
@@ -211,7 +211,7 @@ impl StateUpdateJob {
         config: &Config,
         block_no: u64,
         snos: StarknetOsOutput,
-    ) -> EyreResult<String> {
+    ) -> Result<String, JobError> {
         let settlement_client = config.settlement_client();
         let last_tx_hash_executed = if snos.use_kzg_da == Felt252::ZERO {
             unimplemented!("update_state_for_block not implemented as of now for calldata DA.")
@@ -221,7 +221,7 @@ impl StateUpdateJob {
             // Sending update_state transaction from the settlement client
             settlement_client.update_state_with_blobs(vec![], blob_data).await?
         } else {
-            return Err(eyre!("Block #{} - SNOS error, [use_kzg_da] should be either 0 or 1.", block_no));
+            Err(StateUpdateError::UseKZGDaError { block_no })?
         };
         Ok(last_tx_hash_executed)
     }
@@ -255,17 +255,32 @@ pub enum StateUpdateError {
     #[error("last_failed_block should be a positive number")]
     LastFailedBlockNonPositive,
 
+    #[error("Block numbers to settle must be specified (state update job #{internal_id:?})")]
+    UnspecifiedBlockNumber { internal_id: String },
+
     #[error("Could not find tx hashes metadata for the current attempt")]
     TxnHashMetadataNotFound,
 
     #[error("Tx {tx_hash:?} should not be pending.")]
     TxnShouldNotBePending { tx_hash: String },
 
-    #[error("Exceeded the maximum number of blobs per transaction: allowed {max_blob_per_txn:?}, found {current_blob_length:?} for block {block_no:?} and job id {job_id:?}")]
-    MaxBlobsLimitExceeded { max_blob_per_txn: u64, current_blob_length: u64, block_no: u64, job_id: Uuid },
-
     #[error("Last number in block_numbers array returned as None. Possible Error : Delay in job processing or Failed job execution.")]
     LastNumberReturnedError,
+
+    #[error("No block numbers found.")]
+    BlockNumberNotFound,
+
+    #[error("Duplicated block numbers.")]
+    DuplicateBlockNumbers,
+
+    #[error("Block numbers aren't sorted in increasing order.")]
+    UnsortedBlockNumbers,
+
+    #[error("Gap detected between the first block to settle and the last one settled.")]
+    GapBetweenFirstAndLastBlock,
+
+    #[error("Block #{block_no:?} - SNOS error, [use_kzg_da] should be either 0 or 1.")]
+    UseKZGDaError { block_no: u64 },
 
     #[error("Other error: {0}")]
     Other(#[from] color_eyre::eyre::Error),
