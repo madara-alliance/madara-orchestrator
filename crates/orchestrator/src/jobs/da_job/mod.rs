@@ -307,7 +307,7 @@ async fn store_blob_data(blob_data: Vec<FieldElement>, block_number: u64, config
 /// DA word encoding:
 /// |---padding---|---class flag---|---new nonce---|---num changes---|
 ///     127 bits        1 bit           64 bits          64 bits
-pub fn da_word(class_flag: bool, nonce_change: Option<FieldElement>, num_changes: u64) -> FieldElement {
+fn da_word(class_flag: bool, nonce_change: Option<FieldElement>, num_changes: u64) -> FieldElement {
     // padding of 127 bits
     let mut binary_string = "0".repeat(127);
 
