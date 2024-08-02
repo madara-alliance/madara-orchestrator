@@ -18,6 +18,7 @@ use crate::database::mongodb::MongoDb;
 use crate::database::{Database, DatabaseConfig};
 use crate::queue::sqs::SqsQueue;
 use crate::queue::QueueProvider;
+use crate::tests::common::{create_sqs_queues, drop_database};
 // Inspiration : https://rust-unofficial.github.io/patterns/patterns/creational/builder.html
 // TestConfigBuilder allows to heavily customise the global configs based on the test's requirement.
 // Eg: We want to mock only the da client and leave rest to be as it is, use mock_da_client.
@@ -124,6 +125,11 @@ impl TestConfigBuilder {
                 _ => panic!("Unsupported Storage Client"),
             }
         }
+
+        // Deleting and Creating the queues in sqs.
+        create_sqs_queues().await.expect("Not able to delete and create the queues.");
+        // Deleting the database
+        drop_database().await.expect("Unable to drop the database.");
 
         // return config and server as tuple
         let config = Config::new(

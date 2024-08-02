@@ -48,8 +48,8 @@ pub mod factory {
     /// to the same Box<dyn Job>. So when we are mocking the behaviour :
     ///
     /// - We create the MockJob
-    ///
-    /// - And clone that to returning in the mock get_job_handler.
+    /// - We return this mocked job whenever a function calls `get_job_handler`
+    /// -  Making it an Arc allows us to return the same MockJob in multiple calls to `get_job_handler`. This is needed because `MockJob` doesn't implement Clone
     pub async fn get_job_handler(job_type: &JobType) -> Arc<Box<dyn Job>> {
         // Original implementation
         let job: Box<dyn Job> = match job_type {
