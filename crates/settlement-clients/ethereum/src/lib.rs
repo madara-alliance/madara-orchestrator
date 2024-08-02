@@ -125,8 +125,8 @@ impl SettlementClient for EthereumSettlementClient {
         onchain_data_hash: [u8; 32],
         onchain_data_size: usize,
     ) -> Result<String> {
-        let program_output: Vec<U256> = slice_slice_u8_to_vec_u256(program_output.as_slice());
-        let onchain_data_hash: U256 = slice_u8_to_u256(&onchain_data_hash);
+        let program_output: Vec<U256> = slice_slice_u8_to_vec_u256(program_output.as_slice())?;
+        let onchain_data_hash: U256 = slice_u8_to_u256(&onchain_data_hash)?;
         let onchain_data_size: U256 = onchain_data_size.try_into()?;
         let tx_receipt =
             self.core_contract_client.update_state(program_output, onchain_data_hash, onchain_data_size).await?;
@@ -135,7 +135,7 @@ impl SettlementClient for EthereumSettlementClient {
 
     /// Should be used to update state on core contract when DA is in blobs/alt DA
     async fn update_state_blobs(&self, program_output: Vec<[u8; 32]>, kzg_proof: [u8; 48]) -> Result<String> {
-        let program_output: Vec<U256> = slice_slice_u8_to_vec_u256(&program_output);
+        let program_output: Vec<U256> = slice_slice_u8_to_vec_u256(&program_output)?;
         let tx_receipt = self.core_contract_client.update_state_kzg(program_output, kzg_proof).await?;
         Ok(format!("0x{:x}", tx_receipt.transaction_hash))
     }
