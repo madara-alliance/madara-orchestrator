@@ -2,7 +2,7 @@ use crate::{config::config, jobs::types::JobStatus};
 use async_trait::async_trait;
 use std::error::Error;
 
-pub mod data_submission;
+pub mod data_availability_synchronizer;
 pub mod proof_registration;
 pub mod proving;
 pub mod snos;
