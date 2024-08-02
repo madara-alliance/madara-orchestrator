@@ -6315,7 +6315,6 @@ name = "orchestrator"
 version = "0.1.0"
 dependencies = [
  "alloy 0.1.2",
- "anyhow",
  "arc-swap",
  "assert_matches",
  "async-std",

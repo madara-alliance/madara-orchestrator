@@ -40,7 +40,7 @@ impl Job for SnosJob {
 
     async fn verify_job(&self, _config: &Config, _job: &mut JobItem) -> Result<JobVerificationStatus, JobError> {
         // No need for verification as of now. If we later on decide to outsource SNOS run
-        // to another servicehow a, verify_job can be used to poll on the status of the job
+        // to another service, verify_job can be used to poll on the status of the job
         todo!()
     }
 

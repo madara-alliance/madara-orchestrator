@@ -3,13 +3,12 @@ use std::ops::{Add, Mul, Rem};
 use std::str::FromStr;
 
 use async_trait::async_trait;
-use color_eyre::eyre::{eyre, WrapErr};
+use color_eyre::eyre::WrapErr;
 use lazy_static::lazy_static;
 use num_bigint::{BigUint, ToBigUint};
 use num_traits::{Num, Zero};
 use starknet::core::types::{BlockId, FieldElement, MaybePendingStateUpdate, StateUpdate, StorageEntry};
 use starknet::providers::Provider;
-use std::result::Result::Ok as StdOk;
 use thiserror::Error;
 use tracing::log;
 use uuid::Uuid;
@@ -61,19 +60,16 @@ impl Job for DaJob {
     }
 
     async fn process_job(&self, config: &Config, job: &mut JobItem) -> Result<String, JobError> {
-        let block_no = job.internal_id.parse::<u64>().wrap_err_with(|| format!("Failed to parse u64"))?;
+        let block_no = job.internal_id.parse::<u64>().wrap_err_with(|| "Failed to parse u64".to_string())?;
 
         let state_update = config
             .starknet_client()
             .get_state_update(BlockId::Number(block_no))
             .await
-            .wrap_err_with(|| format!("Failed to get state Update."))?;
+            .wrap_err_with(|| "Failed to get state Update.".to_string())?;
 
         let state_update = match state_update {
-            MaybePendingStateUpdate::PendingUpdate(_) => {
-                log::error!("Cannot process block {} for job id {} as it's still in pending state", block_no, job.id);
-                Err(DaError::BlockPending { block_no, job_id: job.id })?
-            }
+            MaybePendingStateUpdate::PendingUpdate(_) => Err(DaError::BlockPending { block_no, job_id: job.id })?,
             MaybePendingStateUpdate::Update(state_update) => state_update,
         };
         // constructing the data from the rpc
@@ -88,10 +84,11 @@ impl Job for DaJob {
         let max_blob_per_txn = config.da_client().max_blob_per_txn().await;
 
         // converting BigUints to Vec<u8>, one Vec<u8> represents one blob data
-        let blob_array =
-            data_to_blobs(max_bytes_per_blob, transformed_data).expect("error while converting blob data to vec<u8>");
-        let current_blob_length: u64 =
-            blob_array.len().try_into().expect("Unable to convert the blob length into u64 format.");
+        let blob_array = data_to_blobs(max_bytes_per_blob, transformed_data)?;
+        let current_blob_length: u64 = blob_array
+            .len()
+            .try_into()
+            .wrap_err_with(|| "Unable to convert the blob length into u64 format.".to_string())?;
 
         // there is a limit on number of blobs per txn, checking that here
         if current_blob_length > max_blob_per_txn {
@@ -162,13 +159,10 @@ pub fn convert_to_biguint(elements: Vec<FieldElement>) -> Vec<BigUint> {
     biguint_vec
 }
 
-fn data_to_blobs(blob_size: u64, block_data: Vec<BigUint>) -> color_eyre::Result<Vec<Vec<u8>>> {
+fn data_to_blobs(blob_size: u64, block_data: Vec<BigUint>) -> Result<Vec<Vec<u8>>, JobError> {
     // Validate blob size
     if blob_size < 32 {
-        return Err(eyre!(
-            "Blob size must be at least 32 bytes to accommodate a single FieldElement/BigUint, but was {}",
-            blob_size,
-        ));
+        Err(DaError::InsufficientBlobSize { blob_size })?
     }
 
     let mut blobs: Vec<Vec<u8>> = Vec::new();
@@ -188,7 +182,7 @@ fn data_to_blobs(blob_size: u64, block_data: Vec<BigUint>) -> color_eyre::Result
         let mut last_blob = bytes;
         last_blob.resize(blob_size as usize, 0); // Pad with zeros
         blobs.push(last_blob);
-        println!("Warning: Remaining {} bytes not forming a complete blob were padded", remaining_bytes);
+        log::debug!("Warning: Remaining {} bytes not forming a complete blob were padded", remaining_bytes);
     }
 
     Ok(blobs)
@@ -231,22 +225,20 @@ pub async fn state_update_to_blob_data(
         // nonce for the block
 
         if nonce.is_none() && !writes.is_empty() && addr != FieldElement::ONE {
-            let get_current_nonce_result = config.starknet_client().get_nonce(BlockId::Number(block_no), addr).await;
+            let get_current_nonce_result = config
+                .starknet_client()
+                .get_nonce(BlockId::Number(block_no), addr)
+                .await
+                .wrap_err_with(|| "Failed to get nonce ".to_string())?;
 
-            nonce = match get_current_nonce_result {
-                StdOk(get_current_nonce) => Some(get_current_nonce),
-                Err(e) => {
-                    log::error!("Failed to get nonce: {}", e);
-                    return Err(eyre!("Failed to get nonce: {}", e));
-                }
-            };
+            nonce = Some(get_current_nonce_result);
         }
         let da_word = da_word(class_flag.is_some(), nonce, writes.len() as u64);
         // @note: it can be improved if the first push to the data is of block number and hash
         // @note: ONE address is special address which for now has 1 value and that is current
         //        block number and hash
         // @note: ONE special address can be used to mark the range of block, if in future
-        //        the team wants to submit multiple blocks in a sinle blob etc.
+        //        the team wants to submit multiple blocks in a single blob etc.
         if addr == FieldElement::ONE && da_word == FieldElement::ONE {
             continue;
         }
@@ -277,18 +269,18 @@ pub async fn state_update_to_blob_data(
 }
 
 /// To store the blob data using the storage client with path <block_number>/blob_data.txt
-async fn store_blob_data(blob_data: Vec<FieldElement>, block_number: u64, config: &Config) -> color_eyre::Result<()> {
+async fn store_blob_data(blob_data: Vec<FieldElement>, block_number: u64, config: &Config) -> Result<(), JobError> {
     let storage_client = config.storage();
     let key = block_number.to_string() + "/" + BLOB_DATA_FILE_NAME;
     let data_blob_big_uint = convert_to_biguint(blob_data.clone());
 
-    let blobs_array = data_to_blobs(config.da_client().max_bytes_per_blob().await, data_blob_big_uint)
-        .expect("Not able to convert the data into blobs.");
+    let blobs_array = data_to_blobs(config.da_client().max_bytes_per_blob().await, data_blob_big_uint)?;
 
     let blob = blobs_array.clone();
 
     // converting Vec<Vec<u8> into Vec<u8>
-    let blob_vec_u8 = bincode::serialize(&blob)?;
+    let blob_vec_u8 =
+        bincode::serialize(&blob).wrap_err_with(|| "Unable to Serialize blobs (Vec<Vec<u8> into Vec<u8>)".to_string())?;
 
     if !blobs_array.is_empty() {
         storage_client.put_data(blob_vec_u8.into(), &key).await?;
@@ -547,6 +539,9 @@ pub mod test {
 pub enum DaError {
     #[error("Cannot process block {block_no:?} for job id {job_id:?} as it's still in pending state.")]
     BlockPending { block_no: u64, job_id: Uuid },
+
+    #[error("Blob size must be at least 32 bytes to accommodate a single FieldElement/BigUint, but was {blob_size:?}")]
+    InsufficientBlobSize { blob_size: u64 },
 
     #[error("Exceeded the maximum number of blobs per transaction: allowed {max_blob_per_txn:?}, found {current_blob_length:?} for block {block_no:?} and job id {job_id:?}")]
     MaxBlobsLimitExceeded { max_blob_per_txn: u64, current_blob_length: u64, block_no: u64, job_id: Uuid },
