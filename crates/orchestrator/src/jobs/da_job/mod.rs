@@ -38,6 +38,21 @@ lazy_static! {
     pub static ref BLOB_LEN: usize = 4096;
 }
 
+#[derive(Error, Debug)]
+pub enum DaError {
+    #[error("Cannot process block {block_no:?} for job id {job_id:?} as it's still in pending state.")]
+    BlockPending { block_no: u64, job_id: Uuid },
+
+    #[error("Blob size must be at least 32 bytes to accommodate a single FieldElement/BigUint, but was {blob_size:?}")]
+    InsufficientBlobSize { blob_size: u64 },
+
+    #[error("Exceeded the maximum number of blobs per transaction: allowed {max_blob_per_txn:?}, found {current_blob_length:?} for block {block_no:?} and job id {job_id:?}")]
+    MaxBlobsLimitExceeded { max_blob_per_txn: u64, current_blob_length: u64, block_no: u64, job_id: Uuid },
+
+    #[error("Other error: {0}")]
+    Other(#[from] color_eyre::eyre::Error),
+}
+
 pub struct DaJob;
 
 #[async_trait]
@@ -60,15 +75,13 @@ impl Job for DaJob {
     }
 
     async fn process_job(&self, config: &Config, job: &mut JobItem) -> Result<String, JobError> {
-        let block_no = job.internal_id.parse::<u64>()
-        .wrap_err("Failed to parse u64".to_string())?;
+        let block_no = job.internal_id.parse::<u64>().wrap_err("Failed to parse u64".to_string())?;
 
         let state_update = config
             .starknet_client()
             .get_state_update(BlockId::Number(block_no))
             .await
             .wrap_err("Failed to get state Update.".to_string())?;
-
 
         let state_update = match state_update {
             MaybePendingStateUpdate::PendingUpdate(_) => Err(DaError::BlockPending { block_no, job_id: job.id })?,
@@ -87,10 +100,8 @@ impl Job for DaJob {
 
         // converting BigUints to Vec<u8>, one Vec<u8> represents one blob data
         let blob_array = data_to_blobs(max_bytes_per_blob, transformed_data)?;
-        let current_blob_length: u64 = blob_array
-            .len()
-            .try_into()
-            .wrap_err("Unable to convert the blob length into u64 format.".to_string())?;
+        let current_blob_length: u64 =
+            blob_array.len().try_into().wrap_err("Unable to convert the blob length into u64 format.".to_string())?;
 
         // there is a limit on number of blobs per txn, checking that here
         if current_blob_length > max_blob_per_txn {
@@ -233,7 +244,6 @@ pub async fn state_update_to_blob_data(
                 .await
                 .wrap_err("Failed to get nonce ".to_string())?;
 
-
             nonce = Some(get_current_nonce_result);
         }
         let da_word = da_word(class_flag.is_some(), nonce, writes.len() as u64);
@@ -283,9 +293,7 @@ async fn store_blob_data(blob_data: Vec<FieldElement>, block_number: u64, config
 
     // converting Vec<Vec<u8> into Vec<u8>
     let blob_vec_u8 =
-        bincode::serialize(&blob)
-        .wrap_err("Unable to Serialize blobs (Vec<Vec<u8> into Vec<u8>)".to_string())?;
-
+        bincode::serialize(&blob).wrap_err("Unable to Serialize blobs (Vec<Vec<u8> into Vec<u8>)".to_string())?;
 
     if !blobs_array.is_empty() {
         storage_client.put_data(blob_vec_u8.into(), &key).await?;
@@ -330,21 +338,6 @@ pub fn da_word(class_flag: bool, nonce_change: Option<FieldElement>, num_changes
     let decimal_string = biguint.to_str_radix(10);
 
     FieldElement::from_dec_str(&decimal_string).expect("issue while converting to fieldElement")
-}
-
-#[derive(Error, Debug)]
-pub enum DaError {
-    #[error("Cannot process block {block_no:?} for job id {job_id:?} as it's still in pending state.")]
-    BlockPending { block_no: u64, job_id: Uuid },
-
-    #[error("Blob size must be at least 32 bytes to accommodate a single FieldElement/BigUint, but was {blob_size:?}")]
-    InsufficientBlobSize { blob_size: u64 },
-
-    #[error("Exceeded the maximum number of blobs per transaction: allowed {max_blob_per_txn:?}, found {current_blob_length:?} for block {block_no:?} and job id {job_id:?}")]
-    MaxBlobsLimitExceeded { max_blob_per_txn: u64, current_blob_length: u64, block_no: u64, job_id: Uuid },
-
-    #[error("Other error: {0}")]
-    Other(#[from] color_eyre::eyre::Error),
 }
 
 #[cfg(test)]

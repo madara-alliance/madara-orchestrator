@@ -16,6 +16,18 @@ use super::types::{JobItem, JobStatus, JobType, JobVerificationStatus};
 use super::{Job, JobError};
 use crate::config::Config;
 
+#[derive(Error, Debug)]
+pub enum ProvingError {
+    #[error("Cairo PIE path is not specified - prover job #{internal_id:?}")]
+    CairoPIEWrongPath { internal_id: String },
+
+    #[error("Not able to read the cairo PIE file from the zip file provided.")]
+    CairoPIENotReadable,
+
+    #[error("Other error: {0}")]
+    Other(#[from] color_eyre::eyre::Error),
+}
+
 pub struct ProvingJob;
 
 #[async_trait]
@@ -64,8 +76,7 @@ impl Job for ProvingJob {
     async fn verify_job(&self, config: &Config, job: &mut JobItem) -> Result<JobVerificationStatus, JobError> {
         let task_id: String = job.external_id.unwrap_string()?.into();
         let task_status =
-            config.prover_client().get_task_status(&task_id).await
-            .wrap_err("Prover Client Error".to_string())?;
+            config.prover_client().get_task_status(&task_id).await.wrap_err("Prover Client Error".to_string())?;
 
         match task_status {
             TaskStatus::Processing => Ok(JobVerificationStatus::Pending),
@@ -91,16 +102,4 @@ impl Job for ProvingJob {
     fn verification_polling_delay_seconds(&self) -> u64 {
         60
     }
-}
-
-#[derive(Error, Debug)]
-pub enum ProvingError {
-    #[error("Cairo PIE path is not specified - prover job #{internal_id:?}")]
-    CairoPIEWrongPath { internal_id: String },
-
-    #[error("Not able to read the cairo PIE file from the zip file provided.")]
-    CairoPIENotReadable,
-
-    #[error("Other error: {0}")]
-    Other(#[from] color_eyre::eyre::Error),
 }

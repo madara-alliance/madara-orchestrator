@@ -22,6 +22,33 @@ pub mod state_update_job;
 pub mod types;
 use thiserror::Error;
 
+#[derive(Error, Debug)]
+pub enum JobError {
+    #[error("Job already exists for internal_id {internal_id:?} and job_type {job_type:?}. Skipping!")]
+    JobAlreadyExists { internal_id: String, job_type: JobType },
+
+    #[error("Invalid status {id:?} for job with id {job_status:?}. Cannot process.")]
+    InvalidStatus { id: Uuid, job_status: JobStatus },
+
+    #[error("Failed to find job with id {id:?}")]
+    JobNotFound { id: Uuid },
+
+    #[error("Incrementing key {} in metadata would exceed u64::MAX", key)]
+    KeyOutOfBounds { key: String },
+
+    #[error("DA Error: {0}")]
+    DaJobError(#[from] DaError),
+
+    #[error("Proving Error: {0}")]
+    ProvingJobError(#[from] ProvingError),
+
+    #[error("Proving Error: {0}")]
+    StateUpdateJobError(#[from] StateUpdateError),
+
+    #[error("Other error: {0}")]
+    Other(#[from] color_eyre::eyre::Error),
+}
+
 /// The Job trait is used to define the methods that a job
 /// should implement to be used as a job for the orchestrator. The orchestrator automatically
 /// handles queueing and processing of jobs as long as they implement the trait.
@@ -210,33 +237,6 @@ fn get_u64_from_metadata(metadata: &HashMap<String, String>, key: &str) -> color
         .unwrap_or(&"0".to_string())
         .parse::<u64>()
         .wrap_err(format!("Failed to parse u64 from metadata key '{}'", key))
-}
-
-#[derive(Error, Debug)]
-pub enum JobError {
-    #[error("Job already exists for internal_id {internal_id:?} and job_type {job_type:?}. Skipping!")]
-    JobAlreadyExists { internal_id: String, job_type: JobType },
-
-    #[error("Invalid status {id:?} for job with id {job_status:?}. Cannot process.")]
-    InvalidStatus { id: Uuid, job_status: JobStatus },
-
-    #[error("Failed to find job with id {id:?}")]
-    JobNotFound { id: Uuid },
-
-    #[error("Incrementing key {} in metadata would exceed u64::MAX", key)]
-    KeyOutOfBounds { key: String },
-
-    #[error("DA Error: {0}")]
-    DaJobError(#[from] DaError),
-
-    #[error("Proving Error: {0}")]
-    ProvingJobError(#[from] ProvingError),
-
-    #[error("Proving Error: {0}")]
-    StateUpdateJobError(#[from] StateUpdateError),
-
-    #[error("Other error: {0}")]
-    Other(#[from] color_eyre::eyre::Error),
 }
 
 #[cfg(test)]
