@@ -348,17 +348,18 @@ mod tests {
     use std::io::Read;
 
     use ::serde::{Deserialize, Serialize};
-    use da_client_interface::MockDaClient;
     use httpmock::prelude::*;
     use majin_blob_core::blob;
     use majin_blob_types::serde;
     use majin_blob_types::state_diffs::UnorderedEq;
+    // use majin_blob_types::serde;
+    use crate::data_storage::MockDataStorage;
+    use da_client_interface::MockDaClient;
     use rstest::rstest;
     use serde_json::json;
 
     use super::*;
     // use majin_blob_types::serde;
-    use crate::data_storage::MockDataStorage;
     use crate::tests::common::init_config;
 
     #[rstest]

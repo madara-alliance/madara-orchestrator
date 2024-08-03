@@ -7,14 +7,16 @@ use async_trait::async_trait;
 use cairo_vm::Felt252;
 use color_eyre::eyre::eyre;
 use color_eyre::Result;
-use settlement_client_interface::SettlementVerificationStatus;
 use snos::io::output::StarknetOsOutput;
 use uuid::Uuid;
+
+use settlement_client_interface::SettlementVerificationStatus;
 
 use super::constants::{
     JOB_METADATA_STATE_UPDATE_ATTEMPT_PREFIX, JOB_METADATA_STATE_UPDATE_LAST_FAILED_BLOCK_NO,
     JOB_PROCESS_ATTEMPT_METADATA_KEY,
 };
+
 use crate::config::{config, Config};
 use crate::constants::SNOS_OUTPUT_FILE_NAME;
 use crate::jobs::constants::JOB_METADATA_STATE_UPDATE_BLOCKS_TO_SETTLE_KEY;

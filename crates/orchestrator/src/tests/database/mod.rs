@@ -1,9 +1,8 @@
-use rstest::*;
-use uuid::Uuid;
-
 use crate::config::config;
 use crate::jobs::types::{ExternalId, JobItem, JobStatus, JobType};
 use crate::tests::config::TestConfigBuilder;
+use rstest::*;
+use uuid::Uuid;
 
 #[rstest]
 #[tokio::test]

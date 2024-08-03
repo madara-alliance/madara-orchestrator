@@ -1,7 +1,6 @@
-use std::collections::HashMap;
-
 use cairo_vm::Felt252;
 use serde::{Deserialize, Serialize};
+use std::collections::HashMap;
 
 /// This struct represents the contract changes that will be in `StarknetOsOutput`
 /// as a vector.

@@ -119,7 +119,7 @@ async fn create_job_job_handler_is_not_implemented_panics() {
 /// `Created` or `VerificationFailed`.
 #[rstest]
 #[case(JobType::SnosRun, JobStatus::Created)]
-#[case(JobType::DataSubmission, JobStatus::VerificationFailed("".to_string()))]
+#[case(JobType::DataSubmission, JobStatus::VerificationFailed)]
 #[tokio::test]
 async fn process_job_with_job_exists_in_db_and_valid_job_processing_status_works(
     #[case] job_type: JobType,
@@ -339,7 +339,7 @@ async fn verify_job_with_rejected_status_adds_to_queue_works() {
 
     // DB checks.
     let updated_job = database_client.get_job_by_id(job_item.id).await.unwrap().unwrap();
-    assert_eq!(updated_job.status, JobStatus::VerificationFailed("".to_string()));
+    assert_eq!(updated_job.status, JobStatus::VerificationFailed);
 
     // Waiting for 5 secs for message to be passed into the queue
     sleep(Duration::from_secs(5)).await;
@@ -385,7 +385,7 @@ async fn verify_job_with_rejected_status_works() {
 
     // DB checks.
     let updated_job = database_client.get_job_by_id(job_item.id).await.unwrap().unwrap();
-    assert_eq!(updated_job.status, JobStatus::VerificationFailed("".to_string()));
+    assert_eq!(updated_job.status, JobStatus::VerificationFailed);
     assert_eq!(updated_job.metadata.get(JOB_PROCESS_ATTEMPT_METADATA_KEY).unwrap(), "1");
 
     // Waiting for 5 secs for message to be passed into the queue
