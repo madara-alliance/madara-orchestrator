@@ -4,7 +4,7 @@ use std::time::Duration;
 use crate::config::{config, Config};
 use crate::jobs::constants::{JOB_PROCESS_ATTEMPT_METADATA_KEY, JOB_VERIFICATION_ATTEMPT_METADATA_KEY};
 use crate::jobs::types::{JobItem, JobStatus, JobType, JobVerificationStatus};
-use crate::queue::job_queue::{add_job_to_process_queue, add_job_to_verification_queue};
+use crate::queue::job_queue::{add_job_to_process_queue, add_job_to_verification_queue, ConsumptionError};
 use async_trait::async_trait;
 use color_eyre::eyre::WrapErr;
 use da_job::DaError;
@@ -44,6 +44,9 @@ pub enum JobError {
 
     #[error("Proving Error: {0}")]
     StateUpdateJobError(#[from] StateUpdateError),
+
+    #[error("Queue Handling Error: {0}")]
+    ConsumptionError(#[from] ConsumptionError),
 
     #[error("Other error: {0}")]
     Other(#[from] color_eyre::eyre::Error),
