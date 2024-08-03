@@ -6,10 +6,10 @@ use async_trait::async_trait;
 use std::collections::HashMap;
 use std::error::Error;
 
-pub struct DataAvailabilitySynchronizer;
+pub struct DataSubmissionWorker;
 
 #[async_trait]
-impl Worker for DataAvailabilitySynchronizer {
+impl Worker for DataSubmissionWorker {
     // 0. All ids are assumed to be block numbers.
     // 1. Fetch the latest completed Proving job.
     // 2. Fetch the latest DA job creation.
