@@ -12,7 +12,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 - Function to update the state and publish blob on ethereum in state update job.
 - Tests for job handlers in orchestrator/src/jobs/mod.rs.
 - Fixtures for testing.
-- Added basic rust-toolchain support.
+- Basic rust-toolchain support.
 
 ## Changed
 
