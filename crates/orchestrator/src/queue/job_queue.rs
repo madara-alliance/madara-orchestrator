@@ -20,10 +20,10 @@ use thiserror::Error;
 #[derive(Error, Debug)]
 pub enum ConsumptionError {
     #[error("Failed to consume message from queue, error {error_msg:?}")]
-    FailedToConsumeFromQueue { error_msg : String },
+    FailedToConsumeFromQueue { error_msg: String },
 
     #[error("Failed to handle job with id {job_id:?}. Error: {error_msg:?}")]
-    FailedToHandleJob {job_id : Uuid, error_msg : String },
+    FailedToHandleJob { job_id: Uuid, error_msg: String },
 
     #[error("Other error: {0}")]
     Other(#[from] color_eyre::eyre::Error),
@@ -57,11 +57,10 @@ where
             return Ok(());
         }
         Err(e) => {
-            return Err(ConsumptionError::FailedToConsumeFromQueue { error_msg : e.to_string()});
+            return Err(ConsumptionError::FailedToConsumeFromQueue { error_msg: e.to_string() });
         }
     };
-    let job_message: Option<JobQueueMessage> = delivery.payload_serde_json()
-    .wrap_err("Payload Serde Error ")?;
+    let job_message: Option<JobQueueMessage> = delivery.payload_serde_json().wrap_err("Payload Serde Error ")?;
 
     match job_message {
         Some(job_message) => {
@@ -70,14 +69,19 @@ where
                 Ok(_) => delivery.ack().await.map_err(|(e, _)| e).wrap_err("Queue Error "),
                 Err(e) => {
                     log::error!("Failed to handle job with id {:?}. Error: {:?}", job_message.id, e);
-                    
+
                     // if the queue as a retry logic at the source, it will be attempted
                     // after the nack
                     match delivery.nack().await {
-                        Ok(_) => Err(ConsumptionError::FailedToHandleJob { job_id: job_message.id, error_msg: "Job handling failed, message nack-ed".to_string() })?,
-                        Err(delivery_nack_error) => Err(ConsumptionError::FailedToHandleJob { job_id: job_message.id, error_msg: delivery_nack_error.0.to_string() })?
+                        Ok(_) => Err(ConsumptionError::FailedToHandleJob {
+                            job_id: job_message.id,
+                            error_msg: "Job handling failed, message nack-ed".to_string(),
+                        })?,
+                        Err(delivery_nack_error) => Err(ConsumptionError::FailedToHandleJob {
+                            job_id: job_message.id,
+                            error_msg: delivery_nack_error.0.to_string(),
+                        })?,
                     }
-                
                 }
             };
         }
