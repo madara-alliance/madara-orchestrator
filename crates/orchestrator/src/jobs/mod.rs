@@ -1,6 +1,10 @@
 use std::collections::HashMap;
 use std::time::Duration;
 
+use crate::config::{config, Config};
+use crate::jobs::constants::{JOB_PROCESS_ATTEMPT_METADATA_KEY, JOB_VERIFICATION_ATTEMPT_METADATA_KEY};
+use crate::jobs::types::{JobItem, JobStatus, JobType, JobVerificationStatus};
+use crate::queue::job_queue::{add_job_to_process_queue, add_job_to_verification_queue, ConsumptionError};
 use async_trait::async_trait;
 use mockall::automock;
 use mockall_double::double;
@@ -11,12 +15,8 @@ use state_update_job::StateUpdateError;
 use tracing::log;
 use uuid::Uuid;
 
-use crate::config::{config, Config};
-use crate::jobs::constants::{JOB_PROCESS_ATTEMPT_METADATA_KEY, JOB_VERIFICATION_ATTEMPT_METADATA_KEY};
 #[double]
 use crate::jobs::job_handler_factory::factory;
-use crate::jobs::types::{JobItem, JobStatus, JobType, JobVerificationStatus};
-use crate::queue::job_queue::{add_job_to_process_queue, add_job_to_verification_queue};
 
 pub mod constants;
 pub mod da_job;
@@ -50,6 +50,9 @@ pub enum JobError {
 
     #[error("Proving Error: {0}")]
     StateUpdateJobError(#[from] StateUpdateError),
+
+    #[error("Queue Handling Error: {0}")]
+    ConsumptionError(#[from] ConsumptionError),
 
     #[error("Other error: {0}")]
     Other(#[from] color_eyre::eyre::Error),
