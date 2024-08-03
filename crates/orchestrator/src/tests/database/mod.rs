@@ -18,7 +18,8 @@ async fn test_database_connection() -> color_eyre::Result<()> {
 async fn test_database_create_job() -> color_eyre::Result<()> {
     TestConfigBuilder::new().build().await;
 
-    let config = config().await;
+   #[awt]
+   async fn test_database_create_job(#[future] config ) -> color_eyre::Result<()> {
     let database_client = config.database();
 
     let job_vec = [
