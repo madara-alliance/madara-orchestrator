@@ -60,13 +60,15 @@ impl Job for DaJob {
     }
 
     async fn process_job(&self, config: &Config, job: &mut JobItem) -> Result<String, JobError> {
-        let block_no = job.internal_id.parse::<u64>().wrap_err_with(|| "Failed to parse u64".to_string())?;
+        let block_no = job.internal_id.parse::<u64>()
+        .wrap_err("Failed to parse u64".to_string())?;
 
         let state_update = config
             .starknet_client()
             .get_state_update(BlockId::Number(block_no))
             .await
-            .wrap_err_with(|| "Failed to get state Update.".to_string())?;
+            .wrap_err("Failed to get state Update.".to_string())?;
+
 
         let state_update = match state_update {
             MaybePendingStateUpdate::PendingUpdate(_) => Err(DaError::BlockPending { block_no, job_id: job.id })?,
@@ -88,7 +90,7 @@ impl Job for DaJob {
         let current_blob_length: u64 = blob_array
             .len()
             .try_into()
-            .wrap_err_with(|| "Unable to convert the blob length into u64 format.".to_string())?;
+            .wrap_err("Unable to convert the blob length into u64 format.".to_string())?;
 
         // there is a limit on number of blobs per txn, checking that here
         if current_blob_length > max_blob_per_txn {
@@ -229,7 +231,8 @@ pub async fn state_update_to_blob_data(
                 .starknet_client()
                 .get_nonce(BlockId::Number(block_no), addr)
                 .await
-                .wrap_err_with(|| "Failed to get nonce ".to_string())?;
+                .wrap_err("Failed to get nonce ".to_string())?;
+
 
             nonce = Some(get_current_nonce_result);
         }
@@ -280,7 +283,9 @@ async fn store_blob_data(blob_data: Vec<FieldElement>, block_number: u64, config
 
     // converting Vec<Vec<u8> into Vec<u8>
     let blob_vec_u8 =
-        bincode::serialize(&blob).wrap_err_with(|| "Unable to Serialize blobs (Vec<Vec<u8> into Vec<u8>)".to_string())?;
+        bincode::serialize(&blob)
+        .wrap_err("Unable to Serialize blobs (Vec<Vec<u8> into Vec<u8>)".to_string())?;
+
 
     if !blobs_array.is_empty() {
         storage_client.put_data(blob_vec_u8.into(), &key).await?;

@@ -56,14 +56,16 @@ impl Job for ProvingJob {
             .prover_client()
             .submit_task(Task::CairoPie(cairo_pie))
             .await
-            .wrap_err_with(|| "Prover Client Error".to_string())?;
+            .wrap_err("Prover Client Error".to_string())?;
+
         Ok(external_id)
     }
 
     async fn verify_job(&self, config: &Config, job: &mut JobItem) -> Result<JobVerificationStatus, JobError> {
         let task_id: String = job.external_id.unwrap_string()?.into();
         let task_status =
-            config.prover_client().get_task_status(&task_id).await.wrap_err_with(|| "Prover Client Error".to_string())?;
+            config.prover_client().get_task_status(&task_id).await
+            .wrap_err("Prover Client Error".to_string())?;
 
         match task_status {
             TaskStatus::Processing => Ok(JobVerificationStatus::Pending),
