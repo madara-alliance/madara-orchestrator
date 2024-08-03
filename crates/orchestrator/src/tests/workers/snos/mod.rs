@@ -1,7 +1,7 @@
 use crate::config::config_force_init;
 use crate::database::MockDatabase;
-use crate::queue::job_queue::JOB_PROCESSING_QUEUE;
 use crate::jobs::types::{JobStatus, JobType};
+use crate::queue::job_queue::JOB_PROCESSING_QUEUE;
 use crate::queue::MockQueueProvider;
 use crate::tests::common::init_config;
 use crate::tests::workers::utils::get_job_item_mock_by_id;
