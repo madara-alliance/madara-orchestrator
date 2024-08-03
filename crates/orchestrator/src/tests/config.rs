@@ -103,7 +103,6 @@ impl TestConfigBuilder {
 
         drop_database().await.unwrap();
 
-        // return config and server as tuple
         let config = Config::new(
             self.starknet_client.unwrap_or_else(|| {
                 let provider = JsonRpcClient::new(HttpTransport::new(

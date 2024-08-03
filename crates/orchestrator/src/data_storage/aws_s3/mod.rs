@@ -25,28 +25,22 @@ impl AWSS3 {
     pub async fn new(config: AWSS3ConfigType) -> Self {
         let (config_builder, config) = match config {
             AWSS3ConfigType::WithoutEndpoint(config) => {
-                let credentials = Credentials::new(
+                let (credentials, region) = get_credentials_and_region_from_config(
                     config.s3_key_id.clone(),
                     config.s3_key_secret.clone(),
-                    None,
-                    None,
-                    "loaded_from_custom_env",
+                    config.s3_bucket_region.clone(),
                 );
-                let region = Region::new(config.s3_bucket_region.clone().to_string());
                 (
                     Builder::new().region(region).credentials_provider(credentials).force_path_style(true),
                     AWSS3ConfigType::WithoutEndpoint(config),
                 )
             }
             AWSS3ConfigType::WithEndpoint(config) => {
-                let credentials = Credentials::new(
+                let (credentials, region) = get_credentials_and_region_from_config(
                     config.s3_key_id.clone(),
                     config.s3_key_secret.clone(),
-                    None,
-                    None,
-                    "loaded_from_custom_env",
+                    config.s3_bucket_region.clone(),
                 );
-                let region = Region::new(config.s3_bucket_region.clone().to_string());
                 (
                     Builder::new()
                         .region(region)
@@ -72,6 +66,17 @@ impl AWSS3 {
             AWSS3ConfigType::WithoutEndpoint(config) => config.s3_bucket_name,
         }
     }
+}
+
+/// Return the constructed `Credentials` and `Region`
+fn get_credentials_and_region_from_config(
+    s3_key_id: String,
+    s3_key_secret: String,
+    s3_bucket_region: String,
+) -> (Credentials, Region) {
+    let credentials = Credentials::new(s3_key_id, s3_key_secret, None, None, "loaded_from_custom_env");
+    let region = Region::new(s3_bucket_region);
+    (credentials, region)
 }
 
 /// Implementation of `DataStorage` for `AWSS3`
