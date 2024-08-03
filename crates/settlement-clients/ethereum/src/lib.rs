@@ -3,34 +3,35 @@ pub mod config;
 pub mod conversion;
 pub mod types;
 
-use std::fmt::Write;
-use std::path::{Path, PathBuf};
-use std::str::FromStr;
-use std::sync::Arc;
-
 use alloy::consensus::{
     BlobTransactionSidecar, SignableTransaction, TxEip4844, TxEip4844Variant, TxEip4844WithSidecar, TxEnvelope,
 };
 use alloy::eips::eip2718::Encodable2718;
 use alloy::eips::eip2930::AccessList;
 use alloy::eips::eip4844::BYTES_PER_BLOB;
-use alloy::network::EthereumWallet;
-use alloy::primitives::{Address, Bytes, FixedBytes, B256, U256};
-use alloy::providers::{PendingTransactionConfig, Provider, ProviderBuilder};
-use alloy::rpc::types::TransactionReceipt;
-use alloy::signers::local::PrivateKeySigner;
+use alloy::primitives::{Bytes, FixedBytes};
+use alloy::{
+    network::EthereumWallet,
+    primitives::{Address, B256, U256},
+    providers::{PendingTransactionConfig, Provider, ProviderBuilder},
+    rpc::types::TransactionReceipt,
+    signers::local::PrivateKeySigner,
+};
 use async_trait::async_trait;
 use c_kzg::{Blob, Bytes32, KzgCommitment, KzgProof, KzgSettings};
 use color_eyre::eyre::eyre;
 use color_eyre::Result;
-use mockall::predicate::*;
-use mockall::{automock, lazy_static};
+use mockall::{automock, lazy_static, predicate::*};
 use rstest::rstest;
-use settlement_client_interface::{SettlementClient, SettlementVerificationStatus, SETTLEMENT_SETTINGS_NAME};
-use utils::env_utils::get_env_var_or_panic;
-use utils::settings::SettingsProvider;
+use std::fmt::Write;
+use std::path::{Path, PathBuf};
+use std::str::FromStr;
+use std::sync::Arc;
 
 use crate::clients::interfaces::validity_interface::StarknetValidityContractTrait;
+use settlement_client_interface::{SettlementClient, SettlementVerificationStatus, SETTLEMENT_SETTINGS_NAME};
+use utils::{env_utils::get_env_var_or_panic, settings::SettingsProvider};
+
 use crate::clients::StarknetValidityContractClient;
 use crate::config::EthereumSettlementConfig;
 use crate::conversion::{slice_slice_u8_to_vec_u256, slice_u8_to_u256};
@@ -68,7 +69,7 @@ impl EthereumSettlementClient {
             ProviderBuilder::new().with_recommended_fillers().wallet(wallet.clone()).on_http(settlement_cfg.rpc_url),
         );
         let core_contract_client = StarknetValidityContractClient::new(
-            Address::from_str(&settlement_cfg.core_contract_address).unwrap().0.into(),
+            Address::from_slice(settlement_cfg.core_contract_address.as_bytes()).0.into(),
             provider.clone(),
         );
 
@@ -245,8 +246,7 @@ async fn prepare_sidecar(
 fn get_txn_input_bytes(program_output: Vec<[u8; 32]>, kzg_proof: [u8; 48]) -> Bytes {
     let program_output_hex_string = vec_u8_32_to_hex_string(program_output);
     let kzg_proof_hex_string = u8_48_to_hex_string(kzg_proof);
-    // cast keccak "updateStateKzgDA(uint256[] calldata programOutput, bytes calldata kzgProof)" | cut
-    // -b 1-10
+    // cast keccak "updateStateKzgDA(uint256[] calldata programOutput, bytes calldata kzgProof)" | cut -b 1-10
     let function_selector = "0x1a790556";
 
     Bytes::from(program_output_hex_string + &kzg_proof_hex_string + function_selector)

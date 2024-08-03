@@ -74,20 +74,13 @@ impl Job for StateUpdateJob {
         self.insert_attempts_into_metadata(job, &attempt_no, &sent_tx_hashes);
 
         // external_id returned corresponds to the last block number settled
-        Ok(block_numbers
-            .last()
-            .expect(
-                "Last number in block_numbers array returned as None. Possible Error : Delay in job processing or \
-                 Failed job execution.",
-            )
-            .to_string())
+        Ok(block_numbers.last().expect("Last number in block_numbers array returned as None. Possible Error : Delay in job processing or Failed job execution.").to_string())
     }
 
     /// Returns the status of the passed job.
     /// Status will be verified if:
     /// 1. the last settlement tx hash is successful,
-    /// 2. the expected last settled block from our configuration is indeed the one found in the
-    ///    provider.
+    /// 2. the expected last settled block from our configuration is indeed the one found in the provider.
     async fn verify_job(&self, config: &Config, job: &mut JobItem) -> Result<JobVerificationStatus> {
         let attempt_no =
             job.metadata.get(JOB_PROCESS_ATTEMPT_METADATA_KEY).expect("Could not find current attempt number.").clone();
@@ -120,7 +113,7 @@ impl Job for StateUpdateJob {
                             return Ok(new_status.into());
                         }
                         SettlementVerificationStatus::Pending => {
-                            return Err(eyre!("Tx {tx_hash} should not be pending."));
+                            return Err(eyre!("Tx {tx_hash} should not be pending."))
                         }
                         SettlementVerificationStatus::Verified => {}
                     }

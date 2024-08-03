@@ -11,19 +11,12 @@ use starknet::providers::{JsonRpcClient, Url};
 use utils::env_utils::get_env_var_or_panic;
 use utils::settings::default::DefaultSettingsProvider;
 
-use crate::config::{
-    build_da_client, build_prover_service, build_settlement_client, build_storage_client, config_force_init, Config,
-};
-use crate::data_storage::DataStorage;
 use crate::database::mongodb::config::MongoDbConfig;
 use crate::database::mongodb::MongoDb;
 use crate::database::{Database, DatabaseConfig};
 use crate::queue::sqs::SqsQueue;
 use crate::queue::QueueProvider;
-use crate::tests::common::{create_sqs_queues, drop_database};
-
-use crate::tests::common::{drop_database, get_storage_client};
-use httpmock::MockServer;
+use crate::tests::common::{create_sqs_queues, drop_database, get_storage_client};
 // Inspiration : https://rust-unofficial.github.io/patterns/patterns/creational/builder.html
 // TestConfigBuilder allows to heavily customise the global configs based on the test's requirement.
 // Eg: We want to mock only the da client and leave rest to be as it is, use mock_da_client.

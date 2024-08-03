@@ -319,12 +319,7 @@ fn da_word(class_flag: bool, nonce_change: Option<FieldElement>, num_changes: u6
 
     // checking for nonce here
     if let Some(_new_nonce) = nonce_change {
-        let bytes: [u8; 32] = nonce_change
-            .expect(
-                "Not able to convert the nonce_change var into [u8; 32] type. Possible Error : Improper parameter \
-                 length.",
-            )
-            .to_bytes_be();
+        let bytes: [u8; 32] = nonce_change.expect("Not able to convert the nonce_change var into [u8; 32] type. Possible Error : Improper parameter length.").to_bytes_be();
         let biguint = BigUint::from_bytes_be(&bytes);
         let binary_string_local = format!("{:b}", biguint);
         let padded_binary_string = format!("{:0>64}", binary_string_local);

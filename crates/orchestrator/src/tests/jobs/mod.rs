@@ -52,7 +52,7 @@ async fn create_job_job_does_not_exists_in_db_works() {
     let mut hashmap: HashMap<String, String> = HashMap::new();
     hashmap.insert(JOB_PROCESS_ATTEMPT_METADATA_KEY.to_string(), "0".to_string());
     hashmap.insert(JOB_VERIFICATION_ATTEMPT_METADATA_KEY.to_string(), "0".to_string());
-    
+
     // Db checks.
     let job_in_db = config.database().get_job_by_id(job_item.id).await.unwrap().unwrap();
     assert_eq!(job_in_db.id, job_item.id);

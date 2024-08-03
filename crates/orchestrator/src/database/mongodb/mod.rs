@@ -4,9 +4,14 @@ use async_std::stream::StreamExt;
 use async_trait::async_trait;
 use color_eyre::eyre::eyre;
 use color_eyre::Result;
-use mongodb::bson::{doc, Bson, Document};
-use mongodb::options::{ClientOptions, FindOneOptions, ServerApi, ServerApiVersion, UpdateOptions};
-use mongodb::{bson, Client, Collection};
+use mongodb::bson::{Bson, Document};
+use mongodb::options::{FindOneOptions, UpdateOptions};
+use mongodb::{
+    bson,
+    bson::doc,
+    options::{ClientOptions, ServerApi, ServerApiVersion},
+    Client, Collection,
+};
 use uuid::Uuid;
 
 use crate::database::mongodb::config::MongoDbConfig;

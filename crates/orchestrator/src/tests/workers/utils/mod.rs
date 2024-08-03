@@ -1,12 +1,10 @@
-use std::collections::HashMap;
-
-use mockall::predicate::eq;
-use uuid::Uuid;
-
 use crate::database::MockDatabase;
 use crate::jobs::constants::JOB_METADATA_CAIRO_PIE_PATH_KEY;
 use crate::jobs::types::{ExternalId, JobItem, JobStatus, JobType};
 use crate::jobs::MockJob;
+use mockall::predicate::eq;
+use std::collections::HashMap;
+use uuid::Uuid;
 
 pub fn get_job_item_mock_by_id(id: String, uuid: Uuid) -> JobItem {
     JobItem {
