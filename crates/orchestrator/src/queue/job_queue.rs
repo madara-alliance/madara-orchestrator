@@ -65,8 +65,8 @@ where
     match job_message {
         Some(job_message) => {
             log::info!("Handling job with id {:?} for queue {:?}", job_message.id, queue);
-            let _ = match handler(job_message.id).await {
-                Ok(_) => delivery.ack().await.map_err(|(e, _)| e).wrap_err("Queue Error "),
+            match handler(job_message.id).await {
+                Ok(_) => delivery.ack().await.map_err(|(e, _)| e).wrap_err("Queue Error ")?,
                 Err(e) => {
                     log::error!("Failed to handle job with id {:?}. Error: {:?}", job_message.id, e);
 
