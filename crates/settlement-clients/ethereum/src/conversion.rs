@@ -1,5 +1,8 @@
+use alloy::eips::eip4844::BYTES_PER_BLOB;
 use alloy::primitives::Bytes;
+use alloy::primitives::FixedBytes;
 use alloy::primitives::U256;
+use c_kzg::{Blob, KzgCommitment, KzgProof, KzgSettings};
 use color_eyre::{eyre::ContextCompat, Result as EyreResult};
 use std::fmt::Write;
 
@@ -66,10 +69,38 @@ pub(crate) fn u8_48_to_hex_string(data: [u8; 48]) -> String {
     first_hex + &second_hex
 }
 
+/// To prepare the sidecar for EIP 4844 transaction
+pub(crate) async fn prepare_sidecar(
+    state_diff: &[Vec<u8>],
+    trusted_setup: &KzgSettings,
+) -> EyreResult<(Vec<FixedBytes<131072>>, Vec<FixedBytes<48>>, Vec<FixedBytes<48>>)> {
+    let mut sidecar_blobs = vec![];
+    let mut sidecar_commitments = vec![];
+    let mut sidecar_proofs = vec![];
+
+    for blob_data in state_diff {
+        let fixed_size_blob: [u8; BYTES_PER_BLOB] = blob_data.as_slice().try_into()?;
+
+        let blob = Blob::new(fixed_size_blob);
+
+        let commitment = KzgCommitment::blob_to_kzg_commitment(&blob, trusted_setup)?;
+        let proof = KzgProof::compute_blob_kzg_proof(&blob, &commitment.to_bytes(), trusted_setup)?;
+
+        sidecar_blobs.push(FixedBytes::new(fixed_size_blob));
+        sidecar_commitments.push(FixedBytes::new(commitment.to_bytes().into_inner()));
+        sidecar_proofs.push(FixedBytes::new(proof.to_bytes().into_inner()));
+    }
+
+    Ok((sidecar_blobs, sidecar_commitments, sidecar_proofs))
+}
+
 #[cfg(test)]
 mod tests {
+
     use super::*;
+    use color_eyre::eyre::eyre;
     use rstest::rstest;
+    use std::{fs, path::Path};
 
     #[rstest]
     #[case::typical(&[
@@ -240,5 +271,54 @@ mod tests {
         let result: Bytes = get_txn_input_bytes(program_output, kzg_proof);
         //TODO: converting expected value to match result, we would ideally want to convert the result to match expected
         assert_eq!(result, Bytes::from(expected_output));
+    }
+
+    #[rstest]
+    #[tokio::test]
+    #[case("651053")]
+    async fn prepare_sidecar_works(#[case] block_no: String) {
+        // Trusted Setup
+        let trusted_setup_file_path = "/Users/dexterhv/Work/Karnot/madara-alliance/madara-orchestrator/crates/settlement-clients/ethereum/src/trusted_setup.txt";
+        let trusted_setup = KzgSettings::load_trusted_setup_file(Path::new(trusted_setup_file_path))
+            .expect("issue while loading the trusted setup");
+
+        // Blob Data
+        let blob_data_file_path = format!("{}{}{}",
+        "/Users/dexterhv/Work/Karnot/madara-alliance/madara-orchestrator/crates/orchestrator/src/tests/jobs/state_update_job/test_data/",
+        block_no,
+        "/blob_data.txt"
+        );
+
+        let blob_data = fs::read_to_string(blob_data_file_path).expect("Failed to read the blob data txt file");
+
+        fn hex_string_to_u8_vec(hex_str: &str) -> color_eyre::Result<Vec<u8>> {
+            // Remove any spaces or non-hex characters from the input string
+            let cleaned_str: String = hex_str.chars().filter(|c| c.is_ascii_hexdigit()).collect();
+
+            // Convert the cleaned hex string to a Vec<u8>
+            let mut result = Vec::new();
+            for chunk in cleaned_str.as_bytes().chunks(2) {
+                if let Ok(byte_val) = u8::from_str_radix(std::str::from_utf8(chunk)?, 16) {
+                    result.push(byte_val);
+                } else {
+                    return Err(eyre!("Error parsing hex string: {}", cleaned_str));
+                }
+            }
+
+            Ok(result)
+        }
+
+        let blob_data_vec = vec![hex_string_to_u8_vec(&blob_data).unwrap()];
+
+        match prepare_sidecar(&blob_data_vec, &trusted_setup).await {
+            Ok(result) => {
+                let (sidecar_blobs, sidecar_commitments, sidecar_proofs) = result;
+                // TODO: complete validation
+                println!("Success")
+            }
+            Err(err) => {
+                panic!("{}", err.to_string())
+            }
+        }
     }
 }
