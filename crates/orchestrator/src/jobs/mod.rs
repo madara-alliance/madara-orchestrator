@@ -227,9 +227,7 @@ fn increment_key_in_metadata(
     let mut new_metadata = metadata.clone();
     let attempt = get_u64_from_metadata(metadata, key)?;
     let incremented_value = attempt.checked_add(1);
-    if incremented_value.is_none() {
-        return Err(JobError::KeyOutOfBounds { key: key.to_string() });
-    }
+    incremented_value.ok_or_else(|| JobError::KeyOutOfBounds { key: key.to_string() })?;
     new_metadata.insert(key.to_string(), incremented_value.unwrap().to_string());
     Ok(new_metadata)
 }
