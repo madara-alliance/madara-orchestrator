@@ -1,16 +1,17 @@
 use std::collections::HashMap;
 use std::time::Duration;
 
-use async_trait::async_trait;
-use color_eyre::eyre::eyre;
-use color_eyre::Result;
-use tracing::log;
-use uuid::Uuid;
-
 use crate::config::{config, Config};
 use crate::jobs::constants::{JOB_PROCESS_ATTEMPT_METADATA_KEY, JOB_VERIFICATION_ATTEMPT_METADATA_KEY};
 use crate::jobs::types::{JobItem, JobStatus, JobType, JobVerificationStatus};
-use crate::queue::job_queue::{add_job_to_process_queue, add_job_to_verification_queue};
+use crate::queue::job_queue::{add_job_to_process_queue, add_job_to_verification_queue, ConsumptionError};
+use async_trait::async_trait;
+use color_eyre::eyre::WrapErr;
+use da_job::DaError;
+use proving_job::ProvingError;
+use state_update_job::StateUpdateError;
+use tracing::log;
+use uuid::Uuid;
 
 pub mod constants;
 pub mod da_job;
@@ -19,6 +20,37 @@ pub mod register_proof_job;
 pub mod snos_job;
 pub mod state_update_job;
 pub mod types;
+use thiserror::Error;
+
+#[derive(Error, Debug)]
+pub enum JobError {
+    #[error("Job already exists for internal_id {internal_id:?} and job_type {job_type:?}. Skipping!")]
+    JobAlreadyExists { internal_id: String, job_type: JobType },
+
+    #[error("Invalid status {id:?} for job with id {job_status:?}. Cannot process.")]
+    InvalidStatus { id: Uuid, job_status: JobStatus },
+
+    #[error("Failed to find job with id {id:?}")]
+    JobNotFound { id: Uuid },
+
+    #[error("Incrementing key {} in metadata would exceed u64::MAX", key)]
+    KeyOutOfBounds { key: String },
+
+    #[error("DA Error: {0}")]
+    DaJobError(#[from] DaError),
+
+    #[error("Proving Error: {0}")]
+    ProvingJobError(#[from] ProvingError),
+
+    #[error("Proving Error: {0}")]
+    StateUpdateJobError(#[from] StateUpdateError),
+
+    #[error("Queue Handling Error: {0}")]
+    ConsumptionError(#[from] ConsumptionError),
+
+    #[error("Other error: {0}")]
+    Other(#[from] color_eyre::eyre::Error),
+}
 
 /// The Job trait is used to define the methods that a job
 /// should implement to be used as a job for the orchestrator. The orchestrator automatically
@@ -31,15 +63,15 @@ pub trait Job: Send + Sync {
         config: &Config,
         internal_id: String,
         metadata: HashMap<String, String>,
-    ) -> Result<JobItem>;
+    ) -> Result<JobItem, JobError>;
     /// Should process the job and return the external_id which can be used to
     /// track the status of the job. For example, a DA job will submit the state diff
     /// to the DA layer and return the txn hash.
-    async fn process_job(&self, config: &Config, job: &mut JobItem) -> Result<String>;
+    async fn process_job(&self, config: &Config, job: &mut JobItem) -> Result<String, JobError>;
     /// Should verify the job and return the status of the verification. For example,
     /// a DA job will verify the inclusion of the state diff in the DA layer and return
     /// the status of the verification.
-    async fn verify_job(&self, config: &Config, job: &mut JobItem) -> Result<JobVerificationStatus>;
+    async fn verify_job(&self, config: &Config, job: &mut JobItem) -> Result<JobVerificationStatus, JobError>;
     /// Should return the maximum number of attempts to process the job. A new attempt is made
     /// every time the verification returns `JobVerificationStatus::Rejected`
     fn max_process_attempts(&self) -> u64;
@@ -49,18 +81,16 @@ pub trait Job: Send + Sync {
     /// Should return the number of seconds to wait before polling for verification
     fn verification_polling_delay_seconds(&self) -> u64;
 }
-
 /// Creates the job in the DB in the created state and adds it to the process queue
-pub async fn create_job(job_type: JobType, internal_id: String, metadata: HashMap<String, String>) -> Result<()> {
+pub async fn create_job(
+    job_type: JobType,
+    internal_id: String,
+    metadata: HashMap<String, String>,
+) -> Result<(), JobError> {
     let config = config().await;
     let existing_job = config.database().get_job_by_internal_id_and_type(internal_id.as_str(), &job_type).await?;
     if existing_job.is_some() {
-        log::debug!("Job already exists for internal_id {:?} and job_type {:?}. Skipping.", internal_id, job_type);
-        return Err(eyre!(
-            "Job already exists for internal_id {:?} and job_type {:?}. Skipping.",
-            internal_id,
-            job_type
-        ));
+        return Err(JobError::JobAlreadyExists { internal_id, job_type });
     }
 
     let job_handler = get_job_handler(&job_type);
@@ -73,7 +103,7 @@ pub async fn create_job(job_type: JobType, internal_id: String, metadata: HashMa
 
 /// Processes the job, increments the process attempt count and updates the status of the job in the
 /// DB. It then adds the job to the verification queue.
-pub async fn process_job(id: Uuid) -> Result<()> {
+pub async fn process_job(id: Uuid) -> Result<(), JobError> {
     let config = config().await;
     let mut job = get_job(id).await?;
 
@@ -84,8 +114,7 @@ pub async fn process_job(id: Uuid) -> Result<()> {
             log::info!("Processing job with id {:?}", id);
         }
         _ => {
-            log::error!("Invalid status {:?} for job with id {:?}. Cannot process.", id, job.status);
-            return Err(eyre!("Invalid status {:?} for job with id {:?}. Cannot process.", id, job.status));
+            return Err(JobError::InvalidStatus { id, job_status: job.status });
         }
     }
     // this updates the version of the job. this ensures that if another thread was about to process
@@ -111,9 +140,9 @@ pub async fn process_job(id: Uuid) -> Result<()> {
 
 /// Verifies the job and updates the status of the job in the DB. If the verification fails, it
 /// retries processing the job if the max attempts have not been exceeded. If the max attempts have
-/// been exceeded, it marks the job as timedout. If the verification is still pending, it pushes the
+/// been exceeded, it marks the job as timed out. If the verification is still pending, it pushes the
 /// job back to the queue.
-pub async fn verify_job(id: Uuid) -> Result<()> {
+pub async fn verify_job(id: Uuid) -> Result<(), JobError> {
     let config = config().await;
     let mut job = get_job(id).await?;
 
@@ -122,8 +151,7 @@ pub async fn verify_job(id: Uuid) -> Result<()> {
             log::info!("Verifying job with id {:?}", id);
         }
         _ => {
-            log::error!("Invalid status {:?} for job with id {:?}. Cannot verify.", id, job.status);
-            return Err(eyre!("Invalid status {:?} for job with id {:?}. Cannot verify.", id, job.status));
+            return Err(JobError::InvalidStatus { id, job_status: job.status });
         }
     }
 
@@ -156,7 +184,7 @@ pub async fn verify_job(id: Uuid) -> Result<()> {
             let verify_attempts = get_u64_from_metadata(&job.metadata, JOB_VERIFICATION_ATTEMPT_METADATA_KEY)?;
             if verify_attempts >= job_handler.max_verification_attempts() {
                 // TODO: send alert
-                log::info!("Verification attempts exceeded for job {}. Marking as timedout.", job.id);
+                log::info!("Verification attempts exceeded for job {}. Marking as timed out.", job.id);
                 config.database().update_job_status(&job, JobStatus::VerificationTimeout).await?;
                 return Ok(());
             }
@@ -183,38 +211,40 @@ fn get_job_handler(job_type: &JobType) -> Box<dyn Job> {
     }
 }
 
-async fn get_job(id: Uuid) -> Result<JobItem> {
+async fn get_job(id: Uuid) -> Result<JobItem, JobError> {
     let config = config().await;
     let job = config.database().get_job_by_id(id).await?;
     match job {
         Some(job) => Ok(job),
-        None => {
-            log::error!("Failed to find job with id {:?}", id);
-            Err(eyre!("Failed to process job with id {:?}", id))
-        }
+        None => Err(JobError::JobNotFound { id }),
     }
 }
 
-fn increment_key_in_metadata(metadata: &HashMap<String, String>, key: &str) -> Result<HashMap<String, String>> {
+fn increment_key_in_metadata(
+    metadata: &HashMap<String, String>,
+    key: &str,
+) -> Result<HashMap<String, String>, JobError> {
     let mut new_metadata = metadata.clone();
     let attempt = get_u64_from_metadata(metadata, key)?;
     let incremented_value = attempt.checked_add(1);
-    if incremented_value.is_none() {
-        return Err(eyre!("Incrementing key {} in metadata would exceed u64::MAX", key));
-    }
+    incremented_value.ok_or_else(|| JobError::KeyOutOfBounds { key: key.to_string() })?;
     new_metadata.insert(key.to_string(), incremented_value.unwrap().to_string());
     Ok(new_metadata)
 }
 
-fn get_u64_from_metadata(metadata: &HashMap<String, String>, key: &str) -> Result<u64> {
-    Ok(metadata.get(key).unwrap_or(&"0".to_string()).parse::<u64>()?)
+fn get_u64_from_metadata(metadata: &HashMap<String, String>, key: &str) -> color_eyre::Result<u64> {
+    metadata
+        .get(key)
+        .unwrap_or(&"0".to_string())
+        .parse::<u64>()
+        .wrap_err(format!("Failed to parse u64 from metadata key '{}'", key))
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
 
-    mod test_incremement_key_in_metadata {
+    mod test_increment_key_in_metadata {
         use super::*;
 
         #[test]
