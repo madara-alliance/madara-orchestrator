@@ -73,7 +73,7 @@ pub(crate) fn u8_48_to_hex_string(data: [u8; 48]) -> String {
 pub(crate) async fn prepare_sidecar(
     state_diff: &[Vec<u8>],
     trusted_setup: &KzgSettings,
-) -> EyreResult<(Vec<FixedBytes<131072>>, Vec<FixedBytes<48>>, Vec<FixedBytes<48>>)> {
+) -> EyreResult<(Vec<FixedBytes<BYTES_PER_BLOB>>, Vec<FixedBytes<48>>, Vec<FixedBytes<48>>)> {
     let mut sidecar_blobs = vec![];
     let mut sidecar_commitments = vec![];
     let mut sidecar_proofs = vec![];
@@ -100,7 +100,10 @@ mod tests {
     use super::*;
     use color_eyre::eyre::eyre;
     use rstest::rstest;
-    use std::{fs, path::Path};
+    use std::{
+        fs,
+        path::Path,
+    };
 
     #[rstest]
     #[case::typical(&[
@@ -274,22 +277,33 @@ mod tests {
     }
 
     #[rstest]
+    #[case("20462788")]
+    #[case("20462818")]
     #[tokio::test]
-    #[case("651053")]
     async fn prepare_sidecar_works(#[case] block_no: String) {
         // Trusted Setup
-        let trusted_setup_file_path = "/Users/dexterhv/Work/Karnot/madara-alliance/madara-orchestrator/crates/settlement-clients/ethereum/src/trusted_setup.txt";
-        let trusted_setup = KzgSettings::load_trusted_setup_file(Path::new(trusted_setup_file_path))
+        let current_path = std::env::current_dir().unwrap().to_str().unwrap().to_string();
+
+        let trusted_setup_file_path = current_path.clone() + "/src/trusted_setup.txt";
+        let trusted_setup = KzgSettings::load_trusted_setup_file(Path::new(trusted_setup_file_path.as_str()))
             .expect("issue while loading the trusted setup");
 
         // Blob Data
-        let blob_data_file_path = format!("{}{}{}",
-        "/Users/dexterhv/Work/Karnot/madara-alliance/madara-orchestrator/crates/orchestrator/src/tests/jobs/state_update_job/test_data/",
-        block_no,
-        "/blob_data.txt"
-        );
-
+        let blob_data_file_path =
+            format!("{}{}{}{}", current_path.clone(), "/src/test_data/blob_data/", block_no, ".txt");
+        println!("{}", blob_data_file_path);
         let blob_data = fs::read_to_string(blob_data_file_path).expect("Failed to read the blob data txt file");
+
+        // Blob Commitment
+        let blob_commitment_file_path =
+            format!("{}{}{}{}", current_path.clone(), "/src/test_data/blob_commitment/", block_no, ".txt");
+        let blob_commitment =
+            fs::read_to_string(blob_commitment_file_path).expect("Failed to read the blob data txt file");
+
+        // Blob Proof
+        let blob_proof_file_path =
+            format!("{}{}{}{}", current_path.clone(), "/src/test_data/blob_proof/", block_no, ".txt");
+        let blob_proof = fs::read_to_string(blob_proof_file_path).expect("Failed to read the blob data txt file");
 
         fn hex_string_to_u8_vec(hex_str: &str) -> color_eyre::Result<Vec<u8>> {
             // Remove any spaces or non-hex characters from the input string
@@ -312,9 +326,10 @@ mod tests {
 
         match prepare_sidecar(&blob_data_vec, &trusted_setup).await {
             Ok(result) => {
-                let (sidecar_blobs, sidecar_commitments, sidecar_proofs) = result;
-                // TODO: complete validation
-                println!("Success")
+                let (_, sidecar_commitments, sidecar_proofs) = result;
+                // Assumption: since only 1 blob, thus only 1 commitment and proof
+                assert_eq!(blob_commitment, sidecar_commitments[0].to_string());
+                assert_eq!(blob_proof, sidecar_proofs[0].to_string());
             }
             Err(err) => {
                 panic!("{}", err.to_string())
