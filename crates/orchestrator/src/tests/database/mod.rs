@@ -15,6 +15,7 @@ async fn test_database_connection() -> color_eyre::Result<()> {
 
 #[fixture]
 async fn get_config() -> Guard<Arc<Config>> {
+    TestConfigBuilder::new().build().await;
     config().await
 }
 
