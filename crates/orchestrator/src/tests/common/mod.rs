@@ -100,10 +100,10 @@ pub async fn create_sqs_queues() -> color_eyre::Result<()> {
     // Dropping sqs queues
     let list_queues_output = sqs_client.list_queues().send().await?;
     let queue_urls = list_queues_output.queue_urls();
-    println!("Found {} queues", queue_urls.len());
+    log::debug!("Found {} queues", queue_urls.len());
     for queue_url in queue_urls {
         match sqs_client.delete_queue().queue_url(queue_url).send().await {
-            Ok(_) => println!("Successfully deleted queue: {}", queue_url),
+            Ok(_) => log::debug!("Successfully deleted queue: {}", queue_url),
             Err(e) => eprintln!("Error deleting queue {}: {:?}", queue_url, e),
         }
     }
@@ -111,8 +111,6 @@ pub async fn create_sqs_queues() -> color_eyre::Result<()> {
     // Creating SQS queues
     sqs_client.create_queue().queue_name(JOB_PROCESSING_QUEUE).send().await?;
     sqs_client.create_queue().queue_name(JOB_VERIFICATION_QUEUE).send().await?;
-    let list_queues_output = sqs_client.list_queues().send().await?.queue_urls.unwrap();
-    println!(">>> list_queues_output: {:?}", list_queues_output);
     Ok(())
 }
 
