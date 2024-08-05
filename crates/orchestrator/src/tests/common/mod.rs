@@ -5,6 +5,7 @@ use std::sync::Arc;
 
 use ::uuid::Uuid;
 use aws_config::meta::region::RegionProviderChain;
+use aws_config::Region;
 use constants::*;
 use da_client_interface::MockDaClient;
 use mongodb::Client;
@@ -115,7 +116,7 @@ pub async fn create_sqs_queues() -> color_eyre::Result<()> {
 }
 
 async fn get_sqs_client() -> aws_sdk_sqs::Client {
-    let region_provider = RegionProviderChain::default_provider().or_else("ap-south-1");
+    let region_provider = Region::new("us-east-1");
     let config = aws_config::from_env().region(region_provider).load().await;
     aws_sdk_sqs::Client::new(&config)
 }
