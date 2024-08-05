@@ -8,8 +8,6 @@ use crate::config::Config;
 use crate::jobs::types::{JobItem, JobStatus, JobType, JobVerificationStatus};
 use crate::jobs::Job;
 
-use super::JobError;
-
 pub struct SnosJob;
 
 #[async_trait]
@@ -19,7 +17,7 @@ impl Job for SnosJob {
         _config: &Config,
         internal_id: String,
         metadata: HashMap<String, String>,
-    ) -> Result<JobItem, JobError> {
+    ) -> Result<JobItem> {
         Ok(JobItem {
             id: Uuid::new_v4(),
             internal_id,
@@ -31,16 +29,16 @@ impl Job for SnosJob {
         })
     }
 
-    async fn process_job(&self, _config: &Config, _job: &mut JobItem) -> Result<String, JobError> {
+    async fn process_job(&self, _config: &Config, _job: &mut JobItem) -> Result<String> {
         // 1. Fetch SNOS input data from Madara
         // 2. Import SNOS in Rust and execute it with the input data
         // 3. Store the received PIE in DB
         todo!()
     }
 
-    async fn verify_job(&self, _config: &Config, _job: &mut JobItem) -> Result<JobVerificationStatus, JobError> {
+    async fn verify_job(&self, _config: &Config, _job: &mut JobItem) -> Result<JobVerificationStatus> {
         // No need for verification as of now. If we later on decide to outsource SNOS run
-        // to another service, verify_job can be used to poll on the status of the job
+        // to another servicehow a, verify_job can be used to poll on the status of the job
         todo!()
     }
 
