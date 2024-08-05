@@ -43,6 +43,10 @@ jobs:
         run: |
           cargo llvm-cov nextest --release --lcov --output-path lcov.info --test-threads=1
 
+      - name: Temp Check (list queues)
+        run: |
+          aws --endpoint-url=http://localhost:4566 sqs list-queues
+
       - name: Upload coverage to codecov.io
         uses: codecov/codecov-action@v3
         with:
