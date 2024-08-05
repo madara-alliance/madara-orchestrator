@@ -42,12 +42,12 @@ fn get_queue_url(queue_name: String) -> String {
 // TODO: store the producer and consumer in memory to avoid creating a new one every time
 async fn get_producer(queue: String) -> Result<SqsProducer> {
     let (producer, _) =
-        SqsBackend::builder(SqsConfig { queue_dsn: queue, override_endpoint: false }).build_pair().await?;
+        SqsBackend::builder(SqsConfig { queue_dsn: queue, override_endpoint: true }).build_pair().await?;
     Ok(producer)
 }
 
 async fn get_consumer(queue: String) -> std::result::Result<SqsConsumer, QueueError> {
     let (_, consumer) =
-        SqsBackend::builder(SqsConfig { queue_dsn: queue, override_endpoint: false }).build_pair().await?;
+        SqsBackend::builder(SqsConfig { queue_dsn: queue, override_endpoint: true }).build_pair().await?;
     Ok(consumer)
 }

@@ -18,7 +18,8 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 - GitHub's coverage CI yml file for localstack and db testing.
 - Orchestrator :Moved TestConfigBuilder to `config.rs` in tests folder.
-- `.env` file requires two more variables which are queue urls for processing and verification.
+- `.env` file requires two more variables which are queue urls for processing 
+and verification.
 
 ## Removed
 
