@@ -9,7 +9,6 @@ use alloy::consensus::{
 use alloy::eips::eip2718::Encodable2718;
 use alloy::eips::eip2930::AccessList;
 use alloy::eips::eip4844::BYTES_PER_BLOB;
-use alloy::primitives::FixedBytes;
 use alloy::{
     network::EthereumWallet,
     primitives::{Address, B256, U256},
@@ -21,7 +20,7 @@ use async_trait::async_trait;
 use c_kzg::{Blob, Bytes32, KzgCommitment, KzgProof, KzgSettings};
 use color_eyre::eyre::eyre;
 use color_eyre::Result;
-use conversion::get_txn_input_bytes;
+use conversion::{get_txn_input_bytes, prepare_sidecar};
 use mockall::{automock, lazy_static, predicate::*};
 
 use std::path::{Path, PathBuf};
@@ -215,29 +214,4 @@ impl SettlementClient for EthereumSettlementClient {
         let block_number = self.core_contract_client.state_block_number().await?;
         Ok(block_number.try_into()?)
     }
-}
-
-/// To prepare the sidecar for EIP 4844 transaction
-async fn prepare_sidecar(
-    state_diff: &[Vec<u8>],
-    trusted_setup: &KzgSettings,
-) -> Result<(Vec<FixedBytes<131072>>, Vec<FixedBytes<48>>, Vec<FixedBytes<48>>)> {
-    let mut sidecar_blobs = vec![];
-    let mut sidecar_commitments = vec![];
-    let mut sidecar_proofs = vec![];
-
-    for blob_data in state_diff {
-        let fixed_size_blob: [u8; BYTES_PER_BLOB] = blob_data.as_slice().try_into()?;
-
-        let blob = Blob::new(fixed_size_blob);
-
-        let commitment = KzgCommitment::blob_to_kzg_commitment(&blob, trusted_setup)?;
-        let proof = KzgProof::compute_blob_kzg_proof(&blob, &commitment.to_bytes(), trusted_setup)?;
-
-        sidecar_blobs.push(FixedBytes::new(fixed_size_blob));
-        sidecar_commitments.push(FixedBytes::new(commitment.to_bytes().into_inner()));
-        sidecar_proofs.push(FixedBytes::new(proof.to_bytes().into_inner()));
-    }
-
-    Ok((sidecar_blobs, sidecar_commitments, sidecar_proofs))
 }
