@@ -15,14 +15,15 @@ async fn test_database_connection() -> color_eyre::Result<()> {
 
 #[fixture]
 async fn get_config() -> Guard<Arc<Config>> {
-    TestConfigBuilder::new().build().await;
     config().await
 }
 
 /// Tests for `create_job` operation in database trait.
 /// Creates 3 jobs and asserts them.
 #[rstest]
+#[tokio::test]
 async fn test_database_create_job(#[future] get_config: Guard<Arc<Config>>) -> color_eyre::Result<()> {
+    TestConfigBuilder::new().build().await;
     let config = get_config.await;
     let database_client = config.database();
 
