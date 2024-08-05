@@ -4,29 +4,17 @@ use std::str::FromStr;
 
 use async_trait::async_trait;
 use cairo_vm::vm::runners::cairo_pie::CairoPie;
-use color_eyre::eyre::WrapErr;
+use color_eyre::eyre::eyre;
+use color_eyre::Result;
 use prover_client_interface::{Task, TaskStatus};
-use thiserror::Error;
 use tracing::log::log;
 use tracing::log::Level::Error;
 use uuid::Uuid;
 
 use super::constants::JOB_METADATA_CAIRO_PIE_PATH_KEY;
 use super::types::{JobItem, JobStatus, JobType, JobVerificationStatus};
-use super::{Job, JobError};
+use super::Job;
 use crate::config::Config;
-
-#[derive(Error, Debug)]
-pub enum ProvingError {
-    #[error("Cairo PIE path is not specified - prover job #{internal_id:?}")]
-    CairoPIEWrongPath { internal_id: String },
-
-    #[error("Not able to read the cairo PIE file from the zip file provided.")]
-    CairoPIENotReadable,
-
-    #[error("Other error: {0}")]
-    Other(#[from] color_eyre::eyre::Error),
-}
 
 pub struct ProvingJob;
 
@@ -37,10 +25,9 @@ impl Job for ProvingJob {
         _config: &Config,
         internal_id: String,
         metadata: HashMap<String, String>,
-    ) -> Result<JobItem, JobError> {
+    ) -> Result<JobItem> {
         if !metadata.contains_key(JOB_METADATA_CAIRO_PIE_PATH_KEY) {
-            // TODO: validate the usage of `.clone()` here, ensure lightweight borrowing of variables
-            Err(ProvingError::CairoPIEWrongPath { internal_id: internal_id.clone() })?
+            return Err(eyre!("Cairo PIE path is not specified (prover job #{})", internal_id));
         }
         Ok(JobItem {
             id: Uuid::new_v4(),
@@ -53,32 +40,22 @@ impl Job for ProvingJob {
         })
     }
 
-    async fn process_job(&self, config: &Config, job: &mut JobItem) -> Result<String, JobError> {
+    async fn process_job(&self, config: &Config, job: &mut JobItem) -> Result<String> {
         // TODO: allow to download PIE from storage
-        let cairo_pie_path = job
+        let cairo_pie_path: PathBuf = job
             .metadata
             .get(JOB_METADATA_CAIRO_PIE_PATH_KEY)
             .map(|s| PathBuf::from_str(s))
-            .ok_or_else(|| ProvingError::CairoPIEWrongPath { internal_id: job.internal_id.clone() })?
-            .map_err(|_| ProvingError::CairoPIENotReadable)?;
-
-        let cairo_pie = CairoPie::read_zip_file(&cairo_pie_path).map_err(|_| ProvingError::CairoPIENotReadable)?;
-
-        let external_id = config
-            .prover_client()
-            .submit_task(Task::CairoPie(cairo_pie))
-            .await
-            .wrap_err("Prover Client Error".to_string())?;
-
+            .ok_or_else(|| eyre!("Cairo PIE path is not specified (prover job #{})", job.internal_id))??;
+        let cairo_pie = CairoPie::read_zip_file(&cairo_pie_path)
+            .expect("Not able to read the cairo PIE file from the zip file provided.");
+        let external_id = config.prover_client().submit_task(Task::CairoPie(cairo_pie)).await?;
         Ok(external_id)
     }
 
-    async fn verify_job(&self, config: &Config, job: &mut JobItem) -> Result<JobVerificationStatus, JobError> {
+    async fn verify_job(&self, config: &Config, job: &mut JobItem) -> Result<JobVerificationStatus> {
         let task_id: String = job.external_id.unwrap_string()?.into();
-        let task_status =
-            config.prover_client().get_task_status(&task_id).await.wrap_err("Prover Client Error".to_string())?;
-
-        match task_status {
+        match config.prover_client().get_task_status(&task_id).await? {
             TaskStatus::Processing => Ok(JobVerificationStatus::Pending),
             TaskStatus::Succeeded => Ok(JobVerificationStatus::Verified),
             TaskStatus::Failed(err) => {
