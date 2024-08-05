@@ -4,7 +4,6 @@ use std::collections::HashMap;
 use std::sync::Arc;
 
 use ::uuid::Uuid;
-use aws_config::meta::region::RegionProviderChain;
 use aws_config::Region;
 use constants::*;
 use da_client_interface::MockDaClient;
@@ -101,10 +100,10 @@ pub async fn create_sqs_queues() -> color_eyre::Result<()> {
     // Dropping sqs queues
     let list_queues_output = sqs_client.list_queues().send().await?;
     let queue_urls = list_queues_output.queue_urls();
-    log::debug!("Found {} queues", queue_urls.len());
+    println!("Found {} queues", queue_urls.len());
     for queue_url in queue_urls {
         match sqs_client.delete_queue().queue_url(queue_url).send().await {
-            Ok(_) => log::debug!("Successfully deleted queue: {}", queue_url),
+            Ok(_) => println!("Successfully deleted queue: {}", queue_url),
             Err(e) => eprintln!("Error deleting queue {}: {:?}", queue_url, e),
         }
     }
@@ -112,10 +111,13 @@ pub async fn create_sqs_queues() -> color_eyre::Result<()> {
     // Creating SQS queues
     sqs_client.create_queue().queue_name(JOB_PROCESSING_QUEUE).send().await?;
     sqs_client.create_queue().queue_name(JOB_VERIFICATION_QUEUE).send().await?;
+    let list_queues_output = sqs_client.list_queues().send().await?.queue_urls.unwrap();
+    println!(">>> list_queues_output: {:?}", list_queues_output);
     Ok(())
 }
 
 async fn get_sqs_client() -> aws_sdk_sqs::Client {
+    // This function is for localstack. So we can hardcode the region for this as of now.
     let region_provider = Region::new("us-east-1");
     let config = aws_config::from_env().region(region_provider).load().await;
     aws_sdk_sqs::Client::new(&config)

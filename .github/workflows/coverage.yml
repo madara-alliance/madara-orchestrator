@@ -39,13 +39,13 @@ jobs:
         run: |
           cargo llvm-cov clean --workspace
 
+      - name: Cargo test temp
+        run: |
+          RUST_LOG=debug cargo test -- create_job_job_does_not_exists_in_db_works --nocapture --test-threads=1
+
       - name: Run llvm-cov
         run: |
           cargo llvm-cov nextest --release --lcov --output-path lcov.info --test-threads=1
-
-      - name: Temp Check (list queues)
-        run: |
-          aws --endpoint-url=http://localhost:4566 sqs list-queues
 
       - name: Upload coverage to codecov.io
         uses: codecov/codecov-action@v3
