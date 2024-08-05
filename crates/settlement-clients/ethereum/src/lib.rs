@@ -9,7 +9,7 @@ use alloy::consensus::{
 use alloy::eips::eip2718::Encodable2718;
 use alloy::eips::eip2930::AccessList;
 use alloy::eips::eip4844::BYTES_PER_BLOB;
-use alloy::primitives::{Bytes, FixedBytes};
+use alloy::primitives::FixedBytes;
 use alloy::{
     network::EthereumWallet,
     primitives::{Address, B256, U256},
@@ -21,9 +21,9 @@ use async_trait::async_trait;
 use c_kzg::{Blob, Bytes32, KzgCommitment, KzgProof, KzgSettings};
 use color_eyre::eyre::eyre;
 use color_eyre::Result;
+use conversion::get_txn_input_bytes;
 use mockall::{automock, lazy_static, predicate::*};
-use rstest::rstest;
-use std::fmt::Write;
+
 use std::path::{Path, PathBuf};
 use std::str::FromStr;
 use std::sync::Arc;
@@ -163,7 +163,7 @@ impl SettlementClient for EthereumSettlementClient {
         .expect("Unable to build KZG proof for given params.")
         .to_owned();
 
-        let tx = TxEip4844 {
+        let tx: TxEip4844 = TxEip4844 {
             chain_id,
             nonce,
             gas_limit: 30_000_000,
@@ -243,80 +243,4 @@ async fn prepare_sidecar(
     }
 
     Ok((sidecar_blobs, sidecar_commitments, sidecar_proofs))
-}
-
-/// Function to construct the transaction for updating the state in core contract.
-fn get_txn_input_bytes(program_output: Vec<[u8; 32]>, kzg_proof: [u8; 48]) -> Bytes {
-    let program_output_hex_string = vec_u8_32_to_hex_string(program_output);
-    let kzg_proof_hex_string = u8_48_to_hex_string(kzg_proof);
-    // cast keccak "updateStateKzgDA(uint256[] calldata programOutput, bytes calldata kzgProof)" | cut -b 1-10
-    let function_selector = "0x1a790556";
-
-    Bytes::from(program_output_hex_string + &kzg_proof_hex_string + function_selector)
-}
-
-fn vec_u8_32_to_hex_string(data: Vec<[u8; 32]>) -> String {
-    data.into_iter().fold(String::new(), |mut output, arr| {
-        // Convert the array to a hex string
-        let hex = arr.iter().fold(String::new(), |mut output, byte| {
-            let _ = write!(output, "{byte:02x}");
-            output
-        });
-
-        // Ensure the hex string is exactly 64 characters (32 bytes)
-        let _ = write!(output, "{hex:0>64}");
-        output
-    })
-}
-
-fn u8_48_to_hex_string(data: [u8; 48]) -> String {
-    // Split the array into two parts
-    let (first_32, last_16) = data.split_at(32);
-
-    // Convert and pad each part
-    let first_hex = to_padded_hex(first_32);
-    let second_hex = to_padded_hex(last_16);
-
-    // Concatenate the two hex strings
-    first_hex + &second_hex
-}
-
-// Function to convert a slice of u8 to a padded hex string
-fn to_padded_hex(slice: &[u8]) -> String {
-    let hex = slice.iter().fold(String::new(), |mut output, byte| {
-        let _ = write!(output, "{byte:02x}");
-        output
-    });
-    format!("{:0<64}", hex)
-}
-
-#[rstest]
-fn test_data_conversion() {
-    let data: [u8; 48] = [
-        1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23, 24, 25, 26, 27, 28, 29, 30,
-        31, 32, 33, 34, 35, 36, 37, 38, 39, 40, 41, 42, 43, 44, 45, 46, 47, 48,
-    ];
-
-    let result = u8_48_to_hex_string(data);
-
-    assert_eq!(result, "0102030405060708090a0b0c0d0e0f101112131415161718191a1b1c1d1e1f202122232425262728292a2b2c2d2e2f3000000000000000000000000000000000");
-
-    let mut data_2: [u8; 32] = [
-        1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23, 24, 25, 26, 27, 28, 29, 30,
-        31, 32,
-    ];
-    let mut data_vec: Vec<[u8; 32]> = Vec::new();
-    data_vec.push(data_2);
-    data_2.reverse();
-    data_vec.push(data_2);
-
-    let data_3: [u8; 32] = [
-        1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23, 24, 25, 26, 27, 28, 29, 30,
-        0, 0,
-    ];
-    data_vec.push(data_3);
-
-    let result_2 = vec_u8_32_to_hex_string(data_vec);
-
-    assert_eq!(result_2, "0102030405060708090a0b0c0d0e0f101112131415161718191a1b1c1d1e1f20201f1e1d1c1b1a191817161514131211100f0e0d0c0b0a0908070605040302010102030405060708090a0b0c0d0e0f101112131415161718191a1b1c1d1e0000");
 }
