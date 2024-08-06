@@ -3,6 +3,7 @@ use rstest::*;
 use settlement_client_interface::MockSettlementClient;
 
 use bytes::Bytes;
+use color_eyre::eyre::eyre;
 use std::path::PathBuf;
 use std::{collections::HashMap, fs};
 
@@ -40,7 +41,7 @@ pub const X_0_FILE_NAME: &str = "x_0.txt";
 #[rstest]
 #[should_panic(expected = "Could not find current attempt number.")]
 #[tokio::test]
-async fn test_process_job_attempt_no_not_present_fails() {
+async fn test_process_job_attempt_not_present_fails() {
     TestConfigBuilder::new().build().await;
 
     let mut job = default_job_item();
@@ -50,17 +51,24 @@ async fn test_process_job_attempt_no_not_present_fails() {
 }
 
 #[rstest]
+#[case(None, String::from("651053,651054,651055"), 0)]
+#[case(Some(651054), String::from("651053,651054,651055"), 1)]
 #[tokio::test]
-async fn test_process_job_works() {
+async fn test_process_job_works(
+    #[case] failed_block_number: Option<u64>,
+    #[case] blocks_to_process: String,
+    #[case] processing_start_index: u8,
+) {
     // Will be used by storage client which we call while storing the data.
     dotenvy::from_filename("../.env.test").expect("Failed to load the .env file");
 
     // Mocking the settlement client.
     let mut settlement_client = MockSettlementClient::new();
 
-    let block_numbers: Vec<u64> = vec![651053, 651054, 651055];
+    let block_numbers: Vec<u64> = parse_block_numbers(&blocks_to_process).unwrap();
+
     // This must be the last block number and should be returned as an output from the process job.
-    let last_block_number = "651055";
+    let last_block_number = block_numbers[block_numbers.len() - 1];
 
     // Storing `blob_data` and `snos_output` in storage client
     store_data_in_storage_client_for_s3(block_numbers.clone()).await;
@@ -70,15 +78,15 @@ async fn test_process_job_works() {
     TestConfigBuilder::new().build().await;
 
     // Adding expectations for each block number to be called by settlement client.
-    for i in block_numbers {
-        let blob_data = fetch_blob_data_for_block(i).await.unwrap();
+    for (i, _) in block_numbers.iter().enumerate().skip(processing_start_index as usize) {
+        let blob_data = fetch_blob_data_for_block(block_numbers[i]).await.unwrap();
         settlement_client
             .expect_update_state_with_blobs()
             .with(eq(vec![]), eq(blob_data))
             .times(1)
             .returning(|_, _| Ok("0xbeef".to_string()));
     }
-    settlement_client.expect_get_last_settled_block().with().returning(|| Ok(651052));
+    settlement_client.expect_get_last_settled_block().with().returning(move || Ok(651052));
 
     // Building new config with mocked settlement client
     TestConfigBuilder::new().mock_settlement_client(Box::new(settlement_client)).build().await;
@@ -88,8 +96,10 @@ async fn test_process_job_works() {
     // here total blocks to process will be 3.
     let mut metadata: HashMap<String, String> = HashMap::new();
     metadata.insert(JOB_PROCESS_ATTEMPT_METADATA_KEY.to_string(), "0".to_string());
-    metadata.insert(JOB_METADATA_STATE_UPDATE_LAST_FAILED_BLOCK_NO.to_string(), "651053".to_string());
-    metadata.insert(JOB_METADATA_STATE_UPDATE_BLOCKS_TO_SETTLE_KEY.to_string(), "651053,651054,651055".to_string());
+    if let Some(block_number) = failed_block_number {
+        metadata.insert(JOB_METADATA_STATE_UPDATE_LAST_FAILED_BLOCK_NO.to_string(), block_number.to_string());
+    }
+    metadata.insert(JOB_METADATA_STATE_UPDATE_BLOCKS_TO_SETTLE_KEY.to_string(), blocks_to_process);
 
     // creating a `JobItem`
     let mut job = default_job_item();
@@ -303,4 +313,14 @@ async fn store_data_in_storage_client_for_s3(block_numbers: Vec<u64>) {
         storage_client.put_data(Bytes::from(snos_output_data), &snos_output_key).await.unwrap();
         storage_client.put_data(Bytes::from(blob_serialized), &blob_data_key).await.unwrap();
     }
+}
+
+fn parse_block_numbers(blocks_to_settle: &str) -> color_eyre::Result<Vec<u64>> {
+    let sanitized_blocks = blocks_to_settle.replace(' ', "");
+    let block_numbers: Vec<u64> = sanitized_blocks
+        .split(',')
+        .map(|block_no| block_no.parse::<u64>())
+        .collect::<color_eyre::Result<Vec<u64>, _>>()
+        .map_err(|e| eyre!("Block numbers to settle list is not correctly formatted: {e}"))?;
+    Ok(block_numbers)
 }
