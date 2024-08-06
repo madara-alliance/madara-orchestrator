@@ -98,7 +98,7 @@ pub enum JobStatus {
     /// The job was processed but the was unable to be verified under the given time
     VerificationTimeout,
     /// The job failed processing
-    VerificationFailed(String),
+    VerificationFailed,
     /// The job failed completing
     Failed,
 }
@@ -115,6 +115,7 @@ impl fmt::Display for JobStatus {
             JobStatus::Failed => write!(f, "Failed"),
         }
     }
+    VerificationFailed,
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone, PartialEq)]

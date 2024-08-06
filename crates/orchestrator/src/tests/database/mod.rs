@@ -1,8 +1,9 @@
-use crate::config::config;
+use crate::config::{config, Config};
 use crate::jobs::types::{ExternalId, JobItem, JobStatus, JobType};
-use crate::tests::common::drop_database;
 use crate::tests::config::TestConfigBuilder;
+use arc_swap::Guard;
 use rstest::*;
+use std::sync::Arc;
 use uuid::Uuid;
 
 #[rstest]
@@ -12,16 +13,18 @@ async fn test_database_connection() -> color_eyre::Result<()> {
     Ok(())
 }
 
+#[fixture]
+async fn get_config() -> Guard<Arc<Config>> {
+    config().await
+}
+
 /// Tests for `create_job` operation in database trait.
 /// Creates 3 jobs and asserts them.
 #[rstest]
 #[tokio::test]
-async fn test_database_create_job() -> color_eyre::Result<()> {
+async fn test_database_create_job(#[future] get_config: Guard<Arc<Config>>) -> color_eyre::Result<()> {
     TestConfigBuilder::new().build().await;
-
-    drop_database().await.unwrap();
-
-    let config = config().await;
+    let config = get_config.await;
     let database_client = config.database();
 
     let job_vec = [
