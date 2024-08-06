@@ -54,7 +54,7 @@ async fn test_process_job_attempt_no_not_present_fails() {
 async fn test_process_job_works() {
     // Will be used by storage client which we call while storing the data.
     dotenvy::from_filename("../.env.test").expect("Failed to load the .env file");
-    
+
     // Mocking the settlement client.
     let mut settlement_client = MockSettlementClient::new();
 
