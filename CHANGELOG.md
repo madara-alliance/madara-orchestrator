@@ -12,6 +12,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 - Function to update the state and publish blob on ethereum in state update job.
 - Fixtures for testing.
 - Added basic rust-toolchain support.
+- Added tests for state update job.
 
 ## Changed
 

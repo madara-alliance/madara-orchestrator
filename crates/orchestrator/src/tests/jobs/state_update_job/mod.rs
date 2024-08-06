@@ -21,15 +21,88 @@ use crate::jobs::{
 use crate::config::{config, config_force_init};
 use crate::constants::{BLOB_DATA_FILE_NAME, SNOS_OUTPUT_FILE_NAME};
 use crate::data_storage::MockDataStorage;
-use crate::jobs::state_update_job::utils::hex_string_to_u8_vec;
+use crate::jobs::constants::JOB_METADATA_STATE_UPDATE_LAST_FAILED_BLOCK_NO;
+use crate::jobs::state_update_job::utils::{fetch_blob_data_for_block, hex_string_to_u8_vec};
+use crate::tests::common::{default_job_item, get_storage_client};
+use crate::tests::config::TestConfigBuilder;
 use httpmock::prelude::*;
 use lazy_static::lazy_static;
+use utils::env_utils::get_env_var_or_panic;
 
 lazy_static! {
     pub static ref CURRENT_PATH: PathBuf = std::env::current_dir().unwrap();
 }
 
 pub const X_0_FILE_NAME: &str = "x_0.txt";
+
+// ================= Exhaustive tests (with minimum mock) =================
+
+#[rstest]
+#[should_panic(expected = "Could not find current attempt number.")]
+#[tokio::test]
+async fn test_process_job_attempt_no_not_present_fails() {
+    TestConfigBuilder::new().build().await;
+
+    let mut job = default_job_item();
+    let config = config().await;
+    let state_update_job = StateUpdateJob {};
+    let _ = state_update_job.process_job(&config, &mut job).await;
+}
+
+#[rstest]
+#[tokio::test]
+async fn test_process_job_works() {
+    // Will be used by storage client which we call while storing the data.
+    dotenvy::from_filename("../.env.test").expect("Failed to load the .env file");
+    
+    // Mocking the settlement client.
+    let mut settlement_client = MockSettlementClient::new();
+
+    let block_numbers: Vec<u64> = vec![651053, 651054, 651055];
+    // This must be the last block number and should be returned as an output from the process job.
+    let last_block_number = "651055";
+
+    // Storing `blob_data` and `snos_output` in storage client
+    store_data_in_storage_client_for_s3(block_numbers.clone()).await;
+
+    // Building a temp config that will be used by `fetch_blob_data_for_block` and `fetch_snos_for_block`
+    // functions while fetching the blob data from storage client.
+    TestConfigBuilder::new().build().await;
+
+    // Adding expectations for each block number to be called by settlement client.
+    for i in block_numbers {
+        let blob_data = fetch_blob_data_for_block(i).await.unwrap();
+        settlement_client
+            .expect_update_state_with_blobs()
+            .with(eq(vec![]), eq(blob_data))
+            .times(1)
+            .returning(|_, _| Ok("0xbeef".to_string()));
+    }
+    settlement_client.expect_get_last_settled_block().with().returning(|| Ok(651052));
+
+    // Building new config with mocked settlement client
+    TestConfigBuilder::new().mock_settlement_client(Box::new(settlement_client)).build().await;
+
+    // setting last failed block number as 651053.
+    // setting blocks yet to process as 651054 and 651055.
+    // here total blocks to process will be 3.
+    let mut metadata: HashMap<String, String> = HashMap::new();
+    metadata.insert(JOB_PROCESS_ATTEMPT_METADATA_KEY.to_string(), "0".to_string());
+    metadata.insert(JOB_METADATA_STATE_UPDATE_LAST_FAILED_BLOCK_NO.to_string(), "651053".to_string());
+    metadata.insert(JOB_METADATA_STATE_UPDATE_BLOCKS_TO_SETTLE_KEY.to_string(), "651053,651054,651055".to_string());
+
+    // creating a `JobItem`
+    let mut job = default_job_item();
+    job.job_type = JobType::StateTransition;
+    job.metadata = metadata;
+
+    let config = config().await;
+    let state_update_job = StateUpdateJob {};
+    let res = state_update_job.process_job(&config, &mut job).await.unwrap();
+    assert_eq!(res, last_block_number.to_string());
+}
+
+// ==================== Mock Tests (Unit tests) ===========================
 
 #[rstest]
 #[tokio::test]
@@ -204,4 +277,30 @@ async fn load_state_diff_file(block_no: u64) -> Vec<Vec<u8>> {
     let blob_data = hex_string_to_u8_vec(&file_data).unwrap();
     state_diff_vec.push(blob_data);
     state_diff_vec
+}
+
+async fn store_data_in_storage_client_for_s3(block_numbers: Vec<u64>) {
+    let storage_client = get_storage_client().await;
+    storage_client.build_test_bucket(&get_env_var_or_panic("AWS_S3_BUCKET_NAME")).await.unwrap();
+
+    for block in block_numbers {
+        // Getting the blob data from file.
+        let blob_data_key = block.to_owned().to_string() + "/" + BLOB_DATA_FILE_NAME;
+        let blob_data = fs::read_to_string(
+            CURRENT_PATH.join(format!("src/tests/jobs/state_update_job/test_data/{}/{}", block, BLOB_DATA_FILE_NAME)),
+        )
+        .unwrap();
+        let blob_data_vec = vec![hex_string_to_u8_vec(&blob_data).unwrap()];
+        let blob_serialized = bincode::serialize(&blob_data_vec).unwrap();
+
+        // Getting the snos data from file.
+        let snos_output_key = block.to_owned().to_string() + "/" + SNOS_OUTPUT_FILE_NAME;
+        let snos_output_data = fs::read_to_string(
+            CURRENT_PATH.join(format!("src/tests/jobs/state_update_job/test_data/{}/{}", block, SNOS_OUTPUT_FILE_NAME)),
+        )
+        .unwrap();
+
+        storage_client.put_data(Bytes::from(snos_output_data), &snos_output_key).await.unwrap();
+        storage_client.put_data(Bytes::from(blob_serialized), &blob_data_key).await.unwrap();
+    }
 }
