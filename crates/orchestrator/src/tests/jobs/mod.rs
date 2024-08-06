@@ -183,9 +183,7 @@ async fn process_job_with_job_exists_in_db_with_invalid_job_processing_status_er
 
     let job_in_db = database_client.get_job_by_id(job_item.id).await.unwrap().unwrap();
     // Job should be untouched in db.
-    assert_eq!(job_in_db.status, JobStatus::Completed);
-    assert_eq!(job_in_db.version, 0);
-    assert_eq!(job_in_db.metadata.get(JOB_PROCESS_ATTEMPT_METADATA_KEY).unwrap(), "0");
+    assert_eq!(job_in_db, job_item);
 
     // Waiting for 5 secs for message to be passed into the queue
     sleep(Duration::from_secs(5)).await;
