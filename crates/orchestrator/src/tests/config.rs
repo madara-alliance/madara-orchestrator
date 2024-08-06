@@ -110,7 +110,6 @@ impl TestConfigBuilder {
         // Deleting the database
         drop_database().await.expect("Unable to drop the database.");
 
-        // return config and server as tuple
         let config = Config::new(
             self.starknet_client.unwrap_or_else(|| {
                 let provider = JsonRpcClient::new(HttpTransport::new(
