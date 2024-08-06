@@ -100,10 +100,7 @@ mod tests {
     use super::*;
     use color_eyre::eyre::eyre;
     use rstest::rstest;
-    use std::{
-        fs,
-        path::Path,
-    };
+    use std::{fs, path::Path};
 
     #[rstest]
     #[case::typical(&[

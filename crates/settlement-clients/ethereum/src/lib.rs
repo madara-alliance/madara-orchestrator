@@ -60,9 +60,8 @@ impl EthereumSettlementClient {
 
         let private_key = get_env_var_or_panic(ENV_PRIVATE_KEY);
         let signer: PrivateKeySigner = private_key.parse().expect("Failed to parse private key");
-        let wallet = EthereumWallet::from(signer.clone());
-
         let wallet_address = signer.address();
+        let wallet = EthereumWallet::from(signer);
 
         let provider = Arc::new(
             ProviderBuilder::new().with_recommended_fillers().wallet(wallet.clone()).on_http(settlement_cfg.rpc_url),
@@ -77,7 +76,7 @@ impl EthereumSettlementClient {
 
     /// Build kzg proof for the x_0 point evaluation
     async fn build_proof(blob_data: Vec<Vec<u8>>, x_0_value: Bytes32) -> Result<KzgProof> {
-        // Asserting that there is only one blob in the whole Vec<Vec<u8>> array for now.
+        // Assuming that there is only one blob in the whole Vec<Vec<u8>> array for now.
         // Later we will add the support for multiple blob in single blob_data vec.
         assert_eq!(blob_data.len(), 1);
 
@@ -172,7 +171,7 @@ impl SettlementClient for EthereumSettlementClient {
             max_fee_per_blob_gas,
             input: get_txn_input_bytes(program_output, kzg_proof),
         };
-        let tx_sidecar = TxEip4844WithSidecar { tx: tx.clone(), sidecar: sidecar.clone() };
+        let tx_sidecar = TxEip4844WithSidecar { tx, sidecar };
         let mut variant = TxEip4844Variant::from(tx_sidecar);
 
         // Sign and submit
