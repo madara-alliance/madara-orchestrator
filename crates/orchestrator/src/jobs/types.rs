@@ -111,11 +111,10 @@ impl fmt::Display for JobStatus {
             JobStatus::PendingVerification => write!(f, "Pending Verification"),
             JobStatus::Completed => write!(f, "Completed"),
             JobStatus::VerificationTimeout => write!(f, "Verification Timeout"),
-            JobStatus::VerificationFailed(reason) => write!(f, "Verification Failed: {}", reason),
+            JobStatus::VerificationFailed => write!(f, "Verification Failed"),
             JobStatus::Failed => write!(f, "Failed"),
         }
     }
-    VerificationFailed,
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone, PartialEq)]
