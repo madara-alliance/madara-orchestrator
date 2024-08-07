@@ -1,3 +1,10 @@
+use std::collections::HashMap;
+use std::fs;
+use std::path::PathBuf;
+
+use bytes::Bytes;
+use httpmock::prelude::*;
+use lazy_static::lazy_static;
 use mockall::predicate::eq;
 use rstest::*;
 use settlement_client_interface::MockSettlementClient;
@@ -8,17 +15,6 @@ use std::path::PathBuf;
 use std::{collections::HashMap, fs};
 
 use super::super::common::init_config;
-
-use crate::jobs::{
-    constants::{
-        JOB_METADATA_STATE_UPDATE_BLOCKS_TO_SETTLE_KEY, JOB_METADATA_STATE_UPDATE_FETCH_FROM_TESTS,
-        JOB_PROCESS_ATTEMPT_METADATA_KEY,
-    },
-    state_update_job::StateUpdateJob,
-    types::{JobStatus, JobType},
-    Job,
-};
-
 use crate::config::{config, config_force_init};
 use crate::constants::{BLOB_DATA_FILE_NAME, SNOS_OUTPUT_FILE_NAME};
 use crate::data_storage::MockDataStorage;
@@ -29,6 +25,14 @@ use crate::tests::config::TestConfigBuilder;
 use httpmock::prelude::*;
 use lazy_static::lazy_static;
 use utils::env_utils::get_env_var_or_panic;
+use crate::jobs::constants::{
+    JOB_METADATA_STATE_UPDATE_BLOCKS_TO_SETTLE_KEY, JOB_METADATA_STATE_UPDATE_FETCH_FROM_TESTS,
+    JOB_PROCESS_ATTEMPT_METADATA_KEY,
+};
+use crate::jobs::state_update_job::utils::hex_string_to_u8_vec;
+use crate::jobs::state_update_job::StateUpdateJob;
+use crate::jobs::types::{JobStatus, JobType};
+use crate::jobs::Job;
 
 lazy_static! {
     pub static ref CURRENT_PATH: PathBuf = std::env::current_dir().unwrap();
