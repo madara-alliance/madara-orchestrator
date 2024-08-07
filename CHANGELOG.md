@@ -14,6 +14,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 - Fixtures for testing.
 - Basic rust-toolchain support.
 - `AWS_DEFAULT_REGION="localhost"` var. in .env.test for omniqueue queue testing.
+- Added basic rust-toolchain support.
 
 ## Changed
 

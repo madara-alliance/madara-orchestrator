@@ -4,6 +4,7 @@ use crate::config::{build_da_client, build_prover_service, build_settlement_clie
 use crate::data_storage::DataStorage;
 use da_client_interface::DaClient;
 use httpmock::MockServer;
+
 use prover_client_interface::ProverClient;
 use settlement_client_interface::SettlementClient;
 use starknet::providers::jsonrpc::HttpTransport;
@@ -17,6 +18,7 @@ use crate::database::{Database, DatabaseConfig};
 use crate::queue::sqs::SqsQueue;
 use crate::queue::QueueProvider;
 use crate::tests::common::{create_sqs_queues, drop_database, get_storage_client};
+
 // Inspiration : https://rust-unofficial.github.io/patterns/patterns/creational/builder.html
 // TestConfigBuilder allows to heavily customise the global configs based on the test's requirement.
 // Eg: We want to mock only the da client and leave rest to be as it is, use mock_da_client.

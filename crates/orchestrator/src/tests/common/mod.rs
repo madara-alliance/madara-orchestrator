@@ -125,6 +125,7 @@ async fn get_sqs_client() -> aws_sdk_sqs::Client {
 pub struct MessagePayloadType {
     pub(crate) id: Uuid,
 }
+
 pub async fn get_storage_client() -> Box<dyn DataStorage + Send + Sync> {
     Box::new(AWSS3::new(AWSS3ConfigType::WithEndpoint(S3LocalStackConfig::new_from_env())).await)
 }
