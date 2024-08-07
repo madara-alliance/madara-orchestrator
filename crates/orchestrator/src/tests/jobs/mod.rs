@@ -579,8 +579,7 @@ async fn handle_job_failure_job_status_typical_works(#[case] job_type: JobType, 
                 // check if job status is Failure
                 assert_eq!(job_item.status, JobStatus::Failed);
                 // check if job metadata has `last_job_status`
-                assert_ne!(None, job_item.metadata.get("last_job_status"));
-
+                assert!(job_item.metadata.get("last_job_status").is_some());
                 println!("Handle Job Failure for ID {} was handled successfully", job_id);
             }
         }
