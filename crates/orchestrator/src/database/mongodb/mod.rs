@@ -54,14 +54,11 @@ impl MongoDb {
     /// Updates the job in the database optimistically. This means that the job is updated only if
     /// the version of the job in the database is the same as the version of the job passed in.
     /// If the version is different, the update fails.
-    async fn update_job_optimistically(&self, current_job: &JobItem, mut update: Document) -> Result<()> {
+    async fn update_job_optimistically(&self, current_job: &JobItem, update: Document) -> Result<()> {
         let filter = doc! {
             "id": current_job.id,
             "version": current_job.version,
         };
-
-        update.insert("$inc", doc! { "version" : 1 });
-
         let options = UpdateOptions::builder().upsert(false).build();
         let result = self.get_job_collection().update_one(filter, update, options).await?;
         if result.modified_count == 0 {
@@ -267,11 +264,13 @@ impl Database for MongoDb {
     async fn get_jobs_after_internal_id_by_job_type(
         &self,
         job_type: JobType,
+        job_status: JobStatus,
         internal_id: String,
     ) -> Result<Vec<JobItem>> {
         let filter = doc! {
             "job_type": bson::to_bson(&job_type)?,
-            "internal_id" : { "$gt": internal_id },
+            "job_status": bson::to_bson(&job_status)?,
+            "internal_id": { "$gt": internal_id }
         };
 
         let jobs = self.get_job_collection().find(filter, None).await?.try_collect().await?;
