@@ -66,8 +66,6 @@ async fn test_database_create_job(#[future] get_config: Guard<Arc<Config>>) -> c
 async fn test_database_get_jobs_without_successor(#[case] is_successor: bool) -> color_eyre::Result<()> {
     TestConfigBuilder::new().build().await;
 
-    drop_database().await.unwrap();
-
     let config = config().await;
     let database_client = config.database();
 
@@ -103,7 +101,7 @@ async fn test_database_get_jobs_without_successor(#[case] is_successor: bool) ->
     Ok(())
 }
 
-/// Test for `get_last_successful_job_by_type` operation in database trait.
+/// Test for `test_database_get_last_successful_job_by_type` operation in database trait.
 /// Creates the jobs in following sequence :
 ///
 /// - Creates 3 successful jobs.
@@ -113,8 +111,6 @@ async fn test_database_get_jobs_without_successor(#[case] is_successor: bool) ->
 #[tokio::test]
 async fn test_database_get_last_successful_job_by_type() -> color_eyre::Result<()> {
     TestConfigBuilder::new().build().await;
-
-    drop_database().await.unwrap();
 
     let config = config().await;
     let database_client = config.database();
@@ -129,9 +125,9 @@ async fn test_database_get_last_successful_job_by_type() -> color_eyre::Result<(
     database_client.create_job(job_vec[1].clone()).await.unwrap();
     database_client.create_job(job_vec[2].clone()).await.unwrap();
 
-    let last_successful_job = database_client.get_last_successful_job_by_type(JobType::SnosRun).await.unwrap();
+    let last_successful_job = database_client.get_latest_job_by_type(JobType::SnosRun).await.unwrap().unwrap();
 
-    assert_eq!(last_successful_job.unwrap(), job_vec[2], "Expected job assertion failed");
+    assert_eq!(last_successful_job, job_vec[2], "Expected job assertion failed");
 
     Ok(())
 }
@@ -147,17 +143,16 @@ async fn test_database_get_last_successful_job_by_type() -> color_eyre::Result<(
 async fn test_database_get_jobs_after_internal_id_by_job_type() -> color_eyre::Result<()> {
     TestConfigBuilder::new().build().await;
 
-    drop_database().await.unwrap();
-
     let config = config().await;
     let database_client = config.database();
 
     let job_vec = [
         build_job_item(JobType::SnosRun, JobStatus::Completed, 1),
         build_job_item(JobType::SnosRun, JobStatus::Completed, 2),
-        build_job_item(JobType::SnosRun, JobStatus::Completed, 3),
-        build_job_item(JobType::SnosRun, JobStatus::Completed, 4),
+        build_job_item(JobType::ProofCreation, JobStatus::Completed, 3),
+        build_job_item(JobType::ProofCreation, JobStatus::Completed, 4),
         build_job_item(JobType::SnosRun, JobStatus::Completed, 5),
+        build_job_item(JobType::SnosRun, JobStatus::Completed, 6),
     ];
 
     database_client.create_job(job_vec[0].clone()).await.unwrap();
@@ -165,14 +160,14 @@ async fn test_database_get_jobs_after_internal_id_by_job_type() -> color_eyre::R
     database_client.create_job(job_vec[2].clone()).await.unwrap();
     database_client.create_job(job_vec[3].clone()).await.unwrap();
     database_client.create_job(job_vec[4].clone()).await.unwrap();
+    database_client.create_job(job_vec[5].clone()).await.unwrap();
 
     let jobs_after_internal_id =
         database_client.get_jobs_after_internal_id_by_job_type(JobType::SnosRun, "2".to_string()).await.unwrap();
 
-    assert_eq!(jobs_after_internal_id.len(), 3, "Number of jobs assertion failed");
-    assert_eq!(jobs_after_internal_id[0], job_vec[2]);
-    assert_eq!(jobs_after_internal_id[1], job_vec[3]);
-    assert_eq!(jobs_after_internal_id[2], job_vec[4]);
+    assert_eq!(jobs_after_internal_id.len(), 2, "Number of jobs assertion failed");
+    assert_eq!(jobs_after_internal_id[0], job_vec[4]);
+    assert_eq!(jobs_after_internal_id[1], job_vec[5]);
 
     Ok(())
 }
@@ -183,8 +178,6 @@ async fn test_database_get_jobs_after_internal_id_by_job_type() -> color_eyre::R
 #[tokio::test]
 async fn test_database_update_job_status_passing_case() -> color_eyre::Result<()> {
     TestConfigBuilder::new().build().await;
-
-    drop_database().await.unwrap();
 
     let config = config().await;
     let database_client = config.database();
@@ -206,8 +199,6 @@ async fn test_database_update_job_status_passing_case() -> color_eyre::Result<()
 #[tokio::test]
 async fn test_database_update_job_status_failing_case() -> color_eyre::Result<()> {
     TestConfigBuilder::new().build().await;
-
-    drop_database().await.unwrap();
 
     let config = config().await;
     let database_client = config.database();
