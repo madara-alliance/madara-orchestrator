@@ -1,6 +1,6 @@
 use std::sync::Arc;
 
-use crate::data_storage::aws_s3::config::AWSS3Config;
+use crate::data_storage::aws_s3::config::{AWSS3Config, AWSS3ConfigType};
 use crate::data_storage::aws_s3::AWSS3;
 use crate::data_storage::{DataStorage, DataStorageConfig};
 use arc_swap::{ArcSwap, Guard};
@@ -179,7 +179,7 @@ pub async fn build_settlement_client(
 
 pub async fn build_storage_client() -> Box<dyn DataStorage + Send + Sync> {
     match get_env_var_or_panic("DATA_STORAGE").as_str() {
-        "s3" => Box::new(AWSS3::new(AWSS3Config::new_from_env()).await),
+        "s3" => Box::new(AWSS3::new(AWSS3ConfigType::WithoutEndpoint(AWSS3Config::new_from_env())).await),
         _ => panic!("Unsupported Storage Client"),
     }
 }
