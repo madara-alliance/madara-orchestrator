@@ -3,7 +3,6 @@ use crate::config::config;
 use crate::jobs::handle_job_failure;
 use crate::jobs::types::JobType;
 use crate::{jobs::types::JobStatus, tests::config::TestConfigBuilder};
-use color_eyre::eyre::eyre;
 use rstest::rstest;
 use std::str::FromStr;
 #[cfg(test)]
@@ -27,7 +26,6 @@ async fn create_job_fails_works_new_job() {
     todo!()
 }
 
-#[cfg(test)]
 impl FromStr for JobStatus {
     type Err = String;
 
@@ -45,7 +43,6 @@ impl FromStr for JobStatus {
     }
 }
 
-#[cfg(test)]
 impl FromStr for JobType {
     type Err = String;
 
@@ -111,9 +108,10 @@ async fn handle_job_failure_job_status_typical_works(#[case] job_type: JobType, 
 
 #[rstest]
 // code should panic here, how can completed move to dl queue ?
-#[case("DataSubmission", "Completed")]
+#[case("DataSubmission")]
 #[tokio::test]
-async fn handle_job_failure__job_status_completed_fails(#[case] job_type: JobType, #[case] job_status: JobStatus) {
+async fn handle_job_failure__job_status_completed_works(#[case] job_type: JobType) {
+    let job_status = JobStatus::Completed;
     TestConfigBuilder::new().build().await;
     let internal_id = 1;
 
@@ -128,16 +126,12 @@ async fn handle_job_failure__job_status_completed_fails(#[case] job_type: JobTyp
     database_client.create_job(job.clone()).await.unwrap();
 
     // calling handle_job_failure
-    let response = handle_job_failure(job_id).await;
+    handle_job_failure(job_id).await.expect("Test call to handle_job_failure should have passed.");
 
-    match response {
-        Ok(()) => {
-            panic!("Test call to handle_job_failure should not have passed");
-        }
-        Err(err) => {
-            // Should only fail for Completed case, anything else : raise error
-            let expected = eyre!("Invalid state exists on DL queue: {}", job_status);
-            assert_eq!(err.to_string(), expected.to_string());
-        }
+    // The completed job status on db is untouched.
+    let job_fetched_result = config.database().get_job_by_id(job_id).await.expect("Unable to fetch Job Data");
+
+    if let Some(job_fetched) = job_fetched_result {
+        assert_eq!(job_fetched.status, JobStatus::Completed);
     }
 }

@@ -188,7 +188,8 @@ pub async fn handle_job_failure(id: Uuid) -> Result<()> {
     let mut metadata = job.metadata.clone();
 
     if job.status == JobStatus::Completed {
-        return Err(eyre!("Invalid state exists on DL queue: {}", job.status.to_string()));
+        log::error!("Invalid state exists on DL queue: {}", job.status.to_string());
+        return Ok(());
     }
     // We assume that a Failure status wil only show up if the message is sent twice from a queue
     // Can return silently because it's already been processed.
