@@ -27,7 +27,6 @@ impl Worker for UpdateStateWorker {
                     .database()
                     .get_jobs_after_internal_id_by_job_type(
                         JobType::ProofCreation,
-                        JobStatus::Completed,
                         latest_successful_job_internal_id,
                     )
                     .await?;

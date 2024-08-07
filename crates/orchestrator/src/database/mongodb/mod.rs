@@ -264,12 +264,10 @@ impl Database for MongoDb {
     async fn get_jobs_after_internal_id_by_job_type(
         &self,
         job_type: JobType,
-        job_status: JobStatus,
         internal_id: String,
     ) -> Result<Vec<JobItem>> {
         let filter = doc! {
             "job_type": bson::to_bson(&job_type)?,
-            "job_status": bson::to_bson(&job_status)?,
             "internal_id": { "$gt": internal_id }
         };
 

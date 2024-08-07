@@ -163,7 +163,7 @@ async fn test_database_get_jobs_after_internal_id_by_job_type() -> color_eyre::R
     database_client.create_job(job_vec[5].clone()).await.unwrap();
 
     let jobs_after_internal_id = database_client
-        .get_jobs_after_internal_id_by_job_type(JobType::SnosRun, JobStatus::Completed, "2".to_string())
+        .get_jobs_after_internal_id_by_job_type(JobType::SnosRun, "2".to_string())
         .await
         .unwrap();
 
