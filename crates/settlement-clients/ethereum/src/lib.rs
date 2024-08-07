@@ -1,8 +1,9 @@
 pub mod clients;
 pub mod config;
 pub mod conversion;
-pub mod types;
+#[cfg(test)]
 mod tests;
+pub mod types;
 
 use alloy::consensus::{
     BlobTransactionSidecar, SignableTransaction, TxEip4844, TxEip4844Variant, TxEip4844WithSidecar, TxEnvelope,
@@ -29,6 +30,11 @@ use color_eyre::Result;
 use conversion::{get_txn_input_bytes, prepare_sidecar};
 use mockall::{automock, lazy_static, predicate::*};
 
+use alloy::node_bindings::Anvil;
+use alloy::providers::layers::AnvilProvider;
+use alloy::providers::RootProvider;
+use alloy::transports::http::Http;
+use reqwest::Client;
 use std::path::{Path, PathBuf};
 use std::str::FromStr;
 use std::sync::Arc;
@@ -46,15 +52,14 @@ pub const ENV_PRIVATE_KEY: &str = "ETHEREUM_PRIVATE_KEY";
 
 lazy_static! {
     pub static ref CURRENT_PATH: PathBuf = std::env::current_dir().unwrap();
-    pub static ref KZG_SETTINGS: KzgSettings = KzgSettings::load_trusted_setup_file(
-        CURRENT_PATH.join("src/trusted_setup.txt").as_path()
-    )
-    .expect("Error loading trusted setup file");
+    pub static ref KZG_SETTINGS: KzgSettings =
+        KzgSettings::load_trusted_setup_file(CURRENT_PATH.join("src/trusted_setup.txt").as_path())
+            .expect("Error loading trusted setup file");
 }
 
 #[allow(dead_code)]
 pub struct EthereumSettlementClient {
-    provider: Arc<EthHttpProvider>,
+    provider: Arc<AnvilProvider<RootProvider<Http<Client>>, Http<Client>>>,
     core_contract_client: StarknetValidityContractClient,
     wallet: EthereumWallet,
     wallet_address: Address,
@@ -69,12 +74,20 @@ impl EthereumSettlementClient {
         let wallet_address = signer.address();
         let wallet = EthereumWallet::from(signer);
 
-        let provider = Arc::new(
+        let config = Anvil::new();
+        let provider = Arc::new(ProviderBuilder::new().on_anvil_with_config(|_| {
+            Anvil::new()
+                .port(3000_u16)
+                .fork("https://eth.llamarpc.com")
+                .fork_block_number(20468827)
+                .arg("--dump-state=/Users/apoorvsadana/Downloads/anvil_state.txt")
+        }));
+        let provider2 = Arc::new(
             ProviderBuilder::new().with_recommended_fillers().wallet(wallet.clone()).on_http(settlement_cfg.rpc_url),
         );
         let core_contract_client = StarknetValidityContractClient::new(
             Address::from_str(&settlement_cfg.core_contract_address).unwrap().0.into(),
-            provider.clone(),
+            provider2.clone(),
         );
 
         EthereumSettlementClient { provider, core_contract_client, wallet, wallet_address }
@@ -142,7 +155,7 @@ impl SettlementClient for EthereumSettlementClient {
     }
 
     async fn update_state_with_blobs(&self, program_output: Vec<[u8; 32]>, state_diff: Vec<Vec<u8>>) -> Result<String> {
-        let trusted_setup = KzgSettings::load_trusted_setup_file(Path::new("/Users/dexterhv/Work/Karnot/madara-alliance/madara-orchestrator/crates/settlement-clients/ethereum/src/trusted_setup.txt"))
+        let trusted_setup = KzgSettings::load_trusted_setup_file(Path::new("/Users/apoorvsadana/Documents/GitHub/madara-orchestrator/crates/settlement-clients/ethereum/src/trusted_setup.txt"))
             .expect("issue while loading the trusted setup");
         let (sidecar_blobs, sidecar_commitments, sidecar_proofs) = prepare_sidecar(&state_diff, &trusted_setup).await?;
         let sidecar = BlobTransactionSidecar::new(sidecar_blobs, sidecar_commitments, sidecar_proofs);
@@ -152,7 +165,7 @@ impl SettlementClient for EthereumSettlementClient {
 
         let mut max_fee_per_blob_gas: u128 = self.provider.get_blob_base_fee().await?.to_string().parse()?;
         // TODO: need to send more than current gas price.
-        max_fee_per_blob_gas+= 12;
+        max_fee_per_blob_gas += 12;
         println!("WALLET ADDRESS : {}", self.wallet_address);
         println!("Balance : {}", self.provider.get_balance(self.wallet_address).await.expect("could not get balance"));
         println!("MAX FEE BLOB : {} {}", max_fee_per_blob_gas, eip1559_est.max_fee_per_gas.to_string());
@@ -186,7 +199,7 @@ impl SettlementClient for EthereumSettlementClient {
         // let mut variant = TxEip4844Variant::from(tx_sidecar);
 
         // Sign and submit
-        let mut txn : TransactionRequest = tx.into();
+        let mut txn: TransactionRequest = tx.into();
         // txn.set
         txn = txn.with_from(Address::from_str("0x2C169DFe5fBbA12957Bdd0Ba47d9CEDbFE260CA7").expect("lol"));
         txn.set_blob_sidecar(tx_sidecar.sidecar);
@@ -197,9 +210,8 @@ impl SettlementClient for EthereumSettlementClient {
         // let tx_envelope: TxEnvelope = tx_signed.into();
         // let encoded = tx_envelope.encoded_2718();
 
-
         // let pending_tx = self.provider.send_raw_transaction(&encoded).await?;
-        
+
         let pending_tx = self.provider.send_transaction(txn).await.expect("dsf");
 
         // println!(" pending_tx {:?}", pending_tx );
