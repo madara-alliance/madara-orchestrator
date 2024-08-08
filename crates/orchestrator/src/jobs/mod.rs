@@ -213,7 +213,6 @@ pub async fn handle_job_failure(id: Uuid) -> Result<()> {
     Ok(())
 }
 
-
 async fn get_job(id: Uuid) -> Result<JobItem> {
     let config = config().await;
     let job = config.database().get_job_by_id(id).await?;
