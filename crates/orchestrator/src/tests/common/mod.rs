@@ -4,7 +4,6 @@ use std::collections::HashMap;
 use std::sync::Arc;
 
 use ::uuid::Uuid;
-use constants::*;
 use da_client_interface::MockDaClient;
 use mongodb::Client;
 use prover_client_interface::MockProverClient;
@@ -13,6 +12,7 @@ use settlement_client_interface::MockSettlementClient;
 use starknet::providers::jsonrpc::HttpTransport;
 use starknet::providers::JsonRpcClient;
 use url::Url;
+use utils::env_utils::get_env_var_or_panic;
 
 use crate::config::Config;
 use crate::data_storage::MockDataStorage;
@@ -35,7 +35,7 @@ pub async fn init_config(
 ) -> Config {
     let _ = tracing_subscriber::fmt().with_max_level(tracing::Level::INFO).with_target(false).try_init();
 
-    let rpc_url = rpc_url.unwrap_or(MADARA_RPC_URL.to_string());
+    let rpc_url = rpc_url.unwrap_or(get_env_var_or_panic("MADARA_RPC_URL").to_string());
     let database = database.unwrap_or_default();
     let queue = queue.unwrap_or_default();
     let da_client = da_client.unwrap_or_default();

@@ -113,11 +113,11 @@ async fn test_da_job_process_job_failure_on_pending_block() {
     });
 
     let pending_state_update = serde_json::to_value(&pending_state_update).unwrap();
-    let response = json!({ "id": 1,"jsonrpc":"2.0","result": pending_state_update });
+    let expected_response = json!({ "id": 1,"jsonrpc":"2.0","result": pending_state_update });
 
     let state_update_mock = server.mock(|when, then| {
         when.path("/").body_contains("starknet_getStateUpdate");
-        then.status(200).body(serde_json::to_vec(&response).unwrap());
+        then.status(200).body(serde_json::to_vec(&expected_response).unwrap());
     });
 
     let response = DaJob
@@ -177,10 +177,13 @@ async fn test_da_job_process_job_success(
     #[case] internal_id: String,
 ) {
     // Mocking DA client calls
+
+    use crate::tests::common::constants::{ETHEREUM_MAX_BLOB_PER_TXN, ETHEREUM_MAX_BYTES_PER_BLOB};
     let mut da_client = MockDaClient::new();
     da_client.expect_publish_state_diff().with(always(), always()).returning(|_, _| Ok("Done".to_string()));
-    da_client.expect_max_blob_per_txn().with().returning(|| 6);
-    da_client.expect_max_bytes_per_blob().with().returning(|| 131072);
+    // currently
+    da_client.expect_max_blob_per_txn().with().returning(|| ETHEREUM_MAX_BLOB_PER_TXN);
+    da_client.expect_max_bytes_per_blob().with().returning(|| ETHEREUM_MAX_BYTES_PER_BLOB);
 
     let server = TestConfigBuilder::new().mock_da_client(Box::new(da_client)).build().await;
     let config = config().await;
