@@ -187,7 +187,7 @@ pub async fn verify_job(id: Uuid) -> Result<()> {
 }
 
 /// Terminates the job and updates the status of the job in the DB.
-/// Throws error if the job status `Completed` is existing on DL queue.
+/// Logs error if the job status `Completed` is existing on DL queue.
 pub async fn handle_job_failure(id: Uuid) -> Result<()> {
     let config = config().await;
 
