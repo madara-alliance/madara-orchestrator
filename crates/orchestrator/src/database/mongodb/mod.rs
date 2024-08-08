@@ -64,6 +64,23 @@ impl MongoDb {
         if result.modified_count == 0 {
             return Err(eyre!("Failed to update job. Job version is likely outdated"));
         }
+        self.update_job_version(current_job).await?;
+        Ok(())
+    }
+
+    /// To update the document version
+    async fn update_job_version(&self, current_job: &JobItem) -> Result<()> {
+        let filter = doc! {
+            "id": current_job.id,
+        };
+        let combined_update = doc! {
+            "$inc": { "version": 1 }
+        };
+        let options = UpdateOptions::builder().upsert(false).build();
+        let result = self.get_job_collection().update_one(filter, combined_update, options).await?;
+        if result.modified_count == 0 {
+            return Err(eyre!("Failed to update job. version"));
+        }
         Ok(())
     }
 }
