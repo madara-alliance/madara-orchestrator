@@ -49,11 +49,11 @@ jobs:
 
       - name: Upload coverage to codecov.io
         uses: codecov/codecov-action@v4
-        env:
-          CODECOV_TOKEN: ${{ secrets.CODECOV_TOKEN }}
         with:
           files: coverage.json
           fail_ci_if_error: true
+          verbose: true
+          token: ${{ secrets.CODECOV_TOKEN }}
 
       - uses: colpal/actions-clean@v1
         if: ${{ always() }} # To ensure this step runs even when earlier steps fail
