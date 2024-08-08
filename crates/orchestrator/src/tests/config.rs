@@ -19,6 +19,8 @@ use crate::queue::sqs::SqsQueue;
 use crate::queue::QueueProvider;
 
 use httpmock::MockServer;
+
+use super::common::drop_database;
 // Inspiration : https://rust-unofficial.github.io/patterns/patterns/creational/builder.html
 // TestConfigBuilder allows to heavily customise the global configs based on the test's requirement.
 // Eg: We want to mock only the da client and leave rest to be as it is, use mock_da_client.
@@ -133,6 +135,8 @@ impl TestConfigBuilder {
         );
 
         config_force_init(config).await;
+
+        drop_database().await.unwrap();
 
         server
     }

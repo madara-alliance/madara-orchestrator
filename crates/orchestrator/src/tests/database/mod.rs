@@ -1,6 +1,5 @@
 use crate::config::config;
 use crate::jobs::types::{ExternalId, JobItem, JobStatus, JobType};
-use crate::tests::common::drop_database;
 use crate::tests::config::TestConfigBuilder;
 use rstest::*;
 use uuid::Uuid;
@@ -18,8 +17,6 @@ async fn test_database_connection() -> color_eyre::Result<()> {
 #[tokio::test]
 async fn test_database_create_job() -> color_eyre::Result<()> {
     TestConfigBuilder::new().build().await;
-
-    drop_database().await.unwrap();
 
     let config = config().await;
     let database_client = config.database();
