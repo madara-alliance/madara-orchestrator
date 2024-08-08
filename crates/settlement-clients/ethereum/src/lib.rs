@@ -71,7 +71,10 @@ impl EthereumSettlementClient {
         // It's safe to use unwrap here since this is `setup` code,
         // if anything fails it is pre-assumed that any errors at this stage are handled in real time.
         let core_contract_client = StarknetValidityContractClient::new(
-            Address::from_str(&settlement_cfg.core_contract_address).unwrap().0.into(),
+            Address::from_str(&settlement_cfg.core_contract_address)
+                .expect("Failed to convert the validity contract address.")
+                .0
+                .into(),
             provider.clone(),
         );
 

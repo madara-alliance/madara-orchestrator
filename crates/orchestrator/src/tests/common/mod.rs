@@ -15,7 +15,9 @@ use url::Url;
 use utils::env_utils::get_env_var_or_panic;
 
 use crate::config::Config;
-use crate::data_storage::MockDataStorage;
+use crate::data_storage::aws_s3::config::{AWSS3ConfigType, S3LocalStackConfig};
+use crate::data_storage::aws_s3::AWSS3;
+use crate::data_storage::{DataStorage, DataStorageConfig, MockDataStorage};
 use crate::database::mongodb::config::MongoDbConfig;
 use crate::database::mongodb::MongoDb;
 use crate::database::{DatabaseConfig, MockDatabase};
@@ -85,4 +87,8 @@ pub async fn drop_database() -> color_eyre::Result<()> {
     // if only particular collection is to be dropped
     db_client.database("orchestrator").drop(None).await?;
     Ok(())
+}
+
+pub async fn get_storage_client() -> Box<dyn DataStorage + Send + Sync> {
+    Box::new(AWSS3::new(AWSS3ConfigType::WithEndpoint(S3LocalStackConfig::new_from_env())).await)
 }
