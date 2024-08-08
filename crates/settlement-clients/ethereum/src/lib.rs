@@ -68,6 +68,8 @@ impl EthereumSettlementClient {
         let provider = Arc::new(
             ProviderBuilder::new().with_recommended_fillers().wallet(wallet.clone()).on_http(settlement_cfg.rpc_url),
         );
+        // It's safe to use unwrap here since this is `setup` code,
+        // if anything fails it is pre-assumed that any errors at this stage are handled in real time.
         let core_contract_client = StarknetValidityContractClient::new(
             Address::from_str(&settlement_cfg.core_contract_address).unwrap().0.into(),
             provider.clone(),
