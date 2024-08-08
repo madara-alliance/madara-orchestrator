@@ -213,15 +213,6 @@ pub async fn handle_job_failure(id: Uuid) -> Result<()> {
     Ok(())
 }
 
-fn get_job_handler(job_type: &JobType) -> Box<dyn Job> {
-    match job_type {
-        JobType::DataSubmission => Box::new(da_job::DaJob),
-        JobType::SnosRun => Box::new(snos_job::SnosJob),
-        JobType::ProofCreation => Box::new(proving_job::ProvingJob),
-        JobType::StateTransition => Box::new(state_update_job::StateUpdateJob),
-        _ => unimplemented!("Job type not implemented yet."),
-    }
-}
 
 async fn get_job(id: Uuid) -> Result<JobItem> {
     let config = config().await;
