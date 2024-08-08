@@ -41,13 +41,13 @@ jobs:
 
       - name: Run llvm-cov
         run: |
-          cargo llvm-cov nextest --release --lcov --output-path lcov.info --test-threads=1
+          cargo llvm-cov nextest --release --json --output-path coverage.json --test-threads=1
 
       - name: Upload coverage to codecov.io
         uses: codecov/codecov-action@v4
         with:
-          files: lcov.info
-          fail_ci_if_error: false
+          files: coverage.json
+          fail_ci_if_error: true
 
       - uses: colpal/actions-clean@v1
         if: ${{ always() }} # To ensure this step runs even when earlier steps fail
