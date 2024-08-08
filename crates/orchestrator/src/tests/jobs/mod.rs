@@ -1,10 +1,12 @@
-use super::database::build_job_item;
+use rstest::rstest;
+
 use crate::config::config;
 use crate::jobs::handle_job_failure;
 use crate::jobs::types::JobType;
 use crate::{jobs::types::JobStatus, tests::config::TestConfigBuilder};
-use rstest::rstest;
-use std::str::FromStr;
+
+use super::database::build_job_item;
+
 #[cfg(test)]
 pub mod da_job;
 
@@ -506,100 +508,43 @@ fn build_job_item_by_type_and_status(job_type: JobType, job_status: JobStatus, i
     }
 }
 
-impl FromStr for JobStatus {
-    type Err = String;
-
-    fn from_str(s: &str) -> Result<Self, Self::Err> {
-        match s {
-            "Created" => Ok(JobStatus::Created),
-            "LockedForProcessing" => Ok(JobStatus::LockedForProcessing),
-            "PendingVerification" => Ok(JobStatus::PendingVerification),
-            "Completed" => Ok(JobStatus::Completed),
-            "VerificationTimeout" => Ok(JobStatus::VerificationTimeout),
-            "VerificationFailed" => Ok(JobStatus::VerificationFailed),
-            "Failed" => Ok(JobStatus::Failed),
-            s if s.starts_with("VerificationFailed(") && s.ends_with(')') => {
-                let reason = s[19..s.len() - 1].to_string();
-                Ok(JobStatus::VerificationFailed)
-            }
-            _ => Err(format!("Invalid job status: {}", s)),
-        }
-    }
-}
-
-impl FromStr for JobType {
-    type Err = String;
-
-    fn from_str(s: &str) -> Result<Self, Self::Err> {
-        match s {
-            "SnosRun" => Ok(JobType::SnosRun),
-            "DataSubmission" => Ok(JobType::DataSubmission),
-            "ProofCreation" => Ok(JobType::ProofCreation),
-            "ProofRegistration" => Ok(JobType::ProofRegistration),
-            "StateTransition" => Ok(JobType::StateTransition),
-            _ => Err(format!("Invalid job type: {}", s)),
-        }
-    }
-}
-
 #[rstest]
-#[case("SnosRun", "PendingVerification")]
-#[case("DataSubmission", "Failed")]
+#[case(JobType::SnosRun, JobStatus::Failed)]
 #[tokio::test]
-async fn handle_job_failure_job_status_typical_works(#[case] job_type: JobType, #[case] job_status: JobStatus) {
+async fn handle_job_failure_with_failed_job_status_works(#[case] job_type: JobType, #[case] job_status: JobStatus) {
     TestConfigBuilder::new().build().await;
-    let internal_id = 1;
-
     let config = config().await;
     let database_client = config.database();
+    let internal_id = 1;
 
-    // create a job
-    let mut job = build_job_item(job_type.clone(), job_status.clone(), internal_id);
-    let job_id = job.id;
+    // create a job, with already available "last_job_status"
+    let mut job_expected = build_job_item(job_type.clone(), job_status.clone(), internal_id);
+    let mut job_metadata = job_expected.metadata.clone();
+    job_metadata.insert("last_job_status".to_string(), JobStatus::PendingVerification.to_string());
+    job_expected.metadata = job_metadata.clone();
 
-    // if test case is for Failure, add last_job_status to job's metadata
-    if job_status == JobStatus::Failed {
-        let mut metadata = job.metadata.clone();
-        metadata.insert("last_job_status".to_string(), "VerificationTimeout".to_string());
-        job.metadata = metadata;
-    }
+    let job_id = job_expected.id;
 
     // feeding the job to DB
-    database_client.create_job(job.clone()).await.unwrap();
+    database_client.create_job(job_expected.clone()).await.unwrap();
 
     // calling handle_job_failure
-    let response = handle_job_failure(job_id).await;
+    handle_job_failure(job_id).await.expect("handle_job_failure failed to run");
 
-    match response {
-        Ok(()) => {
-            // check job in db
-            let job = config.database().get_job_by_id(job_id).await.expect("Unable to fetch Job Data");
+    let job_fetched = config.database().get_job_by_id(job_id).await.expect("Unable to fetch Job Data").unwrap();
 
-            if let Some(job_item) = job {
-                // check if job status is Failure
-                assert_eq!(job_item.status, JobStatus::Failed);
-                // check if job metadata has `last_job_status`
-                assert!(job_item.metadata.get("last_job_status").is_some());
-                println!("Handle Job Failure for ID {} was handled successfully", job_id);
-            }
-        }
-        Err(err) => {
-            panic!("Test case should have passed: {} ", err);
-        }
-    }
+    assert_eq!(job_fetched, job_expected);
 }
 
 #[rstest]
-// code should panic here, how can completed move to dl queue ?
-#[case("DataSubmission")]
+#[case::pending_verification(JobType::SnosRun, JobStatus::PendingVerification)]
+#[case::verification_timeout(JobType::SnosRun, JobStatus::VerificationTimeout)]
 #[tokio::test]
-async fn handle_job_failure__job_status_completed_works(#[case] job_type: JobType) {
-    let job_status = JobStatus::Completed;
+async fn handle_job_failure_with_correct_job_status_works(#[case] job_type: JobType, #[case] job_status: JobStatus) {
     TestConfigBuilder::new().build().await;
-    let internal_id = 1;
-
     let config = config().await;
     let database_client = config.database();
+    let internal_id = 1;
 
     // create a job
     let job = build_job_item(job_type.clone(), job_status.clone(), internal_id);
@@ -609,12 +554,43 @@ async fn handle_job_failure__job_status_completed_works(#[case] job_type: JobTyp
     database_client.create_job(job.clone()).await.unwrap();
 
     // calling handle_job_failure
+    handle_job_failure(job_id).await.expect("handle_job_failure failed to run");
+
+    let job_fetched = config.database().get_job_by_id(job_id).await.expect("Unable to fetch Job Data").unwrap();
+
+    // creating expected output
+    let mut job_expected = job.clone();
+    let mut job_metadata = job_expected.metadata.clone();
+    job_metadata.insert("last_job_status".to_string(), job_status.to_string());
+    job_expected.metadata = job_metadata.clone();
+    job_expected.status = JobStatus::Failed;
+
+    assert_eq!(job_fetched, job_expected);
+}
+
+#[rstest]
+#[case(JobType::DataSubmission)]
+#[tokio::test]
+async fn handle_job_failure_job_status_completed_works(#[case] job_type: JobType) {
+    let job_status = JobStatus::Completed;
+
+    TestConfigBuilder::new().build().await;
+    let config = config().await;
+    let database_client = config.database();
+    let internal_id = 1;
+
+    // create a job
+    let job_expected = build_job_item(job_type.clone(), job_status.clone(), internal_id);
+    let job_id = job_expected.id;
+
+    // feeding the job to DB
+    database_client.create_job(job_expected.clone()).await.unwrap();
+
+    // calling handle_job_failure
     handle_job_failure(job_id).await.expect("Test call to handle_job_failure should have passed.");
 
     // The completed job status on db is untouched.
-    let job_fetched_result = config.database().get_job_by_id(job_id).await.expect("Unable to fetch Job Data");
+    let job_fetched = config.database().get_job_by_id(job_id).await.expect("Unable to fetch Job Data").unwrap();
 
-    if let Some(job_fetched) = job_fetched_result {
-        assert_eq!(job_fetched.status, JobStatus::Completed);
-    }
+    assert_eq!(job_fetched, job_expected);
 }
