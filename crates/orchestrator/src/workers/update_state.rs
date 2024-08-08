@@ -55,11 +55,6 @@ impl Worker for UpdateStateWorker {
 impl UpdateStateWorker {
     /// To parse the block numbers from the vector of jobs.
     fn parse_job_items_into_block_number_list(job_items: Vec<JobItem>) -> String {
-        let mut block_number_string = String::from("");
-        for job in job_items {
-            block_number_string.push_str(&job.internal_id);
-            block_number_string += ",";
-        }
-        block_number_string
+        job_items.iter().map(|j| j.internal_id).collect::<Vec<String>>().join(",");
     }
 }
