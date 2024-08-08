@@ -14,9 +14,7 @@ use crate::jobs::types::{JobStatus, JobType};
 use crate::jobs::{Job, MockJob};
 use crate::queue::MockQueueProvider;
 use crate::tests::common::init_config;
-use crate::tests::workers::utils::{
-    get_job_by_mock_id_vector, get_job_item_mock_by_id,
-};
+use crate::tests::workers::utils::{get_job_by_mock_id_vector, get_job_item_mock_by_id};
 use crate::workers::update_state::UpdateStateWorker;
 use crate::workers::Worker;
 
