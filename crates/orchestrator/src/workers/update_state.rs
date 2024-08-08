@@ -3,8 +3,9 @@ use std::error::Error;
 use async_trait::async_trait;
 
 use crate::config::config;
+use crate::jobs::constants::JOB_METADATA_STATE_UPDATE_BLOCKS_TO_SETTLE_KEY;
 use crate::jobs::create_job;
-use crate::jobs::types::{JobStatus, JobType};
+use crate::jobs::types::{JobItem, JobStatus, JobType};
 use crate::workers::Worker;
 
 pub struct UpdateStateWorker;
@@ -32,9 +33,14 @@ impl Worker for UpdateStateWorker {
                     )
                     .await?;
 
-                for job in successful_proving_jobs {
-                    create_job(JobType::StateTransition, job.internal_id, job.metadata).await?;
-                }
+                let mut metadata = job.metadata;
+                metadata.insert(
+                    JOB_METADATA_STATE_UPDATE_BLOCKS_TO_SETTLE_KEY.to_string(),
+                    Self::parse_job_items_into_block_number_list(successful_proving_jobs.clone()),
+                );
+
+                // Creating a single job for all the pending blocks.
+                create_job(JobType::StateTransition, successful_proving_jobs[0].internal_id.clone(), metadata).await?;
 
                 Ok(())
             }
@@ -43,5 +49,17 @@ impl Worker for UpdateStateWorker {
                 return Ok(());
             }
         }
+    }
+}
+
+impl UpdateStateWorker {
+    /// To parse the block numbers from the vector of jobs.
+    fn parse_job_items_into_block_number_list(job_items: Vec<JobItem>) -> String {
+        let mut block_number_string = String::from("");
+        for job in job_items {
+            block_number_string.push_str(&job.internal_id);
+            block_number_string += ",";
+        }
+        block_number_string
     }
 }
