@@ -37,8 +37,11 @@ jobs:
 
       - name: Coveralls
         uses: coverallsapp/github-action@v2
+        run: |
+          pwd
+          ls
         with:
-          files: ./lcov.info
+          files: lcov.info
           debug: true
           allow-empty: true
 
