@@ -54,7 +54,34 @@ impl Worker for UpdateStateWorker {
 
 impl UpdateStateWorker {
     /// To parse the block numbers from the vector of jobs.
-    fn parse_job_items_into_block_number_list(job_items: Vec<JobItem>) -> String {
+    pub fn parse_job_items_into_block_number_list(job_items: Vec<JobItem>) -> String {
         job_items.iter().map(|j| j.internal_id.clone()).collect::<Vec<String>>().join(",")
+    }
+}
+
+#[cfg(test)]
+mod test_update_state_worker_utils {
+    use crate::jobs::types::{ExternalId, JobItem, JobStatus, JobType};
+    use crate::workers::update_state::UpdateStateWorker;
+    use rstest::rstest;
+    use uuid::Uuid;
+
+    #[rstest]
+    fn test_parse_job_items_into_block_number_list() {
+        let mut job_vec = Vec::new();
+        for i in 0..3 {
+            job_vec.push(JobItem {
+                id: Uuid::new_v4(),
+                internal_id: i.to_string(),
+                job_type: JobType::ProofCreation,
+                status: JobStatus::Completed,
+                external_id: ExternalId::Number(0),
+                metadata: Default::default(),
+                version: 0,
+            });
+        }
+
+        let block_string = UpdateStateWorker::parse_job_items_into_block_number_list(job_vec);
+        assert_eq!(block_string, String::from("0,1,2"));
     }
 }
