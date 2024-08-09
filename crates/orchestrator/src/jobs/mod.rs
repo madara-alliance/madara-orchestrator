@@ -224,7 +224,7 @@ fn get_u64_from_metadata(metadata: &HashMap<String, String>, key: &str) -> color
         .get(key)
         .unwrap_or(&"0".to_string())
         .parse::<u64>()
-        .wrap_err_with(|| format!("Failed to parse u64 from metadata key '{}'", key))
+        .wrap_err(format!("Failed to parse u64 from metadata key '{}'", key))
 }
 
 #[derive(Error, Debug)]
