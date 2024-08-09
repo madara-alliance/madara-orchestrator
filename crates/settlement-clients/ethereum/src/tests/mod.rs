@@ -1,25 +1,23 @@
-use crate::EthereumSettlementClient;
-use alloy::providers::{ext::AnvilApi, ProviderBuilder};
-use alloy::{hex, node_bindings::Anvil, primitives::U256, providers::Provider};
-use alloy_primitives::Address;
-use alloy_primitives::FixedBytes;
-use color_eyre::eyre::eyre;
-use rstest::*;
-use settlement_client_interface::SettlementClient;
 use std::{
     fs::{self, File},
     io::BufReader,
     str::FromStr,
 };
-use utils::settings::default::DefaultSettingsProvider;
-
-use color_eyre::Result;
-
-use alloy::eips::{BlockId, BlockNumberOrTag};
-use alloy::network::primitives::BlockTransactionsKind;
 use std::io::BufRead;
 use std::time::Duration;
+
+use alloy::{primitives::U256, providers::Provider, sol};
+use alloy::providers::{ext::AnvilApi, ProviderBuilder};
+use alloy_primitives::Address;
+use alloy_primitives::FixedBytes;
+use color_eyre::eyre::eyre;
+use rstest::*;
 use tokio::time::sleep;
+
+use settlement_client_interface::SettlementClient;
+use utils::settings::default::DefaultSettingsProvider;
+
+use crate::EthereumSettlementClient;
 
 fn hex_string_to_u8_vec(hex_str: &str) -> color_eyre::Result<Vec<u8>> {
     // Remove any spaces or non-hex characters from the input string
@@ -38,17 +36,38 @@ fn hex_string_to_u8_vec(hex_str: &str) -> color_eyre::Result<Vec<u8>> {
     Ok(result)
 }
 
+   // Codegen from ABI file to interact with the contract.
+sol!(
+    #[allow(missing_docs)]
+    #[sol(rpc)]
+    STARKNET_CORE_CONTRACT,
+    "src/test_data/ABI/starknet_core_contract.json"
+);
+
 #[rstest]
 #[tokio::test]
 #[case::basic(20468828)]
 async fn update_state_blob_works(#[case] block_no: u64) {
+
+    // Changes : 
+    // DONE: EthereumSettlementClient : Provider type with cfg test flag
+    // DONE: EthereumSettlementClient : impl `with_test_settings` with cfg test flag
+    // DONE: EthereumSettlementClient : `update_state_with_blobs` add `with_from` before transacting
+    // Send provider to `with_test_settings` from tester.
+    // Possibly run anvil at the start at PORT 3000
+
     // Only Supports Ethereum Blocks
 
     dotenvy::from_filename("../.env.test").expect("Could not load .env.test file");
 
+    use std::any::Any;
+
+    use alloy::sol;
     // let anvil = Anvil::new().port(3000_u16).fork("https://eth.llamarpc.com").fork_block_number(block_no - 1).try_spawn()
     // .expect("Unable to spawn Anvil");
     use url::Url;
+
+    use crate::clients::interfaces::validity_interface::StarknetValidityContract::stateBlockNumberReturn;
 
     // // https://github.dev/alloy-rs/alloy
     let provider = ProviderBuilder::new().on_http(Url::from_str("http://localhost:3000").expect("dskj"));
@@ -62,8 +81,11 @@ async fn update_state_blob_works(#[case] block_no: u64) {
     // // provider.anvil_set_balance(Address::from_str("0x6E9972213BF459853FA33E28Ab7219e9157C8d02").expect("lol"), U256::from(1000)).await.expect("couldn't set balance");
     // provider.anvil_set_balance(Address::from_str("0x2C169DFe5fBbA12957Bdd0Ba47d9CEDbFE260CA7").expect("lol"), U256::from(1000000000)).await.expect("couldn't set balance");
 
+
+    
+
     let settings_provider: DefaultSettingsProvider = DefaultSettingsProvider {};
-    let ethereum_settlement_client = EthereumSettlementClient::with_settings(&settings_provider);
+    let ethereum_settlement_client = EthereumSettlementClient::with_test_settings(&settings_provider);
     provider
         .anvil_impersonate_account(Address::from_str("0x2C169DFe5fBbA12957Bdd0Ba47d9CEDbFE260CA7").expect("sdjkvb"))
         .await
@@ -75,6 +97,21 @@ async fn update_state_blob_works(#[case] block_no: u64) {
             .await
             .expect("could not get balance")
     );
+
+
+
+    let provider = ProviderBuilder::new().on_http(Url::from_str("http://localhost:3000").expect("sdf"));
+
+    // Create a contract instance.
+    let contract = STARKNET_CORE_CONTRACT::new(Address::from_str("0xc662c410c0ecf747543f5ba90660f6abebd9c8c4").expect("sd"), provider.clone());
+
+    // Call the contract, retrieve the total supply.
+    let blockhash = contract.stateBlockHash().call().await.unwrap();
+ 
+    let blockumber = contract.stateBlockNumber().call().await.unwrap();
+    println!("CURRENT BLOCK NUMBER {}" , blockumber._0.to_string());
+    println!("CURRENT BLOCK HASH {}" , blockhash._0.to_string());
+
 
     // println!("Anvil running at `{}`", anvil.endpoint());
 
@@ -130,19 +167,19 @@ async fn update_state_blob_works(#[case] block_no: u64) {
     // add delay dor 2 seconds
     sleep(Duration::from_secs(2)).await;
     if let Some(txxn) = txn {
-        println!("{:?}", txxn);
+        // println!("{:?}", txxn);
 
         println!("{}", txxn.hash.to_string());
         println!("{}", txxn.from.to_string());
 
-        let dsd = provider
-            // .get_transaction_receipt(FixedBytes::from_str(update_state_result.as_str()).expect("vdf"))
-            .get_block(BlockId::Number(BlockNumberOrTag::Pending), BlockTransactionsKind::Full)
-            .await
-            .expect(":vdd");
-        println!(" reciept {:#?}", dsd);
+        // let dsd = provider
+        //     // .get_transaction_receipt(FixedBytes::from_str(update_state_result.as_str()).expect("vdf"))
+        //     .get_block(BlockId::Number(BlockNumberOrTag::Pending), BlockTransactionsKind::Full)
+        //     .await
+        //     .expect(":vdd");
+        // println!(" reciept {:#?}", dsd);
 
-        println!("{:?}", txxn.blob_versioned_hashes);
+        // println!("{:?}", txxn.blob_versioned_hashes);
         println!(
             "Balance : {}",
             provider
@@ -150,5 +187,22 @@ async fn update_state_blob_works(#[case] block_no: u64) {
                 .await
                 .expect("could not get balance")
         );
+
+
+     
+
+        let provider = ProviderBuilder::new().on_http(Url::from_str("http://localhost:3000").expect("sdf"));
+
+        // Create a contract instance.
+        let contract = STARKNET_CORE_CONTRACT::new(Address::from_str("0xc662c410c0ecf747543f5ba90660f6abebd9c8c4").expect("sd"), provider.clone());
+
+        // Call the contract, retrieve the total supply.
+        let blockhash = contract.stateBlockHash().call().await.unwrap();
+     
+        let blockumber = contract.stateBlockNumber().call().await.unwrap();
+        println!("CURRENT BLOCK NUMBER {}" , blockumber._0.to_string());
+        println!("CURRENT BLOCK HASH {}" , blockhash._0.to_string());
+
+        
     }
 }
