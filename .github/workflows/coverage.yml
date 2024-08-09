@@ -38,7 +38,7 @@ jobs:
       - name: Coveralls
         uses: coverallsapp/github-action@v2
         with:
-          files: crates/settlement-clients/ethereum/lcov
+          files: crates/settlement-clients/ethereum/report.lcov
 
       - uses: colpal/actions-clean@v1
         if: ${{ always() }} # To ensure this step runs even when earlier steps fail
