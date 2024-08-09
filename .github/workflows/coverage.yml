@@ -5,7 +5,6 @@ on:
   workflow_dispatch:
   workflow_call:
 
-
 jobs:
   coverage:
     # sadly, for now we have to "rebuild" for the coverage
@@ -42,12 +41,13 @@ jobs:
 
       - name: Run llvm-cov
         run: |
-          cargo llvm-cov nextest --release --json --output-path coverage.json --test-threads=1
+          cd crates/settlement-clients/ethereum
+          cargo llvm-cov nextest --release --json --output-path coverage.json --test-threads=1 test_da_word
 
       - name: Upload coverage to codecov.io
         uses: codecov/codecov-action@v4
         with:
-          files: coverage.json
+          files: crates/settlement-clients/ethereum/coverage.json
           fail_ci_if_error: true
           verbose: true
           token: ${{ secrets.CODECOV_TOKEN }}
