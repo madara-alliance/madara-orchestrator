@@ -35,15 +35,6 @@ jobs:
       - uses: taiki-e/install-action@cargo-llvm-cov
       - uses: taiki-e/install-action@nextest
 
-      - name: Clean workspace
-        run: |
-          cargo llvm-cov clean --workspace
-
-      - name: Run llvm-cov
-        run: |
-          cd crates/settlement-clients/ethereum
-          cargo llvm-cov nextest --release --lcov --output-path lcov --test-threads=1 test_da_word
-
       - name: Coveralls
         uses: coverallsapp/github-action@v2
         with:
