@@ -38,7 +38,7 @@ jobs:
       - name: Coveralls
         uses: coverallsapp/github-action@v2
         with:
-          files: ./report.lcov
+          files: ./lcov.info
           debug: true
           allow-empty: true
 
