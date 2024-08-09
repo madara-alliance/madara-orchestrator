@@ -12,4 +12,3 @@ jobs:
   coverage:
     name: Run coverage
     uses: ./.github/workflows/coverage.yml
-    needs: rust_build
