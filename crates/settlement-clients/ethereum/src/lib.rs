@@ -11,7 +11,7 @@ use alloy::{
     signers::local::PrivateKeySigner,
 };
 use alloy::consensus::{
-    BlobTransactionSidecar, SignableTransaction, TxEip4844, TxEip4844WithSidecar,
+    BlobTransactionSidecar, SignableTransaction, TxEip4844, TxEip4844Variant, TxEip4844WithSidecar, TxEnvelope
 };
 // use eyre::Result;
 use alloy::eips::eip2718::Encodable2718;
@@ -70,7 +70,7 @@ pub struct EthereumSettlementClient {
     #[cfg(not(test))]
     provider: Arc<EthHttpProvider>,
     #[cfg(test)]
-    provider: Arc<AnvilProvider<RootProvider<Http<Client>>, Http<Client>>>,
+    provider: RootProvider<Http<Client>>,
 }
 
 impl EthereumSettlementClient {
@@ -95,31 +95,20 @@ impl EthereumSettlementClient {
     }
 
     #[cfg(test)]
-    pub fn with_test_settings(settings: &impl SettingsProvider) -> Self {
+    pub fn with_test_settings(settings: &impl SettingsProvider, provider : RootProvider<Http<Client>>) -> Self {
         let settlement_cfg: EthereumSettlementConfig = settings.get_settings(SETTLEMENT_SETTINGS_NAME).unwrap();
 
         let private_key = get_env_var_or_panic(ENV_PRIVATE_KEY);
         let signer: PrivateKeySigner = private_key.parse().expect("Failed to parse private key");
         let wallet_address = signer.address();
         let wallet = EthereumWallet::from(signer);
-
-        let config = Anvil::new();
-        let provider = Arc::new(ProviderBuilder::new().on_anvil_with_config(|_| {
-            Anvil::new()
-                .port(3000_u16)
-                .fork("https://eth.llamarpc.com")
-                .fork_block_number(20468827)
-                .arg("--dump-state=/Users/apoorvsadana/Downloads/anvil_state.txt")
-        }));
-        let provider2 = Arc::new(
+       
+        let fill_provider = Arc::new(
             ProviderBuilder::new().with_recommended_fillers().wallet(wallet.clone()).on_http(settlement_cfg.rpc_url),
         );
         let core_contract_client = StarknetValidityContractClient::new(
-            Address::from_str(&settlement_cfg.core_contract_address)
-                .expect("Failed to convert the validity contract address.")
-                .0
-                .into(),
-                provider2.clone(),
+            Address::from_str(&settlement_cfg.core_contract_address).unwrap().0.into(),
+            fill_provider,
         );
 
         EthereumSettlementClient { provider, core_contract_client, wallet, wallet_address }
@@ -187,8 +176,8 @@ impl SettlementClient for EthereumSettlementClient {
     }
 
     async fn update_state_with_blobs(&self, program_output: Vec<[u8; 32]>, state_diff: Vec<Vec<u8>>) -> Result<String> {
-        let trusted_setup = KzgSettings::load_trusted_setup_file(Path::new("/Users/dexterhv/Work/Karnot/madara-alliance/madara-orchestrator/crates/settlement-clients/ethereum/src/trusted_setup.txt"))
-            .expect("issue while loading the trusted setup");
+        //TODO: better file management
+        let trusted_setup = KzgSettings::load_trusted_setup_file(Path::new("/Users/dexterhv/Work/Karnot/madara-alliance/madara-orchestrator/crates/settlement-clients/ethereum/src/trusted_setup.txt"))?;
         let (sidecar_blobs, sidecar_commitments, sidecar_proofs) = prepare_sidecar(&state_diff, &trusted_setup).await?;
         let sidecar = BlobTransactionSidecar::new(sidecar_blobs, sidecar_commitments, sidecar_proofs);
 
@@ -198,13 +187,9 @@ impl SettlementClient for EthereumSettlementClient {
         let mut max_fee_per_blob_gas: u128 = self.provider.get_blob_base_fee().await?.to_string().parse()?;
         // TODO: need to send more than current gas price.
         max_fee_per_blob_gas += 12;
-        println!("WALLET ADDRESS : {}", self.wallet_address);
-        println!("Balance : {}", self.provider.get_balance(self.wallet_address).await.expect("could not get balance"));
-        println!("MAX FEE BLOB : {} {}", max_fee_per_blob_gas, eip1559_est.max_fee_per_gas.to_string());
         let max_priority_fee_per_gas: u128 = self.provider.get_max_priority_fee_per_gas().await?.to_string().parse()?;
-
         let nonce = self.provider.get_transaction_count(self.wallet_address).await?.to_string().parse()?;
-
+        
         // x_0_value : program_output[6]
         let kzg_proof = Self::build_proof(
             state_diff,
@@ -225,36 +210,29 @@ impl SettlementClient for EthereumSettlementClient {
             access_list: AccessList(vec![]),
             blob_versioned_hashes: sidecar.versioned_hashes().collect(),
             max_fee_per_blob_gas,
+            // input:  get_txn_input_bytes(program_output, kzg_proof),
             input: Bytes::from(hex::decode("0xb72d42a100000000000000000000000000000000000000000000000000000000000000400000000000000000000000000000000000000000000000000000000000000340000000000000000000000000000000000000000000000000000000000000001706ac7b2661801b4c0733da6ed1d2910b3b97259534ca95a63940932513111fba028bccc051eaae1b9a69b53e64a68021233b4dee2030aeda4be886324b3fbb3e00000000000000000000000000000000000000000000000000000000000a29b8070626a88de6a77855ecd683757207cdd18ba56553dca6c0c98ec523b827bee005ba2078240f1585f96424c2d1ee48211da3b3f9177bf2b9880b4fc91d59e9a2000000000000000000000000000000000000000000000000000000000000000100000000000000002b4e335bc41dc46c71f29928a5094a8c96a0c3536cabe53e0000000000000000810abb1929a0d45cdd62a20f9ccfd5807502334e7deb35d404c86d8b63a5741770fefca2f9b8efb7e663d89097edb3c60595b236f6e78e6f000000000000000000000000000000004a4b8a979fefc4d6b82e030fb082ca98000000000000000000000000000000004e8371c6774260e87b92447d4a2b0e170000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000a000000000000000000000000bf67f59d2988a46fbff7ed79a621778a3cd3985b0088eedbe2fe3918b69ccb411713b7fa72079d4eddf291103ccbe41e78a9615c0000000000000000000000000000000000000000000000000000000000194fe601b64b1b3b690b43b9b514fb81377518f4039cd3e4f4914d8a6bdf01d679fb1900000000000000000000000000000000000000000000000000000000000000050000000000000000000000007f39c581f595b53c5cb19bd0b3f8da6c935e2ca000000000000000000000000012ccc443d39da45e5f640b3e71f0c7502152dbac01d4988e248d342439aa025b302e1f07595f6a5c810dcce23e7379e48f05d4cf000000000000000000000000000000000000000000000007f189b5374ad2a00000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000030ab015987628cffee3ef99b9768ef8ca12c6244525f0cd10310046eaa21291b5aca164d044c5b4ad7212c767b165ed5e300000000000000000000000000000000").unwrap()),
         };
-        let tx_sidecar = TxEip4844WithSidecar { tx: tx.clone(), sidecar };
-        // let mut variant = TxEip4844Variant::from(tx_sidecar);
 
-        // Sign and submit
-        let mut txn: TransactionRequest = tx.into();
-        // txn.set
-        txn.set_blob_sidecar(tx_sidecar.sidecar);
-        txn.set_nonce(666068);
+
+        let tx_sidecar = TxEip4844WithSidecar { tx: tx.clone(), sidecar: sidecar.clone() };
+        let mut variant = TxEip4844Variant::from(tx_sidecar);
+        let signature = self.wallet.default_signer().sign_transaction(&mut variant).await?;
+        let tx_signed = variant.into_signed(signature);
+        let tx_envelope: TxEnvelope = tx_signed.into();
+        let encoded = tx_envelope.encoded_2718();
 
         if cfg!(test) {
-            txn = txn.with_from(Address::from_str("0x2C169DFe5fBbA12957Bdd0Ba47d9CEDbFE260CA7").expect("lol"));
+            // Sign and submit
+            let mut txn_request : TransactionRequest = tx_envelope.into();
+            txn_request.set_nonce(666068);
+            txn_request = txn_request.with_from(Address::from_str("0x2C169DFe5fBbA12957Bdd0Ba47d9CEDbFE260CA7").expect("Unable to impersonate operator."));
+            let pending_transaction = self.provider.send_transaction(txn_request).await?;
+            return Ok(pending_transaction.tx_hash().to_string());
         }
-        // let signature = self.wallet.default_signer().sign_transaction(&mut variant).await?;
 
-        // let tx_signed = variant.into_signed(signature);
-        // let tx_envelope: TxEnvelope = tx_signed.into();
-        // let encoded = tx_envelope.encoded_2718();
-
-        // let pending_tx = self.provider.send_raw_transaction(&encoded).await?;
-
-        let pending_tx = self.provider.send_transaction(txn).await.expect("qwerty");
-
-        println!(" pending_tx {:?}", pending_tx );
-
-        // Checking contract state!
-
-
-        Ok("0x2b3fb5f9a59c0687e6e33ca0fc2fe7c02be013a52e5935d8a7ec19dbac95d081".into())
+        let pending_transaction = self.provider.send_raw_transaction(&encoded).await?;
+        return Ok(pending_transaction.tx_hash().to_string());
     }
 
     /// Should verify the inclusion of a tx in the settlement layer
