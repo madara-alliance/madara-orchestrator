@@ -16,8 +16,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 - `AWS_DEFAULT_REGION="localhost"` var. in .env.test for omniqueue queue testing.
 - Added basic rust-toolchain support.
 - Tests for DA job.
-- Added generalized errors for Jobs : JobError 
-
+- Added generalized errors for Jobs : JobError.
 
 ## Changed
 
