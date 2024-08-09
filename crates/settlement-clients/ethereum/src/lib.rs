@@ -1,3 +1,48 @@
+use std::path::{Path, PathBuf};
+use std::str::FromStr;
+use std::sync::Arc;
+
+use alloy::{node_bindings::Anvil, providers::ProviderBuilder, sol};
+use alloy::{
+    network::EthereumWallet,
+    primitives::{Address, B256, U256},
+    providers::{PendingTransactionConfig, Provider},
+    rpc::types::TransactionReceipt,
+    signers::local::PrivateKeySigner,
+};
+use alloy::consensus::{
+    BlobTransactionSidecar, SignableTransaction, TxEip4844, TxEip4844WithSidecar,
+};
+// use eyre::Result;
+use alloy::eips::eip2718::Encodable2718;
+use alloy::eips::eip2930::AccessList;
+use alloy::eips::eip4844::BYTES_PER_BLOB;
+use alloy::hex;
+use alloy::network::TransactionBuilder;
+use alloy::providers::ext::AnvilApi;
+// use alloy::node_bindings::Anvil;
+use alloy::providers::layers::AnvilProvider;
+use alloy::providers::RootProvider;
+use alloy::rpc::types::TransactionRequest;
+use alloy::transports::http::Http;
+use alloy_primitives::Bytes;
+use async_trait::async_trait;
+use c_kzg::{Blob, Bytes32, KzgCommitment, KzgProof, KzgSettings};
+use color_eyre::eyre::eyre;
+use color_eyre::Result;
+use mockall::{automock, lazy_static, predicate::*};
+use reqwest::Client;
+
+use conversion::prepare_sidecar;
+use settlement_client_interface::{SETTLEMENT_SETTINGS_NAME, SettlementClient, SettlementVerificationStatus};
+use types::EthHttpProvider;
+use utils::{env_utils::get_env_var_or_panic, settings::SettingsProvider};
+
+use crate::clients::interfaces::validity_interface::StarknetValidityContractTrait;
+use crate::clients::StarknetValidityContractClient;
+use crate::config::EthereumSettlementConfig;
+use crate::conversion::{slice_slice_u8_to_vec_u256, slice_u8_to_u256};
+
 pub mod clients;
 pub mod config;
 pub mod conversion;
@@ -5,67 +50,31 @@ pub mod conversion;
 mod tests;
 pub mod types;
 
-use alloy::consensus::{
-    BlobTransactionSidecar, SignableTransaction, TxEip4844, TxEip4844Variant, TxEip4844WithSidecar, TxEnvelope,
-};
-use alloy::eips::eip2718::Encodable2718;
-use alloy::eips::eip2930::AccessList;
-use alloy::eips::eip4844::BYTES_PER_BLOB;
-use alloy::hex;
-use alloy::network::TransactionBuilder;
-use alloy::providers::ext::AnvilApi;
-use alloy::rpc::types::TransactionRequest;
-use alloy::{
-    network::EthereumWallet,
-    primitives::{Address, B256, U256},
-    providers::{PendingTransactionConfig, Provider, ProviderBuilder},
-    rpc::types::TransactionReceipt,
-    signers::local::PrivateKeySigner,
-};
-use alloy_primitives::Bytes;
-use async_trait::async_trait;
-use c_kzg::{Blob, Bytes32, KzgCommitment, KzgProof, KzgSettings};
-use color_eyre::eyre::eyre;
-use color_eyre::Result;
-use conversion::{get_txn_input_bytes, prepare_sidecar};
-use mockall::{automock, lazy_static, predicate::*};
-
-use alloy::node_bindings::Anvil;
-use alloy::providers::layers::AnvilProvider;
-use alloy::providers::RootProvider;
-use alloy::transports::http::Http;
-use reqwest::Client;
-use std::path::{Path, PathBuf};
-use std::str::FromStr;
-use std::sync::Arc;
-
-use crate::clients::interfaces::validity_interface::StarknetValidityContractTrait;
-use settlement_client_interface::{SettlementClient, SettlementVerificationStatus, SETTLEMENT_SETTINGS_NAME};
-use utils::{env_utils::get_env_var_or_panic, settings::SettingsProvider};
-
-use crate::clients::StarknetValidityContractClient;
-use crate::config::EthereumSettlementConfig;
-use crate::conversion::{slice_slice_u8_to_vec_u256, slice_u8_to_u256};
-use crate::types::EthHttpProvider;
-
 pub const ENV_PRIVATE_KEY: &str = "ETHEREUM_PRIVATE_KEY";
 
 lazy_static! {
     pub static ref CURRENT_PATH: PathBuf = std::env::current_dir().unwrap();
     pub static ref KZG_SETTINGS: KzgSettings =
+        // TODO: set more generalized path
         KzgSettings::load_trusted_setup_file(CURRENT_PATH.join("src/trusted_setup.txt").as_path())
             .expect("Error loading trusted setup file");
 }
 
+
+
 #[allow(dead_code)]
 pub struct EthereumSettlementClient {
-    provider: Arc<AnvilProvider<RootProvider<Http<Client>>, Http<Client>>>,
     core_contract_client: StarknetValidityContractClient,
     wallet: EthereumWallet,
     wallet_address: Address,
+    #[cfg(not(test))]
+    provider: Arc<EthHttpProvider>,
+    #[cfg(test)]
+    provider: Arc<AnvilProvider<RootProvider<Http<Client>>, Http<Client>>>,
 }
 
 impl EthereumSettlementClient {
+    #[cfg(not(test))]
     pub fn with_settings(settings: &impl SettingsProvider) -> Self {
         let settlement_cfg: EthereumSettlementConfig = settings.get_settings(SETTLEMENT_SETTINGS_NAME).unwrap();
 
@@ -74,6 +83,27 @@ impl EthereumSettlementClient {
         let wallet_address = signer.address();
         let wallet = EthereumWallet::from(signer);
 
+        let provider = Arc::new(
+            ProviderBuilder::new().with_recommended_fillers().wallet(wallet.clone()).on_http(settlement_cfg.rpc_url),
+        );
+        let core_contract_client = StarknetValidityContractClient::new(
+            Address::from_str(&settlement_cfg.core_contract_address).unwrap().0.into(),
+            provider.clone(),
+        );
+
+        EthereumSettlementClient { provider, core_contract_client, wallet, wallet_address }
+    }
+
+    #[cfg(test)]
+    pub fn with_test_settings(settings: &impl SettingsProvider) -> Self {
+        let settlement_cfg: EthereumSettlementConfig = settings.get_settings(SETTLEMENT_SETTINGS_NAME).unwrap();
+
+        let private_key = get_env_var_or_panic(ENV_PRIVATE_KEY);
+        let signer: PrivateKeySigner = private_key.parse().expect("Failed to parse private key");
+        let wallet_address = signer.address();
+        let wallet = EthereumWallet::from(signer);
+
+        let config = Anvil::new();
         let provider = Arc::new(ProviderBuilder::new().on_anvil_with_config(|_| {
             Anvil::new()
                 .port(3000_u16)
@@ -157,7 +187,7 @@ impl SettlementClient for EthereumSettlementClient {
     }
 
     async fn update_state_with_blobs(&self, program_output: Vec<[u8; 32]>, state_diff: Vec<Vec<u8>>) -> Result<String> {
-        let trusted_setup = KzgSettings::load_trusted_setup_file(Path::new("/Users/apoorvsadana/Documents/GitHub/madara-orchestrator/crates/settlement-clients/ethereum/src/trusted_setup.txt"))
+        let trusted_setup = KzgSettings::load_trusted_setup_file(Path::new("/Users/dexterhv/Work/Karnot/madara-alliance/madara-orchestrator/crates/settlement-clients/ethereum/src/trusted_setup.txt"))
             .expect("issue while loading the trusted setup");
         let (sidecar_blobs, sidecar_commitments, sidecar_proofs) = prepare_sidecar(&state_diff, &trusted_setup).await?;
         let sidecar = BlobTransactionSidecar::new(sidecar_blobs, sidecar_commitments, sidecar_proofs);
@@ -203,9 +233,12 @@ impl SettlementClient for EthereumSettlementClient {
         // Sign and submit
         let mut txn: TransactionRequest = tx.into();
         // txn.set
-        txn = txn.with_from(Address::from_str("0x2C169DFe5fBbA12957Bdd0Ba47d9CEDbFE260CA7").expect("lol"));
         txn.set_blob_sidecar(tx_sidecar.sidecar);
         txn.set_nonce(666068);
+
+        if cfg!(test) {
+            txn = txn.with_from(Address::from_str("0x2C169DFe5fBbA12957Bdd0Ba47d9CEDbFE260CA7").expect("lol"));
+        }
         // let signature = self.wallet.default_signer().sign_transaction(&mut variant).await?;
 
         // let tx_signed = variant.into_signed(signature);
@@ -214,9 +247,12 @@ impl SettlementClient for EthereumSettlementClient {
 
         // let pending_tx = self.provider.send_raw_transaction(&encoded).await?;
 
-        let pending_tx = self.provider.send_transaction(txn).await.expect("dsf");
+        let pending_tx = self.provider.send_transaction(txn).await.expect("qwerty");
 
-        // println!(" pending_tx {:?}", pending_tx );
+        println!(" pending_tx {:?}", pending_tx );
+
+        // Checking contract state!
+
 
         Ok("0x2b3fb5f9a59c0687e6e33ca0fc2fe7c02be013a52e5935d8a7ec19dbac95d081".into())
     }
