@@ -6,5 +6,4 @@
 *.code-workspace
 .vscode
 
-lcov.info
 coverage
