@@ -6,10 +6,10 @@ use crate::jobs::constants::{JOB_PROCESS_ATTEMPT_METADATA_KEY, JOB_VERIFICATION_
 use crate::jobs::types::{JobItem, JobStatus, JobType, JobVerificationStatus};
 use crate::queue::job_queue::{add_job_to_process_queue, add_job_to_verification_queue, ConsumptionError};
 use async_trait::async_trait;
-use mockall::automock;
-use mockall_double::double;
 use color_eyre::eyre::Context;
 use da_job::DaError;
+use mockall::automock;
+use mockall_double::double;
 use proving_job::ProvingError;
 use state_update_job::StateUpdateError;
 use tracing::log;
@@ -88,7 +88,6 @@ pub trait Job: Send + Sync {
     /// Should return the number of seconds to wait before polling for verification
     fn verification_polling_delay_seconds(&self) -> u64;
 }
-
 
 /// Creates the job in the DB in the created state and adds it to the process queue
 pub async fn create_job(
@@ -216,16 +215,6 @@ pub async fn verify_job(id: Uuid) -> Result<(), JobError> {
     Ok(())
 }
 
-fn get_job_handler(job_type: &JobType) -> Box<dyn Job> {
-    match job_type {
-        JobType::DataSubmission => Box::new(da_job::DaJob),
-        JobType::SnosRun => Box::new(snos_job::SnosJob),
-        JobType::ProofCreation => Box::new(proving_job::ProvingJob),
-        JobType::StateTransition => Box::new(state_update_job::StateUpdateJob),
-        _ => unimplemented!("Job type not implemented yet."),
-    }
-}
-
 async fn get_job(id: Uuid) -> Result<JobItem, JobError> {
     let config = config().await;
     let job = config.database().get_job_by_id(id).await?;
@@ -235,7 +224,7 @@ async fn get_job(id: Uuid) -> Result<JobItem, JobError> {
     }
 }
 
-fn increment_key_in_metadata(
+pub fn increment_key_in_metadata(
     metadata: &HashMap<String, String>,
     key: &str,
 ) -> Result<HashMap<String, String>, JobError> {
