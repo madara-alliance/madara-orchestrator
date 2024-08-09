@@ -38,7 +38,7 @@ jobs:
       - name: Coveralls
         uses: coverallsapp/github-action@v2
         with:
-          files: crates/settlement-clients/ethereum/report.lcov
+          files: ./report.lcov
           debug: true
           allow-empty: true
 
