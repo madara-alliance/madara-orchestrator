@@ -1,4 +1,4 @@
-use std::{collections::HashMap, fmt};
+use std::collections::HashMap;
 
 use color_eyre::eyre::eyre;
 use color_eyre::Result;
@@ -83,38 +83,35 @@ pub enum JobType {
     StateTransition,
 }
 
-#[derive(Serialize, Deserialize, Debug, Clone, PartialEq, PartialOrd)]
+#[derive(Serialize, Deserialize, Debug, Clone, PartialEq, PartialOrd, strum_macros::Display)]
 pub enum JobStatus {
     /// An acknowledgement that the job has been received by the
     /// orchestrator and is waiting to be processed
+
+    #[strum(to_string = "Created")]
     Created,
     /// Some system has taken a lock over the job for processing and no
     /// other system to process the job
+
+    #[strum(to_string = "Locked for Processing")]
     LockedForProcessing,
     /// The job has been processed and is pending verification
+
+    #[strum(to_string = "Pending Verification")]
     PendingVerification,
     /// The job has been processed and verified. No other actions needs to be taken
+
+    #[strum(to_string = "Completed")]
     Completed,
     /// The job was processed but the was unable to be verified under the given time
+    #[strum(to_string = "Verification Timeout")]
     VerificationTimeout,
     /// The job failed processing
+    #[strum(to_string = "Verification Failed")]
     VerificationFailed,
     /// The job failed completing
+    #[strum(to_string = "Failed")]
     Failed,
-}
-
-impl fmt::Display for JobStatus {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        match self {
-            JobStatus::Created => write!(f, "Created"),
-            JobStatus::LockedForProcessing => write!(f, "Locked for Processing"),
-            JobStatus::PendingVerification => write!(f, "Pending Verification"),
-            JobStatus::Completed => write!(f, "Completed"),
-            JobStatus::VerificationTimeout => write!(f, "Verification Timeout"),
-            JobStatus::VerificationFailed => write!(f, "Verification Failed"),
-            JobStatus::Failed => write!(f, "Failed"),
-        }
-    }
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone, PartialEq)]
