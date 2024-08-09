@@ -35,11 +35,13 @@ jobs:
       - uses: taiki-e/install-action@cargo-llvm-cov
       - uses: taiki-e/install-action@nextest
 
-      - name: Coveralls
-        uses: coverallsapp/github-action@v2
+      - name: Check path
         run: |
           pwd
           ls
+
+      - name: Coveralls
+        uses: coverallsapp/github-action@v2
         with:
           files: lcov.info
           debug: true
