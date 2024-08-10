@@ -3,8 +3,6 @@ use std::collections::HashMap;
 use color_eyre::eyre::eyre;
 use color_eyre::Result;
 use da_client_interface::DaVerificationStatus;
-// TODO: job types shouldn't depend on mongodb
-use mongodb::bson::serde_helpers::uuid_1_as_binary;
 use serde::{Deserialize, Serialize};
 use settlement_client_interface::SettlementVerificationStatus;
 use uuid::Uuid;
@@ -101,10 +99,9 @@ pub enum JobStatus {
     VerificationFailed,
 }
 
-#[derive(Serialize, Deserialize, Debug, Clone, PartialEq)]
+#[derive(Debug, Clone, PartialEq)]
 pub struct JobItem {
     /// an uuid to identify a job
-    #[serde(with = "uuid_1_as_binary")]
     pub id: Uuid,
     /// a meaningful id used to track a job internally, ex: block_no, txn_hash
     pub internal_id: String,

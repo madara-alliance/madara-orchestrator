@@ -1,6 +1,7 @@
 use async_std::stream::StreamExt;
 use futures::TryStreamExt;
 use std::collections::HashMap;
+use std::fmt;
 
 use async_trait::async_trait;
 use color_eyre::eyre::eyre;
@@ -13,6 +14,9 @@ use mongodb::{
     options::{ClientOptions, ServerApi, ServerApiVersion},
     Client, Collection,
 };
+use serde::de::{MapAccess, Visitor};
+use serde::ser::SerializeStruct;
+use serde::{de, Deserialize, Deserializer, Serialize, Serializer};
 use uuid::Uuid;
 
 use crate::database::mongodb::config::MongoDbConfig;
@@ -291,5 +295,125 @@ impl Database for MongoDb {
         let jobs = self.get_job_collection().find(filter, find_options).await?.try_collect().await?;
 
         Ok(jobs)
+    }
+}
+
+impl Serialize for JobItem {
+    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
+    where
+        S: Serializer,
+    {
+        let mut state = serializer.serialize_struct("JobItem", 7)?;
+        let binary = bson::Binary { subtype: bson::spec::BinarySubtype::Uuid, bytes: self.id.as_bytes().to_vec() };
+        state.serialize_field("id", &binary)?;
+        state.serialize_field("internal_id", &self.internal_id)?;
+        state.serialize_field("job_type", &self.job_type)?;
+        state.serialize_field("status", &self.status)?;
+        state.serialize_field("external_id", &self.external_id)?;
+        state.serialize_field("metadata", &self.metadata)?;
+        state.serialize_field("version", &self.version)?;
+        state.end()
+    }
+}
+
+impl<'de> Deserialize<'de> for JobItem {
+    fn deserialize<D>(deserializer: D) -> Result<JobItem, D::Error>
+    where
+        D: Deserializer<'de>,
+    {
+        struct JobItemVisitor;
+
+        impl<'de> Visitor<'de> for JobItemVisitor {
+            type Value = JobItem;
+
+            fn expecting(&self, formatter: &mut fmt::Formatter) -> fmt::Result {
+                formatter.write_str("struct JobItem")
+            }
+
+            fn visit_map<V>(self, mut map: V) -> Result<JobItem, V::Error>
+            where
+                V: MapAccess<'de>,
+            {
+                let mut id = None;
+                let mut internal_id = None;
+                let mut job_type = None;
+                let mut status = None;
+                let mut external_id = None;
+                let mut metadata = None;
+                let mut version = None;
+
+                while let Some(key) = map.next_key()? {
+                    match key {
+                        "id" => {
+                            if id.is_some() {
+                                return Err(de::Error::duplicate_field("id"));
+                            }
+                            // Deserialize UUID from BSON Binary
+                            let binary: bson::Binary = map.next_value()?;
+                            if binary.subtype != bson::spec::BinarySubtype::Uuid {
+                                return Err(de::Error::custom("expected UUID binary subtype"));
+                            }
+                            id = Some(Uuid::from_slice(&binary.bytes).map_err(de::Error::custom)?);
+                        }
+                        "internal_id" => {
+                            if internal_id.is_some() {
+                                return Err(de::Error::duplicate_field("internal_id"));
+                            }
+                            internal_id = Some(map.next_value()?);
+                        }
+                        "job_type" => {
+                            if job_type.is_some() {
+                                return Err(de::Error::duplicate_field("job_type"));
+                            }
+                            job_type = Some(map.next_value()?);
+                        }
+                        "status" => {
+                            if status.is_some() {
+                                return Err(de::Error::duplicate_field("status"));
+                            }
+                            status = Some(map.next_value()?);
+                        }
+                        "external_id" => {
+                            if external_id.is_some() {
+                                return Err(de::Error::duplicate_field("external_id"));
+                            }
+                            external_id = Some(map.next_value()?);
+                        }
+                        "metadata" => {
+                            if metadata.is_some() {
+                                return Err(de::Error::duplicate_field("metadata"));
+                            }
+                            metadata = Some(map.next_value()?);
+                        }
+                        "version" => {
+                            if version.is_some() {
+                                return Err(de::Error::duplicate_field("version"));
+                            }
+                            version = Some(map.next_value()?);
+                        }
+                        "_id" => {
+                            // Ignore the MongoDB autogenerated _id field
+                            let _id: bson::oid::ObjectId = map.next_value()?;
+                        }
+                        _ => return Err(de::Error::unknown_field(key, FIELDS)),
+                    }
+                }
+
+                let id = id.ok_or_else(|| de::Error::missing_field("id"))?;
+                let internal_id = internal_id.ok_or_else(|| de::Error::missing_field("internal_id"))?;
+                let job_type = job_type.ok_or_else(|| de::Error::missing_field("job_type"))?;
+                let status = status.ok_or_else(|| de::Error::missing_field("status"))?;
+                let external_id = external_id.ok_or_else(|| de::Error::missing_field("external_id"))?;
+                let metadata = metadata.ok_or_else(|| de::Error::missing_field("metadata"))?;
+                let version = version.ok_or_else(|| de::Error::missing_field("version"))?;
+
+                Ok(JobItem { id, internal_id, job_type, status, external_id, metadata, version })
+            }
+        }
+
+        const FIELDS: &[&str] =
+            &["id", "internal_id", "job_type", "status", "external_id", "metadata", "version", "_id"];
+
+        deserializer.deserialize_struct("JobItem", FIELDS, JobItemVisitor)
     }
 }
