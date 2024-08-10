@@ -1,5 +1,5 @@
 use crate::jobs::da_job::test::{get_nonce_attached, read_state_update_from_file};
-use crate::jobs::da_job::DaJob;
+use crate::jobs::da_job::{DaError, DaJob};
 use crate::jobs::types::{ExternalId, JobItem, JobStatus, JobType};
 use crate::tests::common::drop_database;
 use crate::tests::config::TestConfigBuilder;
@@ -137,13 +137,11 @@ async fn test_da_job_process_job_failure_on_pending_block() {
 
     assert_matches!(response,
         Err(e) => {
-            let expected_error = eyre!(
-                "Cannot process block {} for job id {} as it's still in pending state",
-                internal_id.to_string(),
-                Uuid::default()
-            )
-            .to_string();
-            assert_eq!(e.to_string(), expected_error);
+            let expected_error = DaError::BlockPending {
+                block_no: internal_id.to_string(),
+                job_id: Uuid::default()
+            };
+            assert_eq!(e.to_string(), expected_error.to_string());
         }
     );
 

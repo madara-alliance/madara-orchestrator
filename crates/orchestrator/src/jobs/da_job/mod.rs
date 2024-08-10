@@ -41,7 +41,7 @@ lazy_static! {
 #[derive(Error, Debug)]
 pub enum DaError {
     #[error("Cannot process block {block_no:?} for job id {job_id:?} as it's still in pending state.")]
-    BlockPending { block_no: u64, job_id: Uuid },
+    BlockPending { block_no: String, job_id: Uuid },
 
     #[error("Blob size must be at least 32 bytes to accommodate a single FieldElement/BigUint, but was {blob_size:?}")]
     InsufficientBlobSize { blob_size: u64 },
@@ -84,7 +84,9 @@ impl Job for DaJob {
             .wrap_err("Failed to get state Update.".to_string())?;
 
         let state_update = match state_update {
-            MaybePendingStateUpdate::PendingUpdate(_) => Err(DaError::BlockPending { block_no, job_id: job.id })?,
+            MaybePendingStateUpdate::PendingUpdate(_) => {
+                Err(DaError::BlockPending { block_no: block_no.to_string(), job_id: job.id })?
+            }
             MaybePendingStateUpdate::Update(state_update) => state_update,
         };
         // constructing the data from the rpc
