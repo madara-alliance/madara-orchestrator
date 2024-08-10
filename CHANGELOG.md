@@ -16,6 +16,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 - `AWS_DEFAULT_REGION="localhost"` var. in .env.test for omniqueue queue testing.
 - Added basic rust-toolchain support.
 - Tests for DA job.
+- Custom serializer and deserializer for mongo db.
 
 ## Changed
 
@@ -28,5 +29,6 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 ## Removed
 
 - `fetch_from_test` argument
+- Mongodb dependency from JobItem struct.
 
 ## Fixed
