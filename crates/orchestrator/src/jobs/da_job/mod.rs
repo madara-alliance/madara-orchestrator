@@ -85,7 +85,7 @@ impl Job for DaJob {
 
         let state_update = match state_update {
             MaybePendingStateUpdate::PendingUpdate(_) => {
-                Err(DaError::BlockPending { block_no : block_no.to_string(), job_id: job.id })?
+                Err(DaError::BlockPending { block_no: block_no.to_string(), job_id: job.id })?
             }
             MaybePendingStateUpdate::Update(state_update) => state_update,
         };
@@ -107,7 +107,12 @@ impl Job for DaJob {
 
         // there is a limit on number of blobs per txn, checking that here
         if current_blob_length > max_blob_per_txn {
-            Err(DaError::MaxBlobsLimitExceeded { max_blob_per_txn, current_blob_length, block_no : block_no.to_string(), job_id: job.id })?
+            Err(DaError::MaxBlobsLimitExceeded {
+                max_blob_per_txn,
+                current_blob_length,
+                block_no: block_no.to_string(),
+                job_id: job.id,
+            })?
         }
 
         // making the txn to the DA layer
