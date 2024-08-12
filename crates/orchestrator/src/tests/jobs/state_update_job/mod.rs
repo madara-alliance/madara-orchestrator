@@ -189,7 +189,7 @@ async fn test_process_job_invalid_input_gap() {
 
     let mut job =
         StateUpdateJob.create_job(config().await.as_ref(), String::from("internal_id"), metadata).await.unwrap();
-    let _ = StateUpdateJob.process_job(config().await.as_ref(), &mut job).await.unwrap();
+    let _ = StateUpdateJob.process_job(config().await.as_ref(), &mut job).await.unwrap_err();
 }
 
 // ==================== Utility functions ===========================
