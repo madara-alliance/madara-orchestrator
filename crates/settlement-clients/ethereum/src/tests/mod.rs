@@ -1,20 +1,17 @@
+use alloy::{node_bindings::Anvil, sol};
+use std::io::BufRead;
 use std::{
     fs::{self, File},
     io::BufReader,
     str::FromStr,
 };
-use std::io::BufRead;
-use std::time::Duration;
-use alloy::{node_bindings::Anvil, sol};
 use url::Url;
 
-use alloy::{primitives::U256, providers::Provider};
 use alloy::providers::{ext::AnvilApi, ProviderBuilder};
+use alloy::{primitives::U256, providers::Provider};
 use alloy_primitives::Address;
-use alloy_primitives::FixedBytes;
 use color_eyre::eyre::eyre;
 use rstest::*;
-use tokio::time::sleep;
 
 use settlement_client_interface::SettlementClient;
 use utils::settings::default::DefaultSettingsProvider;
@@ -38,7 +35,7 @@ fn hex_string_to_u8_vec(hex_str: &str) -> color_eyre::Result<Vec<u8>> {
     Ok(result)
 }
 
-   // Codegen from ABI file to interact with the contract.
+// Codegen from ABI file to interact with the contract.
 sol!(
     #[allow(missing_docs)]
     #[sol(rpc)]
@@ -52,31 +49,39 @@ sol!(
 #[tokio::test]
 #[case::basic(20468828)]
 async fn update_state_blob_works(#[case] block_no: u64) {
-
     // Load ENV vars
     dotenvy::from_filename("../.env.test").expect("Could not load .env.test file.");
     let current_path = std::env::current_dir().unwrap().to_str().unwrap().to_string();
 
     // Setup Anvil
-    let _anvil = Anvil::new().port(3000_u16).fork("https://eth.llamarpc.com").fork_block_number(block_no - 1).try_spawn()
-    .expect("Could not spawn Anvil.");
+    let _anvil = Anvil::new()
+        .port(3000_u16)
+        .fork("https://eth.llamarpc.com")
+        .fork_block_number(block_no - 1)
+        .try_spawn()
+        .expect("Could not spawn Anvil.");
 
     // Setup Provider
-    let provider = ProviderBuilder::new().on_http(Url::from_str("http://localhost:3000").expect("Could not create provider."));
-    
+    let provider =
+        ProviderBuilder::new().on_http(Url::from_str("http://localhost:3000").expect("Could not create provider."));
+
     // Setup EthereumSettlementClient
     let settings_provider: DefaultSettingsProvider = DefaultSettingsProvider {};
     let ethereum_settlement_client = EthereumSettlementClient::with_test_settings(&settings_provider, provider.clone());
-    
-    
+
     // Setup operator account impersonation
     provider
-        .anvil_impersonate_account(Address::from_str("0x2C169DFe5fBbA12957Bdd0Ba47d9CEDbFE260CA7").expect("Could not impersonate account."))
+        .anvil_impersonate_account(
+            Address::from_str("0x2C169DFe5fBbA12957Bdd0Ba47d9CEDbFE260CA7").expect("Could not impersonate account."),
+        )
         .await
         .expect("sdcjb");
 
     // Create a contract instance.
-    let contract = STARKNET_CORE_CONTRACT::new(Address::from_str("0xc662c410c0ecf747543f5ba90660f6abebd9c8c4").expect("sd"), provider.clone());
+    let contract = STARKNET_CORE_CONTRACT::new(
+        Address::from_str("0xc662c410c0ecf747543f5ba90660f6abebd9c8c4").expect("sd"),
+        provider.clone(),
+    );
 
     // Call the contract, retrieve the current stateBlockNumber.
     let prev_block_number = contract.stateBlockNumber().call().await.unwrap();
@@ -106,13 +111,11 @@ async fn update_state_blob_works(#[case] block_no: u64) {
     let blob_data = fs::read_to_string(blob_data_file_path).expect("Failed to read the blob data txt file");
     let blob_data_vec = vec![hex_string_to_u8_vec(&blob_data).unwrap()];
 
-
     // Calling update_state_with_blobs
     let update_state_result = ethereum_settlement_client
         .update_state_with_blobs(program_output, blob_data_vec)
         .await
         .expect("Could not go through update_state_with_blobs.");
-
 
     // Asserting, Expected to receive transaction hash.
     assert!(!update_state_result.is_empty(), "No transaction Hash received.");
@@ -120,8 +123,8 @@ async fn update_state_blob_works(#[case] block_no: u64) {
     // Call the contract, retrieve the latest stateBlockNumber.
     let latest_block_number = contract.stateBlockNumber().call().await.unwrap();
 
-    println!("PREVIOUS BLOCK NUMBER {}" , prev_block_number._0.to_string());
-    println!("CURRENT BLOCK HASH {}" , latest_block_number._0.to_string());
+    println!("PREVIOUS BLOCK NUMBER {}", prev_block_number._0);
+    println!("CURRENT BLOCK HASH {}", latest_block_number._0);
 
-    assert_eq!(prev_block_number._0.as_u32() +1 , latest_block_number._0.as_u32());
+    assert_eq!(prev_block_number._0.as_u32() + 1, latest_block_number._0.as_u32());
 }

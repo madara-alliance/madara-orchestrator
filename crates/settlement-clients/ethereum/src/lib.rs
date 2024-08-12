@@ -2,7 +2,9 @@ use std::path::{Path, PathBuf};
 use std::str::FromStr;
 use std::sync::Arc;
 
-use alloy::{node_bindings::Anvil, providers::ProviderBuilder, sol};
+use alloy::consensus::{
+    BlobTransactionSidecar, SignableTransaction, TxEip4844, TxEip4844Variant, TxEip4844WithSidecar, TxEnvelope,
+};
 use alloy::{
     network::EthereumWallet,
     primitives::{Address, B256, U256},
@@ -10,45 +12,42 @@ use alloy::{
     rpc::types::TransactionReceipt,
     signers::local::PrivateKeySigner,
 };
-use alloy::consensus::{
-    BlobTransactionSidecar, SignableTransaction, TxEip4844, TxEip4844Variant, TxEip4844WithSidecar, TxEnvelope
-};
+
 // use eyre::Result;
-use alloy::eips::eip2718::Encodable2718;
 use alloy::eips::eip2930::AccessList;
 use alloy::eips::eip4844::BYTES_PER_BLOB;
 use alloy::hex;
 use alloy::network::TransactionBuilder;
-use alloy::providers::ext::AnvilApi;
 // use alloy::node_bindings::Anvil;
-use alloy::providers::layers::AnvilProvider;
-use alloy::providers::RootProvider;
 use alloy::rpc::types::TransactionRequest;
-use alloy::transports::http::Http;
 use alloy_primitives::Bytes;
 use async_trait::async_trait;
 use c_kzg::{Blob, Bytes32, KzgCommitment, KzgProof, KzgSettings};
 use color_eyre::eyre::eyre;
 use color_eyre::Result;
 use mockall::{automock, lazy_static, predicate::*};
-use reqwest::Client;
 
+use alloy::providers::ProviderBuilder;
 use conversion::prepare_sidecar;
-use settlement_client_interface::{SETTLEMENT_SETTINGS_NAME, SettlementClient, SettlementVerificationStatus};
-use types::EthHttpProvider;
+use settlement_client_interface::{SettlementClient, SettlementVerificationStatus, SETTLEMENT_SETTINGS_NAME};
 use utils::{env_utils::get_env_var_or_panic, settings::SettingsProvider};
 
 use crate::clients::interfaces::validity_interface::StarknetValidityContractTrait;
 use crate::clients::StarknetValidityContractClient;
 use crate::config::EthereumSettlementConfig;
 use crate::conversion::{slice_slice_u8_to_vec_u256, slice_u8_to_u256};
-
 pub mod clients;
 pub mod config;
 pub mod conversion;
 #[cfg(test)]
 mod tests;
 pub mod types;
+
+#[cfg(test)]
+use {alloy::providers::RootProvider, alloy::transports::http::Http, reqwest::Client};
+
+#[cfg(not(test))]
+use types::EthHttpProvider;
 
 pub const ENV_PRIVATE_KEY: &str = "ETHEREUM_PRIVATE_KEY";
 
@@ -59,8 +58,6 @@ lazy_static! {
         KzgSettings::load_trusted_setup_file(CURRENT_PATH.join("src/trusted_setup.txt").as_path())
             .expect("Error loading trusted setup file");
 }
-
-
 
 #[allow(dead_code)]
 pub struct EthereumSettlementClient {
@@ -95,14 +92,14 @@ impl EthereumSettlementClient {
     }
 
     #[cfg(test)]
-    pub fn with_test_settings(settings: &impl SettingsProvider, provider : RootProvider<Http<Client>>) -> Self {
+    pub fn with_test_settings(settings: &impl SettingsProvider, provider: RootProvider<Http<Client>>) -> Self {
         let settlement_cfg: EthereumSettlementConfig = settings.get_settings(SETTLEMENT_SETTINGS_NAME).unwrap();
 
         let private_key = get_env_var_or_panic(ENV_PRIVATE_KEY);
         let signer: PrivateKeySigner = private_key.parse().expect("Failed to parse private key");
         let wallet_address = signer.address();
         let wallet = EthereumWallet::from(signer);
-       
+
         let fill_provider = Arc::new(
             ProviderBuilder::new().with_recommended_fillers().wallet(wallet.clone()).on_http(settlement_cfg.rpc_url),
         );
@@ -189,7 +186,7 @@ impl SettlementClient for EthereumSettlementClient {
         max_fee_per_blob_gas += 12;
         let max_priority_fee_per_gas: u128 = self.provider.get_max_priority_fee_per_gas().await?.to_string().parse()?;
         let nonce = self.provider.get_transaction_count(self.wallet_address).await?.to_string().parse()?;
-        
+
         // x_0_value : program_output[6]
         let kzg_proof = Self::build_proof(
             state_diff,
@@ -220,13 +217,14 @@ impl SettlementClient for EthereumSettlementClient {
         let tx_signed = variant.into_signed(signature);
         let tx_envelope: TxEnvelope = tx_signed.into();
         // IMP: this conversion strips signature from the transaction
-        let mut txn_request : TransactionRequest = tx_envelope.into();
-
-
+        let mut txn_request: TransactionRequest = tx_envelope.into();
 
         if cfg!(test) {
             txn_request.set_nonce(666068);
-            txn_request = txn_request.with_from(Address::from_str("0x2C169DFe5fBbA12957Bdd0Ba47d9CEDbFE260CA7").expect("Unable to impersonate operator."));
+            txn_request = txn_request.with_from(
+                Address::from_str("0x2C169DFe5fBbA12957Bdd0Ba47d9CEDbFE260CA7")
+                    .expect("Unable to impersonate operator."),
+            );
             let pending_transaction = self.provider.send_transaction(txn_request).await?;
             return Ok(pending_transaction.tx_hash().to_string());
         }

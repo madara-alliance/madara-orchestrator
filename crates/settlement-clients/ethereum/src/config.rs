@@ -7,8 +7,8 @@ use utils::env_utils::get_env_var_or_panic;
 
 pub const ENV_ETHEREUM_RPC_URL: &str = "ETHEREUM_RPC_URL";
 pub const ENV_CORE_CONTRACT_ADDRESS: &str = "STARKNET_SOLIDITY_CORE_CONTRACT_ADDRESS";
-pub const DEFAULT_SETTLEMENT_CLIENT_RPC : &str = "DEFAULT_SETTLEMENT_CLIENT_RPC";
-pub const DEFAULT_L1_CORE_CONTRACT_ADDRESS : &str = "DEFAULT_L1_CORE_CONTRACT_ADDRESS";
+pub const DEFAULT_SETTLEMENT_CLIENT_RPC: &str = "DEFAULT_SETTLEMENT_CLIENT_RPC";
+pub const DEFAULT_L1_CORE_CONTRACT_ADDRESS: &str = "DEFAULT_L1_CORE_CONTRACT_ADDRESS";
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct EthereumSettlementConfig {
@@ -29,7 +29,7 @@ impl Default for EthereumSettlementConfig {
     fn default() -> Self {
         Self {
             rpc_url: get_env_var_or_panic(DEFAULT_SETTLEMENT_CLIENT_RPC).parse().unwrap(),
-            core_contract_address: get_env_var_or_panic(DEFAULT_L1_CORE_CONTRACT_ADDRESS).into(),
+            core_contract_address: get_env_var_or_panic(DEFAULT_L1_CORE_CONTRACT_ADDRESS),
         }
     }
 }
