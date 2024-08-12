@@ -73,15 +73,8 @@ async fn test_da_job_process_job_failure_on_small_blob_size(
 
     assert_matches!(response,
         Err(e) => {
-            let expected_error = eyre!(
-                "Exceeded the maximum number of blobs per transaction: allowed {}, found {} for block {} and job id {}",
-                max_blob_per_txn,
-                current_blob_length,
-                internal_id.to_string(),
-                Uuid::default()
-            )
-            .to_string();
-            assert_eq!(e.to_string(), expected_error);
+            let expected_error = DaError::MaxBlobsLimitExceeded { max_blob_per_txn, current_blob_length, block_no: internal_id.to_string(), job_id: Uuid::default() } ;
+            assert_eq!(e.to_string(), expected_error.to_string());
         }
     );
 
