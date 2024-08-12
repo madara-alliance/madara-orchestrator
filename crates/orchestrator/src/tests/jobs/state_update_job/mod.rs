@@ -2,13 +2,13 @@ use std::collections::HashMap;
 use std::fs;
 use std::path::PathBuf;
 
+use assert_matches::assert_matches;
 use bytes::Bytes;
 use httpmock::prelude::*;
 use lazy_static::lazy_static;
 use mockall::predicate::eq;
 use rstest::*;
 use settlement_client_interface::MockSettlementClient;
-use assert_matches::assert_matches;
 
 use super::super::common::init_config;
 use crate::config::{config, config_force_init};
@@ -198,8 +198,6 @@ async fn test_process_job_invalid_input_gap() {
             assert_eq!(e.to_string(), expected_error.to_string());
         }
     );
-
-
 }
 
 // ==================== Utility functions ===========================
