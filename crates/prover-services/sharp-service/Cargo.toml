@@ -11,6 +11,7 @@ gps-fact-checker.workspace = true
 hex.workspace = true
 prover-client-interface.workspace = true
 reqwest.workspace = true
+rstest.workspace = true
 serde.workspace = true
 serde_json.workspace = true
 snos.workspace = true
@@ -22,3 +23,4 @@ uuid.workspace = true
 
 [dev-dependencies]
 tokio.workspace = true
+httpmock = "0.6"
