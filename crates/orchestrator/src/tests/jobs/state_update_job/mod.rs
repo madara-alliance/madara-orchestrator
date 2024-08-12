@@ -8,6 +8,7 @@ use lazy_static::lazy_static;
 use mockall::predicate::eq;
 use rstest::*;
 use settlement_client_interface::MockSettlementClient;
+use assert_matches::assert_matches;
 
 use super::super::common::init_config;
 use crate::config::{config, config_force_init};
@@ -18,9 +19,9 @@ use crate::jobs::constants::{
     JOB_PROCESS_ATTEMPT_METADATA_KEY,
 };
 use crate::jobs::state_update_job::utils::hex_string_to_u8_vec;
-use crate::jobs::state_update_job::StateUpdateJob;
+use crate::jobs::state_update_job::{StateUpdateError, StateUpdateJob};
 use crate::jobs::types::{JobStatus, JobType};
-use crate::jobs::Job;
+use crate::jobs::{Job, JobError};
 
 lazy_static! {
     pub static ref CURRENT_PATH: PathBuf = std::env::current_dir().unwrap();
@@ -189,7 +190,17 @@ async fn test_process_job_invalid_input_gap() {
 
     let mut job =
         StateUpdateJob.create_job(config().await.as_ref(), String::from("internal_id"), metadata).await.unwrap();
-    let _ = StateUpdateJob.process_job(config().await.as_ref(), &mut job).await.unwrap_err();
+    let response = StateUpdateJob.process_job(config().await.as_ref(), &mut job).await;
+
+    assert_matches!(response,
+        Err(e) => {
+            let err = StateUpdateError::GapBetweenFirstAndLastBlock;
+            let expected_error = JobError::StateUpdateJobError(err);
+            assert_eq!(e.to_string(), expected_error.to_string());
+        }
+    );
+
+
 }
 
 // ==================== Utility functions ===========================
