@@ -26,6 +26,7 @@ use crate::jobs::Job;
 use crate::tests::common::{default_job_item, get_storage_client};
 use crate::tests::config::TestConfigBuilder;
 use lazy_static::lazy_static;
+use num_traits::ToPrimitive;
 use utils::env_utils::get_env_var_or_panic;
 
 lazy_static! {
@@ -76,8 +77,8 @@ async fn test_process_job_works(
     TestConfigBuilder::new().build().await;
 
     // Adding expectations for each block number to be called by settlement client.
-    for (i, _) in block_numbers.iter().enumerate().skip(processing_start_index as usize) {
-        let blob_data = fetch_blob_data_for_block(block_numbers[i]).await.unwrap();
+    for block in block_numbers.iter().skip(processing_start_index as usize) {
+        let blob_data = fetch_blob_data_for_block(block.to_u64().unwrap()).await.unwrap();
         settlement_client
             .expect_update_state_with_blobs()
             .with(eq(vec![]), eq(blob_data))
