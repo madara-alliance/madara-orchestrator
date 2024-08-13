@@ -112,7 +112,7 @@ impl EthereumSettlementClient {
     }
 
     /// Build kzg proof for the x_0 point evaluation
-    async fn build_proof(blob_data: Vec<Vec<u8>>, x_0_value: Bytes32) -> Result<KzgProof> {
+    pub fn build_proof(blob_data: Vec<Vec<u8>>, x_0_value: Bytes32) -> Result<KzgProof> {
         // Assuming that there is only one blob in the whole Vec<Vec<u8>> array for now.
         // Later we will add the support for multiple blob in single blob_data vec.
         assert_eq!(blob_data.len(), 1);
@@ -196,7 +196,6 @@ impl SettlementClient for EthereumSettlementClient {
             state_diff,
             Bytes32::from_bytes(program_output[6].as_slice()).expect("Not able to get x_0 point params."),
         )
-        .await
         .expect("Unable to build KZG proof for given params.")
         .to_owned();
 
@@ -229,8 +228,6 @@ impl SettlementClient for EthereumSettlementClient {
                 Address::from_str("0x2C169DFe5fBbA12957Bdd0Ba47d9CEDbFE260CA7")
                     .expect("Unable to impersonate operator."),
             );
-            let pending_transaction = self.provider.send_transaction(txn_request).await?;
-            return Ok(pending_transaction.tx_hash().to_string());
         }
 
         // let encoded = tx_envelope.encoded_2718();

@@ -1,3 +1,4 @@
+use alloy::dyn_abi::parser::Error;
 use alloy::eips::eip4844::BYTES_PER_BLOB;
 use alloy::primitives::Bytes;
 use alloy::primitives::FixedBytes;
@@ -41,6 +42,45 @@ pub(crate) fn get_txn_input_bytes(program_output: Vec<[u8; 32]>, kzg_proof: [u8;
     let function_selector = "0x1a790556";
 
     Bytes::from(program_output_hex_string + &kzg_proof_hex_string + function_selector)
+}
+
+/// Function to construct the transaction's `input data` for updating the state in the core contract.
+/// HEX Concatenation: MethodId, Offset, length for program_output, lines count, program_output, length for kzg_proof, kzg_proof
+/// All 64 chars, if lesser padded from left with 0s
+pub fn get_input_data_for_eip_4844(program_output: Vec<[u8; 32]>, kzg_proof: [u8; 48]) -> Result<Bytes, Error> {
+    // bytes4(keccak256(bytes("updateStateKzgDA(uint256[],bytes)")))
+    let method_id_hex = "0xb72d42a1";
+
+    // offset for updateStateKzgDA is 64
+    let offset: u64 = 64;
+    let offset_hex = format!("{:0>64x}", offset);
+
+    // program_output
+    let program_output_length = program_output.len();
+    let program_output_hex = vec_u8_32_to_hex_string(program_output);
+
+    // length for program_output: 3*64 [offset, length, lines all have 64 char length] + length of program_output
+    let length_program_output = (3 * 64 + program_output_hex.len()) / 2;
+    let length_program_output_hex = format!("{:0>64x}", length_program_output);
+
+    // lines count for program_output
+    let lines_count_hex = format!("{:0>64x}", program_output_length);
+
+    // length of KZG proof
+    let length_kzg_hex = format!("{:0>64x}", kzg_proof.len());
+
+    // KZG proof
+    let kzg_proof_hex = u8_48_to_hex_string(kzg_proof);
+
+    let input_data = method_id_hex.to_string()
+        + &offset_hex
+        + &length_program_output_hex
+        + &lines_count_hex
+        + &program_output_hex
+        + &length_kzg_hex
+        + &kzg_proof_hex;
+
+    Ok(Bytes::from(input_data))
 }
 
 pub(crate) fn vec_u8_32_to_hex_string(data: Vec<[u8; 32]>) -> String {

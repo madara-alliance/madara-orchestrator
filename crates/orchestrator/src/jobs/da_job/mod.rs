@@ -537,7 +537,7 @@ pub mod test {
         }
     }
 
-    fn vec_u8_to_hex_string(data: &[u8]) -> String {
+    pub fn vec_u8_to_hex_string(data: &[u8]) -> String {
         let hex_chars: Vec<String> = data.iter().map(|byte| format!("{:02x}", byte)).collect();
 
         let mut new_hex_chars = hex_chars.join("");
