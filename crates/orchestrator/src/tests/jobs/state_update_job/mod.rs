@@ -10,6 +10,7 @@ use rstest::*;
 use settlement_client_interface::MockSettlementClient;
 
 use color_eyre::eyre::eyre;
+use utils::env_utils::get_env_var_or_panic;
 
 use super::super::common::init_config;
 use crate::config::{config, config_force_init};
@@ -24,7 +25,7 @@ use crate::jobs::state_update_job::utils::hex_string_to_u8_vec;
 use crate::jobs::state_update_job::{StateUpdateError, StateUpdateJob};
 use crate::jobs::types::{JobStatus, JobType};
 use crate::jobs::{Job, JobError};
-use crate::tests::common::default_job_item;
+use crate::tests::common::{default_job_item, get_storage_client};
 use crate::tests::config::TestConfigBuilder;
 use lazy_static::lazy_static;
 
@@ -58,6 +59,10 @@ async fn test_process_job_works(
     #[case] processing_start_index: u8,
 ) {
     // Will be used by storage client which we call while storing the data.
+
+    use num::ToPrimitive;
+
+    use crate::jobs::state_update_job::utils::fetch_blob_data_for_block;
     dotenvy::from_filename("../.env.test").expect("Failed to load the .env file");
 
     // Mocking the settlement client.
