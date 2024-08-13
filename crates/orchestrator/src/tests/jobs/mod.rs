@@ -509,7 +509,13 @@ fn build_job_item_by_type_and_status(job_type: JobType, job_status: JobStatus, i
 }
 
 #[rstest]
-#[case(JobType::SnosRun, JobStatus::Failed)]
+#[case(JobType::DataSubmission, JobStatus::Completed)] // code should panic here, how can completed move to dl queue ?
+#[case(JobType::SnosRun, JobStatus::PendingVerification)]
+#[case(JobType::ProofCreation, JobStatus::LockedForProcessing)]
+#[case(JobType::ProofRegistration, JobStatus::Created)]
+#[case(JobType::StateTransition, JobStatus::Completed)]
+#[case(JobType::ProofCreation, JobStatus::VerificationTimeout)]
+#[case(JobType::DataSubmission, JobStatus::VerificationFailed)]
 #[tokio::test]
 async fn handle_job_failure_with_failed_job_status_works(#[case] job_type: JobType, #[case] job_status: JobStatus) {
     TestConfigBuilder::new().build().await;
