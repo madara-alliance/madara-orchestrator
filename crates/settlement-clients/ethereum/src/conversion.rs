@@ -47,7 +47,7 @@ pub(crate) fn get_txn_input_bytes(program_output: Vec<[u8; 32]>, kzg_proof: [u8;
 /// Function to construct the transaction's `input data` for updating the state in the core contract.
 /// HEX Concatenation: MethodId, Offset, length for program_output, lines count, program_output, length for kzg_proof, kzg_proof
 /// All 64 chars, if lesser padded from left with 0s
-pub fn get_input_data_for_eip_4844(program_output: Vec<[u8; 32]>, kzg_proof: [u8; 48]) -> Result<Bytes, Error> {
+pub fn get_input_data_for_eip_4844(program_output: Vec<[u8; 32]>, kzg_proof: [u8; 48]) -> Result<String, Error> {
     // bytes4(keccak256(bytes("updateStateKzgDA(uint256[],bytes)")))
     let method_id_hex = "0xb72d42a1";
 
@@ -80,7 +80,7 @@ pub fn get_input_data_for_eip_4844(program_output: Vec<[u8; 32]>, kzg_proof: [u8
         + &length_kzg_hex
         + &kzg_proof_hex;
 
-    Ok(Bytes::from(input_data))
+    Ok(input_data)
 }
 
 pub(crate) fn vec_u8_32_to_hex_string(data: Vec<[u8; 32]>) -> String {
