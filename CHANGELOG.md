@@ -26,6 +26,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 - `.env` file requires two more variables which are queue urls for processing
   and verification.
 - Shifted Unit tests to test folder for DA job.
+- Tests following Test conventions.
 
 ## Removed
 
