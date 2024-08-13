@@ -120,7 +120,6 @@ async fn update_state_blob_works(#[case] block_no: u64) {
     let blob_data = fs::read_to_string(blob_data_file_path).expect("Failed to read the blob data txt file");
     let blob_data_vec = vec![hex_string_to_u8_vec(&blob_data).unwrap()];
 
-
     // Calling update_state_with_blobs
     let update_state_result = ethereum_settlement_client
         .update_state_with_blobs(program_output, blob_data_vec, nonce)
@@ -143,7 +142,6 @@ async fn update_state_blob_works(#[case] block_no: u64) {
 #[tokio::test]
 #[case::basic(20468828)]
 async fn creating_input_data_works(#[case] block_no: u64) {
-    use alloy_primitives::Bytes;
     use c_kzg::Bytes32;
 
     use crate::conversion::{get_input_data_for_eip_4844, to_padded_hex};

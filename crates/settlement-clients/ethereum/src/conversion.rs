@@ -1,8 +1,7 @@
 use alloy::dyn_abi::parser::Error;
 use alloy::eips::eip4844::BYTES_PER_BLOB;
-use alloy::primitives::Bytes;
-use alloy::primitives::FixedBytes;
 use alloy::primitives::U256;
+use alloy_primitives::FixedBytes;
 use c_kzg::{Blob, KzgCommitment, KzgProof, KzgSettings};
 use color_eyre::{eyre::ContextCompat, Result as EyreResult};
 use std::fmt::Write;
@@ -32,16 +31,6 @@ pub(crate) fn to_padded_hex(slice: &[u8]) -> String {
         output
     });
     format!("{:0<64}", hex)
-}
-
-/// Function to construct the transaction for updating the state in core contract.
-pub(crate) fn get_txn_input_bytes(program_output: Vec<[u8; 32]>, kzg_proof: [u8; 48]) -> Bytes {
-    let program_output_hex_string = vec_u8_32_to_hex_string(program_output);
-    let kzg_proof_hex_string = u8_48_to_hex_string(kzg_proof);
-    // cast keccak "updateStateKzgDA(uint256[] calldata programOutput, bytes calldata kzgProof)" | cut -b 1-10
-    let function_selector = "0x1a790556";
-
-    Bytes::from(program_output_hex_string + &kzg_proof_hex_string + function_selector)
 }
 
 /// Function to construct the transaction's `input data` for updating the state in the core contract.
@@ -271,46 +260,6 @@ mod tests {
     fn vec_u8_32_to_hex_string_works(#[case] slice: Vec<[u8; 32]>, #[case] expected: String) {
         let result = vec_u8_32_to_hex_string(slice);
         assert_eq!(result, expected);
-    }
-
-    #[rstest]
-    #[case::typical(
-        vec![
-            [0xFF;32],
-            [0xF5;32],
-        ],
-        [0xF1;48],
-        format!("{}{}{}{}{}", 
-            "ff".repeat(32), "f5".repeat(32),
-            "f1".repeat(48), "00".repeat(16),
-            "0x1a790556"
-        )
-    )]
-    #[case::typical(
-        vec![
-            [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23, 24, 25, 26, 27, 28, 29, 30, 31, 32],
-            [32, 31, 30, 29, 28, 27, 26, 25, 24, 23, 22, 21, 20, 19, 18, 17, 16, 15, 14, 13, 12, 11, 10, 9, 8, 7, 6, 5, 4, 3, 2, 1],
-            [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23, 24, 25, 26, 27, 28, 29, 30, 0, 0]
-        ],
-        [
-            1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23, 24, 25, 26, 27, 28, 29, 30,
-            31, 32, 33, 34, 35, 36, 37, 38, 39, 40, 41, 42, 43, 44, 45, 46, 47, 48,
-        ],
-        format!("{}{}{}", 
-            "0102030405060708090a0b0c0d0e0f101112131415161718191a1b1c1d1e1f20201f1e1d1c1b1a191817161514131211100f0e0d0c0b0a0908070605040302010102030405060708090a0b0c0d0e0f101112131415161718191a1b1c1d1e0000",
-            "0102030405060708090a0b0c0d0e0f101112131415161718191a1b1c1d1e1f202122232425262728292a2b2c2d2e2f3000000000000000000000000000000000",
-            "0x1a790556"
-        )
-    )]
-
-    fn get_txn_input_bytes_works(
-        #[case] program_output: Vec<[u8; 32]>,
-        #[case] kzg_proof: [u8; 48],
-        #[case] expected_output: String,
-    ) {
-        let result: Bytes = get_txn_input_bytes(program_output, kzg_proof);
-        //TODO: converting expected value to match result, we would ideally want to convert the result to match expected
-        assert_eq!(result, Bytes::from(expected_output));
     }
 
     #[rstest]

@@ -212,7 +212,7 @@ impl SettlementClient for EthereumSettlementClient {
             access_list: AccessList(vec![]),
             blob_versioned_hashes: sidecar.versioned_hashes().collect(),
             max_fee_per_blob_gas,
-            input:  Bytes::from(hex::decode(input_bytes)?),
+            input: Bytes::from(hex::decode(input_bytes)?),
         };
 
         let tx_sidecar = TxEip4844WithSidecar { tx: tx.clone(), sidecar: sidecar.clone() };
