@@ -1,6 +1,7 @@
 pub mod client;
 pub mod config;
 pub mod error;
+mod types;
 
 use std::str::FromStr;
 
@@ -33,12 +34,8 @@ impl ProverClient for SharpProverService {
                 let fact_info = get_fact_info(&cairo_pie, None)?;
                 let encoded_pie =
                     snos::sharp::pie::encode_pie_mem(cairo_pie).map_err(ProverClientError::PieEncoding)?;
-                let res = self.sharp_client.add_job(&encoded_pie).await?;
-                if let Some(job_key) = res.cairo_job_key {
-                    Ok(combine_task_id(&job_key, &fact_info.fact))
-                } else {
-                    Err(ProverClientError::TaskInvalid(res.error_message.unwrap_or_default()))
-                }
+                let (_, job_key) = self.sharp_client.add_job(&encoded_pie).await?;
+                Ok(combine_task_id(&job_key, &fact_info.fact))
             }
         }
     }

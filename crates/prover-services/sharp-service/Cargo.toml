@@ -9,6 +9,7 @@ async-trait.workspace = true
 cairo-vm.workspace = true
 gps-fact-checker.workspace = true
 hex.workspace = true
+lazy_static.workspace = true
 prover-client-interface.workspace = true
 reqwest.workspace = true
 rstest.workspace = true
