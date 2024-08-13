@@ -2,5 +2,5 @@
 pub mod proving;
 #[cfg(test)]
 pub mod snos;
-mod update_state;
+mod state_update;
 mod utils;

@@ -8,9 +8,8 @@ use uuid::Uuid;
 
 #[rstest]
 #[tokio::test]
-async fn test_database_connection() -> color_eyre::Result<()> {
-    TestConfigBuilder::new().build().await;
-    Ok(())
+async fn database_connection_typical_works() {
+    let _ = TestConfigBuilder::new().build().await;
 }
 
 #[fixture]
@@ -22,7 +21,7 @@ async fn get_config() -> Guard<Arc<Config>> {
 /// Creates 3 jobs and asserts them.
 #[rstest]
 #[tokio::test]
-async fn test_database_create_job(#[future] get_config: Guard<Arc<Config>>) -> color_eyre::Result<()> {
+async fn database_create_job_typical_works(#[future] get_config: Guard<Arc<Config>>) {
     TestConfigBuilder::new().build().await;
     let config = get_config.await;
     let database_client = config.database();
@@ -47,12 +46,7 @@ async fn test_database_create_job(#[future] get_config: Guard<Arc<Config>>) -> c
     assert_eq!(get_job_1, job_vec[0].clone());
     assert_eq!(get_job_2, job_vec[1].clone());
     assert_eq!(get_job_3, job_vec[2].clone());
-
-    Ok(())
 }
-
-// Test Util Functions
-// ==========================================
 
 fn build_job_item(job_type: JobType, job_status: JobStatus, internal_id: u64) -> JobItem {
     JobItem {

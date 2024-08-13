@@ -373,7 +373,7 @@ pub mod test {
     #[case(false, 1, 0, "18446744073709551616")]
     #[case(false, 0, 6, "6")]
     #[case(true, 1, 0, "340282366920938463481821351505477763072")]
-    fn test_da_word(
+    fn da_word_typical_works(
         #[case] class_flag: bool,
         #[case] new_nonce: u64,
         #[case] num_changes: u64,
@@ -409,7 +409,7 @@ pub mod test {
         "src/tests/jobs/da_job/test_data/nonces/640641.txt"
     )]
     #[tokio::test]
-    async fn test_state_update_to_blob_data(
+    async fn state_update_to_blob_data_typical_works(
         #[case] block_no: u64,
         #[case] state_update_file_path: &str,
         #[case] file_path: &str,
@@ -470,7 +470,7 @@ pub mod test {
     #[case("src/tests/jobs/da_job/test_data/test_blob/640644.txt")]
     #[case("src/tests/jobs/da_job/test_data/test_blob/640646.txt")]
     #[case("src/tests/jobs/da_job/test_data/test_blob/640647.txt")]
-    fn test_fft_transformation(#[case] file_to_check: &str) {
+    fn fft_transformation_typical_works(#[case] file_to_check: &str) {
         // parsing the blob hex to the bigUints
 
         use crate::jobs::da_job::fft_transformation;
@@ -489,7 +489,7 @@ pub mod test {
     /// Verifies that the original data matches the deserialized data.
     /// Ensures the integrity and correctness of bincode's (de)serialization.
     #[rstest]
-    fn test_bincode() {
+    fn bincode_basic_works() {
         let data = vec![vec![1, 2], vec![3, 4]];
 
         let serialize_data = bincode::serialize(&data).unwrap();

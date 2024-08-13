@@ -40,7 +40,7 @@ pub const X_0_FILE_NAME: &str = "x_0.txt";
 #[rstest]
 #[should_panic(expected = "Could not find current attempt number.")]
 #[tokio::test]
-async fn test_process_job_attempt_not_present_fails() {
+async fn state_update_process_job_attempt_not_present_fails() {
     TestConfigBuilder::new().build().await;
 
     let mut job = default_job_item();
@@ -53,7 +53,7 @@ async fn test_process_job_attempt_not_present_fails() {
 #[case(None, String::from("651053,651054,651055"), 0)]
 #[case(Some(651054), String::from("651053,651054,651055"), 1)]
 #[tokio::test]
-async fn test_process_job_works(
+async fn state_update_process_job_typical_works(
     #[case] failed_block_number: Option<u64>,
     #[case] blocks_to_process: String,
     #[case] processing_start_index: u8,
@@ -115,7 +115,7 @@ async fn test_process_job_works(
 
 #[rstest]
 #[tokio::test]
-async fn test_create_job() {
+async fn state_update_create_job_works() {
     let config = init_config(None, None, None, None, None, None, None).await;
 
     let job = StateUpdateJob.create_job(&config, String::from("0"), HashMap::default()).await;
@@ -133,7 +133,7 @@ async fn test_create_job() {
 
 #[rstest]
 #[tokio::test]
-async fn test_process_job() {
+async fn state_update_process_job_with_mock_server_works() {
     let server = MockServer::start();
     let mut settlement_client = MockSettlementClient::new();
     let mut storage_client = MockDataStorage::new();
@@ -214,7 +214,10 @@ async fn test_process_job() {
 #[case(String::from("651052, 651052, 651053, 651053"), "Duplicated block numbers")]
 #[case(String::from(""), "settle list is not correctly formatted")]
 #[tokio::test]
-async fn test_process_job_invalid_inputs(#[case] block_numbers_to_settle: String, #[case] expected_error: &str) {
+async fn state_update_process_job_with_invalid_inputs_fails(
+    #[case] block_numbers_to_settle: String,
+    #[case] expected_error: &str,
+) {
     let server = MockServer::start();
     let settlement_client = MockSettlementClient::new();
     let config = init_config(
@@ -249,7 +252,7 @@ async fn test_process_job_invalid_inputs(#[case] block_numbers_to_settle: String
 #[rstest]
 #[tokio::test]
 #[should_panic(expected = "Gap detected between the first block to settle and the last one settle")]
-async fn test_process_job_invalid_input_gap() {
+async fn state_update_process_job_invalid_input_gap_panics() {
     let server = MockServer::start();
     let mut settlement_client = MockSettlementClient::new();
 

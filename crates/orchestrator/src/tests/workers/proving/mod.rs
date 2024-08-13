@@ -1,4 +1,3 @@
-use std::error::Error;
 use std::sync::Arc;
 
 use da_client_interface::MockDaClient;
@@ -22,7 +21,7 @@ use crate::workers::proving::ProvingWorker;
 #[case(true)]
 #[case(false)]
 #[tokio::test]
-async fn test_proving_worker(#[case] incomplete_runs: bool) -> Result<(), Box<dyn Error>> {
+async fn proving_worker_with_and_without_incomplete_runs_works(#[case] incomplete_runs: bool) {
     let server = MockServer::start();
     let da_client = MockDaClient::new();
     let mut db = MockDatabase::new();
@@ -107,9 +106,7 @@ async fn test_proving_worker(#[case] incomplete_runs: bool) -> Result<(), Box<dy
     }
 
     let proving_worker = ProvingWorker {};
-    proving_worker.run_worker().await?;
-
-    Ok(())
+    proving_worker.run_worker().await.expect("Unable to run proving worker");
 }
 
 use crate::workers::Worker;

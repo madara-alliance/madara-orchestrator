@@ -217,11 +217,11 @@ fn get_u64_from_metadata(metadata: &HashMap<String, String>, key: &str) -> Resul
 mod tests {
     use super::*;
 
-    mod test_incremement_key_in_metadata {
+    mod increment_key_in_metadata {
         use super::*;
 
         #[test]
-        fn key_does_not_exist() {
+        fn key_does_not_exist_works() {
             let metadata = HashMap::new();
             let key = "test_key";
             let updated_metadata = increment_key_in_metadata(&metadata, key).unwrap();
@@ -229,7 +229,7 @@ mod tests {
         }
 
         #[test]
-        fn key_exists_with_numeric_value() {
+        fn key_exists_with_numeric_value_works() {
             let mut metadata = HashMap::new();
             metadata.insert("test_key".to_string(), "41".to_string());
             let key = "test_key";
@@ -238,7 +238,7 @@ mod tests {
         }
 
         #[test]
-        fn key_exists_with_non_numeric_value() {
+        fn key_exists_with_non_numeric_value_fails() {
             let mut metadata = HashMap::new();
             metadata.insert("test_key".to_string(), "not_a_number".to_string());
             let key = "test_key";
@@ -247,7 +247,7 @@ mod tests {
         }
 
         #[test]
-        fn key_exists_with_max_u64_value() {
+        fn key_exists_with_max_u64_value_fails() {
             let mut metadata = HashMap::new();
             metadata.insert("test_key".to_string(), u64::MAX.to_string());
             let key = "test_key";
@@ -256,11 +256,11 @@ mod tests {
         }
     }
 
-    mod test_get_u64_from_metadata {
+    mod get_u64_from_metadata {
         use super::*;
 
         #[test]
-        fn key_exists_with_valid_u64_value() {
+        fn key_exists_with_valid_u64_value_works() {
             let mut metadata = HashMap::new();
             metadata.insert("key1".to_string(), "12345".to_string());
             let result = get_u64_from_metadata(&metadata, "key1").unwrap();
@@ -268,7 +268,7 @@ mod tests {
         }
 
         #[test]
-        fn key_exists_with_invalid_value() {
+        fn key_exists_with_invalid_value_fails() {
             let mut metadata = HashMap::new();
             metadata.insert("key2".to_string(), "not_a_number".to_string());
             let result = get_u64_from_metadata(&metadata, "key2");
@@ -276,7 +276,7 @@ mod tests {
         }
 
         #[test]
-        fn key_does_not_exist() {
+        fn key_does_not_exist_works() {
             let metadata = HashMap::<String, String>::new();
             let result = get_u64_from_metadata(&metadata, "key3").unwrap();
             assert_eq!(result, 0);

@@ -1,4 +1,3 @@
-use std::error::Error;
 use std::sync::Arc;
 
 use da_client_interface::MockDaClient;
@@ -24,7 +23,7 @@ use crate::workers::Worker;
 #[case(false)]
 #[case(true)]
 #[tokio::test]
-async fn test_snos_worker(#[case] db_val: bool) -> Result<(), Box<dyn Error>> {
+async fn snos_worker_with_and_without_incomplete_runs_works(#[case] db_val: bool) {
     let server = MockServer::start();
     let da_client = MockDaClient::new();
     let mut db = MockDatabase::new();
@@ -107,9 +106,7 @@ async fn test_snos_worker(#[case] db_val: bool) -> Result<(), Box<dyn Error>> {
     });
 
     let snos_worker = SnosWorker {};
-    snos_worker.run_worker().await?;
+    snos_worker.run_worker().await.expect("Unable to run snos worker.");
 
     rpc_block_call_mock.assert();
-
-    Ok(())
 }

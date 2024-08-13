@@ -13,10 +13,10 @@ use utils::env_utils::get_env_var_or_panic;
 /// Dependencies: `color_eyre`, `dotenvy`, `rstest`, `tokio`, `serde_json`.
 #[rstest]
 #[tokio::test]
-async fn test_put_and_get_data_s3() -> color_eyre::Result<()> {
+async fn put_and_get_data_s3_typical_works() {
     TestConfigBuilder::new().build().await;
 
-    dotenvy::from_filename("../.env.test")?;
+    dotenvy::from_filename("../.env.test").expect("Unable to read file.");
 
     let config = S3LocalStackConfig::new_from_env();
     let s3_client = AWSS3::new(AWSS3ConfigType::WithEndpoint(config)).await;
@@ -27,7 +27,7 @@ async fn test_put_and_get_data_s3() -> color_eyre::Result<()> {
             "body" : "hello world. hello world."
         }
     );
-    let json_bytes = serde_json::to_vec(&mock_data)?;
+    let json_bytes = serde_json::to_vec(&mock_data).expect("Unable to serialize json.");
     let key = "test_data.txt";
 
     // putting test data on key : "test_data.txt"
@@ -35,9 +35,7 @@ async fn test_put_and_get_data_s3() -> color_eyre::Result<()> {
 
     // getting the data from key : "test_data.txt"
     let data = s3_client.get_data(key).await.expect("Unable to get the data from the bucket.");
-    let received_json: serde_json::Value = serde_json::from_slice(&data)?;
+    let received_json: serde_json::Value = serde_json::from_slice(&data).expect("Unable to serialize json.");
 
     assert_eq!(received_json, mock_data);
-
-    Ok(())
 }

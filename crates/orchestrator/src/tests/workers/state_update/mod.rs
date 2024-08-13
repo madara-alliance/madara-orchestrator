@@ -1,4 +1,3 @@
-use std::error::Error;
 use std::sync::Arc;
 
 use da_client_interface::MockDaClient;
@@ -24,10 +23,10 @@ use crate::workers::Worker;
 #[case(false, 0)]
 #[case(true, 5)]
 #[tokio::test]
-async fn test_update_state_worker(
+async fn state_update_worker_with_and_without_incomplete_runs_works(
     #[case] last_successful_job_exists: bool,
     #[case] number_of_processed_jobs: usize,
-) -> Result<(), Box<dyn Error>> {
+) {
     let server = MockServer::start();
     let da_client = MockDaClient::new();
     let mut db = MockDatabase::new();
@@ -112,7 +111,5 @@ async fn test_update_state_worker(
     config_force_init(config).await;
 
     let update_state_worker = UpdateStateWorker {};
-    update_state_worker.run_worker().await?;
-
-    Ok(())
+    update_state_worker.run_worker().await.expect("Unable to run state update worker");
 }

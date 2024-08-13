@@ -34,7 +34,7 @@ pub async fn setup_server() -> SocketAddr {
 
 #[rstest]
 #[tokio::test]
-async fn test_health_endpoint(#[future] setup_server: SocketAddr) {
+async fn health_endpoint_works(#[future] setup_server: SocketAddr) {
     let addr = setup_server.await;
 
     let client = hyper::Client::new();
@@ -53,6 +53,6 @@ async fn test_health_endpoint(#[future] setup_server: SocketAddr) {
 
 #[rstest]
 #[tokio::test]
-async fn test_init_consumer() {
+async fn init_consumer_works() {
     assert!(init_consumers().await.is_ok());
 }

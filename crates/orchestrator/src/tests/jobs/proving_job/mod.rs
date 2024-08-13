@@ -14,7 +14,7 @@ use crate::jobs::Job;
 
 #[rstest]
 #[tokio::test]
-async fn test_create_job() {
+async fn proving_create_job_typical_works() {
     let config = init_config(None, None, None, None, None, None, None).await;
     let job = ProvingJob
         .create_job(
@@ -37,7 +37,7 @@ async fn test_create_job() {
 
 #[rstest]
 #[tokio::test]
-async fn test_verify_job(#[from(default_job_item)] mut job_item: JobItem) {
+async fn proving_verify_job_typical_works(#[from(default_job_item)] mut job_item: JobItem) {
     let mut prover_client = MockProverClient::new();
     prover_client.expect_get_task_status().times(1).returning(|_| Ok(TaskStatus::Succeeded));
 
@@ -47,7 +47,7 @@ async fn test_verify_job(#[from(default_job_item)] mut job_item: JobItem) {
 
 #[rstest]
 #[tokio::test]
-async fn test_process_job() {
+async fn proving_process_job_typical_works() {
     let server = MockServer::start();
 
     let mut prover_client = MockProverClient::new();

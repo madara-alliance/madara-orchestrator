@@ -26,7 +26,7 @@ use uuid::Uuid;
     110
 )]
 #[tokio::test]
-async fn test_da_job_process_job_failure_on_small_blob_size(
+async fn da_job_process_job_on_small_blob_size_fails(
     #[case] state_update_file: String,
     #[case] nonces_file: String,
     #[case] internal_id: String,
@@ -95,7 +95,7 @@ async fn test_da_job_process_job_failure_on_small_blob_size(
 /// Asserts correct behavior by comparing the received and expected error messages.
 #[rstest]
 #[tokio::test]
-async fn test_da_job_process_job_failure_on_pending_block() {
+async fn da_job_process_job_on_pending_block_fails() {
     let server = TestConfigBuilder::new().build().await;
     let config = config().await;
     let internal_id = "1";
@@ -171,7 +171,7 @@ async fn test_da_job_process_job_failure_on_pending_block() {
     "638353"
 )]
 #[tokio::test]
-async fn test_da_job_process_job_success(
+async fn da_job_process_job_typical_success(
     #[case] state_update_file: String,
     #[case] nonces_file: String,
     #[case] internal_id: String,
