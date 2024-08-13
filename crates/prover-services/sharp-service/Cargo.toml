@@ -6,6 +6,7 @@ edition.workspace = true
 [dependencies]
 alloy.workspace = true
 async-trait.workspace = true
+base64 = "0.22.1"
 cairo-vm.workspace = true
 gps-fact-checker.workspace = true
 hex.workspace = true

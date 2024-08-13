@@ -1,8 +1,7 @@
 use std::clone::Clone;
+use base64::Engine;
 use reqwest::{Certificate, ClientBuilder, Identity};
-use std::fs;
-use std::path::{PathBuf};
-use lazy_static::lazy_static;
+use base64::engine::general_purpose;
 use url::Url;
 use utils::env_utils::get_env_var_or_panic;
 use uuid::Uuid;
@@ -13,16 +12,6 @@ use crate::types::{SharpAddJobResponse, SharpGetStatusResponse};
 /// SHARP endpoint for Sepolia testnet
 pub const DEFAULT_SHARP_URL: &str = "https://sepolia-recursive.public-testnet.provingservice.io/v1/gateway";
 
-lazy_static! {
-    // Define a static variable to hold the current directory
-    static ref CURRENT_PATH: PathBuf = std::env::current_dir().unwrap();
-
-    // Define static variables for the certificate paths
-    static ref USER_CRT_PATH: PathBuf = CURRENT_PATH.join("user.crt");
-    static ref USER_KEY_PATH: PathBuf = CURRENT_PATH.join("user.key");
-    static ref SERVER_CRT_PATH: PathBuf = CURRENT_PATH.join("server.crt");
-}
-
 /// SHARP API async wrapper
 pub struct SharpClient {
     base_url: Url,
@@ -31,19 +20,20 @@ pub struct SharpClient {
 
 impl SharpClient {
     /// We need to set up the client with the provided certificates.
-    /// We need to have three files : 
-    /// - user.crt
-    /// - user.key
-    /// - server.crt
+    /// We need to have three secrets : 
+    /// - base64(SHARP_USER_CRT)
+    /// - base64(SHARP_USER_KEY)
+    /// - base64(SHARP_SERVER_CRT)
     pub fn new(url: Url) -> Self {
-        let cert = fs::read(USER_CRT_PATH.as_path()).expect("Unable to read user.crt.");
-        let key = fs::read(USER_KEY_PATH.as_path()).expect("Unable to read user.key.");
-        let server_cert = fs::read(SERVER_CRT_PATH.as_path()).expect("Unable to read server.crt");
+        // Getting the cert files from the .env and then decoding it from base64
+        let cert = general_purpose::STANDARD.decode(get_env_var_or_panic("SHARP_USER_CRT")).unwrap();
+        let key = general_purpose::STANDARD.decode(get_env_var_or_panic("SHARP_USER_KEY")).unwrap();
+        let server_cert = general_purpose::STANDARD.decode(get_env_var_or_panic("SHARP_SERVER_CRT")).unwrap();
 
         // Constructing identity from crt and key for user
         let mut identity = cert.clone();
         identity.extend_from_slice(&key);
-        
+
         Self {
             base_url: url,
             client: ClientBuilder::new()
