@@ -524,9 +524,9 @@ async fn handle_job_failure_with_failed_job_status_works(#[case] job_type: JobTy
     let internal_id = 1;
 
     // create a job, with already available "last_job_status"
-    let mut job_expected = build_job_item(job_type.clone(), job_status.clone(), internal_id);
+    let mut job_expected = build_job_item(job_type.clone(), JobStatus::Failed, internal_id);
     let mut job_metadata = job_expected.metadata.clone();
-    job_metadata.insert("last_job_status".to_string(), JobStatus::PendingVerification.to_string());
+    job_metadata.insert("last_job_status".to_string(), job_status.to_string());
     job_expected.metadata = job_metadata.clone();
 
     let job_id = job_expected.id;
