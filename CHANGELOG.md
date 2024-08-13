@@ -6,6 +6,8 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ## Added
 
+- added coveralls support
+- moved mongodb serde behind feature flag
 - implemented DA worker.
 - Function to calculate the kzg proof of x_0.
 - Tests for updating the state.
@@ -15,6 +17,8 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 - Basic rust-toolchain support.
 - `AWS_DEFAULT_REGION="localhost"` var. in .env.test for omniqueue queue testing.
 - Added basic rust-toolchain support.
+- Implement DL queue for handling failed jobs.
+- Added tests for state update job.
 - Tests for DA job.
 
 ## Changed
