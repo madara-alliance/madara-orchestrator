@@ -48,7 +48,10 @@ async fn database_create_job_typical_works(#[future] get_config: Guard<Arc<Confi
     assert_eq!(get_job_3, job_vec[2].clone());
 }
 
-fn build_job_item(job_type: JobType, job_status: JobStatus, internal_id: u64) -> JobItem {
+// Test Util Functions
+// ==========================================
+
+pub fn build_job_item(job_type: JobType, job_status: JobStatus, internal_id: u64) -> JobItem {
     JobItem {
         id: Uuid::new_v4(),
         internal_id: internal_id.to_string(),
