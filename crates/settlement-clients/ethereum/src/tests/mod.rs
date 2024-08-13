@@ -75,7 +75,9 @@ async fn update_state_blob_works(#[case] block_no: u64) {
             Address::from_str("0x2C169DFe5fBbA12957Bdd0Ba47d9CEDbFE260CA7").expect("Could not impersonate account."),
         )
         .await
-        .expect("sdcjb");
+        .expect("Unable to impersonate account.");
+
+    let nonce = ethereum_settlement_client.get_nonce().await.expect("Unable to fetch nonce");
 
     // Create a contract instance.
     let contract = STARKNET_CORE_CONTRACT::new(
@@ -113,7 +115,7 @@ async fn update_state_blob_works(#[case] block_no: u64) {
 
     // Calling update_state_with_blobs
     let update_state_result = ethereum_settlement_client
-        .update_state_with_blobs(program_output, blob_data_vec)
+        .update_state_with_blobs(program_output, blob_data_vec, nonce)
         .await
         .expect("Could not go through update_state_with_blobs.");
 

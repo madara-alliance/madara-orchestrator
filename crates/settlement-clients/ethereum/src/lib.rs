@@ -23,7 +23,7 @@ use alloy::rpc::types::TransactionRequest;
 use alloy_primitives::Bytes;
 use async_trait::async_trait;
 use c_kzg::{Blob, Bytes32, KzgCommitment, KzgProof, KzgSettings};
-use color_eyre::eyre::eyre;
+use color_eyre::eyre::{eyre, Ok};
 use color_eyre::Result;
 use mockall::{automock, lazy_static, predicate::*};
 
@@ -172,7 +172,12 @@ impl SettlementClient for EthereumSettlementClient {
         Ok(format!("0x{:x}", tx_receipt.transaction_hash))
     }
 
-    async fn update_state_with_blobs(&self, program_output: Vec<[u8; 32]>, state_diff: Vec<Vec<u8>>) -> Result<String> {
+    async fn update_state_with_blobs(
+        &self,
+        program_output: Vec<[u8; 32]>,
+        state_diff: Vec<Vec<u8>>,
+        nonce: u64,
+    ) -> Result<String> {
         //TODO: better file management
         let trusted_setup = KzgSettings::load_trusted_setup_file(Path::new("/Users/dexterhv/Work/Karnot/madara-alliance/madara-orchestrator/crates/settlement-clients/ethereum/src/trusted_setup.txt"))?;
         let (sidecar_blobs, sidecar_commitments, sidecar_proofs) = prepare_sidecar(&state_diff, &trusted_setup).await?;
@@ -185,7 +190,6 @@ impl SettlementClient for EthereumSettlementClient {
         // TODO: need to send more than current gas price.
         max_fee_per_blob_gas += 12;
         let max_priority_fee_per_gas: u128 = self.provider.get_max_priority_fee_per_gas().await?.to_string().parse()?;
-        let nonce = self.provider.get_transaction_count(self.wallet_address).await?.to_string().parse()?;
 
         // x_0_value : program_output[6]
         let kzg_proof = Self::build_proof(
@@ -263,5 +267,10 @@ impl SettlementClient for EthereumSettlementClient {
     async fn get_last_settled_block(&self) -> Result<u64> {
         let block_number = self.core_contract_client.state_block_number().await?;
         Ok(block_number.try_into()?)
+    }
+
+    async fn get_nonce(&self) -> Result<u64> {
+        let nonce = self.provider.get_transaction_count(self.wallet_address).await?.to_string().parse()?;
+        Ok(nonce)
     }
 }

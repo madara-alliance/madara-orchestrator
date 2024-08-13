@@ -62,15 +62,18 @@ impl Job for StateUpdateJob {
             block_numbers = block_numbers.into_iter().filter(|&block| block >= last_failed_block).collect::<Vec<u64>>();
         }
 
+        let mut nonce = config.settlement_client().get_nonce().await?;
+
         let mut sent_tx_hashes: Vec<String> = Vec::with_capacity(block_numbers.len());
         for block_no in block_numbers.iter() {
             let snos = self.fetch_snos_for_block(*block_no).await;
-            let tx_hash = self.update_state_for_block(config, *block_no, snos).await.map_err(|e| {
+            let tx_hash = self.update_state_for_block(config, *block_no, snos, nonce).await.map_err(|e| {
                 job.metadata.insert(JOB_METADATA_STATE_UPDATE_LAST_FAILED_BLOCK_NO.into(), block_no.to_string());
                 self.insert_attempts_into_metadata(job, &attempt_no, &sent_tx_hashes);
                 eyre!("Block #{block_no} - Error occured during the state update: {e}")
             })?;
             sent_tx_hashes.push(tx_hash);
+            nonce += 1;
         }
 
         self.insert_attempts_into_metadata(job, &attempt_no, &sent_tx_hashes);
@@ -190,15 +193,21 @@ impl StateUpdateJob {
     }
 
     /// Update the state for the corresponding block using the settlement layer.
-    async fn update_state_for_block(&self, config: &Config, block_no: u64, snos: StarknetOsOutput) -> Result<String> {
+    async fn update_state_for_block(
+        &self,
+        config: &Config,
+        block_no: u64,
+        snos: StarknetOsOutput,
+        nonce: u64,
+    ) -> Result<String> {
         let settlement_client = config.settlement_client();
         let last_tx_hash_executed = if snos.use_kzg_da == Felt252::ZERO {
             unimplemented!("update_state_for_block not implemented as of now for calldata DA.")
         } else if snos.use_kzg_da == Felt252::ONE {
             let blob_data = fetch_blob_data_for_block(block_no).await?;
-
+            // Fetching nonce before the transaction is run
             // Sending update_state transaction from the settlement client
-            settlement_client.update_state_with_blobs(vec![], blob_data).await?
+            settlement_client.update_state_with_blobs(vec![], blob_data, nonce).await?
         } else {
             return Err(eyre!("Block #{} - SNOS error, [use_kzg_da] should be either 0 or 1.", block_no));
         };

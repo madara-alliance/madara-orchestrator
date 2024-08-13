@@ -6,7 +6,7 @@ use bytes::Bytes;
 use httpmock::prelude::*;
 use mockall::predicate::eq;
 use rstest::*;
-use settlement_client_interface::MockSettlementClient;
+use settlement_client_interface::{MockSettlementClient, SettlementClient};
 
 use color_eyre::eyre::eyre;
 
@@ -178,11 +178,13 @@ async fn test_process_job() {
         .expect("Failed to read the blob data txt file");
         storage_client.expect_get_data().with(eq(x_0_key)).returning(move |_| Ok(Bytes::from(x_0.clone())));
 
+        let nonce = settlement_client.get_nonce().await.expect("Unable to fetch nonce for settlement client.");
+
         settlement_client
             .expect_update_state_with_blobs()
             // TODO: vec![] is program_output
-            .with(eq(program_output), eq(state_diff))
-            .returning(|_, _| Ok(String::from("0x5d17fac98d9454030426606019364f6e68d915b91f6210ef1e2628cd6987442")));
+            .with(eq(program_output), eq(state_diff), eq(nonce))
+            .returning(|_, _, _| Ok(String::from("0x5d17fac98d9454030426606019364f6e68d915b91f6210ef1e2628cd6987442")));
     }
 
     let config_init = init_config(
