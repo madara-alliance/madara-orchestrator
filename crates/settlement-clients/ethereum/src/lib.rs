@@ -39,6 +39,15 @@ use crate::conversion::{slice_slice_u8_to_vec_u256, slice_u8_to_u256};
 pub mod clients;
 pub mod config;
 pub mod conversion;
+
+#[cfg(test)]
+lazy_static! {
+    static ref SHOULD_IMPERSONATE_ACCOUNT: bool = get_env_var_or_panic("TEST_IMPERSONATE_OPERATOR") == "1".to_string();
+    static ref TEST_DUMMY_CONTRACT_ADDRESS: String = get_env_var_or_panic("TEST_DUMMY_CONTRACT_ADDRESS");
+    static ref ADDRESS_TO_IMPERSONATE: Address = Address::from_str("0x2C169DFe5fBbA12957Bdd0Ba47d9CEDbFE260CA7").expect("Unable to parse address");
+    static ref TEST_NONCE: u64 = 666068;
+}
+
 #[cfg(test)]
 mod tests;
 pub mod types;
@@ -104,14 +113,14 @@ impl EthereumSettlementClient {
             ProviderBuilder::new().with_recommended_fillers().wallet(wallet.clone()).on_http(settlement_cfg.rpc_url),
         );
 
-        let core_contract_address = if get_env_var_or_panic("TEST_IMPERSONATE_OPERATOR") == "0".to_string() {
-            get_env_var_or_panic("TEST_DUMMY_CONTRACT_ADDRESS")
+        let core_contract_address = if *SHOULD_IMPERSONATE_ACCOUNT {
+            &settlement_cfg.core_contract_address
         } else {
-            settlement_cfg.core_contract_address
+            &*TEST_DUMMY_CONTRACT_ADDRESS
         };
 
         let core_contract_client = StarknetValidityContractClient::new(
-            Address::from_str(&core_contract_address).unwrap().0.into(),
+            Address::from_str(core_contract_address).unwrap().0.into(),
             fill_provider,
         );
 
@@ -186,6 +195,7 @@ impl SettlementClient for EthereumSettlementClient {
         nonce: u64,
     ) -> Result<String> {
         //TODO: better file management
+
         let trusted_setup = KzgSettings::load_trusted_setup_file(Path::new("/Users/dexterhv/Work/Karnot/madara-alliance/madara-orchestrator/crates/settlement-clients/ethereum/src/trusted_setup.txt"))?;
         let (sidecar_blobs, sidecar_commitments, sidecar_proofs) = prepare_sidecar(&state_diff, &trusted_setup).await?;
         let sidecar = BlobTransactionSidecar::new(sidecar_blobs, sidecar_commitments, sidecar_proofs);
@@ -224,7 +234,6 @@ impl SettlementClient for EthereumSettlementClient {
 
         let tx_sidecar = TxEip4844WithSidecar { tx: tx.clone(), sidecar: sidecar.clone() };
 
-        println!("CONTTRRAACCTTT {:?}", tx.to);
         let mut variant = TxEip4844Variant::from(tx_sidecar);
         let signature = self.wallet.default_signer().sign_transaction(&mut variant).await?;
         let tx_signed = variant.into_signed(signature);
@@ -232,25 +241,15 @@ impl SettlementClient for EthereumSettlementClient {
         // IMP: this conversion strips signature from the transaction
         let mut txn_request: TransactionRequest = tx_envelope.into();
 
-        println!("CONTTRRAACCTTT  #2 {:?}", tx.to);
-
-        if cfg!(test) && get_env_var_or_panic("TEST_IMPERSONATE_OPERATOR") == "1".to_string() {
-            txn_request.set_nonce(666068);
+        #[cfg(test)]
+        if *SHOULD_IMPERSONATE_ACCOUNT {
+            txn_request.set_nonce(*TEST_NONCE);
             txn_request = txn_request.with_from(
-                Address::from_str("0x2C169DFe5fBbA12957Bdd0Ba47d9CEDbFE260CA7")
-                    .expect("Unable to impersonate operator."),
+                *ADDRESS_TO_IMPERSONATE
             );
         }
 
-        println!("CONTTRRAACCTTT #3 {:?}", tx.to);
-
-
-        // let encoded = tx_envelope.encoded_2718();
-        // let pending_tx = self.provider.send_raw_transaction(&encoded).await?;
-
         let pending_transaction = self.provider.send_transaction(txn_request).await?;
-        println!("CONTTRRAACCTTT #4 {:?}", pending_transaction.tx_hash().to_string());
-
         return Ok(pending_transaction.tx_hash().to_string());
     }
 
