@@ -10,7 +10,7 @@ use tracing::log;
 use uuid::Uuid;
 
 use crate::config::config;
-use crate::jobs::{handle_job_failure, process_job, verify_job, JobError};
+use crate::jobs::{handle_job_failure, process_job, verify_job, JobError, OtherError};
 
 pub const JOB_PROCESSING_QUEUE: &str = "madara_orchestrator_job_processing_queue";
 pub const JOB_VERIFICATION_QUEUE: &str = "madara_orchestrator_job_verification_queue";
@@ -19,7 +19,7 @@ pub const JOB_HANDLE_FAILURE_QUEUE: &str = "madara_orchestrator_job_handle_failu
 
 use thiserror::Error;
 
-#[derive(Error, Debug)]
+#[derive(Error, Debug, PartialEq)]
 pub enum ConsumptionError {
     #[error("Failed to consume message from queue, error {error_msg:?}")]
     FailedToConsumeFromQueue { error_msg: String },
@@ -28,7 +28,7 @@ pub enum ConsumptionError {
     FailedToHandleJob { job_id: Uuid, error_msg: String },
 
     #[error("Other error: {0}")]
-    Other(#[from] color_eyre::eyre::Error),
+    Other(#[from] OtherError),
 }
 
 #[derive(Debug, Serialize, Deserialize)]
@@ -62,13 +62,21 @@ where
             return Err(ConsumptionError::FailedToConsumeFromQueue { error_msg: e.to_string() });
         }
     };
-    let job_message: Option<JobQueueMessage> = delivery.payload_serde_json().wrap_err("Payload Serde Error ")?;
+    let job_message: Option<JobQueueMessage> = delivery
+        .payload_serde_json()
+        .wrap_err("Payload Serde Error")
+        .map_err(|e| ConsumptionError::Other(OtherError::from(e)))?;
 
     match job_message {
         Some(job_message) => {
             log::info!("Handling job with id {:?} for queue {:?}", job_message.id, queue);
             match handler(job_message.id).await {
-                Ok(_) => delivery.ack().await.map_err(|(e, _)| e).wrap_err("Queue Error ")?,
+                Ok(_) => delivery
+                    .ack()
+                    .await
+                    .map_err(|(e, _)| e)
+                    .wrap_err("Queue Error")
+                    .map_err(|e| ConsumptionError::Other(OtherError::from(e)))?,
                 Err(e) => {
                     log::error!("Failed to handle job with id {:?}. Error: {:?}", job_message.id, e);
 
@@ -107,7 +115,7 @@ macro_rules! spawn_consumer {
     };
 }
 
-pub async fn init_consumers() -> Result<()> {
+pub async fn init_consumers() -> Result<(), JobError> {
     spawn_consumer!(JOB_PROCESSING_QUEUE.to_string(), process_job);
     spawn_consumer!(JOB_VERIFICATION_QUEUE.to_string(), verify_job);
     spawn_consumer!(JOB_HANDLE_FAILURE_QUEUE.to_string(), handle_job_failure);

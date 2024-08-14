@@ -16,7 +16,7 @@ use super::constants::{
     JOB_METADATA_STATE_UPDATE_ATTEMPT_PREFIX, JOB_METADATA_STATE_UPDATE_LAST_FAILED_BLOCK_NO,
     JOB_PROCESS_ATTEMPT_METADATA_KEY,
 };
-use super::JobError;
+use super::{JobError, OtherError};
 
 use crate::config::{config, Config};
 use crate::constants::SNOS_OUTPUT_FILE_NAME;
@@ -25,7 +25,7 @@ use crate::jobs::state_update_job::utils::fetch_blob_data_for_block;
 use crate::jobs::types::{JobItem, JobStatus, JobType, JobVerificationStatus};
 use crate::jobs::Job;
 
-#[derive(Error, Debug)]
+#[derive(Error, Debug, PartialEq)]
 pub enum StateUpdateError {
     #[error("Block numbers list should not be empty.")]
     EmptyBlockNumberList,
@@ -64,7 +64,7 @@ pub enum StateUpdateError {
     UseKZGDaError { block_no: u64 },
 
     #[error("Other error: {0}")]
-    Other(#[from] color_eyre::eyre::Error),
+    Other(#[from] OtherError),
 }
 
 pub struct StateUpdateJob;
@@ -118,7 +118,9 @@ impl Job for StateUpdateJob {
 
                 self.insert_attempts_into_metadata(job, &attempt_no, &sent_tx_hashes);
 
-                StateUpdateError::Other(eyre!("Block #{block_no} - Error occurred during the state update: {e}"))
+                StateUpdateError::Other(OtherError(eyre!(
+                    "Block #{block_no} - Error occurred during the state update: {e}"
+                )))
             })?;
             sent_tx_hashes.push(tx_hash);
         }
@@ -153,7 +155,8 @@ impl Job for StateUpdateJob {
         let settlement_client = config.settlement_client();
 
         for (tx_hash, block_no) in tx_hashes.iter().zip(block_numbers.iter()) {
-            let tx_inclusion_status = settlement_client.verify_tx_inclusion(tx_hash).await?;
+            let tx_inclusion_status =
+                settlement_client.verify_tx_inclusion(tx_hash).await.map_err(|e| JobError::Other(OtherError(e)))?;
             match tx_inclusion_status {
                 SettlementVerificationStatus::Rejected(_) => {
                     job.metadata.insert(JOB_METADATA_STATE_UPDATE_LAST_FAILED_BLOCK_NO.into(), block_no.to_string());
@@ -161,8 +164,14 @@ impl Job for StateUpdateJob {
                 }
                 // If the tx is still pending, we wait for it to be finalized and check again the status.
                 SettlementVerificationStatus::Pending => {
-                    settlement_client.wait_for_tx_finality(tx_hash).await?;
-                    let new_status = settlement_client.verify_tx_inclusion(tx_hash).await?;
+                    settlement_client
+                        .wait_for_tx_finality(tx_hash)
+                        .await
+                        .map_err(|e| JobError::Other(OtherError(e)))?;
+                    let new_status = settlement_client
+                        .verify_tx_inclusion(tx_hash)
+                        .await
+                        .map_err(|e| JobError::Other(OtherError(e)))?;
                     match new_status {
                         SettlementVerificationStatus::Rejected(_) => {
                             job.metadata
@@ -181,7 +190,8 @@ impl Job for StateUpdateJob {
         // verify that the last settled block is indeed the one we expect to be
         let expected_last_block_number = block_numbers.last().ok_or_else(|| StateUpdateError::EmptyBlockNumberList)?;
 
-        let out_last_block_number = settlement_client.get_last_settled_block().await?;
+        let out_last_block_number =
+            settlement_client.get_last_settled_block().await.map_err(|e| JobError::Other(OtherError(e)))?;
         let block_status = if out_last_block_number == *expected_last_block_number {
             SettlementVerificationStatus::Verified
         } else {
@@ -224,7 +234,8 @@ impl StateUpdateJob {
             .split(',')
             .map(|block_no| block_no.parse::<u64>())
             .collect::<Result<Vec<u64>, _>>()
-            .map_err(|e| eyre!("Block numbers to settle list is not correctly formatted: {e}"))?;
+            .map_err(|e| eyre!("Block numbers to settle list is not correctly formatted: {e}"))
+            .map_err(|e| JobError::Other(OtherError(e)))?;
         Ok(block_numbers)
     }
 
@@ -240,7 +251,8 @@ impl StateUpdateJob {
             Err(StateUpdateError::UnsortedBlockNumbers)?;
         }
         // Check for gap between the last settled block and the first block to settle
-        let last_settled_block: u64 = config.settlement_client().get_last_settled_block().await?;
+        let last_settled_block: u64 =
+            config.settlement_client().get_last_settled_block().await.map_err(|e| JobError::Other(OtherError(e)))?;
         if last_settled_block + 1 != block_numbers[0] {
             Err(StateUpdateError::GapBetweenFirstAndLastBlock)?;
         }
@@ -258,10 +270,13 @@ impl StateUpdateJob {
         let last_tx_hash_executed = if snos.use_kzg_da == Felt252::ZERO {
             unimplemented!("update_state_for_block not implemented as of now for calldata DA.")
         } else if snos.use_kzg_da == Felt252::ONE {
-            let blob_data = fetch_blob_data_for_block(block_no).await?;
+            let blob_data = fetch_blob_data_for_block(block_no).await.map_err(|e| JobError::Other(OtherError(e)))?;
 
             // Sending update_state transaction from the settlement client
-            settlement_client.update_state_with_blobs(vec![], blob_data).await?
+            settlement_client
+                .update_state_with_blobs(vec![], blob_data)
+                .await
+                .map_err(|e| JobError::Other(OtherError(e)))?
         } else {
             Err(StateUpdateError::UseKZGDaError { block_no })?
         };

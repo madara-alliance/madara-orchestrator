@@ -13,10 +13,10 @@ use uuid::Uuid;
 
 use super::constants::JOB_METADATA_CAIRO_PIE_PATH_KEY;
 use super::types::{JobItem, JobStatus, JobType, JobVerificationStatus};
-use super::{Job, JobError};
+use super::{Job, JobError, OtherError};
 use crate::config::Config;
 
-#[derive(Error, Debug)]
+#[derive(Error, Debug, PartialEq)]
 pub enum ProvingError {
     #[error("Cairo PIE path is not specified - prover job #{internal_id:?}")]
     CairoPIEWrongPath { internal_id: String },
@@ -25,7 +25,7 @@ pub enum ProvingError {
     CairoPIENotReadable,
 
     #[error("Other error: {0}")]
-    Other(#[from] color_eyre::eyre::Error),
+    Other(#[from] OtherError),
 }
 
 pub struct ProvingJob;
@@ -68,15 +68,20 @@ impl Job for ProvingJob {
             .prover_client()
             .submit_task(Task::CairoPie(cairo_pie))
             .await
-            .wrap_err("Prover Client Error".to_string())?;
+            .wrap_err("Prover Client Error".to_string())
+            .map_err(|e| JobError::Other(OtherError(e)))?;
 
         Ok(external_id)
     }
 
     async fn verify_job(&self, config: &Config, job: &mut JobItem) -> Result<JobVerificationStatus, JobError> {
-        let task_id: String = job.external_id.unwrap_string()?.into();
-        let task_status =
-            config.prover_client().get_task_status(&task_id).await.wrap_err("Prover Client Error".to_string())?;
+        let task_id: String = job.external_id.unwrap_string().map_err(|e| JobError::Other(OtherError(e)))?.into();
+        let task_status = config
+            .prover_client()
+            .get_task_status(&task_id)
+            .await
+            .wrap_err("Prover Client Error".to_string())
+            .map_err(|e| JobError::Other(OtherError(e)))?;
 
         match task_status {
             TaskStatus::Processing => Ok(JobVerificationStatus::Pending),

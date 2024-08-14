@@ -38,7 +38,6 @@ pub const X_0_FILE_NAME: &str = "x_0.txt";
 // ================= Exhaustive tests (with minimum mock) =================
 
 #[rstest]
-#[should_panic(expected = "Could not find current attempt number.")]
 #[tokio::test]
 async fn test_process_job_attempt_not_present_fails() {
     TestConfigBuilder::new().build().await;
@@ -46,7 +45,8 @@ async fn test_process_job_attempt_not_present_fails() {
     let mut job = default_job_item();
     let config = config().await;
     let state_update_job = StateUpdateJob {};
-    let _ = state_update_job.process_job(&config, &mut job).await;
+    let res = state_update_job.process_job(&config, &mut job).await.unwrap_err();
+    assert_eq!(res, JobError::StateUpdateJobError(StateUpdateError::AttemptNumberNotFound));
 }
 
 #[rstest]

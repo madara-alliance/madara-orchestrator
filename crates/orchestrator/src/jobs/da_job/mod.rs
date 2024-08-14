@@ -14,7 +14,7 @@ use tracing::log;
 use uuid::Uuid;
 
 use super::types::{JobItem, JobStatus, JobType, JobVerificationStatus};
-use super::{Job, JobError};
+use super::{Job, JobError, OtherError};
 use crate::config::Config;
 use crate::constants::BLOB_DATA_FILE_NAME;
 
@@ -38,7 +38,7 @@ lazy_static! {
     pub static ref BLOB_LEN: usize = 4096;
 }
 
-#[derive(Error, Debug)]
+#[derive(Error, Debug, PartialEq)]
 pub enum DaError {
     #[error("Cannot process block {block_no:?} for job id {job_id:?} as it's still in pending state.")]
     BlockPending { block_no: String, job_id: Uuid },
@@ -50,7 +50,7 @@ pub enum DaError {
     MaxBlobsLimitExceeded { max_blob_per_txn: u64, current_blob_length: u64, block_no: String, job_id: Uuid },
 
     #[error("Other error: {0}")]
-    Other(#[from] color_eyre::eyre::Error),
+    Other(#[from] OtherError),
 }
 
 pub struct DaJob;
@@ -75,13 +75,18 @@ impl Job for DaJob {
     }
 
     async fn process_job(&self, config: &Config, job: &mut JobItem) -> Result<String, JobError> {
-        let block_no = job.internal_id.parse::<u64>().wrap_err("Failed to parse u64".to_string())?;
+        let block_no = job
+            .internal_id
+            .parse::<u64>()
+            .wrap_err("Failed to parse u64".to_string())
+            .map_err(|e| JobError::Other(OtherError(e)))?;
 
         let state_update = config
             .starknet_client()
             .get_state_update(BlockId::Number(block_no))
             .await
-            .wrap_err("Failed to get state Update.".to_string())?;
+            .wrap_err("Failed to get state Update.".to_string())
+            .map_err(|e| JobError::Other(OtherError(e)))?;
 
         let state_update = match state_update {
             MaybePendingStateUpdate::PendingUpdate(_) => {
@@ -90,7 +95,9 @@ impl Job for DaJob {
             MaybePendingStateUpdate::Update(state_update) => state_update,
         };
         // constructing the data from the rpc
-        let blob_data = state_update_to_blob_data(block_no, state_update, config).await?;
+        let blob_data = state_update_to_blob_data(block_no, state_update, config)
+            .await
+            .map_err(|e| JobError::Other(OtherError(e)))?;
         // transforming the data so that we can apply FFT on this.
         // @note: we can skip this step if in the above step we return vec<BigUint> directly
         let blob_data_biguint = convert_to_biguint(blob_data.clone());
@@ -102,8 +109,11 @@ impl Job for DaJob {
 
         // converting BigUints to Vec<u8>, one Vec<u8> represents one blob data
         let blob_array = data_to_blobs(max_bytes_per_blob, transformed_data)?;
-        let current_blob_length: u64 =
-            blob_array.len().try_into().wrap_err("Unable to convert the blob length into u64 format.".to_string())?;
+        let current_blob_length: u64 = blob_array
+            .len()
+            .try_into()
+            .wrap_err("Unable to convert the blob length into u64 format.".to_string())
+            .map_err(|e| JobError::Other(OtherError(e)))?;
 
         // there is a limit on number of blobs per txn, checking that here
         if current_blob_length > max_blob_per_txn {
@@ -116,13 +126,22 @@ impl Job for DaJob {
         }
 
         // making the txn to the DA layer
-        let external_id = config.da_client().publish_state_diff(blob_array, &[0; 32]).await?;
+        let external_id = config
+            .da_client()
+            .publish_state_diff(blob_array, &[0; 32])
+            .await
+            .map_err(|e| JobError::Other(OtherError(e)))?;
 
         Ok(external_id)
     }
 
     async fn verify_job(&self, config: &Config, job: &mut JobItem) -> Result<JobVerificationStatus, JobError> {
-        Ok(config.da_client().verify_inclusion(job.external_id.unwrap_string()?).await?.into())
+        Ok(config
+            .da_client()
+            .verify_inclusion(job.external_id.unwrap_string().map_err(|e| JobError::Other(OtherError(e)))?)
+            .await
+            .map_err(|e| JobError::Other(OtherError(e)))?
+            .into())
     }
 
     fn max_process_attempts(&self) -> u64 {
@@ -299,11 +318,12 @@ async fn store_blob_data(blob_data: Vec<FieldElement>, block_number: u64, config
     let blob = blobs_array.clone();
 
     // converting Vec<Vec<u8> into Vec<u8>
-    let blob_vec_u8 =
-        bincode::serialize(&blob).wrap_err("Unable to Serialize blobs (Vec<Vec<u8> into Vec<u8>)".to_string())?;
+    let blob_vec_u8 = bincode::serialize(&blob)
+        .wrap_err("Unable to Serialize blobs (Vec<Vec<u8> into Vec<u8>)".to_string())
+        .map_err(|e| JobError::Other(OtherError(e)))?;
 
     if !blobs_array.is_empty() {
-        storage_client.put_data(blob_vec_u8.into(), &key).await?;
+        storage_client.put_data(blob_vec_u8.into(), &key).await.map_err(|e| JobError::Other(OtherError(e)))?;
     }
 
     Ok(())
