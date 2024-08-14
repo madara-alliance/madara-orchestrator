@@ -10,10 +10,12 @@ use tracing::log;
 use uuid::Uuid;
 
 use crate::config::config;
-use crate::jobs::{process_job, verify_job, JobError};
+use crate::jobs::{handle_job_failure, process_job, verify_job, JobError};
 
 pub const JOB_PROCESSING_QUEUE: &str = "madara_orchestrator_job_processing_queue";
 pub const JOB_VERIFICATION_QUEUE: &str = "madara_orchestrator_job_verification_queue";
+// Below is the Data Letter Queue for the the above two jobs.
+pub const JOB_HANDLE_FAILURE_QUEUE: &str = "madara_orchestrator_job_handle_failure_queue";
 
 use thiserror::Error;
 
@@ -91,26 +93,25 @@ where
     Ok(())
 }
 
-pub async fn init_consumers() -> Result<(), JobError> {
-    // TODO: figure out a way to generalize this
-    tokio::spawn(async move {
-        loop {
-            match consume_job_from_queue(JOB_PROCESSING_QUEUE.to_string(), process_job).await {
-                Ok(_) => {}
-                Err(e) => log::error!("Failed to consume from queue {:?}. Error: {:?}", JOB_PROCESSING_QUEUE, e),
+macro_rules! spawn_consumer {
+    ($queue_type :expr, $handler : expr) => {
+        tokio::spawn(async move {
+            loop {
+                match consume_job_from_queue($queue_type, $handler).await {
+                    Ok(_) => {}
+                    Err(e) => log::error!("Failed to consume from queue {:?}. Error: {:?}", $queue_type, e),
+                }
+                sleep(Duration::from_secs(1)).await;
             }
-            sleep(Duration::from_secs(1)).await;
-        }
-    });
-    tokio::spawn(async move {
-        loop {
-            match consume_job_from_queue(JOB_VERIFICATION_QUEUE.to_string(), verify_job).await {
-                Ok(_) => {}
-                Err(e) => log::error!("Failed to consume from queue {:?}. Error: {:?}", JOB_VERIFICATION_QUEUE, e),
-            }
-            sleep(Duration::from_secs(1)).await;
-        }
-    });
+        });
+    };
+}
+
+pub async fn init_consumers() -> Result<()> {
+    spawn_consumer!(JOB_PROCESSING_QUEUE.to_string(), process_job);
+    spawn_consumer!(JOB_VERIFICATION_QUEUE.to_string(), verify_job);
+    spawn_consumer!(JOB_HANDLE_FAILURE_QUEUE.to_string(), handle_job_failure);
+
     Ok(())
 }
 

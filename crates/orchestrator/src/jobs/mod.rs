@@ -134,11 +134,14 @@ pub async fn process_job(id: Uuid) -> Result<(), JobError> {
     let external_id = job_handler.process_job(config.as_ref(), &mut job).await?;
     let metadata = increment_key_in_metadata(&job.metadata, JOB_PROCESS_ATTEMPT_METADATA_KEY)?;
 
-    job.external_id = external_id.into();
-    job.status = JobStatus::PendingVerification;
-    job.metadata = metadata;
+    // Fetching the job again because update status above will update the job version
+    let mut job_updated = get_job(id).await?;
 
-    config.database().update_job(&job).await?;
+    job_updated.external_id = external_id.into();
+    job_updated.status = JobStatus::PendingVerification;
+    job_updated.metadata = metadata;
+
+    config.database().update_job(&job_updated).await?;
 
     add_job_to_verification_queue(job.id, Duration::from_secs(job_handler.verification_polling_delay_seconds()))
         .await?;
@@ -215,7 +218,34 @@ pub async fn verify_job(id: Uuid) -> Result<(), JobError> {
     Ok(())
 }
 
-async fn get_job(id: Uuid) -> Result<JobItem, JobError> {
+/// Terminates the job and updates the status of the job in the DB.
+/// Logs error if the job status `Completed` is existing on DL queue.
+pub async fn handle_job_failure(id: Uuid) -> Result<()> {
+    let config = config().await;
+
+    let mut job = get_job(id).await?.clone();
+    let mut metadata = job.metadata.clone();
+
+    if job.status == JobStatus::Completed {
+        log::error!("Invalid state exists on DL queue: {}", job.status.to_string());
+        return Ok(());
+    }
+    // We assume that a Failure status wil only show up if the message is sent twice from a queue
+    // Can return silently because it's already been processed.
+    else if job.status == JobStatus::Failed {
+        return Ok(());
+    }
+
+    metadata.insert("last_job_status".to_string(), job.status.to_string());
+    job.metadata = metadata;
+    job.status = JobStatus::Failed;
+
+    config.database().update_job(&job).await?;
+
+    Ok(())
+}
+
+async fn get_job(id: Uuid) -> Result<JobItem> {
     let config = config().await;
     let job = config.database().get_job_by_id(id).await?;
     match job {
