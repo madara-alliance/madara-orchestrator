@@ -1,4 +1,3 @@
-use alloy::node_bindings::AnvilInstance;
 use alloy::primitives::U256;
 use alloy::providers::{ext::AnvilApi, ProviderBuilder};
 use alloy::{node_bindings::Anvil, sol};
@@ -58,7 +57,6 @@ lazy_static! {
 }
 
 pub struct TestFixture {
-    pub anvil: AnvilInstance,
     pub ethereum_settlement_client: EthereumSettlementClient,
     pub provider: alloy::providers::RootProvider<alloy::transports::http::Http<reqwest::Client>>,
 }
@@ -82,7 +80,7 @@ fn ethereum_test_fixture(block_no: u64) -> TestFixture {
     let settings_provider: DefaultSettingsProvider = DefaultSettingsProvider {};
     let ethereum_settlement_client = EthereumSettlementClient::with_test_settings(&settings_provider, provider.clone());
 
-    TestFixture { anvil, ethereum_settlement_client, provider }
+    TestFixture { ethereum_settlement_client, provider }
 }
 
 #[rstest]
@@ -91,7 +89,7 @@ fn ethereum_test_fixture(block_no: u64) -> TestFixture {
 async fn update_state_blob_with_dummy_contract_works(#[case] block_no: u64) {
     env::set_var("TEST_IMPERSONATE_OPERATOR", "0");
 
-    let TestFixture { anvil, ethereum_settlement_client, provider } = ethereum_test_fixture(block_no);
+    let TestFixture { ethereum_settlement_client, provider } = ethereum_test_fixture(block_no);
 
     // Deploying a dummy contract
     let contract = DummyCoreContract::deploy(&provider).await.expect("Unable to deploy address");
@@ -144,7 +142,7 @@ async fn update_state_blob_with_dummy_contract_works(#[case] block_no: u64) {
 #[tokio::test]
 #[case::basic(20468828)]
 async fn update_state_blob_with_impersonation_works(#[case] block_no: u64) {
-    let TestFixture { anvil, ethereum_settlement_client, provider } = ethereum_test_fixture(block_no);
+    let TestFixture { ethereum_settlement_client, provider } = ethereum_test_fixture(block_no);
 
     provider.anvil_impersonate_account(*STARKNET_OPERATOR_ADDRESS).await.expect("Unable to impersonate account.");
 
@@ -193,7 +191,7 @@ async fn update_state_blob_with_impersonation_works(#[case] block_no: u64) {
 #[tokio::test]
 #[case::typical(20468828, 666039)]
 async fn get_last_settled_block_typical_works(#[case] block_no: u64, #[case] expected: u64) {
-    let TestFixture { anvil, ethereum_settlement_client, provider } = ethereum_test_fixture(block_no);
+    let TestFixture { ethereum_settlement_client, provider: _ } = ethereum_test_fixture(block_no);
 
     let result = ethereum_settlement_client.get_last_settled_block().await.expect("Could not get last settled block.");
     assert_eq!(expected, result);
