@@ -1,28 +1,30 @@
 use alloy::node_bindings::AnvilInstance;
+use alloy::primitives::U256;
+use alloy::providers::{ext::AnvilApi, ProviderBuilder};
 use alloy::{node_bindings::Anvil, sol};
-use utils::env_utils::get_env_var_or_panic;
+use alloy_primitives::Address;
+use color_eyre::eyre::eyre;
+use rstest::*;
+use settlement_client_interface::SettlementVerificationStatus;
 use std::env;
 use std::io::BufRead;
 use std::path::PathBuf;
+use std::time::Duration;
 use std::{
     fs::{self, File},
     io::BufReader,
     str::FromStr,
 };
-
-use alloy::primitives::U256;
-use alloy::providers::{ext::AnvilApi, ProviderBuilder};
-use alloy_primitives::Address;
-use color_eyre::eyre::eyre;
-use rstest::*;
+use tokio::time::sleep;
+use utils::env_utils::get_env_var_or_panic;
 
 use settlement_client_interface::SettlementClient;
 use utils::settings::default::DefaultSettingsProvider;
 
+use crate::conversion::to_padded_hex;
+use crate::EthereumSettlementClient;
 use alloy::providers::Provider;
 use alloy_primitives::FixedBytes;
-use crate::EthereumSettlementClient;
-use crate::conversion::to_padded_hex;
 
 // Using the Pipe trait to write chained operations easier
 trait Pipe: Sized {
@@ -35,10 +37,6 @@ trait Pipe: Sized {
 impl<S> Pipe for S {}
 
 // TODO: betterment of file routes
-// TODO: Checking send_transaction
-// Create a dummy contract and deploy on anvil with same methodId as core contract
-// Make an env variable that will tell if we are testing impersonation or not
-// Check against the env variable, if we are not impersonation then we should talk to the dummy address
 
 use lazy_static::lazy_static;
 
@@ -49,18 +47,20 @@ lazy_static! {
         .to_str()
         .expect("Path contains invalid Unicode")
         .to_string();
-    static ref PORT : u16 = 3000_u16;
-    static ref ETH_RPC : String = "https://eth.llamarpc.com".to_string();
+    static ref PORT: u16 = 3000_u16;
+    static ref ETH_RPC: String = "https://eth.llamarpc.com".to_string();
     static ref SHOULD_IMPERSONATE_ACCOUNT: bool = get_env_var_or_panic("TEST_IMPERSONATE_OPERATOR") == "1".to_string();
-    static ref TEST_DUMMY_CONTRACT_ADDRESS : String = get_env_var_or_panic("TEST_DUMMY_CONTRACT_ADDRESS");
-    static ref STARKNET_OPERATOR_ADDRESS : Address = Address::from_str("0x2C169DFe5fBbA12957Bdd0Ba47d9CEDbFE260CA7").expect("Could not impersonate account.");
-    static ref STARKNET_CORE_CONTRACT_ADDRESS : Address = Address::from_str("0xc662c410c0ecf747543f5ba90660f6abebd9c8c4").expect("Could not impersonate account.");
+    static ref TEST_DUMMY_CONTRACT_ADDRESS: String = get_env_var_or_panic("TEST_DUMMY_CONTRACT_ADDRESS");
+    static ref STARKNET_OPERATOR_ADDRESS: Address =
+        Address::from_str("0x2C169DFe5fBbA12957Bdd0Ba47d9CEDbFE260CA7").expect("Could not impersonate account.");
+    static ref STARKNET_CORE_CONTRACT_ADDRESS: Address =
+        Address::from_str("0xc662c410c0ecf747543f5ba90660f6abebd9c8c4").expect("Could not impersonate account.");
 }
 
 pub struct TestFixture {
     pub anvil: AnvilInstance,
     pub ethereum_settlement_client: EthereumSettlementClient,
-    pub provider: alloy::providers::RootProvider<alloy::transports::http::Http<reqwest::Client>>
+    pub provider: alloy::providers::RootProvider<alloy::transports::http::Http<reqwest::Client>>,
 }
 
 fn ethereum_test_fixture(block_no: u64) -> TestFixture {
@@ -76,18 +76,13 @@ fn ethereum_test_fixture(block_no: u64) -> TestFixture {
         .expect("Could not spawn Anvil.");
 
     // Setup Provider
-    let provider =
-        ProviderBuilder::new().on_http(anvil.endpoint_url());
+    let provider = ProviderBuilder::new().on_http(anvil.endpoint_url());
 
     // Setup EthereumSettlementClient
     let settings_provider: DefaultSettingsProvider = DefaultSettingsProvider {};
     let ethereum_settlement_client = EthereumSettlementClient::with_test_settings(&settings_provider, provider.clone());
 
-    TestFixture {
-        anvil,
-        ethereum_settlement_client,
-        provider,
-    }
+    TestFixture { anvil, ethereum_settlement_client, provider }
 }
 
 #[rstest]
@@ -96,17 +91,16 @@ fn ethereum_test_fixture(block_no: u64) -> TestFixture {
 async fn update_state_blob_with_dummy_contract_works(#[case] block_no: u64) {
     env::set_var("TEST_IMPERSONATE_OPERATOR", "0");
 
-    let TestFixture {
-        anvil,
-        ethereum_settlement_client,
-        provider,
-    } = ethereum_test_fixture(block_no);
-
+    let TestFixture { anvil, ethereum_settlement_client, provider } = ethereum_test_fixture(block_no);
 
     // Deploying a dummy contract
     let contract = DummyCoreContract::deploy(&provider).await.expect("Unable to deploy address");
-    assert_eq!(contract.address().to_string(), *TEST_DUMMY_CONTRACT_ADDRESS, "Dummy Contract got deployed on unexpected address");
-    
+    assert_eq!(
+        contract.address().to_string(),
+        *TEST_DUMMY_CONTRACT_ADDRESS,
+        "Dummy Contract got deployed on unexpected address"
+    );
+
     // Getting latest nonce after deployment
     let nonce = ethereum_settlement_client.get_nonce().await.expect("Unable to fetch nonce");
 
@@ -123,39 +117,41 @@ async fn update_state_blob_with_dummy_contract_works(#[case] block_no: u64) {
     // Asserting, Expected to receive transaction hash.
     assert!(!update_state_result.is_empty(), "No transaction Hash received.");
 
-    let txn = provider.get_transaction_by_hash(FixedBytes::from_str(update_state_result.as_str()).expect("Unable to convert txn"))
-    .await.expect("did not get txn from hash").unwrap();
+    let txn = provider
+        .get_transaction_by_hash(FixedBytes::from_str(update_state_result.as_str()).expect("Unable to convert txn"))
+        .await
+        .expect("did not get txn from hash")
+        .unwrap();
 
-    assert_eq!(txn.hash.to_string(),update_state_result.to_string());
+    assert_eq!(txn.hash.to_string(), update_state_result.to_string());
     assert!(txn.signature.is_some());
     assert_eq!(txn.to.unwrap().to_string(), *TEST_DUMMY_CONTRACT_ADDRESS);
+
+    // Testing verify_tx_inclusion
+    sleep(Duration::from_secs(2)).await;
+    let _ = ethereum_settlement_client
+        .wait_for_tx_finality(update_state_result.as_str())
+        .await
+        .expect("Could not wait for txn finality.");
+    let verified_inclusion = ethereum_settlement_client
+        .verify_tx_inclusion(update_state_result.as_str())
+        .await
+        .expect("Could not verify inclusion.");
+    assert_eq!(verified_inclusion, SettlementVerificationStatus::Verified);
 }
 
 #[rstest]
 #[tokio::test]
 #[case::basic(20468828)]
 async fn update_state_blob_with_impersonation_works(#[case] block_no: u64) {
-  
-    let TestFixture {
-        anvil,
-        ethereum_settlement_client,
-        provider,
-    } = ethereum_test_fixture(block_no);
-    
-    provider
-        .anvil_impersonate_account(
-            *STARKNET_OPERATOR_ADDRESS,
-        )
-        .await
-        .expect("Unable to impersonate account.");
+    let TestFixture { anvil, ethereum_settlement_client, provider } = ethereum_test_fixture(block_no);
+
+    provider.anvil_impersonate_account(*STARKNET_OPERATOR_ADDRESS).await.expect("Unable to impersonate account.");
 
     let nonce = ethereum_settlement_client.get_nonce().await.expect("Unable to fetch nonce");
 
     // Create a contract instance.
-    let contract = STARKNET_CORE_CONTRACT::new(
-        *STARKNET_CORE_CONTRACT_ADDRESS,
-        provider.clone(),
-    );
+    let contract = STARKNET_CORE_CONTRACT::new(*STARKNET_CORE_CONTRACT_ADDRESS, provider.clone());
 
     // Call the contract, retrieve the current stateBlockNumber.
     let prev_block_number = contract.stateBlockNumber().call().await.unwrap();
@@ -179,6 +175,28 @@ async fn update_state_blob_with_impersonation_works(#[case] block_no: u64) {
     println!("PREVIOUS BLOCK NUMBER {}", prev_block_number._0);
     println!("CURRENT BLOCK HASH {}", latest_block_number._0);
     assert_eq!(prev_block_number._0.as_u32() + 1, latest_block_number._0.as_u32());
+
+    // Testing verify_tx_inclusion
+    sleep(Duration::from_secs(2)).await;
+    ethereum_settlement_client
+        .wait_for_tx_finality(update_state_result.as_str())
+        .await
+        .expect("Could not wait for txn finality.");
+    let verified_inclusion = ethereum_settlement_client
+        .verify_tx_inclusion(update_state_result.as_str())
+        .await
+        .expect("Could not verify inclusion.");
+    assert_eq!(verified_inclusion, SettlementVerificationStatus::Verified);
+}
+
+#[rstest]
+#[tokio::test]
+#[case::typical(20468828, 666039)]
+async fn get_last_settled_block_typical_works(#[case] block_no: u64, #[case] expected: u64) {
+    let TestFixture { anvil, ethereum_settlement_client, provider } = ethereum_test_fixture(block_no);
+
+    let result = ethereum_settlement_client.get_last_settled_block().await.expect("Could not get last settled block.");
+    assert_eq!(expected, result);
 }
 
 #[rstest]
@@ -229,9 +247,6 @@ async fn creating_input_data_works(#[case] block_no: u64) {
     assert_eq!(input_bytes, expected);
 }
 
-
-
-
 // SOLIDITY FUNCTIONS NEEDED
 sol!(
     #[allow(missing_docs)]
@@ -249,24 +264,12 @@ sol! {
     }
 }
 
-
-
-
-
-
-
-
-
-
-
-
-
 // UTILITY FUNCTIONS NEEDED
 
-fn get_program_output(block_no : u64) -> Vec<[u8; 32]>  {
+fn get_program_output(block_no: u64) -> Vec<[u8; 32]> {
     // Program Output
     let program_output_file_path =
-    format!("{}{}{}{}", *CURRENT_PATH, "/src/test_data/program_output/", block_no, ".txt");
+        format!("{}{}{}{}", *CURRENT_PATH, "/src/test_data/program_output/", block_no, ".txt");
 
     let mut program_output: Vec<[u8; 32]> = Vec::new();
     let file = File::open(program_output_file_path).expect("Failed to read program output file");
@@ -291,14 +294,13 @@ fn get_program_output(block_no : u64) -> Vec<[u8; 32]>  {
     program_output
 }
 
-fn get_blob_data(block_no : u64) -> Vec<Vec<u8>> {
-     // Blob Data
-     let blob_data_file_path = format!("{}{}{}{}", *CURRENT_PATH, "/src/test_data/blob_data/", block_no, ".txt");
-     let blob_data = fs::read_to_string(blob_data_file_path).expect("Failed to read the blob data txt file");
-     let blob_data_vec = vec![hex_string_to_u8_vec(&blob_data).unwrap()];
-     blob_data_vec
+fn get_blob_data(block_no: u64) -> Vec<Vec<u8>> {
+    // Blob Data
+    let blob_data_file_path = format!("{}{}{}{}", *CURRENT_PATH, "/src/test_data/blob_data/", block_no, ".txt");
+    let blob_data = fs::read_to_string(blob_data_file_path).expect("Failed to read the blob data txt file");
+    let blob_data_vec = vec![hex_string_to_u8_vec(&blob_data).unwrap()];
+    blob_data_vec
 }
-
 
 fn hex_string_to_u8_vec(hex_str: &str) -> color_eyre::Result<Vec<u8>> {
     // Remove any spaces or non-hex characters from the input string

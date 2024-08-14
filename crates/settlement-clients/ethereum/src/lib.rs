@@ -44,7 +44,8 @@ pub mod conversion;
 lazy_static! {
     static ref SHOULD_IMPERSONATE_ACCOUNT: bool = get_env_var_or_panic("TEST_IMPERSONATE_OPERATOR") == "1".to_string();
     static ref TEST_DUMMY_CONTRACT_ADDRESS: String = get_env_var_or_panic("TEST_DUMMY_CONTRACT_ADDRESS");
-    static ref ADDRESS_TO_IMPERSONATE: Address = Address::from_str("0x2C169DFe5fBbA12957Bdd0Ba47d9CEDbFE260CA7").expect("Unable to parse address");
+    static ref ADDRESS_TO_IMPERSONATE: Address =
+        Address::from_str("0x2C169DFe5fBbA12957Bdd0Ba47d9CEDbFE260CA7").expect("Unable to parse address");
     static ref TEST_NONCE: u64 = 666068;
 }
 
@@ -239,14 +240,13 @@ impl SettlementClient for EthereumSettlementClient {
         let tx_signed = variant.into_signed(signature);
         let tx_envelope: TxEnvelope = tx_signed.into();
         // IMP: this conversion strips signature from the transaction
+        
         let mut txn_request: TransactionRequest = tx_envelope.into();
 
         #[cfg(test)]
         if *SHOULD_IMPERSONATE_ACCOUNT {
             txn_request.set_nonce(*TEST_NONCE);
-            txn_request = txn_request.with_from(
-                *ADDRESS_TO_IMPERSONATE
-            );
+            txn_request = txn_request.with_from(*ADDRESS_TO_IMPERSONATE);
         }
 
         let pending_transaction = self.provider.send_transaction(txn_request).await?;
