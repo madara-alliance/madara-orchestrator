@@ -1,4 +1,5 @@
 use alloy::{node_bindings::Anvil, sol};
+use utils::env_utils::get_env_var_or_panic;
 use std::io::BufRead;
 use std::{
     fs::{self, File},
@@ -45,12 +46,33 @@ sol!(
 
 // TODO: betterment of file routes
 
+
+
+// TODO: Checking send_transaction
+// Create a dummy contract and deploy on anvil with same methodId as core contract
+// Make an env variable that will tell if we are testing impersonation or not
+// Check against the env variable, if we are not impersonation then we should talk to the dummy address
+
+sol! {
+    #[allow(missing_docs)]
+    #[sol(rpc, bytecode="6080604052348015600e575f80fd5b506101c18061001c5f395ff3fe608060405234801561000f575f80fd5b5060043610610029575f3560e01c8063b72d42a11461002d575b5f80fd5b6100476004803603810190610042919061010d565b610049565b005b50505050565b5f80fd5b5f80fd5b5f80fd5b5f80fd5b5f80fd5b5f8083601f84011261007857610077610057565b5b8235905067ffffffffffffffff8111156100955761009461005b565b5b6020830191508360208202830111156100b1576100b061005f565b5b9250929050565b5f8083601f8401126100cd576100cc610057565b5b8235905067ffffffffffffffff8111156100ea576100e961005b565b5b6020830191508360018202830111156101065761010561005f565b5b9250929050565b5f805f80604085870312156101255761012461004f565b5b5f85013567ffffffffffffffff81111561014257610141610053565b5b61014e87828801610063565b9450945050602085013567ffffffffffffffff81111561017157610170610053565b5b61017d878288016100b8565b92509250509295919450925056fea2646970667358221220fa7488d5a2a9e6c21e6f46145a831b0f04fdebab83868dc2b996c17f8cba4d8064736f6c634300081a0033")]
+    contract DummyCoreContract {
+        function updateStateKzgDA(uint256[] calldata programOutput, bytes calldata kzgProof)  external {
+        }
+    }
+}
+
 #[rstest]
 #[tokio::test]
 #[case::basic(20468828)]
 async fn update_state_blob_works(#[case] block_no: u64) {
-    // Load ENV vars
+    use std::time::Duration;
 
+    use alloy::providers::Provider;
+    use alloy_primitives::FixedBytes;
+    use tokio::time::sleep;
+
+    // Load ENV vars
     use crate::conversion::to_padded_hex;
     dotenvy::from_filename("../.env.test").expect("Could not load .env.test file.");
     let current_path = std::env::current_dir().unwrap().to_str().unwrap().to_string();
@@ -71,13 +93,19 @@ async fn update_state_blob_works(#[case] block_no: u64) {
     let settings_provider: DefaultSettingsProvider = DefaultSettingsProvider {};
     let ethereum_settlement_client = EthereumSettlementClient::with_test_settings(&settings_provider, provider.clone());
 
-    // Setup operator account impersonation
-    provider
-        .anvil_impersonate_account(
-            Address::from_str("0x2C169DFe5fBbA12957Bdd0Ba47d9CEDbFE260CA7").expect("Could not impersonate account."),
-        )
-        .await
-        .expect("Unable to impersonate account.");
+    let impersonate_acount = get_env_var_or_panic("TEST_IMPERSONATE_OPERATOR");
+
+    if impersonate_acount == "0".to_string(){
+        let contract = DummyCoreContract::deploy(&provider).await.expect("Unable to deploy address");
+        println!("Deployed contract at address: {}", contract.address());
+    } else {
+        provider
+            .anvil_impersonate_account(
+                Address::from_str("0x2C169DFe5fBbA12957Bdd0Ba47d9CEDbFE260CA7").expect("Could not impersonate account."),
+            )
+            .await
+            .expect("Unable to impersonate account.");
+    }
 
     let nonce = ethereum_settlement_client.get_nonce().await.expect("Unable to fetch nonce");
 
@@ -132,10 +160,23 @@ async fn update_state_blob_works(#[case] block_no: u64) {
     // Call the contract, retrieve the latest stateBlockNumber.
     let latest_block_number = contract.stateBlockNumber().call().await.unwrap();
 
-    println!("PREVIOUS BLOCK NUMBER {}", prev_block_number._0);
-    println!("CURRENT BLOCK HASH {}", latest_block_number._0);
+    if impersonate_acount == "1".to_string() {
+        println!("PREVIOUS BLOCK NUMBER {}", prev_block_number._0);
+        println!("CURRENT BLOCK HASH {}", latest_block_number._0);
+        assert_eq!(prev_block_number._0.as_u32() + 1, latest_block_number._0.as_u32());
+    } else {
+        sleep(Duration::from_secs(2)).await;
+        let txn = provider.get_transaction_by_hash(FixedBytes::from_str(update_state_result.as_str()).expect("couln't convert"))
+        .await
+        .expect("did not get txn from hash");
+        println!("{:?}", txn);
+        sleep(Duration::from_secs(2)).await;
 
-    assert_eq!(prev_block_number._0.as_u32() + 1, latest_block_number._0.as_u32());
+        assert!(!txn.is_none());
+
+      
+    }
+
 }
 
 #[rstest]
