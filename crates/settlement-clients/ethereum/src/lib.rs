@@ -17,7 +17,6 @@ use alloy::{
 use alloy::eips::eip2930::AccessList;
 use alloy::eips::eip4844::BYTES_PER_BLOB;
 use alloy::hex;
-use alloy::network::TransactionBuilder;
 // use alloy::node_bindings::Anvil;
 use alloy::rpc::types::TransactionRequest;
 use alloy_primitives::Bytes;
@@ -42,7 +41,7 @@ pub mod conversion;
 
 #[cfg(test)]
 lazy_static! {
-    static ref SHOULD_IMPERSONATE_ACCOUNT: bool = get_env_var_or_panic("TEST_IMPERSONATE_OPERATOR") == "1".to_string();
+    static ref SHOULD_IMPERSONATE_ACCOUNT: bool = get_env_var_or_panic("TEST_IMPERSONATE_OPERATOR") == *"1";
     static ref TEST_DUMMY_CONTRACT_ADDRESS: String = get_env_var_or_panic("TEST_DUMMY_CONTRACT_ADDRESS");
     static ref ADDRESS_TO_IMPERSONATE: Address =
         Address::from_str("0x2C169DFe5fBbA12957Bdd0Ba47d9CEDbFE260CA7").expect("Unable to parse address");
@@ -196,6 +195,8 @@ impl SettlementClient for EthereumSettlementClient {
         nonce: u64,
     ) -> Result<String> {
         //TODO: better file management
+        #[cfg(test)]
+        use alloy::network::TransactionBuilder;
 
         let trusted_setup = KzgSettings::load_trusted_setup_file(Path::new("/Users/dexterhv/Work/Karnot/madara-alliance/madara-orchestrator/crates/settlement-clients/ethereum/src/trusted_setup.txt"))?;
         let (sidecar_blobs, sidecar_commitments, sidecar_proofs) = prepare_sidecar(&state_diff, &trusted_setup).await?;
@@ -240,9 +241,12 @@ impl SettlementClient for EthereumSettlementClient {
         let tx_signed = variant.into_signed(signature);
         let tx_envelope: TxEnvelope = tx_signed.into();
         // IMP: this conversion strips signature from the transaction
-        
-        let mut txn_request: TransactionRequest = tx_envelope.into();
 
+        #[cfg(not(test))]
+        let txn_request: TransactionRequest = tx_envelope.into();
+
+        #[cfg(test)]
+        let mut txn_request: TransactionRequest = tx_envelope.into();
         #[cfg(test)]
         if *SHOULD_IMPERSONATE_ACCOUNT {
             txn_request.set_nonce(*TEST_NONCE);

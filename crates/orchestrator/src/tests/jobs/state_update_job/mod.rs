@@ -6,7 +6,7 @@ use bytes::Bytes;
 use httpmock::prelude::*;
 use mockall::predicate::eq;
 use rstest::*;
-use settlement_client_interface::{MockSettlementClient, SettlementClient};
+use settlement_client_interface::MockSettlementClient;
 
 use color_eyre::eyre::eyre;
 
@@ -76,14 +76,17 @@ async fn test_process_job_works(
     // functions while fetching the blob data from storage client.
     TestConfigBuilder::new().build().await;
 
+    let nonce: u64 = 3;
+    settlement_client.expect_get_nonce().with().returning(move || Ok(nonce));
+
     // Adding expectations for each block number to be called by settlement client.
     for block in block_numbers.iter().skip(processing_start_index as usize) {
         let blob_data = fetch_blob_data_for_block(block.to_u64().unwrap()).await.unwrap();
         settlement_client
             .expect_update_state_with_blobs()
-            .with(eq(vec![]), eq(blob_data))
+            .with(eq(vec![]), eq(blob_data), eq(nonce))
             .times(1)
-            .returning(|_, _| Ok("0xbeef".to_string()));
+            .returning(|_, _, _| Ok("0xbeef".to_string()));
     }
     settlement_client.expect_get_last_settled_block().with().returning(move || Ok(651052));
 
@@ -178,7 +181,9 @@ async fn test_process_job() {
         .expect("Failed to read the blob data txt file");
         storage_client.expect_get_data().with(eq(x_0_key)).returning(move |_| Ok(Bytes::from(x_0.clone())));
 
-        let nonce = settlement_client.get_nonce().await.expect("Unable to fetch nonce for settlement client.");
+        // let nonce = settlement_client.get_nonce().await.expect("Unable to fetch nonce for settlement client.");
+        let nonce: u64 = 1;
+        settlement_client.expect_get_nonce().returning(|| Ok(1));
 
         settlement_client
             .expect_update_state_with_blobs()

@@ -4,13 +4,14 @@ version.workspace = true
 edition.workspace = true
 
 [dependencies]
-alloy = { workspace = true, features = ["full", "node-bindings" ] }
+alloy = { workspace = true, features = ["full", "node-bindings"] }
 alloy-primitives = { version = "0.7.7", default-features = false }
 async-trait = { workspace = true }
-lazy_static = "1.4.0"
 c-kzg = "1.0.0"
 color-eyre = { workspace = true }
 dotenv = "0.15"
+dotenvy = { workspace = true }
+lazy_static = "1.4.0"
 mockall = "0.12.1"
 reqwest = { version = "0.12.3" }
 rstest = { workspace = true }
@@ -20,7 +21,6 @@ snos = { workspace = true }
 tokio = { workspace = true }
 url = { workspace = true }
 utils = { workspace = true }
-dotenvy = {workspace = true}
 
 [dev-dependencies]
 tokio-test = "*"

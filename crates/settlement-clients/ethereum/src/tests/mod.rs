@@ -49,7 +49,7 @@ lazy_static! {
         .to_string();
     static ref PORT: u16 = 3000_u16;
     static ref ETH_RPC: String = "https://eth.llamarpc.com".to_string();
-    static ref SHOULD_IMPERSONATE_ACCOUNT: bool = get_env_var_or_panic("TEST_IMPERSONATE_OPERATOR") == "1".to_string();
+    static ref SHOULD_IMPERSONATE_ACCOUNT: bool = get_env_var_or_panic("TEST_IMPERSONATE_OPERATOR") == *"1";
     static ref TEST_DUMMY_CONTRACT_ADDRESS: String = get_env_var_or_panic("TEST_DUMMY_CONTRACT_ADDRESS");
     static ref STARKNET_OPERATOR_ADDRESS: Address =
         Address::from_str("0x2C169DFe5fBbA12957Bdd0Ba47d9CEDbFE260CA7").expect("Could not impersonate account.");
@@ -129,7 +129,7 @@ async fn update_state_blob_with_dummy_contract_works(#[case] block_no: u64) {
 
     // Testing verify_tx_inclusion
     sleep(Duration::from_secs(2)).await;
-    let _ = ethereum_settlement_client
+    ethereum_settlement_client
         .wait_for_tx_finality(update_state_result.as_str())
         .await
         .expect("Could not wait for txn finality.");
@@ -284,7 +284,7 @@ fn get_program_output(block_no: u64) -> Vec<[u8; 32]> {
             .expect("Unable to convert line")
             .to_be_bytes_vec()
             .as_slice()
-            .pipe(|bytes| to_padded_hex(bytes))
+            .pipe(to_padded_hex)
             .pipe(|hex| hex_string_to_u8_vec(&hex).expect("unable to convert"))
             .try_into()
             .expect("Vector length must be 32");
