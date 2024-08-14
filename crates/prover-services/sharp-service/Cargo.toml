@@ -8,6 +8,7 @@ alloy.workspace = true
 async-trait.workspace = true
 base64 = "0.22.1"
 cairo-vm.workspace = true
+dotenvy.workspace = true
 gps-fact-checker.workspace = true
 hex.workspace = true
 lazy_static.workspace = true
@@ -25,4 +26,4 @@ uuid.workspace = true
 
 [dev-dependencies]
 tokio.workspace = true
-httpmock = "0.6"
+httpmock.workspace = true

@@ -20,10 +20,15 @@ pub struct SharpClient {
 
 impl SharpClient {
     /// We need to set up the client with the provided certificates.
-    /// We need to have three secrets : 
+    /// We need to have three secrets :
     /// - base64(SHARP_USER_CRT)
     /// - base64(SHARP_USER_KEY)
     /// - base64(SHARP_SERVER_CRT)
+    ///
+    /// You can run this command in terminal to convert a file output into base64
+    /// and then copy it and paste it into .env file :
+    /// 
+    /// `cat <file_name> | base64`
     pub fn new(url: Url) -> Self {
         // Getting the cert files from the .env and then decoding it from base64
         let cert = general_purpose::STANDARD.decode(get_env_var_or_panic("SHARP_USER_CRT")).unwrap();
@@ -37,7 +42,7 @@ impl SharpClient {
         Self {
             base_url: url,
             client: ClientBuilder::new()
-                .identity(Identity::from_pem(identity.as_slice()).unwrap())
+                .identity(Identity::from_pkcs8_pem(&cert, &key).unwrap())
                 .add_root_certificate(Certificate::from_pem(server_cert.as_slice()).unwrap())
                 .build()
                 .unwrap(),
