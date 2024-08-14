@@ -118,7 +118,7 @@ async fn test_process_job_works(
 
 #[rstest]
 #[tokio::test]
-async fn test_create_job() {
+async fn create_job_works() {
     let config = init_config(None, None, None, None, None, None, None).await;
 
     let job = StateUpdateJob.create_job(&config, String::from("0"), HashMap::default()).await;
@@ -136,7 +136,7 @@ async fn test_create_job() {
 
 #[rstest]
 #[tokio::test]
-async fn test_process_job() {
+async fn process_job_works() {
     let server = MockServer::start();
     let mut settlement_client = MockSettlementClient::new();
     let mut storage_client = MockDataStorage::new();
@@ -221,7 +221,7 @@ async fn test_process_job() {
 #[case(String::from("651052, 651052, 651053, 651053"), "Duplicated block numbers")]
 #[case(String::from(""), "settle list is not correctly formatted")]
 #[tokio::test]
-async fn test_process_job_invalid_inputs(#[case] block_numbers_to_settle: String, #[case] expected_error: &str) {
+async fn process_job_invalid_inputs_errors(#[case] block_numbers_to_settle: String, #[case] expected_error: &str) {
     let server = MockServer::start();
     let settlement_client = MockSettlementClient::new();
     let config = init_config(
@@ -256,7 +256,7 @@ async fn test_process_job_invalid_inputs(#[case] block_numbers_to_settle: String
 #[rstest]
 #[tokio::test]
 #[should_panic(expected = "Gap detected between the first block to settle and the last one settle")]
-async fn test_process_job_invalid_input_gap() {
+async fn process_job_invalid_input_gap_panics() {
     let server = MockServer::start();
     let mut settlement_client = MockSettlementClient::new();
 
