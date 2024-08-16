@@ -64,7 +64,7 @@ async fn prover_client_submit_task_works() {
     sharp_add_job_call.assert();
 }
 
-const TEST_FACT: &str = "0x924cf8d0b955a889fd254b355bb7b29aa9582a370f26943acbe85b2c1a0b201b";
+const TEST_FACT: &str = "924cf8d0b955a889fd254b355bb7b29aa9582a370f26943acbe85b2c1a0b201b";
 
 #[rstest]
 #[case(CairoJobStatus::FAILED)]
@@ -89,7 +89,7 @@ async fn prover_client_get_task_status_works(#[case] cairo_job_status: CairoJobS
     });
 
     let task_status = sharp_service
-        .get_task_status(&TaskId::from(format!("c31381bf-4739-4667-b5b8-b08af1c6b1c7:{}", TEST_FACT)))
+        .get_task_status(&TaskId::from(format!("c31381bf-4739-4667-b5b8-b08af1c6b1c7:0x{}", TEST_FACT)))
         .await
         .unwrap();
     assert_eq!(task_status, get_task_status_expectation(&cairo_job_status), "Cairo Job Status assertion failed");
