@@ -150,7 +150,7 @@ mod tests {
     #[should_panic(expected = "could not convert &[u8] to U256")]
     #[case::over(&[0xFF; 33])]
     fn slice_u8_to_u256_panics(#[case] slice: &[u8]) {
-        let _ = slice_u8_to_u256(slice);
+        let _ = slice_u8_to_u256(slice).unwrap();
     }
 
     #[rstest]

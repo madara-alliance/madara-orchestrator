@@ -1,3 +1,4 @@
+use alloy::node_bindings::AnvilInstance;
 use alloy::primitives::U256;
 use alloy::providers::{ext::AnvilApi, ProviderBuilder};
 use alloy::{node_bindings::Anvil, sol};
@@ -74,6 +75,7 @@ sol! {
 }
 
 pub struct TestSetup {
+    pub anvil : AnvilInstance,
     pub ethereum_settlement_client: EthereumSettlementClient,
     pub provider: alloy::providers::RootProvider<alloy::transports::http::Http<reqwest::Client>>,
 }
@@ -97,7 +99,7 @@ fn setup_ethereum_test(block_no: u64) -> TestSetup {
     let settings_provider: DefaultSettingsProvider = DefaultSettingsProvider {};
     let ethereum_settlement_client = EthereumSettlementClient::with_test_settings(&settings_provider, provider.clone());
 
-    TestSetup { ethereum_settlement_client, provider }
+    TestSetup { anvil, ethereum_settlement_client, provider }
 }
 
 #[rstest]
@@ -106,9 +108,9 @@ fn setup_ethereum_test(block_no: u64) -> TestSetup {
 /// tests if the method is able to do a transaction with same function selector on a dummy contract.
 async fn update_state_blob_with_dummy_contract_works(#[case] fork_block_no: u64) {
     env::set_var("TEST_IMPERSONATE_OPERATOR", "0");
+    let TestSetup { anvil , ethereum_settlement_client, provider } = setup_ethereum_test(fork_block_no);
 
-    let TestSetup { ethereum_settlement_client, provider } = setup_ethereum_test(fork_block_no);
-
+    println!("{:?}", anvil);
     // Deploying a dummy contract
     let contract = DummyCoreContract::deploy(&provider).await.expect("Unable to deploy address");
     assert_eq!(
@@ -161,7 +163,9 @@ async fn update_state_blob_with_dummy_contract_works(#[case] fork_block_no: u64)
 #[case::basic(20468828)]
 /// tests if the method is able to impersonate the`Starknet Operator` and do an `update_state` transaction.
 async fn update_state_blob_with_impersonation_works(#[case] fork_block_no: u64) {
-    let TestSetup { ethereum_settlement_client, provider } = setup_ethereum_test(fork_block_no);
+    let TestSetup { anvil, ethereum_settlement_client, provider } = setup_ethereum_test(fork_block_no);
+
+    println!("{:?}", anvil);
 
     provider.anvil_impersonate_account(*STARKNET_OPERATOR_ADDRESS).await.expect("Unable to impersonate account.");
 
@@ -206,9 +210,11 @@ async fn update_state_blob_with_impersonation_works(#[case] fork_block_no: u64) 
 
 #[rstest]
 #[tokio::test]
-#[case::typical(20468828, 666039)]
+#[case::typical(20468828, 668656)]
 async fn get_last_settled_block_typical_works(#[case] fork_block_no: u64, #[case] expected: u64) {
-    let TestSetup { ethereum_settlement_client, provider: _ } = setup_ethereum_test(fork_block_no);
+    env::set_var("DEFAULT_SETTLEMENT_CLIENT_RPC", "https://eth.llamarpc.com");
+
+    let TestSetup { anvil : _, ethereum_settlement_client, provider: _ } = setup_ethereum_test(fork_block_no);
 
     let result = ethereum_settlement_client.get_last_settled_block().await.expect("Could not get last settled block.");
     assert_eq!(expected, result);
