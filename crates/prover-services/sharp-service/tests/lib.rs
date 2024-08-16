@@ -55,7 +55,7 @@ async fn prover_client_submit_task_works() {
     let task_id = sharp_service.submit_task(Task::CairoPie(cairo_pie)).await.unwrap();
     println!("TASK_ID : {:?}", task_id);
     let (_, fact) = split_task_id(&task_id).unwrap();
-    
+
     // Comparing the calculated fact with on chain verified fact.
     assert_eq!(fact, B256::from_str("0xec8fa9cdfe069ed59b8f17aeecfd95c6abd616379269d2fa16a80955b6e0f068").unwrap());
 

@@ -55,13 +55,8 @@ impl SharpClient {
         // Making the URL from base url and returning the cairo key constructed
         let cairo_key = get_full_url_with_body_for_add_job(&mut base_url);
 
-        let res = self
-            .client
-            .post(base_url)
-            .body(encoded_pie.to_string())
-            .send()
-            .await
-            .map_err(SharpError::AddJobFailure)?;
+        let res =
+            self.client.post(base_url).body(encoded_pie.to_string()).send().await.map_err(SharpError::AddJobFailure)?;
 
         match res.status() {
             reqwest::StatusCode::OK => {
