@@ -1,7 +1,7 @@
-use std::clone::Clone;
+use base64::engine::general_purpose;
 use base64::Engine;
 use reqwest::{Certificate, ClientBuilder, Identity};
-use base64::engine::general_purpose;
+use std::clone::Clone;
 use url::Url;
 use utils::env_utils::get_env_var_or_panic;
 use uuid::Uuid;
@@ -27,7 +27,7 @@ impl SharpClient {
     ///
     /// You can run this command in terminal to convert a file output into base64
     /// and then copy it and paste it into .env file :
-    /// 
+    ///
     /// `cat <file_name> | base64`
     pub fn new(url: Url) -> Self {
         // Getting the cert files from the .env and then decoding it from base64
@@ -53,7 +53,7 @@ impl SharpClient {
         let mut base_url = self.base_url.clone();
 
         // Making the URL from base url and returning the cairo key constructed
-        let cairo_key = get_full_url_with_body_for_add_job(&mut base_url, encoded_pie);
+        let cairo_key = get_full_url_with_body_for_add_job(&mut base_url);
 
         let res = self
             .client
@@ -61,7 +61,7 @@ impl SharpClient {
             .body(encoded_pie.to_string())
             .send()
             .await
-            .map_err(|e| SharpError::AddJobFailure(e))?;
+            .map_err(SharpError::AddJobFailure)?;
 
         match res.status() {
             reqwest::StatusCode::OK => {
@@ -85,8 +85,9 @@ impl SharpClient {
 }
 
 /// To construct the url for adding the job to the sharp service.
-fn get_full_url_with_body_for_add_job(url: &mut Url, encoded_pie: &str) -> Uuid {
-    let mut url = url.join("add_job").unwrap();
+fn get_full_url_with_body_for_add_job(url: &mut Url) -> Uuid {
+    url.path_segments_mut().unwrap().push("add_job");
+
     let customer_id = get_env_var_or_panic("SHARP_CUSTOMER_ID");
     let cairo_key = Uuid::new_v4();
     let cairo_key_string = cairo_key.to_string();
@@ -97,7 +98,6 @@ fn get_full_url_with_body_for_add_job(url: &mut Url, encoded_pie: &str) -> Uuid 
         ("cairo_job_key", &cairo_key_string),
         ("offchain_proof", "true"),
         ("proof_layout", "small"),
-        ("encoded_pie", &encoded_pie),
     ];
 
     let mut pairs = url.query_pairs_mut();
@@ -110,15 +110,12 @@ fn get_full_url_with_body_for_add_job(url: &mut Url, encoded_pie: &str) -> Uuid 
 
 /// To construct the url for getting the job status from the sharp service.
 fn get_full_url_with_body_for_get_job_status(url: &mut Url, job_key: &Uuid) {
-    let mut url = url.join("get_status").unwrap();
+    url.path_segments_mut().unwrap().push("get_status");
     let customer_id = get_env_var_or_panic("SHARP_CUSTOMER_ID");
     let cairo_key_string = job_key.to_string();
 
     // Params for sending the PIE file to the prover
-    let params = vec![
-        ("customer_id", customer_id.as_str()),
-        ("cairo_job_key", &cairo_key_string),
-    ];
+    let params = vec![("customer_id", customer_id.as_str()), ("cairo_job_key", &cairo_key_string)];
 
     let mut pairs = url.query_pairs_mut();
     for (key, value) in params {

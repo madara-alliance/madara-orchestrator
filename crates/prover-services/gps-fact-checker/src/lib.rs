@@ -29,6 +29,7 @@ pub struct FactChecker {
     fact_registry: FactRegistry::FactRegistryInstance<TransportT, ProviderT>,
 }
 
+#[allow(dead_code)]
 pub struct CairoVerifierContract {
     cairo_verifier: CairoVerifier::CairoVerifierInstance<TransportT, ProviderT>,
 }

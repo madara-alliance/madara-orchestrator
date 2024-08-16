@@ -44,6 +44,8 @@ impl ProverClient for SharpProverService {
         let (job_key, fact) = split_task_id(task_id)?;
         let res = self.sharp_client.get_job_status(&job_key).await?;
         match res.status {
+            // TODO : We would need to remove the FAILED, UNKNOWN, NOT_CREATED status as it is not in the sharp client response specs :
+            // https://docs.google.com/document/d/1-9ggQoYmjqAtLBGNNR2Z5eLreBmlckGYjbVl0khtpU0
             CairoJobStatus::FAILED => Ok(TaskStatus::Failed(res.error_log.unwrap_or_default())),
             CairoJobStatus::INVALID => {
                 Ok(TaskStatus::Failed(format!("Task is invalid: {:?}", res.invalid_reason.unwrap_or_default())))
@@ -56,7 +58,7 @@ impl ProverClient for SharpProverService {
                 if self.fact_checker.is_valid(&fact).await? {
                     Ok(TaskStatus::Succeeded)
                 } else {
-                    Ok(TaskStatus::Failed(format!("Fact {} is not valid or not registed", hex::encode(fact))))
+                    Ok(TaskStatus::Failed(format!("Fact {} is not valid or not registered", hex::encode(fact))))
                 }
             }
         }
