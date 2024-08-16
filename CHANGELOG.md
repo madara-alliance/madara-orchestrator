@@ -6,6 +6,8 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ## Added
 
+- added coveralls support
+- moved mongodb serde behind feature flag
 - implemented DA worker.
 - Function to calculate the kzg proof of x_0.
 - Tests for updating the state.
@@ -15,8 +17,12 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 - Basic rust-toolchain support.
 - `AWS_DEFAULT_REGION="localhost"` var. in .env.test for omniqueue queue testing.
 - Added basic rust-toolchain support.
+- Implement DL queue for handling failed jobs.
+- Added tests for state update job.
 - Tests for DA job.
 - Tests for prover client.
+- Added generalized errors for Jobs : JobError.
+- Database tests
 
 ## Changed
 
@@ -24,7 +30,6 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 - Orchestrator :Moved TestConfigBuilder to `config.rs` in tests folder.
 - `.env` file requires two more variables which are queue urls for processing
   and verification.
-- Shifted Unit tests to test folder for DA job.
 
 ## Removed
 
@@ -33,3 +38,4 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 ## Fixed
 
 - Get Fact Info logic.
+- Fixed state update worker logic as per the new implementation.

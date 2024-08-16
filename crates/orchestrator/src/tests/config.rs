@@ -71,6 +71,11 @@ impl TestConfigBuilder {
         self
     }
 
+    pub fn mock_settlement_client(mut self, settlement_client: Box<dyn SettlementClient>) -> TestConfigBuilder {
+        self.settlement_client = Some(settlement_client);
+        self
+    }
+
     pub async fn build(mut self) -> MockServer {
         dotenvy::from_filename("../.env.test").expect("Failed to load the .env file");
 
@@ -126,6 +131,8 @@ impl TestConfigBuilder {
             self.queue.unwrap_or_else(|| Box::new(SqsQueue {})),
             self.storage.unwrap(),
         );
+
+        drop_database().await.unwrap();
 
         config_force_init(config).await;
 
