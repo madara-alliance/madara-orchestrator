@@ -57,10 +57,14 @@ async fn prover_client_submit_task_works() {
     let (_, fact) = split_task_id(&task_id).unwrap();
 
     // Comparing the calculated fact with on chain verified fact.
+    // You can check on etherscan by calling `isValid` function on GpsStatementVerifier.sol
+    // Contract Link : https://etherscan.io/address/0x9fb7F48dCB26b7bFA4e580b2dEFf637B13751942#readContract#F9
     assert_eq!(fact, B256::from_str("0xec8fa9cdfe069ed59b8f17aeecfd95c6abd616379269d2fa16a80955b6e0f068").unwrap());
 
     sharp_add_job_call.assert();
 }
+
+const TEST_FACT: &str = "0x924cf8d0b955a889fd254b355bb7b29aa9582a370f26943acbe85b2c1a0b201b";
 
 #[rstest]
 #[case(CairoJobStatus::FAILED)]
@@ -85,9 +89,7 @@ async fn prover_client_get_task_status_works(#[case] cairo_job_status: CairoJobS
     });
 
     let task_status = sharp_service
-        .get_task_status(&TaskId::from(
-            "c31381bf-4739-4667-b5b8-b08af1c6b1c7:0x924cf8d0b955a889fd254b355bb7b29aa9582a370f26943acbe85b2c1a0b201b",
-        ))
+        .get_task_status(&TaskId::from(format!("c31381bf-4739-4667-b5b8-b08af1c6b1c7:{}", TEST_FACT)))
         .await
         .unwrap();
     assert_eq!(task_status, get_task_status_expectation(&cairo_job_status), "Cairo Job Status assertion failed");
@@ -101,10 +103,7 @@ fn get_task_status_expectation(cairo_job_status: &CairoJobStatus) -> TaskStatus 
         CairoJobStatus::INVALID => TaskStatus::Failed("Task is invalid: INVALID_CAIRO_PIE_FILE_FORMAT".to_string()),
         CairoJobStatus::UNKNOWN => TaskStatus::Failed("".to_string()),
         CairoJobStatus::IN_PROGRESS | CairoJobStatus::NOT_CREATED | CairoJobStatus::PROCESSED => TaskStatus::Processing,
-        CairoJobStatus::ONCHAIN => TaskStatus::Failed(
-            "Fact 924cf8d0b955a889fd254b355bb7b29aa9582a370f26943acbe85b2c1a0b201b is not valid or not registered"
-                .to_string(),
-        ),
+        CairoJobStatus::ONCHAIN => TaskStatus::Failed(format!("Fact {} is not valid or not registered", TEST_FACT)),
     }
 }
 
