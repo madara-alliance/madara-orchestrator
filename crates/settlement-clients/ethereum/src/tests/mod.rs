@@ -62,7 +62,7 @@ sol!(
     #[allow(missing_docs)]
     #[sol(rpc)]
     STARKNET_CORE_CONTRACT,
-    "src/test_data/abi/starknet_core_contract.json"
+    "src/test_data/ABI/starknet_core_contract.json"
 );
 
 sol! {
