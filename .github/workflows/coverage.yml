@@ -54,6 +54,8 @@ jobs:
           cargo llvm-cov clean --workspace
 
       - name: Run llvm-cov
+        env:
+          ETHEREUM_BLAST_RPC_URL: ${{ secrets.ETHEREUM_BLAST_RPC_URL }}
         run: |
           cargo llvm-cov nextest --release --lcov --output-path lcov.info --test-threads=1
 

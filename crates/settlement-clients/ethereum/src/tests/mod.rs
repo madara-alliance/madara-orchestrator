@@ -48,7 +48,7 @@ lazy_static! {
         .expect("Path contains invalid Unicode")
         .to_string();
     static ref PORT: u16 = 3000_u16;
-    static ref ETH_RPC: String = "https://eth.llamarpc.com".to_string();
+    static ref ETH_RPC: String = get_env_var_or_panic("ETHEREUM_BLAST_RPC_URL");
     static ref SHOULD_IMPERSONATE_ACCOUNT: bool = get_env_var_or_panic("TEST_IMPERSONATE_OPERATOR") == *"1";
     static ref TEST_DUMMY_CONTRACT_ADDRESS: String = get_env_var_or_panic("TEST_DUMMY_CONTRACT_ADDRESS");
     static ref STARKNET_OPERATOR_ADDRESS: Address =
