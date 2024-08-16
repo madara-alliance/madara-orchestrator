@@ -6,6 +6,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ## Added
 
+- Tests for Settlement client.
 - added coveralls support
 - moved mongodb serde behind feature flag
 - implemented DA worker.
@@ -21,7 +22,6 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 - Added tests for state update job.
 - Tests for DA job.
 - Database tests
-- Tests for Settlement client.
 
 ## Changed
 

@@ -76,6 +76,8 @@ async fn test_process_job_works(
     // functions while fetching the blob data from storage client.
     TestConfigBuilder::new().build().await;
 
+    // test_process_job_works uses nonce just to write expect_update_state_with_blobs for a mocked settlement client,
+    // which means that nonce ideally is never checked against, hence supplying any `u64` `nonce` works.
     let nonce: u64 = 3;
     settlement_client.expect_get_nonce().with().returning(move || Ok(nonce));
 

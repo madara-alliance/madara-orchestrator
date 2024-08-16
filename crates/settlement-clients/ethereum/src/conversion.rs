@@ -8,7 +8,7 @@ use std::fmt::Write;
 
 /// Converts a `&[Vec<u8>]` to `Vec<U256>`. Each inner slice is expected to be exactly 32 bytes long.
 /// Pads with zeros if any inner slice is shorter than 32 bytes.
-pub(crate) fn slice_slice_u8_to_vec_u256(slices: &[[u8; 32]]) -> EyreResult<Vec<U256>> {
+pub(crate) fn vec_u8_32_to_vec_u256(slices: &[[u8; 32]]) -> EyreResult<Vec<U256>> {
     slices.iter().map(|slice| slice_u8_to_u256(slice)).collect()
 }
 
@@ -143,28 +143,14 @@ mod tests {
     #[case::short(&[0xFF; 16], U256::from_be_slice(&[0xFF; 16]))]
     #[case::empty(&[], U256::ZERO)]
     fn slice_u8_to_u256_works(#[case] slice: &[u8], #[case] expected: U256) {
-        match slice_u8_to_u256(slice) {
-            Ok(response) => {
-                assert_eq!(response, expected);
-            }
-            Err(e) => {
-                panic!("{}", e);
-            }
-        }
+        assert_eq!(slice_u8_to_u256(slice).expect("slice_u8_to_u256 failed"), expected)
     }
 
     #[rstest]
+    #[should_panic(expected = "could not convert &[u8] to U256")]
     #[case::over(&[0xFF; 33])]
     fn slice_u8_to_u256_panics(#[case] slice: &[u8]) {
-        let result: Result<alloy::primitives::Uint<256, 4>, color_eyre::eyre::Error> = slice_u8_to_u256(slice);
-        match result {
-            Ok(_) => {
-                panic!("{}", "Should not have passed");
-            }
-            Err(report) => {
-                assert_eq!(report.to_string(), "could not convert &[u8] to U256")
-            }
-        }
+        let _ = slice_u8_to_u256(slice);
     }
 
     #[rstest]
@@ -197,8 +183,8 @@ mod tests {
             U256::from_be_slice(&[0x12, 0x34, 0x56, 0x78, 0x9A, 0xBC, 0xDE, 0xF0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0]),
         ]
     )]
-    fn slice_slice_u8_to_vec_u256_works(#[case] slices: &[[u8; 32]], #[case] expected: Vec<U256>) {
-        match slice_slice_u8_to_vec_u256(slices) {
+    fn vec_u8_32_to_vec_u256_works(#[case] slices: &[[u8; 32]], #[case] expected: Vec<U256>) {
+        match vec_u8_32_to_vec_u256(slices) {
             Ok(response) => {
                 assert_eq!(response, expected);
             }
@@ -262,11 +248,13 @@ mod tests {
         assert_eq!(result, expected);
     }
 
+    // block_no here are Ethereum(mainnet) blocks, we are creating sidecar and validating
+    // the function by matching pre-existing commitments against computed.
     #[rstest]
     #[case("20462788")]
     #[case("20462818")]
     #[tokio::test]
-    async fn prepare_sidecar_works(#[case] block_no: String) {
+    async fn prepare_sidecar_works(#[case] fork_block_no: String) {
         // Trusted Setup
         let current_path = std::env::current_dir().unwrap().to_str().unwrap().to_string();
 
@@ -276,19 +264,19 @@ mod tests {
 
         // Blob Data
         let blob_data_file_path =
-            format!("{}{}{}{}", current_path.clone(), "/src/test_data/blob_data/", block_no, ".txt");
+            format!("{}{}{}{}", current_path.clone(), "/src/test_data/blob_data/", fork_block_no, ".txt");
         println!("{}", blob_data_file_path);
         let blob_data = fs::read_to_string(blob_data_file_path).expect("Failed to read the blob data txt file");
 
         // Blob Commitment
         let blob_commitment_file_path =
-            format!("{}{}{}{}", current_path.clone(), "/src/test_data/blob_commitment/", block_no, ".txt");
+            format!("{}{}{}{}", current_path.clone(), "/src/test_data/blob_commitment/", fork_block_no, ".txt");
         let blob_commitment =
             fs::read_to_string(blob_commitment_file_path).expect("Failed to read the blob data txt file");
 
         // Blob Proof
         let blob_proof_file_path =
-            format!("{}{}{}{}", current_path.clone(), "/src/test_data/blob_proof/", block_no, ".txt");
+            format!("{}{}{}{}", current_path.clone(), "/src/test_data/blob_proof/", fork_block_no, ".txt");
         let blob_proof = fs::read_to_string(blob_proof_file_path).expect("Failed to read the blob data txt file");
 
         fn hex_string_to_u8_vec(hex_str: &str) -> color_eyre::Result<Vec<u8>> {

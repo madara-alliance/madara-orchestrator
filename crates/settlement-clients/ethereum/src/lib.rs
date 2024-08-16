@@ -34,10 +34,17 @@ use utils::{env_utils::get_env_var_or_panic, settings::SettingsProvider};
 use crate::clients::interfaces::validity_interface::StarknetValidityContractTrait;
 use crate::clients::StarknetValidityContractClient;
 use crate::config::EthereumSettlementConfig;
-use crate::conversion::{slice_slice_u8_to_vec_u256, slice_u8_to_u256};
+use crate::conversion::{slice_u8_to_u256, vec_u8_32_to_vec_u256};
 pub mod clients;
 pub mod config;
 pub mod conversion;
+
+// IMPORTANT to understand #[cfg(test)], #[cfg(not(test))] and SHOULD_IMPERSONATE_ACCOUNT
+// Two tests :  `update_state_blob_with_dummy_contract_works` & `update_state_blob_with_impersonation_works` use a env var `TEST_IMPERSONATE_OPERATOR` to inform the function `update_state_with_blobs` about the kind of testing,
+// `TEST_IMPERSONATE_OPERATOR` can have any of "0" or "1" value :
+//      - if "0" then : Testing against Dummy Contract.
+//      - if "1" then : Testing via impersonating `Starknet Operator Address`.
+// Note : changing between "0" and "1" is handled automatically by each test function, `no` manual change in `env.test` is needed.
 
 #[cfg(test)]
 lazy_static! {
@@ -93,7 +100,10 @@ impl EthereumSettlementClient {
             ProviderBuilder::new().with_recommended_fillers().wallet(wallet.clone()).on_http(settlement_cfg.rpc_url),
         );
         let core_contract_client = StarknetValidityContractClient::new(
-            Address::from_str(&settlement_cfg.core_contract_address).unwrap().0.into(),
+            Address::from_str(&settlement_cfg.core_contract_address)
+                .expect("Failed to convert the validity contract address.")
+                .0
+                .into(),
             provider.clone(),
         );
 
@@ -173,7 +183,7 @@ impl SettlementClient for EthereumSettlementClient {
         onchain_data_hash: [u8; 32],
         onchain_data_size: usize,
     ) -> Result<String> {
-        let program_output: Vec<U256> = slice_slice_u8_to_vec_u256(program_output.as_slice())?;
+        let program_output: Vec<U256> = vec_u8_32_to_vec_u256(program_output.as_slice())?;
         let onchain_data_hash: U256 = slice_u8_to_u256(&onchain_data_hash)?;
         let onchain_data_size: U256 = onchain_data_size.try_into()?;
         let tx_receipt =
@@ -183,7 +193,7 @@ impl SettlementClient for EthereumSettlementClient {
 
     /// Should be used to update state on core contract when DA is in blobs/alt DA
     async fn update_state_blobs(&self, program_output: Vec<[u8; 32]>, kzg_proof: [u8; 48]) -> Result<String> {
-        let program_output: Vec<U256> = slice_slice_u8_to_vec_u256(&program_output)?;
+        let program_output: Vec<U256> = vec_u8_32_to_vec_u256(&program_output)?;
         let tx_receipt = self.core_contract_client.update_state_kzg(program_output, kzg_proof).await?;
         Ok(format!("0x{:x}", tx_receipt.transaction_hash))
     }
