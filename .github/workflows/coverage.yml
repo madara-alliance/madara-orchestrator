@@ -35,6 +35,20 @@ jobs:
       - uses: taiki-e/install-action@cargo-llvm-cov
       - uses: taiki-e/install-action@nextest
 
+      - name: Install Foundry
+        uses: foundry-rs/foundry-toolchain@v1
+
+      - name: Check Anvil Installation
+        run: |
+          if command -v anvil &> /dev/null
+          then
+              echo "Anvil is installed. Version information:"
+              anvil --version
+          else
+              echo "Anvil is not installed or not in PATH"
+              exit 1
+          fi
+
       - name: Clean workspace
         run: |
           cargo llvm-cov clean --workspace
