@@ -18,7 +18,8 @@ pub struct EthereumSettlementConfig {
 impl SettlementConfig for EthereumSettlementConfig {
     fn new_from_env() -> Self {
         let rpc_url = get_env_var_or_panic(DEFAULT_SETTLEMENT_CLIENT_RPC);
-        let rpc_url = Url::from_str(&rpc_url).unwrap_or_else(|_| panic!("Failed to parse {}", DEFAULT_SETTLEMENT_CLIENT_RPC));
+        let rpc_url =
+            Url::from_str(&rpc_url).unwrap_or_else(|_| panic!("Failed to parse {}", DEFAULT_SETTLEMENT_CLIENT_RPC));
         let core_contract_address = get_env_var_or_panic(ENV_CORE_CONTRACT_ADDRESS);
         Self { rpc_url, core_contract_address }
     }

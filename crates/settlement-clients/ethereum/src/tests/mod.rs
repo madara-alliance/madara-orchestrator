@@ -75,7 +75,7 @@ sol! {
 }
 
 pub struct TestSetup {
-    pub anvil : AnvilInstance,
+    pub anvil: AnvilInstance,
     pub ethereum_settlement_client: EthereumSettlementClient,
     pub provider: alloy::providers::RootProvider<alloy::transports::http::Http<reqwest::Client>>,
 }
@@ -108,7 +108,7 @@ fn setup_ethereum_test(block_no: u64) -> TestSetup {
 /// tests if the method is able to do a transaction with same function selector on a dummy contract.
 async fn update_state_blob_with_dummy_contract_works(#[case] fork_block_no: u64) {
     env::set_var("TEST_IMPERSONATE_OPERATOR", "0");
-    let TestSetup { anvil , ethereum_settlement_client, provider } = setup_ethereum_test(fork_block_no);
+    let TestSetup { anvil, ethereum_settlement_client, provider } = setup_ethereum_test(fork_block_no);
 
     println!("{:?}", anvil);
     // Deploying a dummy contract
@@ -214,7 +214,7 @@ async fn update_state_blob_with_impersonation_works(#[case] fork_block_no: u64) 
 async fn get_last_settled_block_typical_works(#[case] fork_block_no: u64) {
     env::set_var("DEFAULT_SETTLEMENT_CLIENT_RPC", "https://eth.llamarpc.com");
 
-    let TestSetup { anvil : _, ethereum_settlement_client, provider: _ } = setup_ethereum_test(fork_block_no);
+    let TestSetup { anvil: _, ethereum_settlement_client, provider: _ } = setup_ethereum_test(fork_block_no);
 
     let _ = ethereum_settlement_client.get_last_settled_block().await.expect("Could not get last settled block.");
 }
