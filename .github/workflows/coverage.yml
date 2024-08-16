@@ -2,8 +2,13 @@
 name: Task - Rust Tests & Coverage
 
 on:
-  workflow_dispatch:
-  workflow_call:
+  pull_request_target:
+    branches:
+      - main
+    types: [opened, synchronize, reopened]
+  push:
+    branches-ignore:
+      - main
 
 jobs:
   coverage:

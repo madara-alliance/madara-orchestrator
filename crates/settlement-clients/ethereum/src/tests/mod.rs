@@ -212,7 +212,8 @@ async fn update_state_blob_with_impersonation_works(#[case] fork_block_no: u64) 
 #[tokio::test]
 #[case::typical(20468828)]
 async fn get_last_settled_block_typical_works(#[case] fork_block_no: u64) {
-    env::set_var("DEFAULT_SETTLEMENT_CLIENT_RPC", "https://eth.llamarpc.com");
+    dotenvy::from_filename(&*ENV_FILE_PATH).expect("Could not load .env.test file.");
+    env::set_var("DEFAULT_SETTLEMENT_CLIENT_RPC", &*ETH_RPC);
 
     let TestSetup { anvil: _, ethereum_settlement_client, provider: _ } = setup_ethereum_test(fork_block_no);
 
