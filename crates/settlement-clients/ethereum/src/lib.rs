@@ -208,7 +208,13 @@ impl SettlementClient for EthereumSettlementClient {
         #[cfg(test)]
         use alloy::network::TransactionBuilder;
 
-        let trusted_setup = KzgSettings::load_trusted_setup_file(Path::new("/Users/dexterhv/Work/Karnot/madara-alliance/madara-orchestrator/crates/settlement-clients/ethereum/src/trusted_setup.txt"))?;
+        let trusted_setup_path: String = CURRENT_PATH
+            .join("src")
+            .join("trusted_setup.txt")
+            .to_str()
+            .expect("Path contains invalid Unicode")
+            .to_string();
+        let trusted_setup = KzgSettings::load_trusted_setup_file(Path::new(trusted_setup_path.as_str()))?;
         let (sidecar_blobs, sidecar_commitments, sidecar_proofs) = prepare_sidecar(&state_diff, &trusted_setup).await?;
         let sidecar = BlobTransactionSidecar::new(sidecar_blobs, sidecar_commitments, sidecar_proofs);
 
