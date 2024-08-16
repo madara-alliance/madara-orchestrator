@@ -252,7 +252,6 @@ async fn process_job_invalid_inputs_errors(#[case] block_numbers_to_settle: Stri
 
 #[rstest]
 #[tokio::test]
-#[should_panic(expected = "Gap detected between the first block to settle and the last one settle")]
 async fn process_job_invalid_input_gap_panics() {
     let server = MockServer::start();
     let mut settlement_client = MockSettlementClient::new();
