@@ -40,15 +40,15 @@ pub mod config;
 pub mod conversion;
 
 // IMPORTANT to understand #[cfg(test)], #[cfg(not(test))] and SHOULD_IMPERSONATE_ACCOUNT
-// Two tests :  `update_state_blob_with_dummy_contract_works` & `update_state_blob_with_impersonation_works` use a env var `TEST_IMPERSONATE_OPERATOR` to inform the function `update_state_with_blobs` about the kind of testing,
-// `TEST_IMPERSONATE_OPERATOR` can have any of "0" or "1" value :
+// Two tests :  `update_state_blob_with_dummy_contract_works` & `update_state_blob_with_impersonation_works` use a env var `SHOULD_IMPERSONATE_ACCOUNT` to inform the function `update_state_with_blobs` about the kind of testing,
+// `SHOULD_IMPERSONATE_ACCOUNT` can have any of "0" or "1" value :
 //      - if "0" then : Testing via default Anvil address.
 //      - if "1" then : Testing via impersonating `Starknet Operator Address`.
 // Note : changing between "0" and "1" is handled automatically by each test function, `no` manual change in `env.test` is needed.
 
 #[cfg(test)]
 lazy_static! {
-    static ref SHOULD_IMPERSONATE_ACCOUNT: bool = get_env_var_or_panic("TEST_IMPERSONATE_OPERATOR") == *"1";
+    static ref SHOULD_IMPERSONATE_ACCOUNT: bool = get_env_var_or_panic("SHOULD_IMPERSONATE_ACCOUNT") == *"true";
     static ref TEST_DUMMY_CONTRACT_ADDRESS: String = get_env_var_or_panic("TEST_DUMMY_CONTRACT_ADDRESS");
     static ref ADDRESS_TO_IMPERSONATE: Address =
         Address::from_str("0x2C169DFe5fBbA12957Bdd0Ba47d9CEDbFE260CA7").expect("Unable to parse address");

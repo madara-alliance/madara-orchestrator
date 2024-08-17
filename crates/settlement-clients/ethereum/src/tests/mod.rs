@@ -49,7 +49,7 @@ lazy_static! {
         .to_string();
     static ref PORT: u16 = 3000_u16;
     static ref ETH_RPC: String = get_env_var_or_panic("ETHEREUM_BLAST_RPC_URL");
-    static ref SHOULD_IMPERSONATE_ACCOUNT: bool = get_env_var_or_panic("TEST_IMPERSONATE_OPERATOR") == *"1";
+    static ref SHOULD_IMPERSONATE_ACCOUNT: bool = get_env_var_or_panic("SHOULD_IMPERSONATE_ACCOUNT") == *"true";
     static ref TEST_DUMMY_CONTRACT_ADDRESS: String = get_env_var_or_panic("TEST_DUMMY_CONTRACT_ADDRESS");
     static ref STARKNET_OPERATOR_ADDRESS: Address =
         Address::from_str("0x2C169DFe5fBbA12957Bdd0Ba47d9CEDbFE260CA7").expect("Could not impersonate account.");
@@ -107,7 +107,7 @@ fn setup_ethereum_test(block_no: u64) -> TestSetup {
 #[case::basic(20468828)]
 /// tests if the method is able to do a transaction with same function selector on a dummy contract.
 async fn update_state_blob_with_dummy_contract_works(#[case] fork_block_no: u64) {
-    env::set_var("TEST_IMPERSONATE_OPERATOR", "0");
+    env::set_var("SHOULD_IMPERSONATE_ACCOUNT", "false");
     let TestSetup { anvil, ethereum_settlement_client, provider } = setup_ethereum_test(fork_block_no);
 
     println!("{:?}", anvil);
