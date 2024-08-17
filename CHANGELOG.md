@@ -6,6 +6,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ## Added
 
+- support for fetching PIE file from storage client in proving job.
 - added coveralls support
 - moved mongodb serde behind feature flag
 - implemented DA worker.
