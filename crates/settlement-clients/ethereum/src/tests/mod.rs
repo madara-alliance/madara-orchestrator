@@ -105,7 +105,11 @@ fn setup_ethereum_test(block_no: u64) -> TestSetup {
 #[rstest]
 #[tokio::test]
 #[case::basic(20468828)]
-/// tests if the method is able to do a transaction with same function selector on a dummy contract.
+/// Tests if the method is able to do a transaction with same function selector on a dummy contract.
+/// If we impersonate starknet operator then we loose out on testing for validity of signature in the transaction.
+/// Starknet core contract has a modifier `onlyOperator` that restricts anyone but the operator to send transaction to `updateStateKzgDa` method
+/// And hence to test the signature and transaction via a dummy contract that has same function selector as `updateStateKzgDa`.
+/// and anvil is for testing on fork Eth.
 async fn update_state_blob_with_dummy_contract_works(#[case] fork_block_no: u64) {
     env::set_var("SHOULD_IMPERSONATE_ACCOUNT", "false");
     let TestSetup { anvil, ethereum_settlement_client, provider } = setup_ethereum_test(fork_block_no);
@@ -162,6 +166,8 @@ async fn update_state_blob_with_dummy_contract_works(#[case] fork_block_no: u64)
 #[tokio::test]
 #[case::basic(20468828)]
 /// tests if the method is able to impersonate the`Starknet Operator` and do an `update_state` transaction.
+/// We impersonate the Starknet Operator to send a transaction to the Core contract
+/// Here signature checks are bypassed and anvil is for testing on fork Eth.
 async fn update_state_blob_with_impersonation_works(#[case] fork_block_no: u64) {
     let TestSetup { anvil, ethereum_settlement_client, provider } = setup_ethereum_test(fork_block_no);
 
