@@ -1,21 +1,28 @@
 use std::collections::HashMap;
+use std::sync::Arc;
 
-use crate::config::{config, config_force_init};
+use crate::config::config;
 use httpmock::prelude::*;
 use prover_client_interface::{MockProverClient, TaskStatus};
 use rstest::*;
+use starknet::providers::jsonrpc::HttpTransport;
+use starknet::providers::JsonRpcClient;
+use url::Url;
 use uuid::Uuid;
 
-use super::super::common::{default_job_item, init_config};
+use super::super::common::default_job_item;
 use crate::jobs::constants::JOB_METADATA_CAIRO_PIE_PATH_KEY;
 use crate::jobs::proving_job::ProvingJob;
 use crate::jobs::types::{JobItem, JobStatus, JobType};
 use crate::jobs::Job;
+use crate::tests::config::TestConfigBuilder;
 
 #[rstest]
 #[tokio::test]
 async fn test_create_job() {
-    let config = init_config(None, None, None, None, None, None, None).await;
+    TestConfigBuilder::new().build().await;
+    let config = config().await;
+
     let job = ProvingJob
         .create_job(
             &config,
@@ -41,7 +48,9 @@ async fn test_verify_job(#[from(default_job_item)] mut job_item: JobItem) {
     let mut prover_client = MockProverClient::new();
     prover_client.expect_get_task_status().times(1).returning(|_| Ok(TaskStatus::Succeeded));
 
-    let config = init_config(None, None, None, None, Some(prover_client), None, None).await;
+    TestConfigBuilder::new().mock_prover_client(Box::new(prover_client)).build().await;
+
+    let config = config().await;
     assert!(ProvingJob.verify_job(&config, &mut job_item).await.is_ok());
 }
 
@@ -49,22 +58,18 @@ async fn test_verify_job(#[from(default_job_item)] mut job_item: JobItem) {
 #[tokio::test]
 async fn test_process_job() {
     let server = MockServer::start();
-
     let mut prover_client = MockProverClient::new();
+
     prover_client.expect_submit_task().times(1).returning(|_| Ok("task_id".to_string()));
+    let provider = JsonRpcClient::new(HttpTransport::new(
+        Url::parse(format!("http://localhost:{}", server.port()).as_str()).expect("Failed to parse URL"),
+    ));
 
-    let config_init = init_config(
-        Some(format!("http://localhost:{}", server.port())),
-        None,
-        None,
-        None,
-        Some(prover_client),
-        None,
-        None,
-    )
-    .await;
-
-    config_force_init(config_init).await;
+    TestConfigBuilder::new()
+        .mock_starknet_client(Arc::new(provider))
+        .mock_prover_client(Box::new(prover_client))
+        .build()
+        .await;
 
     let cairo_pie_path = format!("{}/src/tests/artifacts/fibonacci.zip", env!("CARGO_MANIFEST_DIR"));
 
