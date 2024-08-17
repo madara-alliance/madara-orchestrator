@@ -1,7 +1,6 @@
 use alloy::primitives::Address;
 use serde::{Deserialize, Serialize};
 use url::Url;
-use utils::env_utils::get_env_var_or_default;
 
 use crate::client::DEFAULT_SHARP_URL;
 
@@ -20,8 +19,8 @@ impl Default for SharpConfig {
     /// Default config for Sepolia testnet
     fn default() -> Self {
         Self {
-            service_url: get_env_var_or_default("SHARP_URL", DEFAULT_SHARP_URL).parse().unwrap(),
-            rpc_node_url: "https://sepolia.drpc.org".parse().unwrap(),
+            service_url: DEFAULT_SHARP_URL.parse().unwrap(),
+            rpc_node_url: "https://ethereum-sepolia-rpc.publicnode.com".parse().unwrap(),
             verifier_address: "0x07ec0D28e50322Eb0C159B9090ecF3aeA8346DFe".parse().unwrap(),
         }
     }

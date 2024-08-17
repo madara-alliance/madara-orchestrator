@@ -35,12 +35,13 @@ impl SharpClient {
         let key = general_purpose::STANDARD.decode(get_env_var_or_panic("SHARP_USER_KEY")).unwrap();
         let server_cert = general_purpose::STANDARD.decode(get_env_var_or_panic("SHARP_SERVER_CRT")).unwrap();
 
-        // Constructing identity from crt and key for user
-        let mut identity = cert.clone();
-        identity.extend_from_slice(&key);
+        // Adding Customer ID to the url
+        let mut url_mut = url.clone();
+        let customer_id = get_env_var_or_panic("SHARP_CUSTOMER_ID");
+        url_mut.query_pairs_mut().append_pair("customer_id", customer_id.as_str());
 
         Self {
-            base_url: url,
+            base_url: url_mut,
             client: ClientBuilder::new()
                 .identity(Identity::from_pkcs8_pem(&cert, &key).unwrap())
                 .add_root_certificate(Certificate::from_pem(server_cert.as_slice()).unwrap())
@@ -52,8 +53,22 @@ impl SharpClient {
     pub async fn add_job(&self, encoded_pie: &str) -> Result<(SharpAddJobResponse, Uuid), SharpError> {
         let mut base_url = self.base_url.clone();
 
-        // Making the URL from base url and returning the cairo key constructed
-        let cairo_key = get_full_url_with_body_for_add_job(&mut base_url);
+        base_url.path_segments_mut().expect("Unable to create URL mutable segments").push("add_job");
+
+        let customer_id = get_env_var_or_panic("SHARP_CUSTOMER_ID");
+        let cairo_key = Uuid::new_v4();
+        let cairo_key_string = cairo_key.to_string();
+
+        // Params for sending the PIE file to the prover
+        let params = vec![
+            ("customer_id", customer_id.as_str()),
+            ("cairo_job_key", &cairo_key_string),
+            ("offchain_proof", "true"),
+            ("proof_layout", "small"),
+        ];
+
+        // Adding params to the URL
+        add_params_to_url(&mut base_url, params);
 
         let res =
             self.client.post(base_url).body(encoded_pie.to_string()).send().await.map_err(SharpError::AddJobFailure)?;
@@ -69,7 +84,17 @@ impl SharpClient {
 
     pub async fn get_job_status(&self, job_key: &Uuid) -> Result<SharpGetStatusResponse, SharpError> {
         let mut base_url = self.base_url.clone();
-        get_full_url_with_body_for_get_job_status(&mut base_url, job_key);
+
+        base_url.path_segments_mut().expect("Unable to create URL mutable segments").push("get_status");
+        let customer_id = get_env_var_or_panic("SHARP_CUSTOMER_ID");
+        let cairo_key_string = job_key.to_string();
+
+        // Params for sending the PIE file to the prover
+        let params = vec![("customer_id", customer_id.as_str()), ("cairo_job_key", &cairo_key_string)];
+
+        // Adding params to the url
+        add_params_to_url(&mut base_url, params);
+
         let res = self.client.post(base_url).send().await.map_err(SharpError::GetJobStatusFailure)?;
 
         match res.status() {
@@ -79,39 +104,7 @@ impl SharpClient {
     }
 }
 
-/// To construct the url for adding the job to the sharp service.
-fn get_full_url_with_body_for_add_job(url: &mut Url) -> Uuid {
-    url.path_segments_mut().unwrap().push("add_job");
-
-    let customer_id = get_env_var_or_panic("SHARP_CUSTOMER_ID");
-    let cairo_key = Uuid::new_v4();
-    let cairo_key_string = cairo_key.to_string();
-
-    // Params for sending the PIE file to the prover
-    let params = vec![
-        ("customer_id", customer_id.as_str()),
-        ("cairo_job_key", &cairo_key_string),
-        ("offchain_proof", "true"),
-        ("proof_layout", "small"),
-    ];
-
-    let mut pairs = url.query_pairs_mut();
-    for (key, value) in params {
-        pairs.append_pair(key, value);
-    }
-
-    cairo_key
-}
-
-/// To construct the url for getting the job status from the sharp service.
-fn get_full_url_with_body_for_get_job_status(url: &mut Url, job_key: &Uuid) {
-    url.path_segments_mut().unwrap().push("get_status");
-    let customer_id = get_env_var_or_panic("SHARP_CUSTOMER_ID");
-    let cairo_key_string = job_key.to_string();
-
-    // Params for sending the PIE file to the prover
-    let params = vec![("customer_id", customer_id.as_str()), ("cairo_job_key", &cairo_key_string)];
-
+fn add_params_to_url(url: &mut Url, params: Vec<(&str, &str)>) {
     let mut pairs = url.query_pairs_mut();
     for (key, value) in params {
         pairs.append_pair(key, value);

@@ -1,8 +1,6 @@
 use alloy::primitives::B256;
 use cairo_vm::vm::runners::cairo_pie::CairoPie;
-use httpmock::standalone::start_standalone_server;
 use httpmock::MockServer;
-use lazy_static::lazy_static;
 use prover_client_interface::{ProverClient, Task, TaskId, TaskStatus};
 use rstest::rstest;
 use serde_json::json;
@@ -10,34 +8,16 @@ use sharp_service::{split_task_id, SharpProverService};
 use snos::sharp::CairoJobStatus;
 use std::path::PathBuf;
 use std::str::FromStr;
-use std::sync::Mutex;
-use std::thread::{spawn, JoinHandle};
-use tokio::task::LocalSet;
 use utils::env_utils::get_env_var_or_panic;
 use utils::settings::default::DefaultSettingsProvider;
-
-// To start a standalone server to be used with sharp client mocking
-lazy_static! {
-    static ref STANDALONE_SERVER: Mutex<JoinHandle<Result<(), String>>> = Mutex::new(spawn(|| {
-        let srv = start_standalone_server(5000, false, None, false, usize::MAX, std::future::pending());
-        let runtime = tokio::runtime::Builder::new_current_thread().enable_all().build().unwrap();
-        LocalSet::new().block_on(&runtime, srv)
-    }));
-}
-
-/// To simulate a standalone server wherever needed
-pub fn simulate_standalone_server() {
-    let _unused = STANDALONE_SERVER.lock().unwrap_or_else(|e| e.into_inner());
-}
 
 #[rstest]
 #[tokio::test]
 async fn prover_client_submit_task_works() {
     dotenvy::from_filename("../.env.test").expect("Failed to load the .env file");
-    simulate_standalone_server();
 
-    let server = MockServer::connect("localhost:5000");
-    let sharp_service = SharpProverService::with_settings(&DefaultSettingsProvider {});
+    let server = MockServer::start();
+    let sharp_service = SharpProverService::with_test_settings(&DefaultSettingsProvider {}, server.port());
     let cairo_pie_path: PathBuf = [env!("CARGO_MANIFEST_DIR"), "tests", "artifacts", "238996-SN.zip"].iter().collect();
     let cairo_pie = CairoPie::read_zip_file(&cairo_pie_path).unwrap();
 
@@ -53,7 +33,6 @@ async fn prover_client_submit_task_works() {
     });
 
     let task_id = sharp_service.submit_task(Task::CairoPie(cairo_pie)).await.unwrap();
-    println!("TASK_ID : {:?}", task_id);
     let (_, fact) = split_task_id(&task_id).unwrap();
 
     // Comparing the calculated fact with on chain verified fact.
@@ -77,10 +56,9 @@ const TEST_FACT: &str = "924cf8d0b955a889fd254b355bb7b29aa9582a370f26943acbe85b2
 #[tokio::test]
 async fn prover_client_get_task_status_works(#[case] cairo_job_status: CairoJobStatus) {
     dotenvy::from_filename("../.env.test").expect("Failed to load the .env file");
-    simulate_standalone_server();
 
-    let server = MockServer::connect("localhost:5000");
-    let sharp_service = SharpProverService::with_settings(&DefaultSettingsProvider {});
+    let server = MockServer::start();
+    let sharp_service = SharpProverService::with_test_settings(&DefaultSettingsProvider {}, server.port());
     let customer_id = get_env_var_or_panic("SHARP_CUSTOMER_ID");
 
     let sharp_add_job_call = server.mock(|when, then| {

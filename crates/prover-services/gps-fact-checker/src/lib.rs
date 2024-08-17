@@ -18,20 +18,8 @@ sol!(
     "tests/artifacts/FactRegistry.json"
 );
 
-sol!(
-    #[allow(missing_docs)]
-    #[sol(rpc)]
-    CairoVerifier,
-    "tests/artifacts/CairoVerifier.json"
-);
-
 pub struct FactChecker {
     fact_registry: FactRegistry::FactRegistryInstance<TransportT, ProviderT>,
-}
-
-#[allow(dead_code)]
-pub struct CairoVerifierContract {
-    cairo_verifier: CairoVerifier::CairoVerifierInstance<TransportT, ProviderT>,
 }
 
 type TransportT = Http<Client>;
@@ -48,13 +36,5 @@ impl FactChecker {
         let FactRegistry::isValidReturn { _0 } =
             self.fact_registry.isValid(*fact).call().await.map_err(FactCheckerError::FactRegistry)?;
         Ok(_0)
-    }
-}
-
-impl CairoVerifierContract {
-    pub fn new(rpc_node_url: Url, verifier_address: Address) -> Self {
-        let provider = ProviderBuilder::new().on_http(rpc_node_url);
-        let cairo_verifier = CairoVerifier::new(verifier_address, provider);
-        Self { cairo_verifier }
     }
 }

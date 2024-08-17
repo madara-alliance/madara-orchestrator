@@ -27,7 +27,6 @@ pub struct FactInfo {
 
 pub fn get_fact_info(cairo_pie: &CairoPie, program_hash: Option<FieldElement>) -> Result<FactInfo, FactCheckerError> {
     let program_output = get_program_output(cairo_pie)?;
-    println!("{:?}", program_output.len());
     let fact_topology = get_fact_topology(cairo_pie, program_output.len())?;
     let program_hash = match program_hash {
         Some(hash) => hash,
@@ -47,23 +46,25 @@ pub fn get_program_output(cairo_pie: &CairoPie) -> Result<Vec<Felt252>, FactChec
 
     let mut output = vec![Felt252::from(0); segment_info.size];
     let mut insertion_count = 0;
+    let cairo_program_memory = &cairo_pie.memory.0;
 
-    for ((index, offset), value) in cairo_pie.memory.clone().0.into_iter() {
-        if index == segment_info.index as usize {
+    for ((index, offset), value) in cairo_program_memory.iter() {
+        if *index == segment_info.index as usize {
             match value {
                 MaybeRelocatable::Int(felt) => {
-                    output.remove(offset);
-                    output.insert(offset, felt);
+                    output[*offset] = *felt;
                     insertion_count += 1;
                 }
                 MaybeRelocatable::RelocatableValue(_) => {
-                    return Err(FactCheckerError::OutputSegmentUnexpectedRelocatable(offset));
+                    return Err(FactCheckerError::OutputSegmentUnexpectedRelocatable(*offset));
                 }
             }
         }
     }
 
-    assert_eq!(insertion_count - segment_info.size, 0, "Output size insert count assertion failed.");
+    if insertion_count != segment_info.size {
+        return Err(FactCheckerError::InvalidSegment);
+    }
 
     Ok(output)
 }

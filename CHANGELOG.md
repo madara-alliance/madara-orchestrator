@@ -6,6 +6,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ## Added
 
+- Tests for prover client.
 - added coveralls support
 - moved mongodb serde behind feature flag
 - implemented DA worker.
@@ -20,7 +21,6 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 - Implement DL queue for handling failed jobs.
 - Added tests for state update job.
 - Tests for DA job.
-- Tests for prover client.
 - Added generalized errors for Jobs : JobError.
 - Database tests
 
