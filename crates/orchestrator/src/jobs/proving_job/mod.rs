@@ -50,10 +50,13 @@ impl Job for ProvingJob {
     async fn process_job(&self, config: &Config, job: &mut JobItem) -> Result<String, JobError> {
         // Cairo Pie path in s3 storage client
         let cairo_pie_path = job.internal_id.to_string() + "/pie.zip";
-        let cairo_pie_file =
-            config.storage().get_data(&cairo_pie_path).await.map_err(|_| ProvingError::CairoPIENotReadable)?;
-        let cairo_pie = CairoPie::from_bytes(cairo_pie_file.to_vec().as_slice())
+        let cairo_pie_file = config
+            .storage()
+            .get_data(&cairo_pie_path)
+            .await
             .map_err(|e| ProvingError::Other(OtherError(Report::from(e))))?;
+        let cairo_pie =
+            CairoPie::from_bytes(cairo_pie_file.to_vec().as_slice()).map_err(|_| ProvingError::CairoPIENotReadable)?;
 
         let external_id = config
             .prover_client()
