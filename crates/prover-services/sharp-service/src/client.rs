@@ -55,14 +55,12 @@ impl SharpClient {
 
         base_url.path_segments_mut().expect("Unable to create URL mutable segments").push("add_job");
 
-        let customer_id = get_env_var_or_panic("SHARP_CUSTOMER_ID");
         let cairo_key = Uuid::new_v4();
         let cairo_key_string = cairo_key.to_string();
 
         // Params for sending the PIE file to the prover
         let params = vec![
-            ("customer_id", customer_id.as_str()),
-            ("cairo_job_key", &cairo_key_string),
+            ("cairo_job_key", cairo_key_string.as_str()),
             ("offchain_proof", "true"),
             ("proof_layout", "small"),
         ];
@@ -86,11 +84,10 @@ impl SharpClient {
         let mut base_url = self.base_url.clone();
 
         base_url.path_segments_mut().expect("Unable to create URL mutable segments").push("get_status");
-        let customer_id = get_env_var_or_panic("SHARP_CUSTOMER_ID");
         let cairo_key_string = job_key.to_string();
 
         // Params for sending the PIE file to the prover
-        let params = vec![("customer_id", customer_id.as_str()), ("cairo_job_key", &cairo_key_string)];
+        let params = vec![("cairo_job_key", cairo_key_string.as_str())];
 
         // Adding params to the url
         add_params_to_url(&mut base_url, params);
