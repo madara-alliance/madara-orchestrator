@@ -59,11 +59,8 @@ impl SharpClient {
         let cairo_key_string = cairo_key.to_string();
 
         // Params for sending the PIE file to the prover
-        let params = vec![
-            ("cairo_job_key", cairo_key_string.as_str()),
-            ("offchain_proof", "true"),
-            ("proof_layout", "small"),
-        ];
+        let params =
+            vec![("cairo_job_key", cairo_key_string.as_str()), ("offchain_proof", "true"), ("proof_layout", "small")];
 
         // Adding params to the URL
         add_params_to_url(&mut base_url, params);
