@@ -42,7 +42,7 @@ pub mod conversion;
 // IMPORTANT to understand #[cfg(test)], #[cfg(not(test))] and SHOULD_IMPERSONATE_ACCOUNT
 // Two tests :  `update_state_blob_with_dummy_contract_works` & `update_state_blob_with_impersonation_works` use a env var `TEST_IMPERSONATE_OPERATOR` to inform the function `update_state_with_blobs` about the kind of testing,
 // `TEST_IMPERSONATE_OPERATOR` can have any of "0" or "1" value :
-//      - if "0" then : Testing against Dummy Contract.
+//      - if "0" then : Testing via default Anvil address.
 //      - if "1" then : Testing via impersonating `Starknet Operator Address`.
 // Note : changing between "0" and "1" is handled automatically by each test function, `no` manual change in `env.test` is needed.
 

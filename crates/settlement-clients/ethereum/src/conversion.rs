@@ -142,15 +142,10 @@ mod tests {
     #[case::maximum(&[0xFF; 32], U256::MAX)]
     #[case::short(&[0xFF; 16], U256::from_be_slice(&[0xFF; 16]))]
     #[case::empty(&[], U256::ZERO)]
-    fn slice_u8_to_u256_works(#[case] slice: &[u8], #[case] expected: U256) {
-        assert_eq!(slice_u8_to_u256(slice).expect("slice_u8_to_u256 failed"), expected)
-    }
-
-    #[rstest]
     #[should_panic(expected = "could not convert &[u8] to U256")]
-    #[case::over(&[0xFF; 33])]
-    fn slice_u8_to_u256_panics(#[case] slice: &[u8]) {
-        let _ = slice_u8_to_u256(slice).unwrap();
+    #[case::over(&[0xFF; 33],U256::from_be_slice(&[0xFF;32]))]
+    fn slice_u8_to_u256_all_working_and_failing_cases(#[case] slice: &[u8], #[case] expected: U256) {
+        assert_eq!(slice_u8_to_u256(slice).expect("slice_u8_to_u256 failed"), expected)
     }
 
     #[rstest]
@@ -198,17 +193,11 @@ mod tests {
     #[case::empty(&[], "0".repeat(64))]
     #[case::typical(&[0xFF,0xFF,0xFF,0xFF], format!("{}{}", "ff".repeat(4), "0".repeat(56)))]
     #[case::big(&[0xFF; 32], format!("{}", "ff".repeat(32)))]
-    fn to_hex_string_works(#[case] slice: &[u8], #[case] expected: String) {
-        let result = to_padded_hex(slice);
-        assert_eq!(result, expected);
-        assert!(expected.len() == 64);
-    }
-
-    #[rstest]
     #[should_panic(expected = "Slice length must not exceed 32")]
     #[case::exceeding(&[0xFF; 40], format!("{}", "ff".repeat(32)))]
-    fn to_hex_string_panics(#[case] slice: &[u8], #[case] expected: String) {
-        let _ = to_padded_hex(slice);
+    fn to_hex_string_working_and_failing_cases(#[case] slice: &[u8], #[case] expected: String) {
+        let result = to_padded_hex(slice);
+        assert_eq!(result, expected);
         assert!(expected.len() == 64);
     }
 
@@ -250,6 +239,8 @@ mod tests {
 
     // block_no here are Ethereum(mainnet) blocks, we are creating sidecar and validating
     // the function by matching pre-existing commitments against computed.
+    // https://etherscan.io/tx/0x4e012b119391bdc192653bfee9758c432ea6f35ff23f8af60a7dca4664383dfc
+    // https://etherscan.io/tx/0x96470b890833c5ae51622bd6efca98d8eec3b4a66402c34be3cdcacf006eb9a0
     #[rstest]
     #[case("20462788")]
     #[case("20462818")]
