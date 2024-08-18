@@ -1,3 +1,4 @@
+use alloy::eips::eip4844::BYTES_PER_BLOB;
 use alloy::node_bindings::AnvilInstance;
 use alloy::primitives::U256;
 use alloy::providers::{ext::AnvilApi, ProviderBuilder};
@@ -39,6 +40,7 @@ impl<S> Pipe for S {}
 // TODO: betterment of file routes
 
 use lazy_static::lazy_static;
+use url::Url;
 
 lazy_static! {
     static ref ENV_FILE_PATH: PathBuf = PathBuf::from(".env.test");
@@ -47,16 +49,11 @@ lazy_static! {
         .to_str()
         .expect("Path contains invalid Unicode")
         .to_string();
-    static ref PORT: u16 = 3000_u16;
     static ref ETH_RPC: String = get_env_var_or_panic("ETHEREUM_BLAST_RPC_URL");
-    static ref STARKNET_OPERATOR_ADDRESS: Address =
-        Address::from_str("0x2C169DFe5fBbA12957Bdd0Ba47d9CEDbFE260CA7").expect("Could not impersonate account.");
+    pub static ref STARKNET_OPERATOR_ADDRESS: Address =
+        Address::from_str("0x2C169DFe5fBbA12957Bdd0Ba47d9CEDbFE260CA7").expect("Unable to parse address");
     static ref STARKNET_CORE_CONTRACT_ADDRESS: Address =
         Address::from_str("0xc662c410c0ecf747543f5ba90660f6abebd9c8c4").expect("Could not impersonate account.");
-    pub static ref ADDRESS_TO_IMPERSONATE: Address =
-        Address::from_str("0x2C169DFe5fBbA12957Bdd0Ba47d9CEDbFE260CA7").expect("Unable to parse address");
-    pub static ref TEST_DUMMY_CONTRACT_ADDRESS: String = get_env_var_or_panic("TEST_DUMMY_CONTRACT_ADDRESS");
-    pub static ref SHOULD_IMPERSONATE_ACCOUNT: bool = get_env_var_or_panic("SHOULD_IMPERSONATE_ACCOUNT") == *"true";
     pub static ref TEST_NONCE: u64 = 666068;
 }
 
@@ -83,55 +80,83 @@ pub struct TestSetup {
     pub provider: alloy::providers::RootProvider<alloy::transports::http::Http<reqwest::Client>>,
 }
 
-fn setup_ethereum_test(block_no: u64) -> TestSetup {
-    // Load ENV vars
-    dotenvy::from_filename(&*ENV_FILE_PATH).expect("Could not load .env.test file.");
+struct EthereumTestBuilder {
+    fork_block: Option<u64>,
+    impersonator: Option<Address>,
+}
 
-    // Setup Anvil
-    let anvil = Anvil::new()
-        .port(*PORT)
-        .fork(&*ETH_RPC)
-        .fork_block_number(block_no - 1)
-        .try_spawn()
-        .expect("Could not spawn Anvil.");
+struct EthereumTest {
+    anvil: AnvilInstance,
+    provider: alloy::providers::RootProvider<alloy::transports::http::Http<reqwest::Client>>,
+    rpc_url: Url,
+}
 
-    // Setup Provider
-    let provider = ProviderBuilder::new().on_http(anvil.endpoint_url());
+impl EthereumTestBuilder {
+    fn new() -> Self {
+        EthereumTestBuilder { fork_block: None, impersonator: None }
+    }
 
-    // Setup EthereumSettlementClient
-    let settings_provider: DefaultSettingsProvider = DefaultSettingsProvider {};
-    let ethereum_settlement_client = EthereumSettlementClient::with_test_settings(&settings_provider, provider.clone());
+    fn with_fork_block(mut self, block_no: u64) -> Self {
+        self.fork_block = Some(block_no);
+        self
+    }
 
-    TestSetup { anvil, ethereum_settlement_client, provider }
+    fn with_impersonator(mut self, impersonator: Address) -> Self {
+        self.impersonator = Some(impersonator);
+        self
+    }
+
+    async fn build(&self) -> EthereumTest {
+        // Load ENV vars
+        dotenvy::from_filename(&*ENV_FILE_PATH).expect("Could not load .env.test file.");
+
+        // Setup Anvil
+        let anvil = match self.fork_block {
+            Some(fork_block) => {
+                Anvil::new().fork(&*ETH_RPC).fork_block_number(fork_block).try_spawn().expect("Could not spawn Anvil.")
+            }
+            None => Anvil::new().try_spawn().expect("Could not spawn Anvil."),
+        };
+
+        // Setup Provider
+        let provider = ProviderBuilder::new().on_http(anvil.endpoint_url());
+
+        if let Some(impersonator) = self.impersonator.clone() {
+            provider.anvil_impersonate_account(impersonator).await.expect("Unable to impersonate account.");
+        }
+
+        let rpc_url = anvil.endpoint_url();
+
+        EthereumTest { anvil, provider, rpc_url }
+    }
 }
 
 #[rstest]
 #[tokio::test]
-#[case::basic(20468828)]
 /// Tests if the method is able to do a transaction with same function selector on a dummy contract.
 /// If we impersonate starknet operator then we loose out on testing for validity of signature in the transaction.
 /// Starknet core contract has a modifier `onlyOperator` that restricts anyone but the operator to send transaction to `updateStateKzgDa` method
 /// And hence to test the signature and transaction via a dummy contract that has same function selector as `updateStateKzgDa`.
 /// and anvil is for testing on fork Eth.
-async fn update_state_blob_with_dummy_contract_works(#[case] fork_block_no: u64) {
-    env::set_var("SHOULD_IMPERSONATE_ACCOUNT", "false");
-    let TestSetup { anvil, ethereum_settlement_client, provider } = setup_ethereum_test(fork_block_no);
+async fn update_state_blob_with_dummy_contract_works() {
+    let setup = EthereumTestBuilder::new().build().await;
 
-    println!("{:?}", anvil);
     // Deploying a dummy contract
-    let contract = DummyCoreContract::deploy(&provider).await.expect("Unable to deploy address");
-    assert_eq!(
-        contract.address().to_string(),
-        *TEST_DUMMY_CONTRACT_ADDRESS,
-        "Dummy Contract got deployed on unexpected address"
+    let contract = DummyCoreContract::deploy(&setup.provider).await.expect("Unable to deploy address");
+    let ethereum_settlement_client = EthereumSettlementClient::with_test_settings(
+        setup.provider.clone(),
+        Some(*contract.address()),
+        setup.rpc_url,
+        None,
     );
 
     // Getting latest nonce after deployment
     let nonce = ethereum_settlement_client.get_nonce().await.expect("Unable to fetch nonce");
 
-    // generating program output and blob vector
-    let program_output = get_program_output(fork_block_no);
-    let blob_data_vec = get_blob_data(fork_block_no);
+    // keeping 9 elements because the code accesses 8th index as program output
+    let program_output = vec![[0; 32]; 9];
+    // keeping one element as we've a check in build_proof
+    let blob_data_vec = vec![vec![0; BYTES_PER_BLOB]];
 
     // Calling update_state_with_blobs
     let update_state_result = ethereum_settlement_client
@@ -142,7 +167,8 @@ async fn update_state_blob_with_dummy_contract_works(#[case] fork_block_no: u64)
     // Asserting, Expected to receive transaction hash.
     assert!(!update_state_result.is_empty(), "No transaction Hash received.");
 
-    let txn = provider
+    let txn = setup
+        .provider
         .get_transaction_by_hash(FixedBytes::from_str(update_state_result.as_str()).expect("Unable to convert txn"))
         .await
         .expect("did not get txn from hash")
@@ -150,7 +176,7 @@ async fn update_state_blob_with_dummy_contract_works(#[case] fork_block_no: u64)
 
     assert_eq!(txn.hash.to_string(), update_state_result.to_string());
     assert!(txn.signature.is_some());
-    assert_eq!(txn.to.unwrap().to_string(), *TEST_DUMMY_CONTRACT_ADDRESS);
+    assert_eq!(txn.to.unwrap(), *contract.address());
 
     // Testing verify_tx_inclusion
     sleep(Duration::from_secs(2)).await;
@@ -167,28 +193,34 @@ async fn update_state_blob_with_dummy_contract_works(#[case] fork_block_no: u64)
 
 #[rstest]
 #[tokio::test]
-#[case::basic(20468828)]
+#[case::basic(20468827)]
 /// tests if the method is able to impersonate the`Starknet Operator` and do an `update_state` transaction.
 /// We impersonate the Starknet Operator to send a transaction to the Core contract
 /// Here signature checks are bypassed and anvil is for testing on fork Eth.
 async fn update_state_blob_with_impersonation_works(#[case] fork_block_no: u64) {
-    let TestSetup { anvil, ethereum_settlement_client, provider } = setup_ethereum_test(fork_block_no);
-
-    println!("{:?}", anvil);
-
-    provider.anvil_impersonate_account(*STARKNET_OPERATOR_ADDRESS).await.expect("Unable to impersonate account.");
+    let setup = EthereumTestBuilder::new()
+        .with_fork_block(fork_block_no)
+        .with_impersonator(*STARKNET_OPERATOR_ADDRESS)
+        .build()
+        .await;
+    let ethereum_settlement_client = EthereumSettlementClient::with_test_settings(
+        setup.provider.clone(),
+        Some(*STARKNET_CORE_CONTRACT_ADDRESS),
+        setup.rpc_url,
+        Some(*STARKNET_OPERATOR_ADDRESS),
+    );
 
     let nonce = ethereum_settlement_client.get_nonce().await.expect("Unable to fetch nonce");
 
     // Create a contract instance.
-    let contract = STARKNET_CORE_CONTRACT::new(*STARKNET_CORE_CONTRACT_ADDRESS, provider.clone());
+    let contract = STARKNET_CORE_CONTRACT::new(*STARKNET_CORE_CONTRACT_ADDRESS, setup.provider.clone());
 
     // Call the contract, retrieve the current stateBlockNumber.
     let prev_block_number = contract.stateBlockNumber().call().await.unwrap();
 
     // generating program output and blob vector
-    let program_output = get_program_output(fork_block_no);
-    let blob_data_vec = get_blob_data(fork_block_no);
+    let program_output = get_program_output(fork_block_no + 1);
+    let blob_data_vec = get_blob_data(fork_block_no + 1);
 
     // Calling update_state_with_blobs
     let update_state_result = ethereum_settlement_client
@@ -199,34 +231,40 @@ async fn update_state_blob_with_impersonation_works(#[case] fork_block_no: u64) 
     // Asserting, Expected to receive transaction hash.
     assert!(!update_state_result.is_empty(), "No transaction Hash received.");
 
-    // Call the contract, retrieve the latest stateBlockNumber.
-    let latest_block_number = contract.stateBlockNumber().call().await.unwrap();
-
-    assert_eq!(prev_block_number._0.as_u32() + 1, latest_block_number._0.as_u32());
-
-    // Testing verify_tx_inclusion
     sleep(Duration::from_secs(2)).await;
     ethereum_settlement_client
         .wait_for_tx_finality(update_state_result.as_str())
         .await
         .expect("Could not wait for txn finality.");
+
     let verified_inclusion = ethereum_settlement_client
         .verify_tx_inclusion(update_state_result.as_str())
         .await
         .expect("Could not verify inclusion.");
     assert_eq!(verified_inclusion, SettlementVerificationStatus::Verified);
+
+    // Call the contract, retrieve the latest stateBlockNumber.
+    let latest_block_number = contract.stateBlockNumber().call().await.unwrap();
+
+    assert_eq!(prev_block_number._0.as_u32() + 1, latest_block_number._0.as_u32());
 }
 
 #[rstest]
 #[tokio::test]
-#[case::typical(20468828)]
+#[case::typical(20468827)]
 async fn get_last_settled_block_typical_works(#[case] fork_block_no: u64) {
-    dotenvy::from_filename(&*ENV_FILE_PATH).expect("Could not load .env.test file.");
-    env::set_var("DEFAULT_SETTLEMENT_CLIENT_RPC", &*ETH_RPC);
+    let setup = EthereumTestBuilder::new().with_fork_block(fork_block_no).build().await;
+    let ethereum_settlement_client = EthereumSettlementClient::with_test_settings(
+        setup.provider.clone(),
+        Some(*STARKNET_CORE_CONTRACT_ADDRESS),
+        setup.rpc_url,
+        None,
+    );
 
-    let TestSetup { anvil: _, ethereum_settlement_client, provider: _ } = setup_ethereum_test(fork_block_no);
-
-    let _ = ethereum_settlement_client.get_last_settled_block().await.expect("Could not get last settled block.");
+    assert_eq!(
+        ethereum_settlement_client.get_last_settled_block().await.expect("Could not get last settled block."),
+        666039
+    );
 }
 
 #[rstest]
