@@ -224,7 +224,9 @@ async fn get_last_settled_block_typical_works(#[case] fork_block_no: u64) {
     dotenvy::from_filename(&*ENV_FILE_PATH).expect("Could not load .env.test file.");
     env::set_var("DEFAULT_SETTLEMENT_CLIENT_RPC", &*ETH_RPC);
 
-    let TestSetup { anvil: _, ethereum_settlement_client, provider: _ } = setup_ethereum_test(fork_block_no);
+    let TestSetup { anvil, ethereum_settlement_client, provider: _ } = setup_ethereum_test(fork_block_no);
+
+    println!("{:?}", anvil);
 
     let _ = ethereum_settlement_client.get_last_settled_block().await.expect("Could not get last settled block.");
 }

@@ -50,11 +50,7 @@ pub mod conversion;
 mod tests;
 pub mod types;
 
-#[cfg(test)]
 use {alloy::providers::RootProvider, alloy::transports::http::Http, reqwest::Client};
-
-#[cfg(not(test))]
-use types::EthHttpProvider;
 
 pub const ENV_PRIVATE_KEY: &str = "ETHEREUM_PRIVATE_KEY";
 
@@ -71,14 +67,10 @@ pub struct EthereumSettlementClient {
     core_contract_client: StarknetValidityContractClient,
     wallet: EthereumWallet,
     wallet_address: Address,
-    #[cfg(not(test))]
-    provider: Arc<EthHttpProvider>,
-    #[cfg(test)]
     provider: RootProvider<Http<Client>>,
 }
 
 impl EthereumSettlementClient {
-    #[cfg(not(test))]
     pub fn with_settings(settings: &impl SettingsProvider) -> Self {
         let settlement_cfg: EthereumSettlementConfig = settings.get_settings(SETTLEMENT_SETTINGS_NAME).unwrap();
 
@@ -87,15 +79,19 @@ impl EthereumSettlementClient {
         let wallet_address = signer.address();
         let wallet = EthereumWallet::from(signer);
 
-        let provider = Arc::new(
-            ProviderBuilder::new().with_recommended_fillers().wallet(wallet.clone()).on_http(settlement_cfg.rpc_url),
+        let fill_provider = Arc::new(
+            ProviderBuilder::new()
+                .with_recommended_fillers()
+                .wallet(wallet.clone())
+                .on_http(settlement_cfg.rpc_url.clone()),
         );
+        let provider = ProviderBuilder::new().on_http(settlement_cfg.rpc_url);
         let core_contract_client = StarknetValidityContractClient::new(
             Address::from_str(&settlement_cfg.core_contract_address)
                 .expect("Failed to convert the validity contract address.")
                 .0
                 .into(),
-            provider.clone(),
+            fill_provider.clone(),
         );
 
         EthereumSettlementClient { provider, core_contract_client, wallet, wallet_address }
