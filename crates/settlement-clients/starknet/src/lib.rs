@@ -127,12 +127,6 @@ impl SettlementClient for StarknetSettlementClient {
         Ok(format!("0x{:x}", invoke_result.transaction_hash))
     }
 
-    /// Should be used to update state on core contract when DA is in blobs/alt DA
-    #[allow(unused)]
-    async fn update_state_blobs(&self, program_output: Vec<[u8; 32]>, kzg_proof: [u8; 48]) -> Result<String> {
-        !unimplemented!("not available for starknet settlement layer")
-    }
-
     /// Should verify the inclusion of a tx in the settlement layer
     async fn verify_tx_inclusion(&self, tx_hash: &str) -> Result<SettlementVerificationStatus> {
         let tx_hash = FieldElement::from_hex_be(tx_hash)?;

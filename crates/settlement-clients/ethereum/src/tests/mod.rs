@@ -20,7 +20,6 @@ use tokio::time::sleep;
 use utils::env_utils::get_env_var_or_panic;
 
 use settlement_client_interface::SettlementClient;
-use utils::settings::default::DefaultSettingsProvider;
 
 use crate::conversion::to_padded_hex;
 use crate::EthereumSettlementClient;
@@ -74,19 +73,13 @@ sol! {
     }
 }
 
-pub struct TestSetup {
-    pub anvil: AnvilInstance,
-    pub ethereum_settlement_client: EthereumSettlementClient,
-    pub provider: alloy::providers::RootProvider<alloy::transports::http::Http<reqwest::Client>>,
-}
-
 struct EthereumTestBuilder {
     fork_block: Option<u64>,
     impersonator: Option<Address>,
 }
 
 struct EthereumTest {
-    anvil: AnvilInstance,
+    _anvil: AnvilInstance,
     provider: alloy::providers::RootProvider<alloy::transports::http::Http<reqwest::Client>>,
     rpc_url: Url,
 }
@@ -127,7 +120,7 @@ impl EthereumTestBuilder {
 
         let rpc_url = anvil.endpoint_url();
 
-        EthereumTest { anvil, provider, rpc_url }
+        EthereumTest { _anvil: anvil, provider, rpc_url }
     }
 }
 

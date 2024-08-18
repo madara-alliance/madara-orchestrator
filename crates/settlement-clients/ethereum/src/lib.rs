@@ -13,12 +13,9 @@ use alloy::{
     signers::local::PrivateKeySigner,
 };
 
-// use eyre::Result;
 use alloy::eips::eip2930::AccessList;
 use alloy::eips::eip4844::BYTES_PER_BLOB;
 use alloy::hex;
-use alloy::providers::ext::AnvilApi;
-// use alloy::node_bindings::Anvil;
 use alloy::rpc::types::TransactionRequest;
 use alloy_primitives::Bytes;
 use async_trait::async_trait;
@@ -30,6 +27,7 @@ use mockall::{automock, lazy_static, predicate::*};
 use alloy::providers::ProviderBuilder;
 use conversion::{get_input_data_for_eip_4844, prepare_sidecar};
 use settlement_client_interface::{SettlementClient, SettlementVerificationStatus, SETTLEMENT_SETTINGS_NAME};
+#[cfg(test)]
 use url::Url;
 use utils::{env_utils::get_env_var_or_panic, settings::SettingsProvider};
 
@@ -297,7 +295,6 @@ impl SettlementClient for EthereumSettlementClient {
 mod test_config {
     use super::*;
     use alloy::network::TransactionBuilder;
-    use tests::STARKNET_OPERATOR_ADDRESS;
 
     pub async fn configure_transaction(
         provider: Arc<RootProvider<Http<Client>>>,
