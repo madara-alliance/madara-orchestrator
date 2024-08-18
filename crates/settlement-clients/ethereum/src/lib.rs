@@ -47,15 +47,6 @@ pub mod conversion;
 // Note : changing between "0" and "1" is handled automatically by each test function, `no` manual change in `env.test` is needed.
 
 #[cfg(test)]
-lazy_static! {
-    static ref SHOULD_IMPERSONATE_ACCOUNT: bool = get_env_var_or_panic("SHOULD_IMPERSONATE_ACCOUNT") == *"true";
-    static ref TEST_DUMMY_CONTRACT_ADDRESS: String = get_env_var_or_panic("TEST_DUMMY_CONTRACT_ADDRESS");
-    static ref ADDRESS_TO_IMPERSONATE: Address =
-        Address::from_str("0x2C169DFe5fBbA12957Bdd0Ba47d9CEDbFE260CA7").expect("Unable to parse address");
-    static ref TEST_NONCE: u64 = 666068;
-}
-
-#[cfg(test)]
 mod tests;
 pub mod types;
 
@@ -112,6 +103,7 @@ impl EthereumSettlementClient {
 
     #[cfg(test)]
     pub fn with_test_settings(settings: &impl SettingsProvider, provider: RootProvider<Http<Client>>) -> Self {
+        use tests::{SHOULD_IMPERSONATE_ACCOUNT, TEST_DUMMY_CONTRACT_ADDRESS};
         let settlement_cfg: EthereumSettlementConfig = settings.get_settings(SETTLEMENT_SETTINGS_NAME).unwrap();
 
         let private_key = get_env_var_or_panic(ENV_PRIVATE_KEY);
@@ -205,8 +197,6 @@ impl SettlementClient for EthereumSettlementClient {
         nonce: u64,
     ) -> Result<String> {
         //TODO: better file management
-        #[cfg(test)]
-        use alloy::network::TransactionBuilder;
 
         let trusted_setup_path: String = CURRENT_PATH
             .join("src")
@@ -262,12 +252,7 @@ impl SettlementClient for EthereumSettlementClient {
         let txn_request: TransactionRequest = tx_envelope.into();
 
         #[cfg(test)]
-        let mut txn_request: TransactionRequest = tx_envelope.into();
-        #[cfg(test)]
-        if *SHOULD_IMPERSONATE_ACCOUNT {
-            txn_request.set_nonce(*TEST_NONCE);
-            txn_request = txn_request.with_from(*ADDRESS_TO_IMPERSONATE);
-        }
+        let txn_request = test_config::configure_transaction(tx_envelope);
 
         let pending_transaction = self.provider.send_transaction(txn_request).await?;
         return Ok(pending_transaction.tx_hash().to_string());
@@ -305,5 +290,23 @@ impl SettlementClient for EthereumSettlementClient {
     async fn get_nonce(&self) -> Result<u64> {
         let nonce = self.provider.get_transaction_count(self.wallet_address).await?.to_string().parse()?;
         Ok(nonce)
+    }
+}
+
+#[cfg(test)]
+mod test_config {
+    use super::*;
+    use alloy::network::TransactionBuilder;
+    use tests::{ADDRESS_TO_IMPERSONATE, SHOULD_IMPERSONATE_ACCOUNT, TEST_NONCE};
+
+    pub fn configure_transaction(tx_envelope: TxEnvelope) -> TransactionRequest {
+        let mut txn_request: TransactionRequest = tx_envelope.into();
+
+        if *SHOULD_IMPERSONATE_ACCOUNT {
+            txn_request.set_nonce(*TEST_NONCE);
+            txn_request = txn_request.with_from(*ADDRESS_TO_IMPERSONATE);
+        }
+
+        txn_request
     }
 }

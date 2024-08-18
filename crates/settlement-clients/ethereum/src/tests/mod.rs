@@ -49,12 +49,15 @@ lazy_static! {
         .to_string();
     static ref PORT: u16 = 3000_u16;
     static ref ETH_RPC: String = get_env_var_or_panic("ETHEREUM_BLAST_RPC_URL");
-    static ref SHOULD_IMPERSONATE_ACCOUNT: bool = get_env_var_or_panic("SHOULD_IMPERSONATE_ACCOUNT") == *"true";
-    static ref TEST_DUMMY_CONTRACT_ADDRESS: String = get_env_var_or_panic("TEST_DUMMY_CONTRACT_ADDRESS");
     static ref STARKNET_OPERATOR_ADDRESS: Address =
         Address::from_str("0x2C169DFe5fBbA12957Bdd0Ba47d9CEDbFE260CA7").expect("Could not impersonate account.");
     static ref STARKNET_CORE_CONTRACT_ADDRESS: Address =
         Address::from_str("0xc662c410c0ecf747543f5ba90660f6abebd9c8c4").expect("Could not impersonate account.");
+    pub static ref ADDRESS_TO_IMPERSONATE: Address =
+        Address::from_str("0x2C169DFe5fBbA12957Bdd0Ba47d9CEDbFE260CA7").expect("Unable to parse address");
+    pub static ref TEST_DUMMY_CONTRACT_ADDRESS: String = get_env_var_or_panic("TEST_DUMMY_CONTRACT_ADDRESS");
+    pub static ref SHOULD_IMPERSONATE_ACCOUNT: bool = get_env_var_or_panic("SHOULD_IMPERSONATE_ACCOUNT") == *"true";
+    pub static ref TEST_NONCE: u64 = 666068;
 }
 
 // SOLIDITY FUNCTIONS NEEDED
