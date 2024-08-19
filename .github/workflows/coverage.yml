@@ -26,7 +26,7 @@ jobs:
           - 27017:27017
 
     steps:
-      - uses: actions/checkout@v3
+      - uses: actions/checkout@v4
 
       # selecting a toolchain either by action or manual `rustup` calls should happen
       # before the plugin, as the cache uses the current rustc version as its cache key
@@ -34,6 +34,9 @@ jobs:
 
       - uses: taiki-e/install-action@cargo-llvm-cov
       - uses: taiki-e/install-action@nextest
+
+      - name: Rust Cache
+        uses: Swatinem/rust-cache@v2.7.3
 
       - name: Clean workspace
         run: |
