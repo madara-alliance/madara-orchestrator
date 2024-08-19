@@ -3,7 +3,6 @@ use std::collections::HashMap;
 use async_trait::async_trait;
 use cairo_vm::vm::runners::cairo_pie::CairoPie;
 use color_eyre::eyre::WrapErr;
-use color_eyre::Report;
 use prover_client_interface::{Task, TaskStatus};
 use thiserror::Error;
 use tracing::log::log;
@@ -21,6 +20,9 @@ pub enum ProvingError {
 
     #[error("Not able to read the cairo PIE file from the zip file provided.")]
     CairoPIENotReadable,
+
+    #[error("Not able to get the PIE file from AWS S3 bucket")]
+    CairoPIEFileFetchFailed(String),
 
     #[error("Other error: {0}")]
     Other(#[from] OtherError),
@@ -54,7 +56,7 @@ impl Job for ProvingJob {
             .storage()
             .get_data(&cairo_pie_path)
             .await
-            .map_err(|e| ProvingError::Other(OtherError(Report::from(e))))?;
+            .map_err(|e| ProvingError::CairoPIEFileFetchFailed(e.to_string()))?;
         let cairo_pie =
             CairoPie::from_bytes(cairo_pie_file.to_vec().as_slice()).map_err(|_| ProvingError::CairoPIENotReadable)?;
 
