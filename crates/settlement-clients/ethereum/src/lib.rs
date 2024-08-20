@@ -13,11 +13,9 @@ use alloy::{
     signers::local::PrivateKeySigner,
 };
 
-// use eyre::Result;
 use alloy::eips::eip2930::AccessList;
 use alloy::eips::eip4844::BYTES_PER_BLOB;
 use alloy::hex;
-// use alloy::node_bindings::Anvil;
 use alloy::rpc::types::TransactionRequest;
 use alloy_primitives::Bytes;
 use async_trait::async_trait;
@@ -29,6 +27,8 @@ use mockall::{automock, lazy_static, predicate::*};
 use alloy::providers::ProviderBuilder;
 use conversion::{get_input_data_for_eip_4844, prepare_sidecar};
 use settlement_client_interface::{SettlementClient, SettlementVerificationStatus, SETTLEMENT_SETTINGS_NAME};
+#[cfg(test)]
+use url::Url;
 use utils::{env_utils::get_env_var_or_panic, settings::SettingsProvider};
 
 use crate::clients::interfaces::validity_interface::StarknetValidityContractTrait;
@@ -38,13 +38,6 @@ use crate::conversion::{slice_u8_to_u256, vec_u8_32_to_vec_u256};
 pub mod clients;
 pub mod config;
 pub mod conversion;
-
-// IMPORTANT to understand #[cfg(test)], #[cfg(not(test))] and SHOULD_IMPERSONATE_ACCOUNT
-// Two tests :  `update_state_blob_with_dummy_contract_works` & `update_state_blob_with_impersonation_works` use a env var `SHOULD_IMPERSONATE_ACCOUNT` to inform the function `update_state_with_blobs` about the kind of testing,
-// `SHOULD_IMPERSONATE_ACCOUNT` can have any of "0" or "1" value :
-//      - if "0" then : Testing via default Anvil address.
-//      - if "1" then : Testing via impersonating `Starknet Operator Address`.
-// Note : changing between "0" and "1" is handled automatically by each test function, `no` manual change in `env.test` is needed.
 
 #[cfg(test)]
 mod tests;
@@ -62,12 +55,13 @@ lazy_static! {
             .expect("Error loading trusted setup file");
 }
 
-#[allow(dead_code)]
 pub struct EthereumSettlementClient {
     core_contract_client: StarknetValidityContractClient,
     wallet: EthereumWallet,
     wallet_address: Address,
-    provider: RootProvider<Http<Client>>,
+    provider: Arc<RootProvider<Http<Client>>>,
+    #[cfg(test)]
+    impersonate_account: Option<Address>,
 }
 
 impl EthereumSettlementClient {
@@ -79,50 +73,56 @@ impl EthereumSettlementClient {
         let wallet_address = signer.address();
         let wallet = EthereumWallet::from(signer);
 
-        let fill_provider = Arc::new(
-            ProviderBuilder::new()
-                .with_recommended_fillers()
-                .wallet(wallet.clone())
-                .on_http(settlement_cfg.rpc_url.clone()),
+        // provider without wallet
+        let provider = Arc::new(ProviderBuilder::new().on_http(settlement_cfg.rpc_url.clone()));
+
+        // provider with wallet
+        let filler_provider = Arc::new(
+            ProviderBuilder::new().with_recommended_fillers().wallet(wallet.clone()).on_http(settlement_cfg.rpc_url),
         );
-        let provider = ProviderBuilder::new().on_http(settlement_cfg.rpc_url);
+
         let core_contract_client = StarknetValidityContractClient::new(
             Address::from_str(&settlement_cfg.core_contract_address)
                 .expect("Failed to convert the validity contract address.")
                 .0
                 .into(),
-            fill_provider.clone(),
+            filler_provider,
         );
 
-        EthereumSettlementClient { provider, core_contract_client, wallet, wallet_address }
+        EthereumSettlementClient {
+            provider,
+            core_contract_client,
+            wallet,
+            wallet_address,
+            #[cfg(test)]
+            impersonate_account: None,
+        }
     }
 
     #[cfg(test)]
-    pub fn with_test_settings(settings: &impl SettingsProvider, provider: RootProvider<Http<Client>>) -> Self {
-        use tests::{SHOULD_IMPERSONATE_ACCOUNT, TEST_DUMMY_CONTRACT_ADDRESS};
-        let settlement_cfg: EthereumSettlementConfig = settings.get_settings(SETTLEMENT_SETTINGS_NAME).unwrap();
-
+    pub fn with_test_settings(
+        provider: RootProvider<Http<Client>>,
+        core_contract_address: Address,
+        rpc_url: Url,
+        impersonate_account: Option<Address>,
+    ) -> Self {
         let private_key = get_env_var_or_panic(ENV_PRIVATE_KEY);
         let signer: PrivateKeySigner = private_key.parse().expect("Failed to parse private key");
         let wallet_address = signer.address();
         let wallet = EthereumWallet::from(signer);
 
-        let fill_provider = Arc::new(
-            ProviderBuilder::new().with_recommended_fillers().wallet(wallet.clone()).on_http(settlement_cfg.rpc_url),
-        );
+        let fill_provider =
+            Arc::new(ProviderBuilder::new().with_recommended_fillers().wallet(wallet.clone()).on_http(rpc_url));
 
-        let core_contract_address = if *SHOULD_IMPERSONATE_ACCOUNT {
-            &settlement_cfg.core_contract_address
-        } else {
-            &*TEST_DUMMY_CONTRACT_ADDRESS
-        };
+        let core_contract_client = StarknetValidityContractClient::new(core_contract_address, fill_provider);
 
-        let core_contract_client = StarknetValidityContractClient::new(
-            Address::from_str(core_contract_address).unwrap().0.into(),
-            fill_provider,
-        );
-
-        EthereumSettlementClient { provider, core_contract_client, wallet, wallet_address }
+        EthereumSettlementClient {
+            provider: Arc::new(provider),
+            core_contract_client,
+            wallet,
+            wallet_address,
+            impersonate_account,
+        }
     }
 
     /// Build kzg proof for the x_0 point evaluation
@@ -180,12 +180,6 @@ impl SettlementClient for EthereumSettlementClient {
     }
 
     /// Should be used to update state on core contract when DA is in blobs/alt DA
-    async fn update_state_blobs(&self, program_output: Vec<[u8; 32]>, kzg_proof: [u8; 48]) -> Result<String> {
-        let program_output: Vec<U256> = vec_u8_32_to_vec_u256(&program_output)?;
-        let tx_receipt = self.core_contract_client.update_state_kzg(program_output, kzg_proof).await?;
-        Ok(format!("0x{:x}", tx_receipt.transaction_hash))
-    }
-
     async fn update_state_with_blobs(
         &self,
         program_output: Vec<[u8; 32]>,
@@ -242,13 +236,19 @@ impl SettlementClient for EthereumSettlementClient {
         let signature = self.wallet.default_signer().sign_transaction(&mut variant).await?;
         let tx_signed = variant.into_signed(signature);
         let tx_envelope: TxEnvelope = tx_signed.into();
-        // IMP: this conversion strips signature from the transaction
 
+        // IMP: this conversion strips signature from the transaction
         #[cfg(not(test))]
         let txn_request: TransactionRequest = tx_envelope.into();
 
         #[cfg(test)]
-        let txn_request = test_config::configure_transaction(tx_envelope);
+        let txn_request = test_config::configure_transaction(
+            // self.provider.clone(),
+            tx_envelope,
+            self.impersonate_account,
+            nonce,
+        )
+        .await;
 
         let pending_transaction = self.provider.send_transaction(txn_request).await?;
         return Ok(pending_transaction.tx_hash().to_string());
@@ -293,14 +293,26 @@ impl SettlementClient for EthereumSettlementClient {
 mod test_config {
     use super::*;
     use alloy::network::TransactionBuilder;
-    use tests::{ADDRESS_TO_IMPERSONATE, SHOULD_IMPERSONATE_ACCOUNT, TEST_NONCE};
 
-    pub fn configure_transaction(tx_envelope: TxEnvelope) -> TransactionRequest {
+    pub async fn configure_transaction(
+        // provider: Arc<RootProvider<Http<Client>>>,
+        tx_envelope: TxEnvelope,
+        impersonate_account: Option<Address>,
+        nonce: u64,
+    ) -> TransactionRequest {
         let mut txn_request: TransactionRequest = tx_envelope.into();
 
-        if *SHOULD_IMPERSONATE_ACCOUNT {
-            txn_request.set_nonce(*TEST_NONCE);
-            txn_request = txn_request.with_from(*ADDRESS_TO_IMPERSONATE);
+        // IMPORTANT to understand #[cfg(test)], #[cfg(not(test))] and SHOULD_IMPERSONATE_ACCOUNT
+        // Two tests :  `update_state_blob_with_dummy_contract_works` & `update_state_blob_with_impersonation_works` use a env var `SHOULD_IMPERSONATE_ACCOUNT` to inform the function `update_state_with_blobs` about the kind of testing,
+        // `SHOULD_IMPERSONATE_ACCOUNT` can have any of "0" or "1" value :
+        //      - if "0" then : Testing via default Anvil address.
+        //      - if "1" then : Testing via impersonating `Starknet Operator Address`.
+        // Note : changing between "0" and "1" is handled automatically by each test function, `no` manual change in `env.test` is needed.
+        if let Some(impersonate_account) = impersonate_account {
+            // let nonce =
+            // provider.get_transaction_count(impersonate_account).await.unwrap().to_string().parse::<u64>().unwrap();
+            txn_request.set_nonce(nonce);
+            txn_request = txn_request.with_from(impersonate_account);
         }
 
         txn_request
