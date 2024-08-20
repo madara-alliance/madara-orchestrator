@@ -54,7 +54,10 @@ jobs:
             ~/.cargo/registry/cache/
             ~/.cargo/git/db/
             target/
-          key: ${{ runner.os }}-cargo-${{ hashFiles('**/Cargo.lock') }}
+          key: ${{ runner.os }}-cargo-${{ hashFiles('**/Cargo.lock') }}-${{ hashFiles('**/Cargo.toml') }}
+          restore-keys: |
+            ${{ runner.os }}-cargo-${{ hashFiles('**/Cargo.lock') }}-
+            ${{ runner.os }}-cargo-
 
       - name: Install cargo-llvm-cov
         uses: taiki-e/install-action@cargo-llvm-cov
@@ -78,7 +81,10 @@ jobs:
 
       - name: Clean workspace
         run: |
-          cargo llvm-cov clean --workspace
+          cargo clean --doc
+
+      - name: Build for caching
+        run: cargo build --release --tests
 
       - name: Run llvm-cov
         env:
