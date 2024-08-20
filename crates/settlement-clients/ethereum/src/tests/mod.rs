@@ -114,7 +114,7 @@ impl EthereumTestBuilder {
         // Setup Provider
         let provider = ProviderBuilder::new().on_http(anvil.endpoint_url());
 
-        if let Some(impersonator) = self.impersonator.clone() {
+        if let Some(impersonator) = self.impersonator {
             provider.anvil_impersonate_account(impersonator).await.expect("Unable to impersonate account.");
         }
 

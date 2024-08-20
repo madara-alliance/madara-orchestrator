@@ -87,7 +87,6 @@ impl EthereumSettlementClient {
                 .0
                 .into(),
             filler_provider,
-
         );
 
         EthereumSettlementClient {
@@ -116,7 +115,7 @@ impl EthereumSettlementClient {
             Arc::new(ProviderBuilder::new().with_recommended_fillers().wallet(wallet.clone()).on_http(rpc_url));
 
         let core_contract_address = if let Some(core_contract_address) = core_contract_address {
-            core_contract_address.clone()
+            core_contract_address
         } else {
             // dummy address
             Address::from_str("0x0").unwrap()
