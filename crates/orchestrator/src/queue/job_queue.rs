@@ -14,7 +14,7 @@ use crate::jobs::{handle_job_failure, process_job, verify_job, JobError, OtherEr
 
 pub const JOB_PROCESSING_QUEUE: &str = "madara_orchestrator_job_processing_queue";
 pub const JOB_VERIFICATION_QUEUE: &str = "madara_orchestrator_job_verification_queue";
-// Below is the Data Letter Queue for the the above two jobs.
+// Below is the Data Letter Queue for the above two jobs.
 pub const JOB_HANDLE_FAILURE_QUEUE: &str = "madara_orchestrator_job_handle_failure_queue";
 
 // Queues for SNOS worker trigger listening
@@ -83,16 +83,16 @@ where
     Fut: Future<Output = Result<(), JobError>>,
 {
     log::info!("Consuming from queue {:?}", queue);
-    let delivery = get_delivery_from_queue(queue.clone()).await?;
+    let delivery = get_delivery_from_queue(&queue).await?;
 
     match delivery {
         DeliveryReturnType::Message(d) => {
-            let job_message: Option<JobQueueMessage> = d
+            let event_trigger: Option<JobQueueMessage> = d
                 .payload_serde_json()
                 .wrap_err("Payload Serde Error")
                 .map_err(|e| ConsumptionError::Other(OtherError::from(e)))?;
 
-            match job_message {
+            match event_trigger {
                 Some(job_message) => {
                     log::info!("Handling job with id {:?} for queue {:?}", job_message.id, queue);
                     match handler(job_message.id).await {
@@ -140,16 +140,16 @@ where
     Fut: Future<Output = color_eyre::Result<()>>,
 {
     log::info!("Consuming from queue {:?}", queue);
-    let delivery = get_delivery_from_queue(queue.clone()).await?;
+    let delivery = get_delivery_from_queue(&queue).await?;
 
     match delivery {
         DeliveryReturnType::Message(d) => {
-            let job_message: Option<WorkerTriggerMessage> = d
+            let event_trigger: Option<WorkerTriggerMessage> = d
                 .payload_serde_json()
                 .wrap_err("Payload Serde Error")
                 .map_err(|e| ConsumptionError::Other(OtherError::from(e)))?;
 
-            match job_message {
+            match event_trigger {
                 Some(job_message) => {
                     log::info!("Handling worker trigger for worker type : {:?}", job_message.worker);
                     let worker_handler = get_worker_handler_from_worker_trigger_type(job_message.worker.clone());
@@ -198,8 +198,8 @@ fn get_worker_handler_from_worker_trigger_type(worker_trigger_type: WorkerTrigge
 }
 
 /// To get the delivery from the message queue using the queue name
-async fn get_delivery_from_queue(queue: String) -> Result<DeliveryReturnType, ConsumptionError> {
-    match config().await.queue().consume_message_from_queue(queue.clone()).await {
+async fn get_delivery_from_queue(queue: &str) -> Result<DeliveryReturnType, ConsumptionError> {
+    match config().await.queue().consume_message_from_queue(queue.to_string()).await {
         Ok(d) => Ok(DeliveryReturnType::Message(d)),
         Err(QueueError::NoData) => Ok(DeliveryReturnType::NoMessage),
         Err(e) => Err(ConsumptionError::FailedToConsumeFromQueue { error_msg: e.to_string() }),
