@@ -1,14 +1,38 @@
+use std::collections::HashMap;
+use std::string::ToString;
 use std::time::Duration;
 
-use crate::queue::job_queue::JOB_PROCESSING_QUEUE;
+use crate::queue::job_queue::{
+    DATA_SUBMISSION_WORKER_TRIGGER_QUEUE, JOB_HANDLE_FAILURE_QUEUE, JOB_PROCESSING_QUEUE, JOB_VERIFICATION_QUEUE,
+    PROOF_REGISTRATION_WORKER_TRIGGER_QUEUE, PROVING_WORKER_TRIGGER_QUEUE, SNOS_WORKER_TRIGGER_QUEUE,
+    UPDATE_STATE_WORKER_TRIGGER_QUEUE,
+};
 use async_trait::async_trait;
 use color_eyre::Result;
+use lazy_static::lazy_static;
 use omniqueue::backends::{SqsBackend, SqsConfig, SqsConsumer, SqsProducer};
 use omniqueue::{Delivery, QueueError};
 use utils::env_utils::get_env_var_or_panic;
 
 use crate::queue::QueueProvider;
 pub struct SqsQueue;
+
+lazy_static! {
+    /// Maps Queue Name to Env var of queue URL.
+    pub static ref QUEUE_NAME_TO_ENV_VAR_MAPPING: HashMap<String, String> = HashMap::from([
+        (JOB_PROCESSING_QUEUE.to_string(), "SQS_JOB_PROCESSING_QUEUE_URL".to_string()),
+        (JOB_VERIFICATION_QUEUE.to_string(), "SQS_JOB_VERIFICATION_QUEUE_URL".to_string()),
+        (JOB_HANDLE_FAILURE_QUEUE.to_string(), "SQS_JOB_HANDLE_FAILURE_QUEUE_URL".to_string()),
+        (SNOS_WORKER_TRIGGER_QUEUE.to_string(), "SQS_SNOS_WORKER_TRIGGER_QUEUE_URL".to_string()),
+        (PROVING_WORKER_TRIGGER_QUEUE.to_string(), "SQS_PROVING_WORKER_TRIGGER_QUEUE_URL".to_string()),
+        (
+            PROOF_REGISTRATION_WORKER_TRIGGER_QUEUE.to_string(),
+            "SQS_PROOF_REGISTRATION_WORKER_TRIGGER_QUEUE_URL".to_string()
+        ),
+        (DATA_SUBMISSION_WORKER_TRIGGER_QUEUE.to_string(), "SQS_DATA_SUBMISSION_WORKER_TRIGGER_QUEUE".to_string()),
+        (UPDATE_STATE_WORKER_TRIGGER_QUEUE.to_string(), "SQS_UPDATE_STATE_WORKER_TRIGGER_QUEUE".to_string()),
+    ]);
+}
 
 #[async_trait]
 impl QueueProvider for SqsQueue {
@@ -31,12 +55,11 @@ impl QueueProvider for SqsQueue {
     }
 }
 
+/// To fetch the queue URL from the environment variables
 fn get_queue_url(queue_name: String) -> String {
-    if queue_name == JOB_PROCESSING_QUEUE {
-        get_env_var_or_panic("SQS_JOB_PROCESSING_QUEUE_URL")
-    } else {
-        get_env_var_or_panic("SQS_JOB_VERIFICATION_QUEUE_URL")
-    }
+    get_env_var_or_panic(
+        QUEUE_NAME_TO_ENV_VAR_MAPPING.get(&queue_name).expect("Not able to get the queue env var name."),
+    )
 }
 
 // TODO: store the producer and consumer in memory to avoid creating a new one every time
