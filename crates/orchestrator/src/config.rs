@@ -18,6 +18,8 @@ use tokio::sync::OnceCell;
 use utils::env_utils::get_env_var_or_panic;
 use utils::settings::default::DefaultSettingsProvider;
 use utils::settings::SettingsProvider;
+use crate::alerts::Alerts;
+use crate::alerts::aws_sns::AWSSNS;
 
 use crate::database::mongodb::config::MongoDbConfig;
 use crate::database::mongodb::MongoDb;
@@ -42,6 +44,8 @@ pub struct Config {
     queue: Box<dyn QueueProvider>,
     /// Storage client
     storage: Box<dyn DataStorage>,
+    /// Alerts client
+    alerts: Box<dyn Alerts>,
 }
 
 /// Initializes the app config
@@ -66,8 +70,10 @@ pub async fn init_config() -> Config {
     let prover_client = build_prover_service(&settings_provider);
 
     let storage_client = build_storage_client().await;
+    
+    let alerts_client = build_alert_client().await;
 
-    Config::new(Arc::new(provider), da_client, prover_client, settlement_client, database, queue, storage_client)
+    Config::new(Arc::new(provider), da_client, prover_client, settlement_client, database, queue, storage_client, alerts_client)
 }
 
 impl Config {
@@ -80,8 +86,9 @@ impl Config {
         database: Box<dyn Database>,
         queue: Box<dyn QueueProvider>,
         storage: Box<dyn DataStorage>,
+        alerts: Box<dyn Alerts>
     ) -> Self {
-        Self { starknet_client, da_client, prover_client, settlement_client, database, queue, storage }
+        Self { starknet_client, da_client, prover_client, settlement_client, database, queue, storage, alerts }
     }
 
     /// Returns the starknet client
@@ -118,6 +125,9 @@ impl Config {
     pub fn storage(&self) -> &dyn DataStorage {
         self.storage.as_ref()
     }
+    
+    /// Returns the alerts client
+    pub fn alerts(&self) -> &dyn Alerts { self.alerts.as_ref() }
 }
 
 /// The app config. It can be accessed from anywhere inside the service.
@@ -181,5 +191,12 @@ pub async fn build_storage_client() -> Box<dyn DataStorage + Send + Sync> {
     match get_env_var_or_panic("DATA_STORAGE").as_str() {
         "s3" => Box::new(AWSS3::new(AWSS3ConfigType::WithoutEndpoint(AWSS3Config::new_from_env())).await),
         _ => panic!("Unsupported Storage Client"),
+    }
+}
+
+pub async fn build_alert_client() -> Box<dyn Alerts + Send + Sync> {
+    match get_env_var_or_panic("ALERTS").as_str() { 
+        "sns" => Box::new(AWSSNS::new().await),
+        _ => panic!("Unsupported Alert Client")
     }
 }
