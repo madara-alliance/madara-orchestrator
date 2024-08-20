@@ -19,9 +19,9 @@ pub enum ProvingError {
     CairoPIEWrongPath { internal_id: String },
 
     #[error("Not able to read the cairo PIE file from the zip file provided.")]
-    CairoPIENotReadable,
+    CairoPIENotReadable(String),
 
-    #[error("Not able to get the PIE file from AWS S3 bucket")]
+    #[error("Not able to get the PIE file from AWS S3 bucket.")]
     CairoPIEFileFetchFailed(String),
 
     #[error("Other error: {0}")]
@@ -57,8 +57,8 @@ impl Job for ProvingJob {
             .get_data(&cairo_pie_path)
             .await
             .map_err(|e| ProvingError::CairoPIEFileFetchFailed(e.to_string()))?;
-        let cairo_pie =
-            CairoPie::from_bytes(cairo_pie_file.to_vec().as_slice()).map_err(|_| ProvingError::CairoPIENotReadable)?;
+        let cairo_pie = CairoPie::from_bytes(cairo_pie_file.to_vec().as_slice())
+            .map_err(|e| ProvingError::CairoPIENotReadable(e.to_string()))?;
 
         let external_id = config
             .prover_client()

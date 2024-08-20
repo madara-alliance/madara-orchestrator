@@ -17,7 +17,6 @@ use url::Url;
 use uuid::Uuid;
 
 use super::super::common::default_job_item;
-use crate::jobs::constants::JOB_METADATA_CAIRO_PIE_PATH_KEY;
 use crate::jobs::proving_job::ProvingJob;
 use crate::jobs::types::{JobItem, JobStatus, JobType};
 use crate::jobs::Job;
@@ -29,13 +28,7 @@ async fn test_create_job() {
     TestConfigBuilder::new().build().await;
     let config = config().await;
 
-    let job = ProvingJob
-        .create_job(
-            &config,
-            String::from("0"),
-            HashMap::from([(JOB_METADATA_CAIRO_PIE_PATH_KEY.into(), "pie.zip".into())]),
-        )
-        .await;
+    let job = ProvingJob.create_job(&config, String::from("0"), HashMap::new()).await;
     assert!(job.is_ok());
 
     let job = job.unwrap();
@@ -87,8 +80,6 @@ async fn test_process_job() {
         .build()
         .await;
 
-    let cairo_pie_path = format!("{}/src/tests/artifacts/fibonacci.zip", env!("CARGO_MANIFEST_DIR"));
-
     assert_eq!(
         ProvingJob
             .process_job(
@@ -99,7 +90,7 @@ async fn test_process_job() {
                     job_type: JobType::ProofCreation,
                     status: JobStatus::Created,
                     external_id: String::new().into(),
-                    metadata: HashMap::from([(JOB_METADATA_CAIRO_PIE_PATH_KEY.into(), cairo_pie_path)]),
+                    metadata: HashMap::new(),
                     version: 0,
                 }
             )
