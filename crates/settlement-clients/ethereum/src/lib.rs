@@ -87,6 +87,7 @@ impl EthereumSettlementClient {
                 .0
                 .into(),
             filler_provider,
+
         );
 
         EthereumSettlementClient {

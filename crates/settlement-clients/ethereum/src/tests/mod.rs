@@ -253,7 +253,6 @@ async fn get_last_settled_block_typical_works(#[case] fork_block_no: u64) {
         setup.rpc_url,
         None,
     );
-
     assert_eq!(
         ethereum_settlement_client.get_last_settled_block().await.expect("Could not get last settled block."),
         666039
