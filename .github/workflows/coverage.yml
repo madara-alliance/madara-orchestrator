@@ -2,8 +2,7 @@
 name: Task - Rust Tests & Coverage
 
 on:
-  workflow_dispatch:
-  workflow_call:
+  push:
 
 jobs:
   coverage:

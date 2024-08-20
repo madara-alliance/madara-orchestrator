@@ -1,5 +1,5 @@
 ---
-name: Task - Build Rust
+name: Task - Build Rust Test
 
 on:
   workflow_dispatch:
