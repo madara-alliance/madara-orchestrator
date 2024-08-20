@@ -1,13 +1,18 @@
----
 name: Task - Rust Tests & Coverage
 
 on:
-  workflow_dispatch:
+  pull_request_target:
+    branches:
+      - main
+    types: [opened, synchronize, reopened]
+  push:
+    branches-ignore:
+      - main
   workflow_call:
+  workflow_dispatch:
 
 jobs:
   coverage:
-    # sadly, for now we have to "rebuild" for the coverage
     runs-on: ubuntu-latest
 
     services:
@@ -26,23 +31,61 @@ jobs:
           - 27017:27017
 
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v3
 
-      # selecting a toolchain either by action or manual `rustup` calls should happen
-      # before the plugin, as the cache uses the current rustc version as its cache key
-      - run: rustup show
+      - name: Cache Rust dependencies
+        uses: actions/cache@v3
+        id: cache
+        with:
+          path: |
+            ~/.cargo/registry
+            ~/.cargo/git
+            target
+          key: ${{ runner.os }}-cargo-${{ hashFiles('**/Cargo.lock') }}
+          restore-keys: |
+            ${{ runner.os }}-cargo-
 
-      - uses: taiki-e/install-action@cargo-llvm-cov
-      - uses: taiki-e/install-action@nextest
+      - name: Check cache status
+        run: |
+          if ${{ steps.cache.outputs.cache-hit == 'true' }}; then
+            echo "Cache hit! Using cached dependencies."
+          else
+            echo "Cache miss. Building dependencies from scratch."
+          fi
 
-      - name: Rust Cache
-        uses: Swatinem/rust-cache@v2.7.3
+      - name: Install Rust toolchain
+        uses: actions-rs/toolchain@v1
+        with:
+          profile: minimal
+          toolchain: stable
+          override: true
+
+      - name: Install cargo-llvm-cov and nextest
+        uses: taiki-e/install-action@v2
+        with:
+          tool: cargo-llvm-cov,nextest
+
+      - name: Install Foundry
+        uses: foundry-rs/foundry-toolchain@v1
+
+      - name: Check Anvil Installation
+        run: |
+          if command -v anvil &> /dev/null
+          then
+              echo "Anvil is installed. Version information:"
+              anvil --version
+          else
+              echo "Anvil is not installed or not in PATH"
+              exit 1
+          fi
 
       - name: Clean workspace
         run: |
           cargo llvm-cov clean --workspace
 
       - name: Run llvm-cov
+        env:
+          ETHEREUM_BLAST_RPC_URL: ${{ secrets.ETHEREUM_BLAST_RPC_URL }}
         run: |
           cargo llvm-cov nextest --release --lcov --output-path lcov.info --test-threads=1
 
@@ -53,4 +96,4 @@ jobs:
           debug: true
 
       - uses: colpal/actions-clean@v1
-        if: ${{ always() }} # To ensure this step runs even when earlier steps fail
+        if: ${{ always() }}
