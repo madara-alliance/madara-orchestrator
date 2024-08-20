@@ -18,11 +18,7 @@ pub const JOB_VERIFICATION_QUEUE: &str = "madara_orchestrator_job_verification_q
 pub const JOB_HANDLE_FAILURE_QUEUE: &str = "madara_orchestrator_job_handle_failure_queue";
 
 // Queues for SNOS worker trigger listening
-pub const SNOS_WORKER_TRIGGER_QUEUE: &str = "madara_orchestrator_snos_worker_trigger_queue";
-pub const PROVING_WORKER_TRIGGER_QUEUE: &str = "madara_orchestrator_proving_worker_trigger_queue";
-pub const PROOF_REGISTRATION_WORKER_TRIGGER_QUEUE: &str = "madara_orchestrator_proof_registration_worker_trigger_queue";
-pub const DATA_SUBMISSION_WORKER_TRIGGER_QUEUE: &str = "madara_orchestrator_data_submission_worker_trigger_queue";
-pub const UPDATE_STATE_WORKER_TRIGGER_QUEUE: &str = "madara_orchestrator_update_state_worker_trigger_queue";
+pub const WORKER_TRIGGER_QUEUE: &str = "madara_orchestrator_worker_trigger_queue";
 
 use crate::workers::data_submission_worker::DataSubmissionWorker;
 use crate::workers::proof_registration::ProofRegistrationWorker;
@@ -242,11 +238,7 @@ pub async fn init_consumers() -> Result<(), JobError> {
     spawn_consumer!(JOB_PROCESSING_QUEUE.to_string(), process_job);
     spawn_consumer!(JOB_VERIFICATION_QUEUE.to_string(), verify_job);
     spawn_consumer!(JOB_HANDLE_FAILURE_QUEUE.to_string(), handle_job_failure);
-    spawn_worker_trigger_consumer!(SNOS_WORKER_TRIGGER_QUEUE.to_string(), spawn_worker);
-    spawn_worker_trigger_consumer!(PROVING_WORKER_TRIGGER_QUEUE.to_string(), spawn_worker);
-    spawn_worker_trigger_consumer!(DATA_SUBMISSION_WORKER_TRIGGER_QUEUE.to_string(), spawn_worker);
-    spawn_worker_trigger_consumer!(PROOF_REGISTRATION_WORKER_TRIGGER_QUEUE.to_string(), spawn_worker);
-    spawn_worker_trigger_consumer!(UPDATE_STATE_WORKER_TRIGGER_QUEUE.to_string(), spawn_worker);
+    spawn_worker_trigger_consumer!(WORKER_TRIGGER_QUEUE.to_string(), spawn_worker);
     Ok(())
 }
 
