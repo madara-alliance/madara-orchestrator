@@ -1,19 +1,13 @@
 ---
-name: Task - Rust Tests and Coverage
+name: Task - Rust Tests & Coverage
 
 on:
-  pull_request_target:
-    branches:
-      - main
-    types: [opened, synchronize, reopened]
-  push:
-    branches-ignore:
-      - main
-  workflow_call:
   workflow_dispatch:
+  workflow_call:
 
 jobs:
   coverage:
+    # sadly, for now we have to "rebuild" for the coverage
     runs-on: ubuntu-latest
 
     services:
@@ -38,57 +32,17 @@ jobs:
       # before the plugin, as the cache uses the current rustc version as its cache key
       - run: rustup show
 
-      - name: Install Rust toolchain
-        uses: actions-rs/toolchain@v1
-        with:
-          profile: minimal
-          toolchain: stable
-          override: true
+      - uses: taiki-e/install-action@cargo-llvm-cov
+      - uses: taiki-e/install-action@nextest
 
-      - name: Cache dependencies
-        uses: actions/cache@v3
-        with:
-          path: |
-            ~/.cargo/bin/
-            ~/.cargo/registry/index/
-            ~/.cargo/registry/cache/
-            ~/.cargo/git/db/
-            target/
-          key: ${{ runner.os }}-cargo-${{ hashFiles('**/Cargo.lock') }}-${{ hashFiles('**/Cargo.toml') }}
-          restore-keys: |
-            ${{ runner.os }}-cargo-${{ hashFiles('**/Cargo.lock') }}-
-            ${{ runner.os }}-cargo-
-
-      - name: Install cargo-llvm-cov
-        uses: taiki-e/install-action@cargo-llvm-cov
-
-      - name: Install nextest
-        uses: taiki-e/install-action@nextest
-
-      - name: Install Foundry
-        uses: foundry-rs/foundry-toolchain@v1
-
-      - name: Check Anvil Installation
-        run: |
-          if command -v anvil &> /dev/null
-          then
-              echo "Anvil is installed. Version information:"
-              anvil --version
-          else
-              echo "Anvil is not installed or not in PATH"
-              exit 1
-          fi
+      - name: Rust Cache
+        uses: Swatinem/rust-cache@v2
 
       - name: Clean workspace
         run: |
-          cargo clean --doc
-
-      - name: Build for caching
-        run: cargo build --release --tests
+          cargo llvm-cov clean --workspace
 
       - name: Run llvm-cov
-        env:
-          ETHEREUM_BLAST_RPC_URL: ${{ secrets.ETHEREUM_BLAST_RPC_URL }}
         run: |
           cargo llvm-cov nextest --release --lcov --output-path lcov.info --test-threads=1
 
