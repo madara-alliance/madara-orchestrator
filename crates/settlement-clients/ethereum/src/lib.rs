@@ -102,7 +102,7 @@ impl EthereumSettlementClient {
     #[cfg(test)]
     pub fn with_test_settings(
         provider: RootProvider<Http<Client>>,
-        core_contract_address: Option<Address>,
+        core_contract_address: Address,
         rpc_url: Url,
         impersonate_account: Option<Address>,
     ) -> Self {
@@ -113,13 +113,6 @@ impl EthereumSettlementClient {
 
         let fill_provider =
             Arc::new(ProviderBuilder::new().with_recommended_fillers().wallet(wallet.clone()).on_http(rpc_url));
-
-        let core_contract_address = if let Some(core_contract_address) = core_contract_address {
-            core_contract_address
-        } else {
-            // dummy address
-            Address::from_str("0x0").unwrap()
-        };
 
         let core_contract_client = StarknetValidityContractClient::new(core_contract_address, fill_provider);
 
@@ -249,8 +242,13 @@ impl SettlementClient for EthereumSettlementClient {
         let txn_request: TransactionRequest = tx_envelope.into();
 
         #[cfg(test)]
-        let txn_request =
-            test_config::configure_transaction(self.provider.clone(), tx_envelope, self.impersonate_account).await;
+        let txn_request = test_config::configure_transaction(
+            // self.provider.clone(),
+            tx_envelope,
+            self.impersonate_account,
+            nonce,
+        )
+        .await;
 
         let pending_transaction = self.provider.send_transaction(txn_request).await?;
         return Ok(pending_transaction.tx_hash().to_string());
@@ -297,9 +295,10 @@ mod test_config {
     use alloy::network::TransactionBuilder;
 
     pub async fn configure_transaction(
-        provider: Arc<RootProvider<Http<Client>>>,
+        // provider: Arc<RootProvider<Http<Client>>>,
         tx_envelope: TxEnvelope,
         impersonate_account: Option<Address>,
+        nonce: u64,
     ) -> TransactionRequest {
         let mut txn_request: TransactionRequest = tx_envelope.into();
 
@@ -310,8 +309,8 @@ mod test_config {
         //      - if "1" then : Testing via impersonating `Starknet Operator Address`.
         // Note : changing between "0" and "1" is handled automatically by each test function, `no` manual change in `env.test` is needed.
         if let Some(impersonate_account) = impersonate_account {
-            let nonce =
-                provider.get_transaction_count(impersonate_account).await.unwrap().to_string().parse::<u64>().unwrap();
+            // let nonce =
+            // provider.get_transaction_count(impersonate_account).await.unwrap().to_string().parse::<u64>().unwrap();
             txn_request.set_nonce(nonce);
             txn_request = txn_request.with_from(impersonate_account);
         }

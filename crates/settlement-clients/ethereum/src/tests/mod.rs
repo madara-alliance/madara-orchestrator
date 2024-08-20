@@ -136,12 +136,8 @@ async fn update_state_blob_with_dummy_contract_works() {
 
     // Deploying a dummy contract
     let contract = DummyCoreContract::deploy(&setup.provider).await.expect("Unable to deploy address");
-    let ethereum_settlement_client = EthereumSettlementClient::with_test_settings(
-        setup.provider.clone(),
-        Some(*contract.address()),
-        setup.rpc_url,
-        None,
-    );
+    let ethereum_settlement_client =
+        EthereumSettlementClient::with_test_settings(setup.provider.clone(), *contract.address(), setup.rpc_url, None);
 
     // Getting latest nonce after deployment
     let nonce = ethereum_settlement_client.get_nonce().await.expect("Unable to fetch nonce");
@@ -198,13 +194,21 @@ async fn update_state_blob_with_impersonation_works(#[case] fork_block_no: u64) 
         .await;
     let ethereum_settlement_client = EthereumSettlementClient::with_test_settings(
         setup.provider.clone(),
-        Some(*STARKNET_CORE_CONTRACT_ADDRESS),
+        *STARKNET_CORE_CONTRACT_ADDRESS,
         setup.rpc_url,
         Some(*STARKNET_OPERATOR_ADDRESS),
     );
 
-    let nonce = ethereum_settlement_client.get_nonce().await.expect("Unable to fetch nonce");
+    // let nonce = ethereum_settlement_client.get_nonce().await.expect("Unable to fetch nonce");
 
+    let nonce = setup
+        .provider
+        .get_transaction_count(*STARKNET_OPERATOR_ADDRESS)
+        .await
+        .unwrap()
+        .to_string()
+        .parse::<u64>()
+        .unwrap();
     // Create a contract instance.
     let contract = STARKNET_CORE_CONTRACT::new(*STARKNET_CORE_CONTRACT_ADDRESS, setup.provider.clone());
 
@@ -249,7 +253,7 @@ async fn get_last_settled_block_typical_works(#[case] fork_block_no: u64) {
     let setup = EthereumTestBuilder::new().with_fork_block(fork_block_no).build().await;
     let ethereum_settlement_client = EthereumSettlementClient::with_test_settings(
         setup.provider.clone(),
-        Some(*STARKNET_CORE_CONTRACT_ADDRESS),
+        *STARKNET_CORE_CONTRACT_ADDRESS,
         setup.rpc_url,
         None,
     );
