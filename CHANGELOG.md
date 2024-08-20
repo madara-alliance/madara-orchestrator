@@ -6,7 +6,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ## Added
 
-- Enabled Rust Cache for Github Actions.
+- enabled Rust Cache for Github Actions.
 - added coveralls support
 - moved mongodb serde behind feature flag
 - implemented DA worker.
