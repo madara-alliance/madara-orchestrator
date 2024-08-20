@@ -33,32 +33,52 @@ jobs:
     steps:
       - uses: actions/checkout@v3
 
-      - name: Cache Rust dependencies
-        uses: actions/cache@v3
-        id: cache
-        with:
-          path: |
-            ~/.cargo/registry
-            ~/.cargo/git
-            target
-          key: ${{ runner.os }}-cargo-${{ hashFiles('**/Cargo.lock') }}
-          restore-keys: |
-            ${{ runner.os }}-cargo-
-
-      - name: Check cache status
-        run: |
-          if ${{ steps.cache.outputs.cache-hit == 'true' }}; then
-            echo "Cache hit! Using cached dependencies."
-          else
-            echo "Cache miss. Building dependencies from scratch."
-          fi
-
       - name: Install Rust toolchain
         uses: actions-rs/toolchain@v1
         with:
           profile: minimal
           toolchain: stable
           override: true
+
+      - name: Generate lockfile
+        run: cargo generate-lockfile
+
+      - name: Cache cargo registry
+        uses: actions/cache@v3
+        id: cache-registry
+        with:
+          path: ~/.cargo/registry
+          key: ${{ runner.os }}-cargo-registry-${{ hashFiles('**/Cargo.lock') }}
+
+      - name: Cache cargo index
+        uses: actions/cache@v3
+        id: cache-index
+        with:
+          path: ~/.cargo/git
+          key: ${{ runner.os }}-cargo-index-${{ hashFiles('**/Cargo.lock') }}
+
+      - name: Cache cargo build
+        uses: actions/cache@v3
+        id: cache-build
+        with:
+          path: target
+          key: ${{ runner.os }}-cargo-build-target-${{ hashFiles('**/Cargo.lock') }}-${{ hashFiles('**/Cargo.toml') }}
+
+      - name: Debug cache status
+        run: |
+          echo "Registry cache hit: ${{ steps.cache-registry.outputs.cache-hit }}"
+          echo "Index cache hit: ${{ steps.cache-index.outputs.cache-hit }}"
+          echo "Build cache hit: ${{ steps.cache-build.outputs.cache-hit }}"
+
+          echo "Cargo registry size:"
+          du -sh ~/.cargo/registry || echo "Registry not found"
+          echo "Cargo index size:"
+          du -sh ~/.cargo/git || echo "Index not found"
+          echo "Target directory size:"
+          du -sh target || echo "Target not found"
+
+          echo "Content of target directory:"
+          ls -R target || echo "Target directory not found"
 
       - name: Install cargo-llvm-cov and nextest
         uses: taiki-e/install-action@v2
