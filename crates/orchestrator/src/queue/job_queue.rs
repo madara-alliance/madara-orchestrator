@@ -167,7 +167,7 @@ where
                             match d.nack().await {
                                 Ok(_) => Err(ConsumptionError::FailedToSpawnWorker {
                                     worker_trigger_type: job_message.worker,
-                                    error_msg: "Job handling failed, message nack-ed".to_string(),
+                                    error_msg: "Worker handling failed, message nack-ed".to_string(),
                                 })?,
                                 Err(delivery_nack_error) => Err(ConsumptionError::FailedToSpawnWorker {
                                     worker_trigger_type: job_message.worker,
@@ -207,10 +207,10 @@ async fn get_delivery_from_queue(queue: String) -> Result<DeliveryReturnType, Co
 }
 
 macro_rules! spawn_consumer {
-    ($queue_type :expr, $handler : expr) => {
+    ($queue_type :expr, $handler : expr, $consume_function: expr) => {
         tokio::spawn(async move {
             loop {
-                match consume_job_from_queue($queue_type, $handler).await {
+                match $consume_function($queue_type, $handler).await {
                     Ok(_) => {}
                     Err(e) => log::error!("Failed to consume from queue {:?}. Error: {:?}", $queue_type, e),
                 }
@@ -220,25 +220,11 @@ macro_rules! spawn_consumer {
     };
 }
 
-macro_rules! spawn_worker_trigger_consumer {
-    ($queue_type: expr, $handler: expr) => {
-        tokio::spawn(async move {
-            loop {
-                match consume_worker_trigger_messages_from_queue($queue_type, $handler).await {
-                    Ok(_) => {}
-                    Err(e) => log::error!("Failed to consume from queue {:?}. Error: {:?}", $queue_type, e),
-                }
-                sleep(Duration::from_secs(1)).await;
-            }
-        })
-    };
-}
-
 pub async fn init_consumers() -> Result<(), JobError> {
-    spawn_consumer!(JOB_PROCESSING_QUEUE.to_string(), process_job);
-    spawn_consumer!(JOB_VERIFICATION_QUEUE.to_string(), verify_job);
-    spawn_consumer!(JOB_HANDLE_FAILURE_QUEUE.to_string(), handle_job_failure);
-    spawn_worker_trigger_consumer!(WORKER_TRIGGER_QUEUE.to_string(), spawn_worker);
+    spawn_consumer!(JOB_PROCESSING_QUEUE.to_string(), process_job, consume_job_from_queue);
+    spawn_consumer!(JOB_VERIFICATION_QUEUE.to_string(), verify_job, consume_job_from_queue);
+    spawn_consumer!(JOB_HANDLE_FAILURE_QUEUE.to_string(), handle_job_failure, consume_job_from_queue);
+    spawn_consumer!(WORKER_TRIGGER_QUEUE.to_string(), spawn_worker, consume_worker_trigger_messages_from_queue);
     Ok(())
 }
 
