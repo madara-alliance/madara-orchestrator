@@ -1,62 +1,73 @@
-use crate::database::mongodb::config::MongoDbConfig;
-use crate::database::mongodb::MongoDb;
-use crate::database::Database;
-use crate::jobs::types::JobStatus::Created;
-use crate::jobs::types::JobType::DataSubmission;
-use rstest::rstest;
-use testcontainers::{core::ContainerPort, runners::AsyncRunner, GenericImage};
+use testcontainers::{
+    core::{CmdWaitFor, ExecCommand, WaitFor},
+    Image,
+};
 
-use testcontainers::core::WaitFor;
-use testcontainers::ImageExt;
-use uuid::Uuid;
+const NAME: &str = "mongo";
+const TAG: &str = "latest";
 
-#[rstest]
-#[case(Uuid::new_v4())]
-#[case(Uuid::new_v4())]
-#[case(Uuid::new_v4())]
-#[tokio::test]
-async fn testing_parallel_mongo(#[case] id: Uuid) {
-    use crate::jobs::types::{ExternalId, JobItem};
-    use std::collections::HashMap;
+#[derive(Debug, Clone)]
+enum InstanceKind {
+    Standalone,
+    ReplSet,
+}
 
-    const LOCAL_PORT: u16 = 27017; // Changed to default MongoDB port
+impl Default for InstanceKind {
+    fn default() -> Self {
+        Self::Standalone
+    }
+}
 
-    let msg = WaitFor::message_on_stdout("Waiting for connections");
-    let container_port = ContainerPort::from(LOCAL_PORT);
-    let container = GenericImage::new("mongo", "latest")
-        .with_wait_for(msg)
-        .with_exposed_port(container_port)
-        .with_env_var("MONGO_INITDB_DATABASE", "product_info")
-        .with_env_var("MONGO_INITDB_ROOT_USERNAME", "root")
-        .with_env_var("MONGO_INITDB_ROOT_PASSWORD", "root")
-        .start()
-        .await
-        .unwrap();
+#[derive(Default, Debug, Clone)]
+pub struct Mongo {
+    kind: InstanceKind,
+}
 
-    let host = container.get_host().await.unwrap();
-    let host_port = container.get_host_port_ipv4(LOCAL_PORT).await.unwrap();
+impl Mongo {
+    pub fn new() -> Self {
+        Self { kind: InstanceKind::Standalone }
+    }
+    pub fn repl_set() -> Self {
+        Self { kind: InstanceKind::ReplSet }
+    }
+}
 
-    let connection_url = format!("mongodb://root:root@{}:{}", host, host_port);
+impl Image for Mongo {
+    fn name(&self) -> &str {
+        NAME
+    }
 
-    let mongo_config = MongoDbConfig { url: connection_url };
+    fn tag(&self) -> &str {
+        TAG
+    }
 
-    let database = MongoDb::new(mongo_config).await;
+    fn ready_conditions(&self) -> Vec<WaitFor> {
+        vec![WaitFor::message_on_stdout("Waiting for connections")]
+    }
 
-    let job_item = JobItem {
-         id,
-        internal_id: String::from("0"),
-        job_type: DataSubmission,
-        status: Created,
-        external_id: ExternalId::String("0".to_string().into_boxed_str()),
-        metadata: HashMap::new(),
-        version: 0,
-    };
+    fn cmd(&self) -> impl IntoIterator<Item = impl Into<std::borrow::Cow<'_, str>>> {
+        match self.kind {
+            InstanceKind::Standalone => Vec::<String>::new(),
+            InstanceKind::ReplSet => vec!["--replSet".to_string(), "rs".to_string()],
+        }
+    }
 
-    let _ = database.create_job(job_item.clone()).await.unwrap();
-
-    let result = database.get_job_by_id(id).await.unwrap();
-
-    assert!(result.is_some());
-    assert_eq!(job_item, result.unwrap());
-    println!("done!");
+    fn exec_after_start(
+        &self,
+        _: testcontainers::core::ContainerState,
+    ) -> Result<Vec<ExecCommand>, testcontainers::TestcontainersError> {
+        match self.kind {
+            InstanceKind::Standalone => Ok(Default::default()),
+            InstanceKind::ReplSet => Ok(vec![ExecCommand::new(vec![
+                "mongosh".to_string(),
+                "--quiet".to_string(),
+                "--eval".to_string(),
+                "'rs.initiate()'".to_string(),
+            ])
+            .with_cmd_ready_condition(CmdWaitFor::message_on_stdout("Using a default configuration for the set"))
+            .with_container_ready_conditions(vec![WaitFor::message_on_stdout(
+                "Rebuilding PrimaryOnlyService due to stepUp",
+            )])]),
+        }
+    }
 }
