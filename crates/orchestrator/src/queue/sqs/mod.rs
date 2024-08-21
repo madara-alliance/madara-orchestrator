@@ -28,7 +28,7 @@ impl SqsQueue {
     }
 
     pub fn get_queue_url(&self, queue_name: String) -> String {
-        format!("{}{}", self.base_url.clone(), queue_name)
+        format!("{}/{}", self.base_url.clone(), queue_name)
     }
 }
 
