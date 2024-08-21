@@ -1,3 +1,5 @@
+/// Contains the trait implementations for alerts
+pub mod alerts;
 /// Config of the service. Contains configurations for DB, Queues and other services.
 pub mod config;
 pub mod constants;
@@ -20,5 +22,3 @@ pub mod routes;
 pub mod tests;
 /// Contains workers which act like cron jobs
 pub mod workers;
-/// Contains the trait implementations for alerts
-pub mod alerts;

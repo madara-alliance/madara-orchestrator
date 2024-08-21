@@ -1,5 +1,5 @@
-use async_trait::async_trait;
 use crate::alerts::Alerts;
+use async_trait::async_trait;
 use aws_sdk_sns::config::Region;
 use aws_sdk_sns::Client;
 use utils::env_utils::get_env_var_or_panic;

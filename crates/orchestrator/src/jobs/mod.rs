@@ -135,6 +135,14 @@ pub async fn create_job(
         .await
         .map_err(|e| JobError::Other(OtherError(e)))?;
     if existing_job.is_some() {
+        config
+            .alerts()
+            .send_alert_message(format!(
+                "[create_job:src/jobs/mod.rs] Job already exists. Internal ID : {:?}, Metadata : {:?}",
+                internal_id, metadata
+            ))
+            .await
+            .map_err(|e| JobError::Other(OtherError(e)))?;
         return Err(JobError::JobAlreadyExists { internal_id, job_type });
     }
 
@@ -159,6 +167,14 @@ pub async fn process_job(id: Uuid) -> Result<(), JobError> {
             log::info!("Processing job with id {:?}", id);
         }
         _ => {
+            config
+                .alerts()
+                .send_alert_message(format!(
+                    "[process_job:src/jobs/mod.rs] Job invalid status. Job ID : {:?}, Job Status : {:?}",
+                    id, job.status
+                ))
+                .await
+                .map_err(|e| JobError::Other(OtherError(e)))?;
             return Err(JobError::InvalidStatus { id, job_status: job.status });
         }
     }
@@ -226,6 +242,14 @@ pub async fn verify_job(id: Uuid) -> Result<(), JobError> {
 
             config.database().update_job(&new_job).await.map_err(|e| JobError::Other(OtherError(e)))?;
 
+            config
+                .alerts()
+                .send_alert_message(format!(
+                    "[verify_job:src/jobs/mod.rs] Verification failed for job. Job ID : {:?}",
+                    id
+                ))
+                .await
+                .map_err(|e| JobError::Other(OtherError(e)))?;
             log::error!("Verification failed for job with id {:?}. Cannot verify.", id);
 
             // retry job processing if we haven't exceeded the max limit
@@ -237,10 +261,26 @@ pub async fn verify_job(id: Uuid) -> Result<(), JobError> {
                     job.id,
                     process_attempts + 1
                 );
+                config
+                    .alerts()
+                    .send_alert_message(format!(
+                        "[verify_job:src/jobs/mod.rs] Verification failed for job {}. Retrying processing attempt {}.",
+                        job.id,
+                        process_attempts + 1
+                    ))
+                    .await
+                    .map_err(|e| JobError::Other(OtherError(e)))?;
                 add_job_to_process_queue(job.id).await.map_err(|e| JobError::Other(OtherError(e)))?;
                 return Ok(());
             } else {
-                // TODO: send alert
+                config
+                    .alerts()
+                    .send_alert_message(format!(
+                        "[verify_job:src/jobs/mod.rs] Verification failed for job {}. Total attempts made for verifying : {}.",
+                        job.id, process_attempts
+                    ))
+                    .await
+                    .map_err(|e| JobError::Other(OtherError(e)))?;
             }
         }
         JobVerificationStatus::Pending => {
@@ -248,7 +288,14 @@ pub async fn verify_job(id: Uuid) -> Result<(), JobError> {
             let verify_attempts = get_u64_from_metadata(&job.metadata, JOB_VERIFICATION_ATTEMPT_METADATA_KEY)
                 .map_err(|e| JobError::Other(OtherError(e)))?;
             if verify_attempts >= job_handler.max_verification_attempts() {
-                // TODO: send alert
+                config
+                    .alerts()
+                    .send_alert_message(format!(
+                        "[verify_job:src/jobs/mod.rs] Verification attempts exceeded for job. Job ID {}",
+                        job.id
+                    ))
+                    .await
+                    .map_err(|e| JobError::Other(OtherError(e)))?;
                 log::info!("Verification attempts exceeded for job {}. Marking as timed out.", job.id);
                 config
                     .database()
