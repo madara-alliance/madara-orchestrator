@@ -57,10 +57,16 @@ impl SharpClient {
 
         let cairo_key = Uuid::new_v4();
         let cairo_key_string = cairo_key.to_string();
+        let proof_layout = get_env_var_or_panic("SHARP_PROOF_LAYOUT");
 
         // Params for sending the PIE file to the prover
-        let params =
-            vec![("cairo_job_key", cairo_key_string.as_str()), ("offchain_proof", "true"), ("proof_layout", "small")];
+        // for temporary reference you can check this doc :
+        // https://docs.google.com/document/d/1-9ggQoYmjqAtLBGNNR2Z5eLreBmlckGYjbVl0khtpU0
+        let params = vec![
+            ("cairo_job_key", cairo_key_string.as_str()),
+            ("offchain_proof", "true"),
+            ("proof_layout", proof_layout.as_str()),
+        ];
 
         // Adding params to the URL
         add_params_to_url(&mut base_url, params);
@@ -83,7 +89,9 @@ impl SharpClient {
         base_url.path_segments_mut().expect("Unable to create URL mutable segments").push("get_status");
         let cairo_key_string = job_key.to_string();
 
-        // Params for sending the PIE file to the prover
+        // Params for getting the prover job status
+        // for temporary reference you can check this doc :
+        // https://docs.google.com/document/d/1-9ggQoYmjqAtLBGNNR2Z5eLreBmlckGYjbVl0khtpU0
         let params = vec![("cairo_job_key", cairo_key_string.as_str())];
 
         // Adding params to the url

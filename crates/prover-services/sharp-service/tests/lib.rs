@@ -1,3 +1,4 @@
+use crate::constants::{CAIRO_PIE_PATH, TEST_FACT};
 use alloy::primitives::B256;
 use cairo_vm::vm::runners::cairo_pie::CairoPie;
 use httpmock::MockServer;
@@ -6,10 +7,11 @@ use rstest::rstest;
 use serde_json::json;
 use sharp_service::{split_task_id, SharpProverService};
 use snos::sharp::CairoJobStatus;
-use std::path::PathBuf;
 use std::str::FromStr;
 use utils::env_utils::get_env_var_or_panic;
 use utils::settings::default::DefaultSettingsProvider;
+
+mod constants;
 
 #[rstest]
 #[tokio::test]
@@ -18,8 +20,8 @@ async fn prover_client_submit_task_works() {
 
     let server = MockServer::start();
     let sharp_service = SharpProverService::with_test_settings(&DefaultSettingsProvider {}, server.port());
-    let cairo_pie_path: PathBuf = [env!("CARGO_MANIFEST_DIR"), "tests", "artifacts", "238996-SN.zip"].iter().collect();
-    let cairo_pie = CairoPie::read_zip_file(&cairo_pie_path).unwrap();
+    let cairo_pie_path = env!("CARGO_MANIFEST_DIR").to_string() + CAIRO_PIE_PATH;
+    let cairo_pie = CairoPie::read_zip_file(cairo_pie_path.as_ref()).unwrap();
 
     let sharp_response = json!(
             {
@@ -42,8 +44,6 @@ async fn prover_client_submit_task_works() {
 
     sharp_add_job_call.assert();
 }
-
-const TEST_FACT: &str = "924cf8d0b955a889fd254b355bb7b29aa9582a370f26943acbe85b2c1a0b201b";
 
 #[rstest]
 #[case(CairoJobStatus::FAILED)]
