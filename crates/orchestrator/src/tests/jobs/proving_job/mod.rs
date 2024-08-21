@@ -1,8 +1,14 @@
+use bytes::Bytes;
 use std::collections::HashMap;
+use std::fs::File;
+use std::io::Read;
+use std::path::Path;
 use std::sync::Arc;
 
 use crate::config::config;
+use crate::data_storage::MockDataStorage;
 use httpmock::prelude::*;
+use mockall::predicate::eq;
 use prover_client_interface::{MockProverClient, TaskStatus};
 use rstest::*;
 use starknet::providers::jsonrpc::HttpTransport;
@@ -11,7 +17,6 @@ use url::Url;
 use uuid::Uuid;
 
 use super::super::common::default_job_item;
-use crate::jobs::constants::JOB_METADATA_CAIRO_PIE_PATH_KEY;
 use crate::jobs::proving_job::ProvingJob;
 use crate::jobs::types::{JobItem, JobStatus, JobType};
 use crate::jobs::Job;
@@ -23,13 +28,7 @@ async fn test_create_job() {
     TestConfigBuilder::new().build().await;
     let config = config().await;
 
-    let job = ProvingJob
-        .create_job(
-            &config,
-            String::from("0"),
-            HashMap::from([(JOB_METADATA_CAIRO_PIE_PATH_KEY.into(), "pie.zip".into())]),
-        )
-        .await;
+    let job = ProvingJob.create_job(&config, String::from("0"), HashMap::new()).await;
     assert!(job.is_ok());
 
     let job = job.unwrap();
@@ -65,13 +64,21 @@ async fn test_process_job() {
         Url::parse(format!("http://localhost:{}", server.port()).as_str()).expect("Failed to parse URL"),
     ));
 
+    let mut file =
+        File::open(Path::new(&format!("{}/src/tests/artifacts/fibonacci.zip", env!("CARGO_MANIFEST_DIR")))).unwrap();
+    let mut buffer = Vec::new();
+    file.read_to_end(&mut buffer).unwrap();
+
+    let mut storage = MockDataStorage::new();
+    let buffer_bytes = Bytes::from(buffer);
+    storage.expect_get_data().with(eq("0/pie.zip")).return_once(move |_| Ok(buffer_bytes));
+
     TestConfigBuilder::new()
         .mock_starknet_client(Arc::new(provider))
         .mock_prover_client(Box::new(prover_client))
+        .mock_storage_client(Box::new(storage))
         .build()
         .await;
-
-    let cairo_pie_path = format!("{}/src/tests/artifacts/fibonacci.zip", env!("CARGO_MANIFEST_DIR"));
 
     assert_eq!(
         ProvingJob
@@ -83,7 +90,7 @@ async fn test_process_job() {
                     job_type: JobType::ProofCreation,
                     status: JobStatus::Created,
                     external_id: String::new().into(),
-                    metadata: HashMap::from([(JOB_METADATA_CAIRO_PIE_PATH_KEY.into(), cairo_pie_path)]),
+                    metadata: HashMap::new(),
                     version: 0,
                 }
             )
