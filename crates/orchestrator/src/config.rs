@@ -193,7 +193,7 @@ pub async fn build_storage_client(aws_config: &SdkConfig) -> Box<dyn DataStorage
 
 pub fn build_queue_client(_aws_config: &SdkConfig) -> Box<dyn QueueProvider + Send + Sync> {
     match get_env_var_or_panic("QUEUE_PROVIDER").as_str() {
-        "sqs" => Box::new(SqsQueue {}),
+        "sqs" => Box::new(SqsQueue::new_from_env()),
         _ => panic!("Unsupported Queue Client"),
     }
 }
