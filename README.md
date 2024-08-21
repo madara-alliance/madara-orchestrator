@@ -15,10 +15,13 @@ change as we learn more about external systems and the constraints involved.
 ## Testing
 
 - Files needed for tests can be fetched through s3 :
+
   ```shell
     wget -P ./crates/prover-services/sharp-service/tests/artifacts https://madara-orchestrator-sharp-pie.s3.amazonaws.com/238996-SN.zip
   ```
+
 - To run all the tests :
+
   ```shell
     cargo llvm-cov nextest --release --lcov --output-path lcov.info --test-threads=1
   ```
