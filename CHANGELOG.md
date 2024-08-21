@@ -9,6 +9,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 - Tests for Settlement client.
 - Worker queues to listen for trigger events.
 - Tests for prover client.
+- added new creator for SqsQueue.
 - Added Rust Cache for Coverage Test CI.
 - support for fetching PIE file from storage client in proving job.
 - added coveralls support
