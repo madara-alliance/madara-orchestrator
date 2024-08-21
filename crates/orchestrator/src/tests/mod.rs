@@ -10,3 +10,5 @@ pub mod queue;
 pub mod common;
 mod data_storage;
 pub mod workers;
+
+pub mod parallel;

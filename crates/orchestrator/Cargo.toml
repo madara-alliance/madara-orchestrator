@@ -68,9 +68,11 @@ default = ["ethereum", "with_mongodb", "with_sqs"]
 ethereum = ["ethereum-da-client"]
 with_mongodb = ["mongodb"]
 with_sqs = ["omniqueue"]
+mongodb = ["dep:mongodb"]
 
 [dev-dependencies]
 assert_matches = "1.5.0"
+testcontainers.workspace = true
 hyper = { version = "0.14", features = ["full"] }
 rstest = { workspace = true }
 httpmock = { workspace = true, features = ["remote"] }
