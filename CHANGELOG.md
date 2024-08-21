@@ -6,6 +6,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ## Added
 
+- Added Rust Cache for Coverage Test CI.
 - added coveralls support
 - moved mongodb serde behind feature flag
 - implemented DA worker.
