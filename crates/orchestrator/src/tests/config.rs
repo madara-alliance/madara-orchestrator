@@ -128,7 +128,7 @@ impl TestConfigBuilder {
             self.prover_client.unwrap_or_else(|| build_prover_service(&settings_provider)),
             self.settlement_client.unwrap(),
             self.database.unwrap(),
-            self.queue.unwrap_or_else(|| Box::new(SqsQueue {})),
+            self.queue.unwrap_or_else(|| Box::new(SqsQueue::new_from_env())),
             self.storage.unwrap(),
         );
 

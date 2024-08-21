@@ -57,7 +57,7 @@ pub async fn init_config() -> Config {
     let database = Box::new(MongoDb::new(MongoDbConfig::new_from_env()).await);
 
     // init the queue
-    let queue = Box::new(SqsQueue {});
+    let queue = Box::new(SqsQueue::new_from_env());
 
     let da_client = build_da_client().await;
 
