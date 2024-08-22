@@ -53,7 +53,7 @@ impl SharpClient {
     pub async fn add_job(&self, encoded_pie: &str) -> Result<(SharpAddJobResponse, Uuid), SharpError> {
         let mut base_url = self.base_url.clone();
 
-        base_url.path_segments_mut().expect("Unable to create URL mutable segments").push("add_job");
+        base_url.path_segments_mut().map_err(|_| SharpError::PathSegmentMutFailOnUrl)?.push("add_job");
 
         let cairo_key = Uuid::new_v4();
         let cairo_key_string = cairo_key.to_string();
@@ -86,7 +86,7 @@ impl SharpClient {
     pub async fn get_job_status(&self, job_key: &Uuid) -> Result<SharpGetStatusResponse, SharpError> {
         let mut base_url = self.base_url.clone();
 
-        base_url.path_segments_mut().expect("Unable to create URL mutable segments").push("get_status");
+        base_url.path_segments_mut().map_err(|_| SharpError::PathSegmentMutFailOnUrl)?.push("get_status");
         let cairo_key_string = job_key.to_string();
 
         // Params for getting the prover job status
