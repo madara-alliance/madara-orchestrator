@@ -1,5 +1,9 @@
+pub mod ethereum;
+mod mock_server;
 pub mod mongodb;
 pub mod node;
+pub mod sharp;
+pub mod starknet_client;
 
 use std::net::TcpListener;
 use std::path::{Path, PathBuf};

@@ -4,6 +4,9 @@ version = "0.1.0"
 edition = "2021"
 
 [dependencies]
+alloy.workspace = true
+dotenvy.workspace = true
+httpmock.workspace = true
 orchestrator.workspace = true
 reqwest = { workspace = true, features = ["json"] }
 serde_json.workspace = true
