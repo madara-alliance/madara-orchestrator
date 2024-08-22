@@ -147,7 +147,24 @@ pub async fn create_job(
     }
 
     let job_handler = factory::get_job_handler(&job_type).await;
-    let job_item = job_handler.create_job(config.as_ref(), internal_id, metadata).await?;
+    let job_item = job_handler.create_job(config.as_ref(), internal_id.clone(), metadata.clone()).await;
+
+    // Error handling for sending alerts
+    let job_item = match job_item {
+        Ok(job_item) => job_item,
+        Err(e) => {
+            config
+                .alerts()
+                .send_alert_message(format!(
+                    "Error in creating job. Job already exists. Internal ID : {:?}, Metadata : {:?}. Error : {:?}",
+                    internal_id, metadata, e
+                ))
+                .await
+                .map_err(|e| JobError::Other(OtherError(e)))?;
+            return Err(e);
+        }
+    };
+
     config.database().create_job(job_item.clone()).await.map_err(|e| JobError::Other(OtherError(e)))?;
 
     add_job_to_process_queue(job_item.id).await.map_err(|e| JobError::Other(OtherError(e)))?;
@@ -188,7 +205,21 @@ pub async fn process_job(id: Uuid) -> Result<(), JobError> {
         .map_err(|e| JobError::Other(OtherError(e)))?;
 
     let job_handler = factory::get_job_handler(&job.job_type).await;
-    let external_id = job_handler.process_job(config.as_ref(), &mut job).await?;
+    let external_id = job_handler.process_job(config.as_ref(), &mut job).await;
+
+    // Error handling for sending alerts
+    let external_id = match external_id {
+        Ok(external_id) => external_id,
+        Err(e) => {
+            config
+                .alerts()
+                .send_alert_message(format!("Error in processing job. Error : {:?}", e))
+                .await
+                .map_err(|e| JobError::Other(OtherError(e)))?;
+            return Err(e);
+        }
+    };
+
     let metadata = increment_key_in_metadata(&job.metadata, JOB_PROCESS_ATTEMPT_METADATA_KEY)?;
 
     // Fetching the job again because update status above will update the job version
@@ -225,7 +256,20 @@ pub async fn verify_job(id: Uuid) -> Result<(), JobError> {
     }
 
     let job_handler = factory::get_job_handler(&job.job_type).await;
-    let verification_status = job_handler.verify_job(config.as_ref(), &mut job).await?;
+    let verification_status = job_handler.verify_job(config.as_ref(), &mut job).await;
+
+    // Error handling for sending alerts
+    let verification_status = match verification_status {
+        Ok(verification_status) => verification_status,
+        Err(e) => {
+            config
+                .alerts()
+                .send_alert_message(format!("Error in verifying job. Error : {:?}", e))
+                .await
+                .map_err(|e| JobError::Other(OtherError(e)))?;
+            return Err(e);
+        }
+    };
 
     match verification_status {
         JobVerificationStatus::Verified => {
