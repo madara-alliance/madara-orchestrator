@@ -1,10 +1,13 @@
 use std::sync::Arc;
 
-use crate::config::{build_da_client, build_prover_service, build_settlement_client, config_force_init, Config};
+use crate::config::{
+    build_alert_client, build_da_client, build_prover_service, build_settlement_client, config_force_init, Config,
+};
 use crate::data_storage::DataStorage;
 use da_client_interface::DaClient;
 use httpmock::MockServer;
 
+use crate::alerts::Alerts;
 use prover_client_interface::ProverClient;
 use settlement_client_interface::SettlementClient;
 use starknet::providers::jsonrpc::HttpTransport;
@@ -39,6 +42,8 @@ pub struct TestConfigBuilder {
     queue: Option<Box<dyn QueueProvider>>,
     /// Storage client
     storage: Option<Box<dyn DataStorage>>,
+    /// Alerts client
+    alerts: Option<Box<dyn Alerts>>,
 }
 
 impl Default for TestConfigBuilder {
@@ -58,6 +63,7 @@ impl TestConfigBuilder {
             database: None,
             queue: None,
             storage: None,
+            alerts: None,
         }
     }
 
@@ -93,6 +99,11 @@ impl TestConfigBuilder {
 
     pub fn mock_queue(mut self, queue: Box<dyn QueueProvider>) -> TestConfigBuilder {
         self.queue = Some(queue);
+        self
+    }
+
+    pub fn mock_alerts(mut self, alerts: Box<dyn Alerts>) -> TestConfigBuilder {
+        self.alerts = Some(alerts);
         self
     }
 
@@ -132,6 +143,10 @@ impl TestConfigBuilder {
             }
         }
 
+        if self.alerts.is_none() {
+            self.alerts = Some(build_alert_client().await);
+        }
+
         // Deleting and Creating the queues in sqs.
         create_sqs_queues().await.expect("Not able to delete and create the queues.");
         // Deleting the database
@@ -150,6 +165,7 @@ impl TestConfigBuilder {
             self.database.unwrap(),
             self.queue.unwrap_or_else(|| Box::new(SqsQueue {})),
             self.storage.unwrap(),
+            self.alerts.unwrap(),
         );
 
         drop_database().await.unwrap();

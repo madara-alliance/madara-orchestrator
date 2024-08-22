@@ -244,10 +244,7 @@ pub async fn verify_job(id: Uuid) -> Result<(), JobError> {
 
             config
                 .alerts()
-                .send_alert_message(format!(
-                    "Verification failed for job. Job ID : {:?}",
-                    id
-                ))
+                .send_alert_message(format!("Verification failed for job. Job ID : {:?}", id))
                 .await
                 .map_err(|e| JobError::Other(OtherError(e)))?;
             log::error!("Verification failed for job with id {:?}. Cannot verify.", id);
@@ -290,10 +287,7 @@ pub async fn verify_job(id: Uuid) -> Result<(), JobError> {
             if verify_attempts >= job_handler.max_verification_attempts() {
                 config
                     .alerts()
-                    .send_alert_message(format!(
-                        "Verification attempts exceeded for job. Job ID {}",
-                        job.id
-                    ))
+                    .send_alert_message(format!("Verification attempts exceeded for job. Job ID {}", job.id))
                     .await
                     .map_err(|e| JobError::Other(OtherError(e)))?;
                 log::info!("Verification attempts exceeded for job {}. Marking as timed out.", job.id);

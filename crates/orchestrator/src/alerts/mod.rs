@@ -1,7 +1,9 @@
 use async_trait::async_trait;
+use mockall::automock;
 
 pub mod aws_sns;
 
+#[automock]
 #[async_trait]
 pub trait Alerts: Send + Sync {
     /// To send an alert message to our alert service
