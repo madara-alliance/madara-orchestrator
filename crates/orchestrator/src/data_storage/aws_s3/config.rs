@@ -16,3 +16,15 @@ impl DataStorageConfig for AWSS3Config {
         Self { bucket_name: get_env_var_or_panic("AWS_S3_BUCKET_NAME") }
     }
 }
+
+impl S3LocalStackConfig {
+    pub fn new_from_env_with_endpoint(endpoint_url: &str) -> Self {
+        Self {
+            s3_key_id: get_env_var_or_panic("AWS_ACCESS_KEY_ID"),
+            s3_key_secret: get_env_var_or_panic("AWS_SECRET_ACCESS_KEY"),
+            s3_bucket_name: get_env_var_or_panic("AWS_S3_BUCKET_NAME"),
+            s3_bucket_region: get_env_var_or_panic("AWS_S3_BUCKET_REGION"),
+            endpoint_url: endpoint_url.to_string(),
+        }
+    }
+}

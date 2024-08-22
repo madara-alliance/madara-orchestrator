@@ -118,3 +118,72 @@ fn transform_url(input: &str, host_port: &u16) -> String {
     // Construct the new URL
     format!("http://{}:{}/{}", host, host_port, first_path_segment)
 }
+
+#[rstest]
+#[case(Uuid::new_v4())]
+#[case(Uuid::new_v4())]
+#[case(Uuid::new_v4())]
+#[tokio::test]
+async fn testing_parallel_s3(#[case] id: Uuid) {
+    use crate::data_storage::aws_s3::config::AWSS3ConfigType;
+    use crate::data_storage::aws_s3::config::S3LocalStackConfig;
+    use crate::data_storage::aws_s3::AWSS3;
+    use crate::data_storage::DataStorage;
+    use crate::tests::parallel::localstack::LocalStack;
+    use aws_config::BehaviorVersion;
+    use aws_config::Region;
+    use aws_sdk_s3 as s3;
+    use aws_sdk_s3::config::Credentials;
+    use bytes::Bytes;
+    use testcontainers::runners::AsyncRunner;
+
+    dotenvy::from_filename("../.env.test").unwrap();
+
+    let node = LocalStack::default().start().await.unwrap();
+    let host_ip = node.get_host().await.unwrap();
+    let host_port = node.get_host_port_ipv4(4566).await.unwrap();
+
+    let aws_access_key_id = get_env_var_or_panic("AWS_ACCESS_KEY_ID");
+    let aws_secret_access_key = get_env_var_or_panic("AWS_SECRET_ACCESS_KEY");
+    let aws_region = get_env_var_or_panic("AWS_REGION");
+    let region_provider = Region::new(aws_region);
+    let aws_endpoint_url = format!("http://{host_ip}:{host_port}");
+
+    let aws_s3_bucket_name = get_env_var_or_panic("AWS_S3_BUCKET_NAME");
+
+    // Set up AWS client
+    let creds = Credentials::new(aws_access_key_id, aws_secret_access_key, None, None, "test");
+
+    let config = aws_sdk_s3::config::Builder::default()
+        .behavior_version(BehaviorVersion::v2024_03_28())
+        .region(region_provider)
+        .credentials_provider(creds)
+        .endpoint_url(aws_endpoint_url.clone())
+        .force_path_style(true)
+        .build();
+
+    let client = s3::Client::from_conf(config);
+
+    client.create_bucket().bucket(aws_s3_bucket_name.clone()).send().await.unwrap();
+
+    let list_buckets_output = client.list_buckets().send().await.unwrap();
+    assert!(list_buckets_output.buckets.is_some());
+    let buckets_list = list_buckets_output.buckets.unwrap();
+    assert_eq!(1, buckets_list.len());
+    assert_eq!(aws_s3_bucket_name.as_str(), buckets_list[0].name.as_ref().unwrap());
+
+    // Testing Putting Data
+
+    let storage_client = AWSS3::new(AWSS3ConfigType::WithEndpoint(S3LocalStackConfig::new_from_env_with_endpoint(
+        aws_endpoint_url.as_str(),
+    )))
+    .await;
+
+    let key = "key";
+
+    storage_client.put_data(Bytes::from(id.to_string()), key).await.unwrap();
+
+    let val = storage_client.get_data(key).await.unwrap();
+
+    println!("{:?}", val);
+}
