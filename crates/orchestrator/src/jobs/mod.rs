@@ -138,7 +138,7 @@ pub async fn create_job(
         config
             .alerts()
             .send_alert_message(format!(
-                "[create_job:src/jobs/mod.rs] Job already exists. Internal ID : {:?}, Metadata : {:?}",
+                "Error in creating job. Job already exists. Internal ID : {:?}, Metadata : {:?}",
                 internal_id, metadata
             ))
             .await
@@ -170,7 +170,7 @@ pub async fn process_job(id: Uuid) -> Result<(), JobError> {
             config
                 .alerts()
                 .send_alert_message(format!(
-                    "[process_job:src/jobs/mod.rs] Job invalid status. Job ID : {:?}, Job Status : {:?}",
+                    "Error in processing job. Job invalid status. Job ID : {:?}, Job Status : {:?}",
                     id, job.status
                 ))
                 .await
@@ -245,7 +245,7 @@ pub async fn verify_job(id: Uuid) -> Result<(), JobError> {
             config
                 .alerts()
                 .send_alert_message(format!(
-                    "[verify_job:src/jobs/mod.rs] Verification failed for job. Job ID : {:?}",
+                    "Verification failed for job. Job ID : {:?}",
                     id
                 ))
                 .await
@@ -264,7 +264,7 @@ pub async fn verify_job(id: Uuid) -> Result<(), JobError> {
                 config
                     .alerts()
                     .send_alert_message(format!(
-                        "[verify_job:src/jobs/mod.rs] Verification failed for job {}. Retrying processing attempt {}.",
+                        "Verification failed for job {}. Retrying processing attempt {}.",
                         job.id,
                         process_attempts + 1
                     ))
@@ -276,7 +276,7 @@ pub async fn verify_job(id: Uuid) -> Result<(), JobError> {
                 config
                     .alerts()
                     .send_alert_message(format!(
-                        "[verify_job:src/jobs/mod.rs] Verification failed for job {}. Total attempts made for verifying : {}.",
+                        "Verification failed for job {}. Total attempts made for verifying : {}.",
                         job.id, process_attempts
                     ))
                     .await
@@ -291,7 +291,7 @@ pub async fn verify_job(id: Uuid) -> Result<(), JobError> {
                 config
                     .alerts()
                     .send_alert_message(format!(
-                        "[verify_job:src/jobs/mod.rs] Verification attempts exceeded for job. Job ID {}",
+                        "Verification attempts exceeded for job. Job ID {}",
                         job.id
                     ))
                     .await
