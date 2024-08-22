@@ -1,5 +1,6 @@
 pub mod ethereum;
-mod mock_server;
+pub mod localstack;
+pub mod mock_server;
 pub mod mongodb;
 pub mod node;
 pub mod sharp;

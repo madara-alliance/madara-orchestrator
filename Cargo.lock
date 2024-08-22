@@ -3889,8 +3889,14 @@ name = "e2e-tests"
 version = "0.1.0"
 dependencies = [
  "alloy 0.1.2",
+ "async-trait",
+ "aws-config",
+ "aws-sdk-s3",
+ "aws-sdk-sqs",
+ "color-eyre",
  "dotenvy",
  "httpmock",
+ "log",
  "orchestrator",
  "reqwest 0.11.27",
  "serde_json",

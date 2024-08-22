@@ -2,6 +2,7 @@ use e2e_tests::ethereum::EthereumClient;
 use e2e_tests::sharp::SharpClient;
 use e2e_tests::starknet_client::StarknetClient;
 use e2e_tests::{MongoDbServer, Orchestrator};
+use e2e_tests::localstack::LocalStack;
 
 extern crate e2e_tests;
 
@@ -25,6 +26,11 @@ async fn test_orchestrator_workflow() {
     let ethereum_client = EthereumClient::new();
     let sharp_client = SharpClient::new();
 
+    // Setting up LocalStack
+    let localstack_instance = LocalStack {};
+    localstack_instance.setup_s3().await.unwrap();
+    localstack_instance.setup_sqs().await.unwrap();
+    
     let mut env_vec = get_env_vec();
 
     let starknet_client_url = starknet_client.url();
