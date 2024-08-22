@@ -2,7 +2,7 @@ use aws_config::Region;
 use orchestrator::data_storage::aws_s3::config::{AWSS3ConfigType, S3LocalStackConfig};
 use orchestrator::data_storage::aws_s3::AWSS3;
 use orchestrator::data_storage::{DataStorage, DataStorageConfig};
-use orchestrator::queue::job_queue::{JOB_PROCESSING_QUEUE, JOB_VERIFICATION_QUEUE, JOB_HANDLE_FAILURE_QUEUE};
+use orchestrator::queue::job_queue::{JOB_HANDLE_FAILURE_QUEUE, JOB_PROCESSING_QUEUE, JOB_VERIFICATION_QUEUE};
 
 const PIE_FILE_URL: &str = "https://madara-orchestrator-sharp-pie.s3.amazonaws.com/238996-SN.zip";
 const PIE_FILE_BLOCK_NUMBER: u64 = 238996;
