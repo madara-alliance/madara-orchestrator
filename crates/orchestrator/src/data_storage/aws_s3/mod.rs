@@ -2,7 +2,6 @@ use crate::data_storage::aws_s3::config::AWSS3Config;
 use crate::data_storage::DataStorage;
 use async_trait::async_trait;
 use aws_config::SdkConfig;
-use aws_sdk_s3::config::{Credentials, Region};
 use aws_sdk_s3::primitives::ByteStream;
 use aws_sdk_s3::Client;
 use bytes::Bytes;
