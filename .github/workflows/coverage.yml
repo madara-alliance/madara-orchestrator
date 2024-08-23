@@ -4,7 +4,7 @@ on:
   pull_request_target:
     branches:
       - main
-    types: [opened, synchronize, reopened]
+    types: [ opened, synchronize, reopened ]
   push:
     branches-ignore:
       - main
@@ -74,7 +74,7 @@ jobs:
       - name: Run llvm-cov tests
         env:
           ETHEREUM_BLAST_RPC_URL: ${{ secrets.ETHEREUM_BLAST_RPC_URL }}
-        run: cargo llvm-cov nextest --release --lcov --output-path lcov.info --test-threads=1
+        run: RUST_LOG=debug RUST_BACKTRACE=1 cargo llvm-cov nextest --release --lcov --output-path lcov.info --test-threads=1
 
       - name: Coveralls
         uses: coverallsapp/github-action@v2
