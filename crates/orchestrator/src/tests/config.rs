@@ -42,9 +42,8 @@ pub struct TestConfigBuilder {
 
     // Storing for Data Storage client
     // These are need to be kept in scope to keep the Server alive
-    data_storage_node : Option<ContainerAsync<LocalStack>>,
-    data_storage_client : Option<aws_sdk_s3::Client>,
-
+    data_storage_node: Option<ContainerAsync<LocalStack>>,
+    data_storage_client: Option<aws_sdk_s3::Client>,
 }
 
 impl Default for TestConfigBuilder {
@@ -66,7 +65,7 @@ impl TestConfigBuilder {
             storage: None,
 
             data_storage_node: None,
-            data_storage_client: None
+            data_storage_client: None,
         }
     }
 
@@ -151,7 +150,7 @@ impl TestConfigBuilder {
 
         // Deleting and Creating the queues in sqs.
         create_sqs_queues().await.expect("Not able to delete and create the queues.");
-        
+
         // Deleting the database
         drop_database().await.expect("Unable to drop the database.");
 
@@ -178,25 +177,24 @@ impl TestConfigBuilder {
     }
 }
 
+/// LocalStack (s3 and sqs) & MongoDb Setup using TestContainers ////
 
-//// LocalStack (s3 and sqs) & MongoDb Setup using TestContainers ////
-
-use crate::tests::common::testcontainer_setups::Mongo;
-use aws_config::{BehaviorVersion, Region};
-use aws_sdk_sqs as sqs;
-use aws_sdk_sqs::config::Credentials;
-use testcontainers::ContainerAsync;
-use testcontainers::runners::AsyncRunner;
+use super::common::testcontainer_setups::LocalStack;
 use crate::data_storage::aws_s3::config::{AWSS3ConfigType, S3LocalStackConfig};
 use crate::data_storage::aws_s3::AWSS3;
+use crate::tests::common::testcontainer_setups::Mongo;
+use aws_config::{BehaviorVersion, Region};
 use aws_sdk_s3 as s3;
+use aws_sdk_sqs as sqs;
+use aws_sdk_sqs::config::Credentials;
 use testcontainers::core::IntoContainerPort;
-use super::common::testcontainer_setups::LocalStack;
-
-
+use testcontainers::runners::AsyncRunner;
+use testcontainers::ContainerAsync;
 
 /// Localstack SQS testcontainer
-pub async fn sqs_testcontainer_setup(queue_name : String) -> (ContainerAsync<LocalStack>, Box<dyn QueueProvider>, sqs::Client) {
+pub async fn sqs_testcontainer_setup(
+    queue_name: String,
+) -> (ContainerAsync<LocalStack>, Box<dyn QueueProvider>, sqs::Client) {
     dotenvy::from_filename("../.env.test").unwrap();
 
     let node = LocalStack::default().start().await.unwrap();
@@ -285,6 +283,6 @@ pub async fn mongodb_testcontainer_setup() -> (ContainerAsync<Mongo>, Box<dyn Da
 
     let mongo_config = MongoDbConfig { url: connection_url };
     let database = MongoDb::new(mongo_config).await;
-    
+
     (node, Box::new(database) as Box<dyn Database>)
 }

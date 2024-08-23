@@ -1,13 +1,13 @@
 use crate::jobs::types::JobStatus::Created;
 use crate::jobs::types::JobType::DataSubmission;
 use crate::jobs::types::{ExternalId, JobItem};
-use crate::tests::config::{mongodb_testcontainer_setup, s3_testcontainer_setup, sqs_testcontainer_setup};
-use std::collections::HashMap;
-use uuid::Uuid;
 use crate::queue::job_queue::{JobQueueMessage, JOB_PROCESSING_QUEUE};
-use utils::env_utils::get_env_var_or_panic;
-use rstest::rstest;
+use crate::tests::config::{mongodb_testcontainer_setup, s3_testcontainer_setup, sqs_testcontainer_setup};
 use bytes::Bytes;
+use rstest::rstest;
+use std::collections::HashMap;
+use utils::env_utils::get_env_var_or_panic;
+use uuid::Uuid;
 
 #[rstest]
 #[case(Uuid::new_v4())]
