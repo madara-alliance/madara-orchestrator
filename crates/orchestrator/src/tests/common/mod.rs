@@ -22,10 +22,6 @@ use crate::jobs::types::JobType::DataSubmission;
 use crate::jobs::types::{ExternalId, JobItem};
 use crate::queue::job_queue::{JOB_PROCESSING_QUEUE, JOB_VERIFICATION_QUEUE};
 
-pub const SNS_ALERT_TEST_QUEUE: &str = "orchestrator_sns_alert_testing_queue";
-pub const SNS_ALERT_TEST_QUEUE_URL: &str =
-    "http://sqs.us-east-1.localhost.localstack.cloud:4566/000000000000/orchestrator_sns_alert_testing_queue";
-
 #[fixture]
 pub fn default_job_item() -> JobItem {
     JobItem {
