@@ -24,7 +24,11 @@ impl AWSS3 {
     /// and returning it.
     pub fn new(s3_config: AWSS3Config, aws_config: &SdkConfig) -> Self {
         // Building AWS S3 config
-        let client = Client::new(aws_config);
+        let mut s3_config_builder = aws_sdk_s3::config::Builder::from(aws_config);
+
+        // this is necessary for it to work with localstack in test cases
+        s3_config_builder.set_force_path_style(Some(true));
+        let client = Client::from_conf(s3_config_builder.build());
         Self { client, bucket: s3_config.bucket_name }
     }
 }

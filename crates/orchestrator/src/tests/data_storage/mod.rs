@@ -1,7 +1,6 @@
 use crate::data_storage::aws_s3::config::AWSS3Config;
 use crate::data_storage::aws_s3::AWSS3;
 use crate::data_storage::{DataStorage, DataStorageConfig};
-use crate::tests::config::TestConfigBuilder;
 use bytes::Bytes;
 use rstest::rstest;
 use serde_json::json;
@@ -14,8 +13,6 @@ use utils::env_utils::get_env_var_or_panic;
 #[rstest]
 #[tokio::test]
 async fn test_put_and_get_data_s3() -> color_eyre::Result<()> {
-    TestConfigBuilder::new().build().await;
-
     dotenvy::from_filename("../.env.test")?;
 
     let config = AWSS3Config::new_from_env();
