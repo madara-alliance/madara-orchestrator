@@ -1,13 +1,6 @@
 name: Rust Test & Coverage
 
 on:
-  pull_request_target:
-    branches:
-      - main
-    types: [ opened, synchronize, reopened ]
-  push:
-    branches-ignore:
-      - main
   workflow_call:
   workflow_dispatch:
 
