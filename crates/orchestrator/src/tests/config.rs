@@ -20,7 +20,7 @@ use crate::database::mongodb::MongoDb;
 use crate::database::{Database, DatabaseConfig};
 use crate::queue::sqs::SqsQueue;
 use crate::queue::QueueProvider;
-use crate::tests::common::{create_sqs_queues, drop_database, get_storage_client};
+use crate::tests::common::{create_sns_arn, create_sqs_queues, drop_database, get_storage_client};
 
 // Inspiration : https://rust-unofficial.github.io/patterns/patterns/creational/builder.html
 // TestConfigBuilder allows to heavily customise the global configs based on the test's requirement.
@@ -151,6 +151,8 @@ impl TestConfigBuilder {
         create_sqs_queues().await.expect("Not able to delete and create the queues.");
         // Deleting the database
         drop_database().await.expect("Unable to drop the database.");
+        // Creating the SNS ARN
+        create_sns_arn().await.expect("Unable to create the sns arn");
 
         let config = Config::new(
             self.starknet_client.unwrap_or_else(|| {

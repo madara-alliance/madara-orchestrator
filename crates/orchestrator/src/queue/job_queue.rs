@@ -80,6 +80,13 @@ where
                 Err(e) => {
                     log::error!("Failed to handle job with id {:?}. Error: {:?}", job_message.id, e);
 
+                    // Sending alert in case of job error
+                    config
+                        .alerts()
+                        .send_alert_message(e.to_string())
+                        .await
+                        .map_err(|e| ConsumptionError::Other(OtherError::from(e)))?;
+
                     // if the queue as a retry logic at the source, it will be attempted
                     // after the nack
                     match delivery.nack().await {

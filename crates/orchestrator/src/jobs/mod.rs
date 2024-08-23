@@ -135,35 +135,11 @@ pub async fn create_job(
         .await
         .map_err(|e| JobError::Other(OtherError(e)))?;
     if existing_job.is_some() {
-        config
-            .alerts()
-            .send_alert_message(format!(
-                "Error in creating job. Job already exists. Internal ID : {:?}, Metadata : {:?}",
-                internal_id, metadata
-            ))
-            .await
-            .map_err(|e| JobError::Other(OtherError(e)))?;
         return Err(JobError::JobAlreadyExists { internal_id, job_type });
     }
 
     let job_handler = factory::get_job_handler(&job_type).await;
-    let job_item = job_handler.create_job(config.as_ref(), internal_id.clone(), metadata.clone()).await;
-
-    // Error handling for sending alerts
-    let job_item = match job_item {
-        Ok(job_item) => job_item,
-        Err(e) => {
-            config
-                .alerts()
-                .send_alert_message(format!(
-                    "Error in creating job. Job already exists. Internal ID : {:?}, Metadata : {:?}. Error : {:?}",
-                    internal_id, metadata, e
-                ))
-                .await
-                .map_err(|e| JobError::Other(OtherError(e)))?;
-            return Err(e);
-        }
-    };
+    let job_item = job_handler.create_job(config.as_ref(), internal_id.clone(), metadata.clone()).await?;
 
     config.database().create_job(job_item.clone()).await.map_err(|e| JobError::Other(OtherError(e)))?;
 
@@ -184,14 +160,6 @@ pub async fn process_job(id: Uuid) -> Result<(), JobError> {
             log::info!("Processing job with id {:?}", id);
         }
         _ => {
-            config
-                .alerts()
-                .send_alert_message(format!(
-                    "Error in processing job. Job invalid status. Job ID : {:?}, Job Status : {:?}",
-                    id, job.status
-                ))
-                .await
-                .map_err(|e| JobError::Other(OtherError(e)))?;
             return Err(JobError::InvalidStatus { id, job_status: job.status });
         }
     }
@@ -205,20 +173,7 @@ pub async fn process_job(id: Uuid) -> Result<(), JobError> {
         .map_err(|e| JobError::Other(OtherError(e)))?;
 
     let job_handler = factory::get_job_handler(&job.job_type).await;
-    let external_id = job_handler.process_job(config.as_ref(), &mut job).await;
-
-    // Error handling for sending alerts
-    let external_id = match external_id {
-        Ok(external_id) => external_id,
-        Err(e) => {
-            config
-                .alerts()
-                .send_alert_message(format!("Error in processing job. Error : {:?}", e))
-                .await
-                .map_err(|e| JobError::Other(OtherError(e)))?;
-            return Err(e);
-        }
-    };
+    let external_id = job_handler.process_job(config.as_ref(), &mut job).await?;
 
     let metadata = increment_key_in_metadata(&job.metadata, JOB_PROCESS_ATTEMPT_METADATA_KEY)?;
 
@@ -256,20 +211,7 @@ pub async fn verify_job(id: Uuid) -> Result<(), JobError> {
     }
 
     let job_handler = factory::get_job_handler(&job.job_type).await;
-    let verification_status = job_handler.verify_job(config.as_ref(), &mut job).await;
-
-    // Error handling for sending alerts
-    let verification_status = match verification_status {
-        Ok(verification_status) => verification_status,
-        Err(e) => {
-            config
-                .alerts()
-                .send_alert_message(format!("Error in verifying job. Error : {:?}", e))
-                .await
-                .map_err(|e| JobError::Other(OtherError(e)))?;
-            return Err(e);
-        }
-    };
+    let verification_status = job_handler.verify_job(config.as_ref(), &mut job).await?;
 
     match verification_status {
         JobVerificationStatus::Verified => {
@@ -286,11 +228,6 @@ pub async fn verify_job(id: Uuid) -> Result<(), JobError> {
 
             config.database().update_job(&new_job).await.map_err(|e| JobError::Other(OtherError(e)))?;
 
-            config
-                .alerts()
-                .send_alert_message(format!("Verification failed for job. Job ID : {:?}", id))
-                .await
-                .map_err(|e| JobError::Other(OtherError(e)))?;
             log::error!("Verification failed for job with id {:?}. Cannot verify.", id);
 
             // retry job processing if we haven't exceeded the max limit
@@ -302,15 +239,6 @@ pub async fn verify_job(id: Uuid) -> Result<(), JobError> {
                     job.id,
                     process_attempts + 1
                 );
-                config
-                    .alerts()
-                    .send_alert_message(format!(
-                        "Verification failed for job {}. Retrying processing attempt {}.",
-                        job.id,
-                        process_attempts + 1
-                    ))
-                    .await
-                    .map_err(|e| JobError::Other(OtherError(e)))?;
                 add_job_to_process_queue(job.id).await.map_err(|e| JobError::Other(OtherError(e)))?;
                 return Ok(());
             } else {
