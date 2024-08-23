@@ -87,7 +87,6 @@ pub async fn create_sqs_queues() -> color_eyre::Result<()> {
     // Creating SQS queues
     sqs_client.create_queue().queue_name(JOB_PROCESSING_QUEUE).send().await?;
     sqs_client.create_queue().queue_name(JOB_VERIFICATION_QUEUE).send().await?;
-    sqs_client.create_queue().queue_name("orchestrator_sns_alert_testing_queue").send().await?;
     Ok(())
 }
 

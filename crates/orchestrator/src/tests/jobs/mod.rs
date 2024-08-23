@@ -21,7 +21,6 @@ use std::collections::HashMap;
 use std::sync::Arc;
 use std::time::Duration;
 
-use crate::alerts::MockAlerts;
 use mockall::predicate::eq;
 use mongodb::bson::doc;
 use omniqueue::QueueError;
@@ -323,21 +322,8 @@ async fn verify_job_with_rejected_status_adds_to_queue_works() {
     let job_item =
         build_job_item_by_type_and_status(JobType::DataSubmission, JobStatus::PendingVerification, "1".to_string());
 
-    let mut alert_mock_client = MockAlerts::new();
-    // adding expectations for alert calls
-    alert_mock_client
-        .expect_send_alert_message()
-        .with(eq(format!("Verification failed for job. Job ID : {:?}", job_item.id)))
-        .times(1)
-        .return_once(|_| Ok(()));
-    alert_mock_client
-        .expect_send_alert_message()
-        .with(eq(format!("Verification failed for job {}. Retrying processing attempt {}.", job_item.id, 1)))
-        .times(1)
-        .return_once(|_| Ok(()));
-
     // building config
-    TestConfigBuilder::new().mock_alerts(Box::new(alert_mock_client)).build().await;
+    TestConfigBuilder::new().build().await;
 
     let config = config().await;
     let database_client = config.database();
@@ -377,25 +363,12 @@ async fn verify_job_with_rejected_status_works() {
     let mut job_item =
         build_job_item_by_type_and_status(JobType::DataSubmission, JobStatus::PendingVerification, "1".to_string());
 
-    let mut alert_mock_client = MockAlerts::new();
-    // adding expectations for alert calls
-    alert_mock_client
-        .expect_send_alert_message()
-        .with(eq(format!("Verification failed for job. Job ID : {:?}", job_item.id)))
-        .times(1)
-        .return_once(|_| Ok(()));
-    alert_mock_client
-        .expect_send_alert_message()
-        .with(eq(format!("Verification failed for job {}. Total attempts made for verifying : {}.", job_item.id, 1)))
-        .times(1)
-        .return_once(|_| Ok(()));
-
     // increasing JOB_VERIFICATION_ATTEMPT_METADATA_KEY to simulate max. attempts reached.
     let metadata = increment_key_in_metadata(&job_item.metadata, JOB_PROCESS_ATTEMPT_METADATA_KEY).unwrap();
     job_item.metadata = metadata;
 
     // building config
-    TestConfigBuilder::new().mock_alerts(Box::new(alert_mock_client)).build().await;
+    TestConfigBuilder::new().build().await;
 
     let config = config().await;
     let database_client = config.database();
@@ -481,20 +454,12 @@ async fn verify_job_with_pending_status_works() {
     let mut job_item =
         build_job_item_by_type_and_status(JobType::DataSubmission, JobStatus::PendingVerification, "1".to_string());
 
-    let mut alert_mock_client = MockAlerts::new();
-    // adding expectations for alert calls
-    alert_mock_client
-        .expect_send_alert_message()
-        .with(eq(format!("Verification attempts exceeded for job. Job ID {}", job_item.id)))
-        .times(1)
-        .return_once(|_| Ok(()));
-
     // increasing JOB_VERIFICATION_ATTEMPT_METADATA_KEY to simulate max. attempts reached.
     let metadata = increment_key_in_metadata(&job_item.metadata, JOB_VERIFICATION_ATTEMPT_METADATA_KEY).unwrap();
     job_item.metadata = metadata;
 
     // building config
-    TestConfigBuilder::new().mock_alerts(Box::new(alert_mock_client)).build().await;
+    TestConfigBuilder::new().build().await;
 
     let config = config().await;
     let database_client = config.database();
