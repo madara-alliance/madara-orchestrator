@@ -43,7 +43,7 @@ jobs:
           profile: minimal
           toolchain: stable
           override: true
-          
+
       - name: Rust Cache
         uses: Swatinem/rust-cache@v2
 
