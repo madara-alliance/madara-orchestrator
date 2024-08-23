@@ -241,15 +241,6 @@ pub async fn verify_job(id: Uuid) -> Result<(), JobError> {
                 );
                 add_job_to_process_queue(job.id).await.map_err(|e| JobError::Other(OtherError(e)))?;
                 return Ok(());
-            } else {
-                config
-                    .alerts()
-                    .send_alert_message(format!(
-                        "Verification failed for job {}. Total attempts made for verifying : {}.",
-                        job.id, process_attempts
-                    ))
-                    .await
-                    .map_err(|e| JobError::Other(OtherError(e)))?;
             }
         }
         JobVerificationStatus::Pending => {
@@ -257,11 +248,6 @@ pub async fn verify_job(id: Uuid) -> Result<(), JobError> {
             let verify_attempts = get_u64_from_metadata(&job.metadata, JOB_VERIFICATION_ATTEMPT_METADATA_KEY)
                 .map_err(|e| JobError::Other(OtherError(e)))?;
             if verify_attempts >= job_handler.max_verification_attempts() {
-                config
-                    .alerts()
-                    .send_alert_message(format!("Verification attempts exceeded for job. Job ID {}", job.id))
-                    .await
-                    .map_err(|e| JobError::Other(OtherError(e)))?;
                 log::info!("Verification attempts exceeded for job {}. Marking as timed out.", job.id);
                 config
                     .database()
