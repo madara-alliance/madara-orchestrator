@@ -1,5 +1,5 @@
 use crate::config::config;
-use crate::tests::common::{get_sns_client, get_sqs_client, SNS_ALERT_TEST_QUEUE_URL};
+use crate::tests::common::{get_sns_client, get_sqs_client, SNS_ALERT_TEST_QUEUE, SNS_ALERT_TEST_QUEUE_URL};
 use crate::tests::config::TestConfigBuilder;
 use aws_sdk_sqs::types::QueueAttributeName::QueueArn;
 use rstest::rstest;
@@ -13,7 +13,7 @@ async fn sns_alert_subscribe_to_topic_receive_alert_works() {
     TestConfigBuilder::new().build().await;
 
     let sqs_client = get_sqs_client().await;
-    sqs_client.create_queue().queue_name("orchestrator_sns_alert_testing_queue").send().await.unwrap();
+    sqs_client.create_queue().queue_name(SNS_ALERT_TEST_QUEUE).send().await.unwrap();
 
     let sns_client = get_sns_client().await;
     let config = config().await;
