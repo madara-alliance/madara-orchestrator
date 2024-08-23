@@ -1,6 +1,6 @@
 use std::sync::Arc;
 
-use crate::data_storage::aws_s3::config::{AWSS3Config, AWSS3ConfigType};
+use crate::data_storage::aws_s3::config::AWSS3Config;
 use crate::data_storage::aws_s3::AWSS3;
 use crate::data_storage::{DataStorage, DataStorageConfig};
 use arc_swap::{ArcSwap, Guard};

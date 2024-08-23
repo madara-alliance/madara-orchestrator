@@ -1,4 +1,4 @@
-use crate::data_storage::aws_s3::config::{AWSS3Config, AWSS3ConfigType};
+use crate::data_storage::aws_s3::config::AWSS3Config;
 use crate::data_storage::DataStorage;
 use async_trait::async_trait;
 use aws_config::SdkConfig;
@@ -28,17 +28,6 @@ impl AWSS3 {
         let client = Client::new(aws_config);
         Self { client, bucket: s3_config.bucket_name }
     }
-}
-
-/// Return the constructed `Credentials` and `Region`
-fn get_credentials_and_region_from_config(
-    s3_key_id: String,
-    s3_key_secret: String,
-    s3_bucket_region: String,
-) -> (Credentials, Region) {
-    let credentials = Credentials::new(s3_key_id, s3_key_secret, None, None, "loaded_from_custom_env");
-    let region = Region::new(s3_bucket_region);
-    (credentials, region)
 }
 
 /// Implementation of `DataStorage` for `AWSS3`
