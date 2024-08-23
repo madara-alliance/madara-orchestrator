@@ -55,7 +55,7 @@ pub async fn init_config() -> Config {
     ));
 
     // init database
-    let database = Box::new(MongoDb::new(MongoDbConfig::new_from_env()).await);
+    let database = build_database_client().await;
 
     // init AWS
     let aws_config = aws_config::load_from_env().await;
@@ -191,9 +191,16 @@ pub async fn build_storage_client(aws_config: &SdkConfig) -> Box<dyn DataStorage
     }
 }
 
-pub async fn build_queue_client(_aws_config: &SdkConfig) -> Box<dyn QueueProvider + Send + Sync> {
+pub fn build_queue_client(_aws_config: &SdkConfig) -> Box<dyn QueueProvider + Send + Sync> {
     match get_env_var_or_panic("QUEUE_PROVIDER").as_str() {
         "sqs" => Box::new(SqsQueue {}),
         _ => panic!("Unsupported Queue Client"),
+    }
+}
+
+pub async fn build_database_client() -> Box<dyn Database + Send + Sync> {
+    match get_env_var_or_panic("DATABASE").as_str() {
+        "mongodb" => Box::new(MongoDb::new(MongoDbConfig::new_from_env()).await),
+        _ => panic!("Unsupported Database Client"),
     }
 }
