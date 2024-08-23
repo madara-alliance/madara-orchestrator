@@ -130,45 +130,46 @@ fn parse_job_message(message: &Delivery) -> Result<Option<JobQueueMessage>, Cons
     message
         .payload_serde_json()
         .wrap_err("Payload Serde Error")
-        .map_err(|e| ConsumptionError::Other(OtherError::from(e)))?;
+        .map_err(|e| ConsumptionError::Other(OtherError::from(e)))
+}
 
-    match job_message {
-        Some(job_message) => {
-            log::info!("Handling job with id {:?} for queue {:?}", job_message.id, queue);
-            match handler(job_message.id).await {
-                Ok(_) => delivery
-                    .ack()
-                    .await
-                    .map_err(|(e, _)| e)
-                    .wrap_err("Queue Error")
-                    .map_err(|e| ConsumptionError::Other(OtherError::from(e)))?,
-                Err(e) => {
-                    log::error!("Failed to handle job with id {:?}. Error: {:?}", job_message.id, e);
+fn parse_worker_message(message: &Delivery) -> Result<Option<WorkerTriggerMessage>, ConsumptionError> {
+    message
+        .payload_serde_json()
+        .wrap_err("Payload Serde Error")
+        .map_err(|e| ConsumptionError::Other(OtherError::from(e)))
+}
 
-                    // Sending alert in case of job error
-                    config
-                        .alerts()
-                        .send_alert_message(e.to_string())
-                        .await
-                        .map_err(|e| ConsumptionError::Other(OtherError::from(e)))?;
+async fn handle_job_message<F, Fut>(
+    job_message: JobQueueMessage,
+    message: Delivery,
+    handler: F,
+) -> Result<(), ConsumptionError>
+where
+    F: FnOnce(Uuid) -> Fut,
+    Fut: Future<Output = Result<(), JobError>>,
+{
+    log::info!("Handling job with id {:?}", job_message.id);
 
-                    // if the queue as a retry logic at the source, it will be attempted
-                    // after the nack
-                    match delivery.nack().await {
-                        Ok(_) => Err(ConsumptionError::FailedToHandleJob {
-                            job_id: job_message.id,
-                            error_msg: "Job handling failed, message nack-ed".to_string(),
-                        })?,
-                        Err(delivery_nack_error) => Err(ConsumptionError::FailedToHandleJob {
-                            job_id: job_message.id,
-                            error_msg: delivery_nack_error.0.to_string(),
-                        })?,
-                    }
-                }
-            };
+    match handler(job_message.id).await {
+        Ok(_) => {
+            message
+                .ack()
+                .await
+                .map_err(|(e, _)| e)
+                .wrap_err("Queue Error")
+                .map_err(|e| ConsumptionError::Other(OtherError::from(e)))?;
+            Ok(())
         }
         Err(e) => {
             log::error!("Failed to handle job with id {:?}. Error: {:?}", job_message.id, e);
+            config()
+                .await
+                .alerts()
+                .send_alert_message(e.to_string())
+                .await
+                .map_err(|e| ConsumptionError::Other(OtherError::from(e)))?;
+
             match message.nack().await {
                 Ok(_) => Err(ConsumptionError::FailedToHandleJob {
                     job_id: job_message.id,
@@ -207,6 +208,13 @@ where
         }
         Err(e) => {
             log::error!("Failed to handle worker trigger {:?}. Error: {:?}", job_message.worker, e);
+            config()
+                .await
+                .alerts()
+                .send_alert_message(e.to_string())
+                .await
+                .map_err(|e| ConsumptionError::Other(OtherError::from(e)))?;
+
             message.nack().await.map_err(|(e, _)| ConsumptionError::Other(OtherError::from(e.to_string())))?;
             Err(ConsumptionError::FailedToSpawnWorker {
                 worker_trigger_type: job_message.worker,
