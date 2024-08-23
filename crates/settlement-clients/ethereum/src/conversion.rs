@@ -6,7 +6,7 @@ use c_kzg::{Blob, KzgCommitment, KzgProof, KzgSettings};
 use color_eyre::{eyre::ContextCompat, Result as EyreResult};
 use std::fmt::Write;
 
-/// Converts a `&[Vec<u8>]` to `Vec<U256>`. Each inner slice is expected to be exactly 32 bytes long.
+/// Converts a `&[[u8; 32]]` to `Vec<U256>`.
 /// Pads with zeros if any inner slice is shorter than 32 bytes.
 pub(crate) fn vec_u8_32_to_vec_u256(slices: &[[u8; 32]]) -> EyreResult<Vec<U256>> {
     slices.iter().map(|slice| slice_u8_to_u256(slice)).collect()
@@ -17,9 +17,9 @@ pub(crate) fn slice_u8_to_u256(slice: &[u8]) -> EyreResult<U256> {
     U256::try_from_be_slice(slice).wrap_err_with(|| "could not convert &[u8] to U256".to_string())
 }
 
-// Function to convert a slice of u8 to a padded hex string
-// Function only takes a slice of length up to 32 elements
-// Pads the value on the right side with zeros only if the converted string has lesser than 64 characters.
+/// Function to convert a slice of u8 to a padded hex string
+/// Function only takes a slice of length up to 32 elements
+/// Pads the value on the right side with zeros only if the converted string has lesser than 64 characters.
 pub(crate) fn to_padded_hex(slice: &[u8]) -> String {
     assert!(slice.len() <= 32, "Slice length must not exceed 32");
     let hex = slice.iter().fold(String::new(), |mut output, byte| {
@@ -46,7 +46,7 @@ pub fn get_input_data_for_eip_4844(program_output: Vec<[u8; 32]>, kzg_proof: [u8
 
     // program_output
     let program_output_length = program_output.len();
-    let program_output_hex = vec_u8_32_to_hex_string(program_output);
+    let program_output_hex = u8_32_slice_to_hex_string(&program_output);
 
     // length for program_output: 3*64 [offset, length, lines all have 64 char length] + length of program_output
     let length_program_output = (3 * 64 + program_output_hex.len()) / 2;
@@ -72,8 +72,8 @@ pub fn get_input_data_for_eip_4844(program_output: Vec<[u8; 32]>, kzg_proof: [u8
     Ok(input_data)
 }
 
-pub(crate) fn vec_u8_32_to_hex_string(data: Vec<[u8; 32]>) -> String {
-    data.into_iter().fold(String::new(), |mut output, arr| {
+pub(crate) fn u8_32_slice_to_hex_string(data: &[[u8; 32]]) -> String {
+    data.iter().fold(String::new(), |mut output, arr| {
         // Convert the array to a hex string
         let hex = arr.iter().fold(String::new(), |mut output, byte| {
             let _ = write!(output, "{byte:02x}");
@@ -232,8 +232,8 @@ mod tests {
         ],
         format!("{}{}", "ff".repeat(32), "f5".repeat(32))
     )]
-    fn vec_u8_32_to_hex_string_works(#[case] slice: Vec<[u8; 32]>, #[case] expected: String) {
-        let result = vec_u8_32_to_hex_string(slice);
+    fn u8_32_slice_to_hex_string_works(#[case] slice: Vec<[u8; 32]>, #[case] expected: String) {
+        let result = u8_32_slice_to_hex_string(&slice);
         assert_eq!(result, expected);
     }
 
