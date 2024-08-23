@@ -1,4 +1,5 @@
 pub mod constants;
+pub mod testcontainer_setups;
 
 use std::collections::HashMap;
 

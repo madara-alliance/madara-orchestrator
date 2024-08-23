@@ -39,7 +39,8 @@ async fn test_da_job_process_job_failure_on_small_blob_size(
     da_client.expect_max_blob_per_txn().with().returning(|| 1);
     da_client.expect_max_bytes_per_blob().with().returning(|| 1200);
 
-    let server = TestConfigBuilder::new().mock_da_client(Box::new(da_client)).build().await;
+    let services = TestConfigBuilder::new().mock_da_client(Box::new(da_client)).build().await;
+    let server = services.0;
     let config = config().await;
 
     let state_update = read_state_update_from_file(state_update_file.as_str()).expect("issue while reading");
@@ -91,7 +92,8 @@ async fn test_da_job_process_job_failure_on_small_blob_size(
 #[rstest]
 #[tokio::test]
 async fn test_da_job_process_job_failure_on_pending_block() {
-    let server = TestConfigBuilder::new().build().await;
+    let services = TestConfigBuilder::new().build().await;
+    let server = services.0;
     let config = config().await;
     let internal_id = "1";
 
@@ -176,7 +178,8 @@ async fn test_da_job_process_job_success(
     da_client.expect_max_blob_per_txn().with().returning(|| 6);
     da_client.expect_max_bytes_per_blob().with().returning(|| 131072);
 
-    let server = TestConfigBuilder::new().mock_da_client(Box::new(da_client)).build().await;
+    let services = TestConfigBuilder::new().mock_da_client(Box::new(da_client)).build().await;
+    let server = services.0;
     let config = config().await;
 
     let state_update = read_state_update_from_file(state_update_file.as_str()).expect("issue while reading");

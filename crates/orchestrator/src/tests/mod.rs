@@ -11,4 +11,4 @@ pub mod common;
 mod data_storage;
 pub mod workers;
 
-pub mod parallel;
+pub mod testcontainers;

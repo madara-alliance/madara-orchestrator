@@ -39,6 +39,12 @@ pub struct TestConfigBuilder {
     queue: Option<Box<dyn QueueProvider>>,
     /// Storage client
     storage: Option<Box<dyn DataStorage>>,
+
+    // Storing for Data Storage client
+    // These are need to be kept in scope to keep the Server alive
+    data_storage_node : Option<ContainerAsync<LocalStack>>,
+    data_storage_client : Option<aws_sdk_s3::Client>,
+
 }
 
 impl Default for TestConfigBuilder {
@@ -58,7 +64,18 @@ impl TestConfigBuilder {
             database: None,
             queue: None,
             storage: None,
+
+            data_storage_node: None,
+            data_storage_client: None
         }
+    }
+
+    pub async fn testcontainer_s3_data_storage(mut self) -> TestConfigBuilder {
+        let (node, storage_client, client) = s3_testcontainer_setup().await;
+        self.data_storage_node = Some(node);
+        self.data_storage_client = Some(client);
+        self.storage = Some(storage_client);
+        self
     }
 
     pub fn mock_da_client(mut self, da_client: Box<dyn DaClient>) -> TestConfigBuilder {
@@ -96,7 +113,7 @@ impl TestConfigBuilder {
         self
     }
 
-    pub async fn build(mut self) -> MockServer {
+    pub async fn build(mut self) -> (MockServer, Option<ContainerAsync<LocalStack>>, Option<aws_sdk_s3::Client>) {
         dotenvy::from_filename("../.env.test").expect("Failed to load the .env file");
 
         let server = MockServer::start();
@@ -134,6 +151,7 @@ impl TestConfigBuilder {
 
         // Deleting and Creating the queues in sqs.
         create_sqs_queues().await.expect("Not able to delete and create the queues.");
+        
         // Deleting the database
         drop_database().await.expect("Unable to drop the database.");
 
@@ -156,6 +174,117 @@ impl TestConfigBuilder {
 
         config_force_init(config).await;
 
-        server
+        (server, self.data_storage_node, self.data_storage_client)
     }
+}
+
+
+//// LocalStack (s3 and sqs) & MongoDb Setup using TestContainers ////
+
+use crate::tests::common::testcontainer_setups::Mongo;
+use aws_config::{BehaviorVersion, Region};
+use aws_sdk_sqs as sqs;
+use aws_sdk_sqs::config::Credentials;
+use testcontainers::ContainerAsync;
+use testcontainers::runners::AsyncRunner;
+use crate::data_storage::aws_s3::config::{AWSS3ConfigType, S3LocalStackConfig};
+use crate::data_storage::aws_s3::AWSS3;
+use aws_sdk_s3 as s3;
+use testcontainers::core::IntoContainerPort;
+use super::common::testcontainer_setups::LocalStack;
+
+
+
+/// Localstack SQS testcontainer
+pub async fn sqs_testcontainer_setup(queue_name : String) -> (ContainerAsync<LocalStack>, Box<dyn QueueProvider>, sqs::Client) {
+    dotenvy::from_filename("../.env.test").unwrap();
+
+    let node = LocalStack::default().start().await.unwrap();
+    let host_ip = node.get_host().await.unwrap();
+    let host_port = node.get_host_port_ipv4(4566).await.unwrap();
+
+    let aws_access_key_id = get_env_var_or_panic("AWS_ACCESS_KEY_ID");
+    let aws_secret_access_key = get_env_var_or_panic("AWS_SECRET_ACCESS_KEY");
+    let aws_region = get_env_var_or_panic("AWS_REGION");
+    let region_provider = Region::new(aws_region);
+    let aws_endpoint_url = format!("http://{host_ip}:{host_port}");
+
+    let creds = Credentials::new(aws_access_key_id, aws_secret_access_key, None, None, "test");
+    let config = aws_config::defaults(BehaviorVersion::v2024_03_28())
+        .region(region_provider)
+        .credentials_provider(creds)
+        .endpoint_url(aws_endpoint_url.clone())
+        .load()
+        .await;
+
+    let client = sqs::Client::new(&config);
+
+    // Queue creation
+    let queue_output = client.create_queue().queue_name(queue_name).send().await.unwrap();
+
+    let queue_host_url = transform_url(queue_output.queue_url().unwrap(), &host_port);
+    let sqs_queue = SqsQueue::new(queue_host_url.to_string());
+
+    (node, Box::new(sqs_queue) as Box<dyn QueueProvider>, client)
+}
+
+fn transform_url(input: &str, host_port: &u16) -> String {
+    let parsed_url = Url::parse(input).expect("Failed to parse URL");
+    let host = parsed_url.host_str().unwrap();
+    let first_path_segment = parsed_url.path_segments().and_then(|mut segments| segments.next()).unwrap_or("");
+    format!("http://{}:{}/{}", host, host_port, first_path_segment)
+}
+
+/// LocalStack S3 testcontainer
+pub async fn s3_testcontainer_setup() -> (ContainerAsync<LocalStack>, Box<dyn DataStorage>, s3::Client) {
+    dotenvy::from_filename("../.env.test").unwrap();
+
+    let node = LocalStack::default().start().await.unwrap();
+    let host_ip = node.get_host().await.unwrap();
+    let host_port = node.get_host_port_ipv4(4566).await.unwrap();
+
+    let aws_access_key_id = get_env_var_or_panic("AWS_ACCESS_KEY_ID");
+    let aws_secret_access_key = get_env_var_or_panic("AWS_SECRET_ACCESS_KEY");
+    let aws_region = get_env_var_or_panic("AWS_REGION");
+    let region_provider = Region::new(aws_region);
+    let aws_endpoint_url = format!("http://{host_ip}:{host_port}");
+
+    let aws_s3_bucket_name = get_env_var_or_panic("AWS_S3_BUCKET_NAME");
+
+    // Set up AWS client
+    let creds = Credentials::new(aws_access_key_id, aws_secret_access_key, None, None, "test");
+
+    let config = aws_sdk_s3::config::Builder::default()
+        .behavior_version(BehaviorVersion::v2024_03_28())
+        .region(region_provider)
+        .credentials_provider(creds)
+        .endpoint_url(aws_endpoint_url.clone())
+        .force_path_style(true)
+        .build();
+
+    let client = s3::Client::from_conf(config);
+
+    client.create_bucket().bucket(aws_s3_bucket_name.clone()).send().await.unwrap();
+
+    let storage_client = AWSS3::new(AWSS3ConfigType::WithEndpoint(S3LocalStackConfig::new_from_env_with_endpoint(
+        aws_endpoint_url.as_str(),
+    )))
+    .await;
+
+    (node, Box::new(storage_client) as Box<dyn DataStorage>, client)
+}
+
+/// MongoDb testcontainer
+pub async fn mongodb_testcontainer_setup() -> (ContainerAsync<Mongo>, Box<dyn Database>) {
+    const LOCAL_PORT: u16 = 27017; // Default MongoDB port
+
+    let node = Mongo::default().start().await.unwrap();
+    let host_ip = node.get_host().await.unwrap();
+    let host_port = node.get_host_port_ipv4(LOCAL_PORT.tcp()).await.unwrap();
+    let connection_url = format!("mongodb://{host_ip}:{host_port}/");
+
+    let mongo_config = MongoDbConfig { url: connection_url };
+    let database = MongoDb::new(mongo_config).await;
+    
+    (node, Box::new(database) as Box<dyn Database>)
 }
