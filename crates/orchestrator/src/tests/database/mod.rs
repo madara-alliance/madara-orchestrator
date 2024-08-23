@@ -9,7 +9,7 @@ use uuid::Uuid;
 #[rstest]
 #[tokio::test]
 async fn test_database_connection() -> color_eyre::Result<()> {
-    TestConfigBuilder::new().build().await;
+    let _services = TestConfigBuilder::new().testcontainer_mongo_database().await.build().await;
     Ok(())
 }
 
@@ -23,7 +23,7 @@ async fn get_config() -> Guard<Arc<Config>> {
 #[rstest]
 #[tokio::test]
 async fn database_create_job_works(#[future] get_config: Guard<Arc<Config>>) {
-    TestConfigBuilder::new().build().await;
+    let _services = TestConfigBuilder::new().testcontainer_mongo_database().await.build().await;
     let config = get_config.await;
     let database_client = config.database();
 
@@ -137,7 +137,7 @@ async fn database_get_last_successful_job_by_type_works(#[future] get_config: Gu
 #[rstest]
 #[tokio::test]
 async fn database_get_jobs_after_internal_id_by_job_type_works(#[future] get_config: Guard<Arc<Config>>) {
-    TestConfigBuilder::new().build().await;
+    let _services = TestConfigBuilder::new().testcontainer_mongo_database().await.build().await;
     let config = get_config.await;
     let database_client = config.database();
 
@@ -172,7 +172,7 @@ async fn database_get_jobs_after_internal_id_by_job_type_works(#[future] get_con
 #[rstest]
 #[tokio::test]
 async fn database_update_job_status_passing_case_works(#[future] get_config: Guard<Arc<Config>>) {
-    TestConfigBuilder::new().build().await;
+    let _services = TestConfigBuilder::new().testcontainer_mongo_database().await.build().await;
     let config = get_config.await;
     let database_client = config.database();
 
@@ -190,7 +190,7 @@ async fn database_update_job_status_passing_case_works(#[future] get_config: Gua
 #[rstest]
 #[tokio::test]
 async fn database_update_job_status_failing_case_works(#[future] get_config: Guard<Arc<Config>>) {
-    TestConfigBuilder::new().build().await;
+    let _services = TestConfigBuilder::new().testcontainer_mongo_database().await.build().await;
     let config = get_config.await;
     let database_client = config.database();
 

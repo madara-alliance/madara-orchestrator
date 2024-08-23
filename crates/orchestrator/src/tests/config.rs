@@ -1,7 +1,7 @@
 use std::sync::Arc;
 
 use crate::config::{build_da_client, build_prover_service, build_settlement_client, config_force_init, Config};
-use crate::data_storage::DataStorage;
+use crate::data_storage::{DataStorage, MockDataStorage};
 use da_client_interface::DaClient;
 use httpmock::MockServer;
 
@@ -14,10 +14,9 @@ use utils::settings::default::DefaultSettingsProvider;
 
 use crate::database::mongodb::config::MongoDbConfig;
 use crate::database::mongodb::MongoDb;
-use crate::database::{Database, DatabaseConfig};
+use crate::database::{Database, DatabaseConfig, MockDatabase};
 use crate::queue::sqs::SqsQueue;
 use crate::queue::QueueProvider;
-use crate::tests::common::{create_sqs_queues, drop_database, get_storage_client};
 
 // Inspiration : https://rust-unofficial.github.io/patterns/patterns/creational/builder.html
 // TestConfigBuilder allows to heavily customise the global configs based on the test's requirement.
@@ -150,7 +149,7 @@ impl TestConfigBuilder {
 
         // init database
         if self.database.is_none() {
-            self.database = Some(Box::new(MongoDb::new(MongoDbConfig::new_from_env()).await));
+            self.database = Some(Box::new(MockDatabase::new()));
         }
 
         // init the DA client
@@ -165,24 +164,26 @@ impl TestConfigBuilder {
 
         // init the storage client
         if self.storage.is_none() {
-            self.storage = Some(get_storage_client().await);
-            match get_env_var_or_panic("DATA_STORAGE").as_str() {
-                "s3" => self
-                    .storage
-                    .as_ref()
-                    .unwrap()
-                    .build_test_bucket(&get_env_var_or_panic("AWS_S3_BUCKET_NAME"))
-                    .await
-                    .unwrap(),
-                _ => panic!("Unsupported Storage Client"),
-            }
+            self.storage = Some(Box::new(MockDataStorage::new()));
+
+            // self.storage = Some(MockDataStorage::new());
+            // match get_env_var_or_panic("DATA_STORAGE").as_str() {
+            //     "s3" => self
+            //         .storage
+            //         .as_ref()
+            //         .unwrap()
+            //         .build_test_bucket(&get_env_var_or_panic("AWS_S3_BUCKET_NAME"))
+            //         .await
+            //         .unwrap(),
+            //     _ => panic!("Unsupported Storage Client"),
+            // }
         }
 
         // Deleting and Creating the queues in sqs.
-        create_sqs_queues().await.expect("Not able to delete and create the queues.");
+        // create_sqs_queues().await.expect("Not able to delete and create the queues.");
 
         // Deleting the database
-        drop_database().await.expect("Unable to drop the database.");
+        // drop_database().await.expect("Unable to drop the database.");
 
         let config = Config::new(
             self.starknet_client.unwrap_or_else(|| {
@@ -199,7 +200,7 @@ impl TestConfigBuilder {
             self.storage.unwrap(),
         );
 
-        drop_database().await.unwrap();
+        // drop_database().await.unwrap();
 
         config_force_init(config).await;
 

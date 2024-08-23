@@ -2,7 +2,7 @@ use crate::jobs::da_job::test::{get_nonce_attached, read_state_update_from_file}
 use crate::jobs::da_job::{DaError, DaJob};
 use crate::jobs::types::{ExternalId, JobItem, JobStatus, JobType};
 use crate::jobs::JobError;
-use crate::tests::common::drop_database;
+// use crate::tests::common::drop_database;
 use crate::tests::config::TestConfigBuilder;
 use crate::{config::config, jobs::Job};
 use assert_matches::assert_matches;
@@ -39,7 +39,14 @@ async fn test_da_job_process_job_failure_on_small_blob_size(
     da_client.expect_max_blob_per_txn().with().returning(|| 1);
     da_client.expect_max_bytes_per_blob().with().returning(|| 1200);
 
-    let services = TestConfigBuilder::new().mock_da_client(Box::new(da_client)).build().await;
+    let services = TestConfigBuilder::new()
+        .testcontainer_s3_data_storage()
+        .await
+        .testcontainer_mongo_database()
+        .await
+        .mock_da_client(Box::new(da_client))
+        .build()
+        .await;
     let server = services.0;
     let config = config().await;
 
@@ -82,7 +89,7 @@ async fn test_da_job_process_job_failure_on_small_blob_size(
     );
 
     state_update_mock.assert();
-    let _ = drop_database().await;
+    // let _ = drop_database().await;
 }
 
 /// Tests DA Job processing failure when a block is in pending state.
@@ -178,7 +185,12 @@ async fn test_da_job_process_job_success(
     da_client.expect_max_blob_per_txn().with().returning(|| 6);
     da_client.expect_max_bytes_per_blob().with().returning(|| 131072);
 
-    let services = TestConfigBuilder::new().mock_da_client(Box::new(da_client)).build().await;
+    let services = TestConfigBuilder::new()
+        .testcontainer_s3_data_storage()
+        .await
+        .mock_da_client(Box::new(da_client))
+        .build()
+        .await;
     let server = services.0;
     let config = config().await;
 
@@ -216,5 +228,5 @@ async fn test_da_job_process_job_success(
     );
 
     state_update_mock.assert();
-    let _ = drop_database().await;
+    // let _ = drop_database().await;
 }

@@ -86,7 +86,13 @@ async fn create_job_job_does_not_exists_in_db_works() {
 async fn create_job_job_exists_in_db_works() {
     let job_item = build_job_item_by_type_and_status(JobType::ProofCreation, JobStatus::Created, "0".to_string());
 
-    TestConfigBuilder::new().build().await;
+    let _services = TestConfigBuilder::new()
+        .testcontainer_mongo_database()
+        .await
+        .testcontainer_sqs_data_storage(JOB_PROCESSING_QUEUE.to_string())
+        .await
+        .build()
+        .await;
 
     let config = config().await;
     let database_client = config.database();
@@ -109,7 +115,13 @@ async fn create_job_job_exists_in_db_works() {
 #[should_panic(expected = "Job type not implemented yet.")]
 #[tokio::test]
 async fn create_job_job_handler_is_not_implemented_panics() {
-    TestConfigBuilder::new().build().await;
+    let _services = TestConfigBuilder::new()
+        .testcontainer_mongo_database()
+        .await
+        .testcontainer_sqs_data_storage(JOB_PROCESSING_QUEUE.to_string())
+        .await
+        .build()
+        .await;
     let config = config().await;
 
     // Mocking the `get_job_handler` call in create_job function.
@@ -190,7 +202,13 @@ async fn process_job_with_job_exists_in_db_with_invalid_job_processing_status_er
     let job_item = build_job_item_by_type_and_status(JobType::SnosRun, JobStatus::Completed, "1".to_string());
 
     // building config
-    TestConfigBuilder::new().build().await;
+    let _services = TestConfigBuilder::new()
+        .testcontainer_mongo_database()
+        .await
+        .testcontainer_sqs_data_storage(JOB_VERIFICATION_QUEUE.to_string())
+        .await
+        .build()
+        .await;
     let config = config().await;
     let database_client = config.database();
 
@@ -221,8 +239,13 @@ async fn process_job_job_does_not_exists_in_db_works() {
     let job_item = build_job_item_by_type_and_status(JobType::SnosRun, JobStatus::Created, "1".to_string());
 
     // building config
-    let _services =
-        TestConfigBuilder::new().testcontainer_sqs_data_storage(JOB_VERIFICATION_QUEUE.to_string()).await.build().await;
+    let _services = TestConfigBuilder::new()
+        .testcontainer_mongo_database()
+        .await
+        .testcontainer_sqs_data_storage(JOB_VERIFICATION_QUEUE.to_string())
+        .await
+        .build()
+        .await;
     let config = config().await;
 
     assert!(process_job(job_item.id).await.is_err());
@@ -543,7 +566,7 @@ fn build_job_item_by_type_and_status(job_type: JobType, job_status: JobStatus, i
 #[case(JobType::DataSubmission, JobStatus::VerificationFailed)]
 #[tokio::test]
 async fn handle_job_failure_with_failed_job_status_works(#[case] job_type: JobType, #[case] job_status: JobStatus) {
-    TestConfigBuilder::new().build().await;
+    let _services = TestConfigBuilder::new().testcontainer_mongo_database().await.build().await;
     let config = config().await;
     let database_client = config.database();
     let internal_id = 1;
@@ -572,7 +595,7 @@ async fn handle_job_failure_with_failed_job_status_works(#[case] job_type: JobTy
 #[case::verification_timeout(JobType::SnosRun, JobStatus::VerificationTimeout)]
 #[tokio::test]
 async fn handle_job_failure_with_correct_job_status_works(#[case] job_type: JobType, #[case] job_status: JobStatus) {
-    TestConfigBuilder::new().build().await;
+    let _services = TestConfigBuilder::new().testcontainer_mongo_database().await.build().await;
     let config = config().await;
     let database_client = config.database();
     let internal_id = 1;
@@ -606,7 +629,7 @@ async fn handle_job_failure_with_correct_job_status_works(#[case] job_type: JobT
 async fn handle_job_failure_job_status_completed_works(#[case] job_type: JobType) {
     let job_status = JobStatus::Completed;
 
-    TestConfigBuilder::new().build().await;
+    let _services = TestConfigBuilder::new().testcontainer_mongo_database().await.build().await;
     let config = config().await;
     let database_client = config.database();
     let internal_id = 1;
