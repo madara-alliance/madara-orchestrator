@@ -45,7 +45,13 @@ async fn create_job_job_does_not_exists_in_db_works() {
     let job_item_clone = job_item.clone();
     job_handler.expect_create_job().times(1).returning(move |_, _, _| Ok(job_item_clone.clone()));
 
-    TestConfigBuilder::new().build().await;
+    let services = TestConfigBuilder::new()
+        .testcontainer_mongo_database()
+        .await
+        .testcontainer_sqs_data_storage(JOB_PROCESSING_QUEUE.to_string())
+        .await
+        .build()
+        .await;
     let config = config().await;
 
     // Mocking the `get_job_handler` call in create_job function.
@@ -134,7 +140,13 @@ async fn process_job_with_job_exists_in_db_and_valid_job_processing_status_works
     let job_item = build_job_item_by_type_and_status(job_type.clone(), job_status.clone(), "1".to_string());
 
     // Building config
-    TestConfigBuilder::new().build().await;
+    let services = TestConfigBuilder::new()
+        .testcontainer_mongo_database()
+        .await
+        .testcontainer_sqs_data_storage(JOB_VERIFICATION_QUEUE.to_string())
+        .await
+        .build()
+        .await;
     let config = config().await;
     let database_client = config.database();
 
@@ -209,7 +221,8 @@ async fn process_job_job_does_not_exists_in_db_works() {
     let job_item = build_job_item_by_type_and_status(JobType::SnosRun, JobStatus::Created, "1".to_string());
 
     // building config
-    TestConfigBuilder::new().build().await;
+    let services =
+        TestConfigBuilder::new().testcontainer_sqs_data_storage(JOB_VERIFICATION_QUEUE.to_string()).await.build().await;
     let config = config().await;
 
     assert!(process_job(job_item.id).await.is_err());
@@ -241,7 +254,7 @@ async fn process_job_two_workers_process_same_job_works() {
     ctx.expect().times(1).with(eq(JobType::SnosRun)).returning(move |_| Arc::clone(&job_handler));
 
     // building config
-    TestConfigBuilder::new().build().await;
+    let services = TestConfigBuilder::new().testcontainer_mongo_database().await.build().await;
     let config = config().await;
     let db_client = config.database();
 
@@ -323,7 +336,13 @@ async fn verify_job_with_rejected_status_adds_to_queue_works() {
         build_job_item_by_type_and_status(JobType::DataSubmission, JobStatus::PendingVerification, "1".to_string());
 
     // building config
-    TestConfigBuilder::new().build().await;
+    let services = TestConfigBuilder::new()
+        .testcontainer_mongo_database()
+        .await
+        .testcontainer_sqs_data_storage(JOB_PROCESSING_QUEUE.to_string())
+        .await
+        .build()
+        .await;
 
     let config = config().await;
     let database_client = config.database();
@@ -410,7 +429,13 @@ async fn verify_job_with_pending_status_adds_to_queue_works() {
         build_job_item_by_type_and_status(JobType::DataSubmission, JobStatus::PendingVerification, "1".to_string());
 
     // building config
-    TestConfigBuilder::new().build().await;
+    let services = TestConfigBuilder::new()
+        .testcontainer_mongo_database()
+        .await
+        .testcontainer_sqs_data_storage(JOB_VERIFICATION_QUEUE.to_string())
+        .await
+        .build()
+        .await;
 
     let config = config().await;
     let database_client = config.database();

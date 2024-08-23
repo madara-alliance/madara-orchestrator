@@ -42,8 +42,11 @@ pub struct TestConfigBuilder {
 
     // Storing for Data Storage client
     // These are need to be kept in scope to keep the Server alive
+    database_node: Option<ContainerAsync<Mongo>>,
     data_storage_node: Option<ContainerAsync<LocalStack>>,
     data_storage_client: Option<aws_sdk_s3::Client>,
+    queue_node: Option<ContainerAsync<LocalStack>>,
+    queue_client: Option<sqs::Client>,
 }
 
 impl Default for TestConfigBuilder {
@@ -64,8 +67,11 @@ impl TestConfigBuilder {
             queue: None,
             storage: None,
 
+            database_node: None,
             data_storage_node: None,
             data_storage_client: None,
+            queue_node: None,
+            queue_client: None,
         }
     }
 
@@ -74,6 +80,21 @@ impl TestConfigBuilder {
         self.data_storage_node = Some(node);
         self.data_storage_client = Some(client);
         self.storage = Some(storage_client);
+        self
+    }
+
+    pub async fn testcontainer_sqs_data_storage(mut self, queue_name: String) -> TestConfigBuilder {
+        let (node, storage_client, client) = sqs_testcontainer_setup(queue_name).await;
+        self.queue = Some(storage_client);
+        self.queue_client = Some(client);
+        self.queue_node = Some(node);
+        self
+    }
+
+    pub async fn testcontainer_mongo_database(mut self) -> TestConfigBuilder {
+        let (node, database) = mongodb_testcontainer_setup().await;
+        self.database = Some(database);
+        self.database_node = Some(node);
         self
     }
 
@@ -112,7 +133,16 @@ impl TestConfigBuilder {
         self
     }
 
-    pub async fn build(mut self) -> (MockServer, Option<ContainerAsync<LocalStack>>, Option<aws_sdk_s3::Client>) {
+    pub async fn build(
+        mut self,
+    ) -> (
+        MockServer,
+        Option<ContainerAsync<LocalStack>>,
+        Option<aws_sdk_s3::Client>,
+        Option<ContainerAsync<Mongo>>,
+        Option<sqs::Client>,
+        Option<ContainerAsync<LocalStack>>,
+    ) {
         dotenvy::from_filename("../.env.test").expect("Failed to load the .env file");
 
         let server = MockServer::start();
@@ -173,12 +203,18 @@ impl TestConfigBuilder {
 
         config_force_init(config).await;
 
-        (server, self.data_storage_node, self.data_storage_client)
+        (
+            server,
+            self.data_storage_node,
+            self.data_storage_client,
+            self.database_node,
+            self.queue_client,
+            self.queue_node,
+        )
     }
 }
 
 /// LocalStack (s3 and sqs) & MongoDb Setup using TestContainers ////
-
 use super::common::testcontainer_setups::LocalStack;
 use crate::data_storage::aws_s3::config::{AWSS3ConfigType, S3LocalStackConfig};
 use crate::data_storage::aws_s3::AWSS3;

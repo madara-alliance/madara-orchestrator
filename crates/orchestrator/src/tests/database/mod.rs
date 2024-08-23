@@ -65,7 +65,7 @@ async fn database_get_jobs_without_successor_works(
     #[future] get_config: Guard<Arc<Config>>,
     #[case] is_successor: bool,
 ) {
-    TestConfigBuilder::new().build().await;
+    let services = TestConfigBuilder::new().testcontainer_mongo_database().await.build().await;
     let config = get_config.await;
     let database_client = config.database();
 
@@ -109,7 +109,7 @@ async fn database_get_jobs_without_successor_works(
 #[rstest]
 #[tokio::test]
 async fn database_get_last_successful_job_by_type_works(#[future] get_config: Guard<Arc<Config>>) {
-    TestConfigBuilder::new().build().await;
+    let services = TestConfigBuilder::new().testcontainer_mongo_database().await.build().await;
     let config = get_config.await;
     let database_client = config.database();
 

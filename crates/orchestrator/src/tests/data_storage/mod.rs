@@ -11,7 +11,7 @@ use serde_json::json;
 #[rstest]
 #[tokio::test]
 async fn test_put_and_get_data_s3() -> color_eyre::Result<()> {
-    let (_server, _localstack, _client) = TestConfigBuilder::new().testcontainer_s3_data_storage().await.build().await;
+    let services = TestConfigBuilder::new().testcontainer_s3_data_storage().await.build().await;
 
     dotenvy::from_filename("../.env.test")?;
 
