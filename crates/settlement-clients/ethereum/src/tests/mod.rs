@@ -104,6 +104,7 @@ impl EthereumTestBuilder {
         dotenvy::from_filename(&*ENV_FILE_PATH).expect("Could not load .env.test file.");
 
         // Setup Anvil
+        println!("this is the eth rpc {:?}", *ETH_RPC);
         let anvil = match self.fork_block {
             Some(fork_block) => {
                 Anvil::new().fork(&*ETH_RPC).fork_block_number(fork_block).try_spawn().expect("Could not spawn Anvil.")

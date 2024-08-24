@@ -64,10 +64,16 @@ jobs:
         run: |
           wget -P ./crates/prover-services/sharp-service/tests/artifacts https://madara-orchestrator-sharp-pie.s3.amazonaws.com/238996-SN.zip
 
+      - name: Print env variable
+        env:
+          ETHEREUM_BLAST_RPC_URL: ${{ secrets.ETHEREUM_BLAST_RPC_URL }}
+        run: |
+          echo ${{ env.ETHEREUM_BLAST_RPC_URL }}
+
       - name: Run llvm-cov tests
         env:
           ETHEREUM_BLAST_RPC_URL: ${{ secrets.ETHEREUM_BLAST_RPC_URL }}
-        run: RUST_LOG=debug RUST_BACKTRACE=1 cargo llvm-cov nextest --release --lcov --output-path lcov.info --test-threads=1
+        run: RUST_LOG=debug RUST_BACKTRACE=1 cargo llvm-cov nextest --release --lcov --output-path lcov.info --test-threads=1 -- --nocapture
 
       - name: Coveralls
         uses: coverallsapp/github-action@v2
