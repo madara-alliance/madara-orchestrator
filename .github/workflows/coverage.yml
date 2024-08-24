@@ -2,6 +2,8 @@ name: Rust Test & Coverage
 
 on:
   workflow_call:
+    secrets:
+      ETHEREUM_BLAST_RPC_URL: ${{ secrets.ETHEREUM_BLAST_RPC_URL }}
   workflow_dispatch:
 
 jobs:

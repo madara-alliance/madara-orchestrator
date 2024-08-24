@@ -13,3 +13,4 @@ jobs:
   coverage:
     name: Run coverage
     uses: ./.github/workflows/coverage.yml
+    secrets: inherit
