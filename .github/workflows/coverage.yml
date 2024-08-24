@@ -5,7 +5,6 @@ on:
     secrets:
       ETHEREUM_BLAST_RPC_URL:
         required: true
-  workflow_dispatch:
 
 jobs:
   coverage:
@@ -66,12 +65,6 @@ jobs:
       - name: Getting neccesary files for testing
         run: |
           wget -P ./crates/prover-services/sharp-service/tests/artifacts https://madara-orchestrator-sharp-pie.s3.amazonaws.com/238996-SN.zip
-
-      - name: Print env variable
-        env:
-          ETHEREUM_BLAST_RPC_URL: ${{ secrets.ETHEREUM_BLAST_RPC_URL }}
-        run: |
-          echo ${{ env.ETHEREUM_BLAST_RPC_URL }}
 
       - name: Run llvm-cov tests
         env:
