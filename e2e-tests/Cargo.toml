@@ -9,18 +9,23 @@ async-trait.workspace = true
 aws-config.workspace = true
 aws-sdk-s3.workspace = true
 aws-sdk-sqs.workspace = true
+aws-sdk-eventbridge.workspace = true
 color-eyre.workspace = true
 dotenvy.workspace = true
 httpmock.workspace = true
 log = "0.4.21"
+mongodb.workspace = true
 orchestrator.workspace = true
 reqwest = { workspace = true, features = ["json"] }
 serde_json.workspace = true
+starknet.workspace = true
 testcontainers.workspace = true
 tokio = { workspace = true, features = ["full"] }
 tokio-stream.workspace = true
 tokio-util.workspace = true
 url.workspace = true
+uuid = { version = "1.8.0", features = ["v4"] }
+bytes = "1.6.0"
 
 [[test]]
 name = "test_samples"

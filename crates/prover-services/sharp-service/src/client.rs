@@ -6,11 +6,8 @@ use url::Url;
 use utils::env_utils::get_env_var_or_panic;
 use uuid::Uuid;
 
-use crate::error::SharpError;
+use crate::error::{OtherError, SharpError};
 use crate::types::{SharpAddJobResponse, SharpGetStatusResponse};
-
-/// SHARP endpoint for Sepolia testnet
-pub const DEFAULT_SHARP_URL: &str = "https://sepolia-recursive.public-testnet.provingservice.io/v1/gateway";
 
 /// SHARP API async wrapper
 pub struct SharpClient {
@@ -97,10 +94,24 @@ impl SharpClient {
         // Adding params to the url
         add_params_to_url(&mut base_url, params);
 
-        let res = self.client.post(base_url).send().await.map_err(SharpError::GetJobStatusFailure)?;
+        let res = self.client.post(base_url.clone()).send().await.map_err(SharpError::GetJobStatusFailure)?;
 
         match res.status() {
-            reqwest::StatusCode::OK => res.json().await.map_err(SharpError::GetJobStatusFailure),
+            reqwest::StatusCode::OK => {
+                let text = res.text().await.unwrap();
+                log::info!("Received response text: {:?}", text);
+
+                match serde_json::from_str::<SharpGetStatusResponse>(&text) {
+                    Ok(response) => {
+                        log::info!("Deserialization successful: {:?}", response);
+                        Ok(response)
+                    }
+                    Err(e) => {
+                        log::error!("Deserialization failed: {:?}", e);
+                        Err(SharpError::Other(OtherError::from(e.to_string())))
+                    }
+                }
+            }
             code => Err(SharpError::SharpService(code)),
         }
     }
@@ -115,6 +126,6 @@ fn add_params_to_url(url: &mut Url, params: Vec<(&str, &str)>) {
 
 impl Default for SharpClient {
     fn default() -> Self {
-        Self::new(DEFAULT_SHARP_URL.parse().unwrap())
+        Self::new(get_env_var_or_panic("SHARP_URL").parse().unwrap())
     }
 }

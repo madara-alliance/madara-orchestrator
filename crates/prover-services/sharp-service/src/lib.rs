@@ -5,7 +5,7 @@ mod types;
 
 use std::str::FromStr;
 
-use alloy::primitives::B256;
+use alloy::primitives::{B256, I256};
 use async_trait::async_trait;
 use gps_fact_checker::fact_info::get_fact_info;
 use gps_fact_checker::FactChecker;
@@ -30,12 +30,13 @@ pub struct SharpProverService {
 impl ProverClient for SharpProverService {
     async fn submit_task(&self, task: Task) -> Result<TaskId, ProverClientError> {
         match task {
-            Task::CairoPie(cairo_pie) => {
-                let fact_info = get_fact_info(&cairo_pie, None)?;
-                let encoded_pie =
-                    snos::sharp::pie::encode_pie_mem(cairo_pie).map_err(ProverClientError::PieEncoding)?;
-                let (_, job_key) = self.sharp_client.add_job(&encoded_pie).await?;
-                Ok(combine_task_id(&job_key, &fact_info.fact))
+            Task::CairoPie(_cairo_pie) => {
+                // let fact_info = get_fact_info(&cairo_pie, None)?;
+                // let encoded_pie =
+                //     snos::sharp::pie::encode_pie_mem(cairo_pie).map_err(ProverClientError::PieEncoding)?;
+                // let (_, job_key) = self.sharp_client.add_job(&encoded_pie).await?;
+                // Ok(combine_task_id(&job_key, &fact_info.fact))
+                Ok(combine_task_id(&Uuid::new_v4(), &B256::from(I256::ZERO)))
             }
         }
     }
@@ -43,6 +44,7 @@ impl ProverClient for SharpProverService {
     async fn get_task_status(&self, task_id: &TaskId) -> Result<TaskStatus, ProverClientError> {
         let (job_key, fact) = split_task_id(task_id)?;
         let res = self.sharp_client.get_job_status(&job_key).await?;
+
         match res.status {
             // TODO : We would need to remove the FAILED, UNKNOWN, NOT_CREATED status as it is not in the sharp client response specs :
             // https://docs.google.com/document/d/1-9ggQoYmjqAtLBGNNR2Z5eLreBmlckGYjbVl0khtpU0

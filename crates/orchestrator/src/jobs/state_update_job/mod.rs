@@ -275,6 +275,7 @@ impl StateUpdateJob {
         } else if snos.use_kzg_da == Felt252::ONE {
             let blob_data = fetch_blob_data_for_block(block_no).await.map_err(|e| JobError::Other(OtherError(e)))?;
 
+            // TODO : Fetch Program Output from data storage client
             // Fetching nonce before the transaction is run
             // Sending update_state transaction from the settlement client
             settlement_client

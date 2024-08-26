@@ -15,7 +15,7 @@ sol!(
     #[allow(missing_docs)]
     #[sol(rpc)]
     FactRegistry,
-    "tests/artifacts/FactRegistry.json"
+    "tests/artifacts/FactRegistry2.json"
 );
 
 pub struct FactChecker {
