@@ -2,6 +2,7 @@ use std::sync::Arc;
 
 use crate::config::{build_da_client, build_prover_service, build_settlement_client, config_force_init, Config};
 use crate::data_storage::{DataStorage, MockDataStorage};
+use crate::queue::job_queue::{JOB_PROCESSING_QUEUE, JOB_VERIFICATION_QUEUE};
 use da_client_interface::DaClient;
 use httpmock::MockServer;
 
@@ -83,8 +84,8 @@ impl TestConfigBuilder {
     }
 
     pub async fn testcontainer_sqs_data_storage(mut self, queue_name: String) -> TestConfigBuilder {
-        let (node, storage_client, client) = sqs_testcontainer_setup(queue_name).await;
-        self.queue = Some(storage_client);
+        let (node, queue_client, client) = sqs_testcontainer_setup().await;
+        self.queue = Some(queue_client);
         self.queue_client = Some(client);
         self.queue_node = Some(node);
         self
@@ -229,9 +230,7 @@ use testcontainers::runners::AsyncRunner;
 use testcontainers::ContainerAsync;
 
 /// Localstack SQS testcontainer
-pub async fn sqs_testcontainer_setup(
-    queue_name: String,
-) -> (ContainerAsync<LocalStack>, Box<dyn QueueProvider>, sqs::Client) {
+pub async fn sqs_testcontainer_setup() -> (ContainerAsync<LocalStack>, Box<dyn QueueProvider>, sqs::Client) {
     dotenvy::from_filename("../.env.test").unwrap();
 
     let node = LocalStack::default().start().await.unwrap();
@@ -255,9 +254,13 @@ pub async fn sqs_testcontainer_setup(
     let client = sqs::Client::new(&config);
 
     // Queue creation
-    let queue_output = client.create_queue().queue_name(queue_name).send().await.unwrap();
+    let processing_queue_output =
+        client.create_queue().queue_name(JOB_PROCESSING_QUEUE.to_string()).send().await.unwrap();
+    let _verification_queue_output =
+        client.create_queue().queue_name(JOB_VERIFICATION_QUEUE.to_string()).send().await.unwrap();
 
-    let queue_host_url = transform_url(queue_output.queue_url().unwrap(), &host_port);
+    let queue_host_url = transform_url(processing_queue_output.queue_url().unwrap(), &host_port);
+
     let sqs_queue = SqsQueue::new(queue_host_url.to_string());
 
     (node, Box::new(sqs_queue) as Box<dyn QueueProvider>, client)

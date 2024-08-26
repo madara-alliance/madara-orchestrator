@@ -321,7 +321,13 @@ async fn verify_job_with_verified_status_works() {
         build_job_item_by_type_and_status(JobType::DataSubmission, JobStatus::PendingVerification, "1".to_string());
 
     // building config
-    TestConfigBuilder::new().build().await;
+    let _services = TestConfigBuilder::new()
+        .testcontainer_mongo_database()
+        .await
+        .testcontainer_sqs_data_storage(JOB_PROCESSING_QUEUE.to_string())
+        .await
+        .build()
+        .await;
 
     let config = config().await;
     let database_client = config.database();

@@ -15,7 +15,7 @@ use uuid::Uuid;
 #[case(Uuid::new_v4())]
 #[tokio::test]
 async fn testing_parallel_sqs(#[case] id: Uuid) {
-    let (_node, sqs_queue, _client) = sqs_testcontainer_setup(JOB_PROCESSING_QUEUE.to_string()).await;
+    let (_node, sqs_queue, _client) = sqs_testcontainer_setup().await;
 
     let message = JobQueueMessage { id };
     let _ = sqs_queue
