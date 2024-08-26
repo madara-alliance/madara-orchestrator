@@ -60,7 +60,7 @@ pub async fn setup_for_test(
     // Setting up LocalStack
     let localstack_instance = LocalStack {};
     // TODO : uncomment
-    // localstack_instance.setup_s3().await.unwrap();
+    localstack_instance.setup_s3().await.unwrap();
     localstack_instance.setup_sqs().await.unwrap();
     localstack_instance.delete_event_bridge_rule("worker_trigger_scheduled").await.unwrap();
     localstack_instance.setup_event_bridge(WorkerTriggerType::Proving).await.unwrap();

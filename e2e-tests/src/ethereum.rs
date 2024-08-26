@@ -24,9 +24,7 @@ impl EthereumClient {
             .try_spawn()
             .expect("Unable to fork eth mainnet and run anvil.");
 
-        // TODO : uncomment
-        // Self { anvil_endpoint: forked_anvil.endpoint(), anvil_instance: forked_anvil }
-        Self { anvil_endpoint: "https://dbd8-2405-201-4059-e00f-b442-3c8d-7769-1c1e.ngrok-free.app".parse().unwrap(), anvil_instance: forked_anvil }
+        Self { anvil_endpoint: forked_anvil.endpoint(), anvil_instance: forked_anvil }
     }
 
     /// To get the anvil endpoint

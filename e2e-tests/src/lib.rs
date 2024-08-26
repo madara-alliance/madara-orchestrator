@@ -17,6 +17,7 @@ use std::io::Read;
 use std::net::TcpListener;
 use std::path::{Path, PathBuf};
 
+use crate::localstack::PIE_FILE_BLOCK_NUMBER;
 use crate::sharp::SharpClient;
 use crate::starknet_client::StarknetClient;
 pub use mongodb::MongoDbServer;
@@ -27,7 +28,6 @@ use uuid::Uuid;
 
 const MIN_PORT: u16 = 49_152;
 const MAX_PORT: u16 = 65_535;
-const TEST_BLOCK_NUMBER_L2: u64 = 238_996;
 
 fn get_free_port() -> u16 {
     for port in MIN_PORT..=MAX_PORT {
@@ -81,7 +81,7 @@ fn read_state_update_from_file(file_path: &str) -> color_eyre::Result<StateUpdat
 pub async fn put_job_data_in_db(mongo_db: &MongoDbServer) {
     let job_item = JobItem {
         id: Uuid::new_v4(),
-        internal_id: TEST_BLOCK_NUMBER_L2.to_string(),
+        internal_id: PIE_FILE_BLOCK_NUMBER.to_string(),
         job_type: JobType::SnosRun,
         status: JobStatus::Completed,
         external_id: ExternalId::Number(0),
@@ -117,7 +117,8 @@ pub async fn mock_proving_job_endpoint_output(sharp_client: &mut SharpClient) {
 /// Mocks the starknet get state update call (happens in da client for ethereum)
 pub async fn mock_starknet_get_state_update(starknet_client: &mut StarknetClient) {
     let state_update =
-        read_state_update_from_file("artifacts/get_state_update_238996.json").expect("issue while reading");
+        read_state_update_from_file(&format!("artifacts/get_state_update_{}.json", PIE_FILE_BLOCK_NUMBER))
+            .expect("issue while reading");
 
     let state_update = MaybePendingStateUpdate::Update(state_update);
     let state_update = serde_json::to_value(&state_update).unwrap();
