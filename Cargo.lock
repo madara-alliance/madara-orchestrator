@@ -4730,10 +4730,12 @@ dependencies = [
  "alloy 0.2.1",
  "async-trait",
  "cairo-vm 1.0.0-rc3",
+ "dotenvy",
  "itertools 0.13.0",
- "log",
+ "rstest 0.18.2",
  "starknet",
  "thiserror",
+ "tokio",
  "url",
  "utils",
 ]

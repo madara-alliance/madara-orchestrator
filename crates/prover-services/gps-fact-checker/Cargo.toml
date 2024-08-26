@@ -5,13 +5,13 @@ edition.workspace = true
 
 [dependencies]
 alloy = { workspace = true, features = [
-  "sol-types",
-  "json",
-  "contract",
-  "providers",
-  "rpc-client",
-  "transport-http",
-  "reqwest",
+    "sol-types",
+    "json",
+    "contract",
+    "providers",
+    "rpc-client",
+    "transport-http",
+    "reqwest",
 ] }
 async-trait.workspace = true
 cairo-vm.workspace = true
@@ -20,4 +20,6 @@ starknet.workspace = true
 thiserror.workspace = true
 url.workspace = true
 utils.workspace = true
-log = "0.4.21"
+tokio.workspace = true
+rstest.workspace = true
+dotenvy.workspace = true
