@@ -277,7 +277,13 @@ async fn process_job_two_workers_process_same_job_works() {
     ctx.expect().times(1).with(eq(JobType::SnosRun)).returning(move |_| Arc::clone(&job_handler));
 
     // building config
-    let _services = TestConfigBuilder::new().testcontainer_mongo_database().await.build().await;
+    let _services = TestConfigBuilder::new()
+        .testcontainer_mongo_database()
+        .await
+        .testcontainer_sqs_data_storage(JOB_VERIFICATION_QUEUE.to_string())
+        .await
+        .build()
+        .await;
     let config = config().await;
     let db_client = config.database();
 
@@ -410,7 +416,13 @@ async fn verify_job_with_rejected_status_works() {
     job_item.metadata = metadata;
 
     // building config
-    TestConfigBuilder::new().build().await;
+    let _services = TestConfigBuilder::new()
+        .testcontainer_mongo_database()
+        .await
+        .testcontainer_sqs_data_storage(JOB_PROCESSING_QUEUE.to_string())
+        .await
+        .build()
+        .await;
 
     let config = config().await;
     let database_client = config.database();
@@ -507,7 +519,13 @@ async fn verify_job_with_pending_status_works() {
     job_item.metadata = metadata;
 
     // building config
-    TestConfigBuilder::new().build().await;
+    let _services = TestConfigBuilder::new()
+        .testcontainer_mongo_database()
+        .await
+        .testcontainer_sqs_data_storage(JOB_VERIFICATION_QUEUE.to_string())
+        .await
+        .build()
+        .await;
 
     let config = config().await;
     let database_client = config.database();

@@ -14,7 +14,7 @@ use utils::settings::default::DefaultSettingsProvider;
 
 use crate::database::mongodb::config::MongoDbConfig;
 use crate::database::mongodb::MongoDb;
-use crate::database::{Database, DatabaseConfig, MockDatabase};
+use crate::database::{Database, MockDatabase};
 use crate::queue::sqs::SqsQueue;
 use crate::queue::QueueProvider;
 
