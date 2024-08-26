@@ -11,7 +11,7 @@ use orchestrator::queue::job_queue::{
 };
 use std::fs::read;
 
-pub const PIE_FILE_BLOCK_NUMBER: u64 = 101038;
+pub const PIE_FILE_BLOCK_NUMBER: u64 = 671070;
 
 /// LocalStack struct
 pub struct LocalStack;

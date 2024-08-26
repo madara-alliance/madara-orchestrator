@@ -5,7 +5,7 @@ mod types;
 
 use std::str::FromStr;
 
-use alloy::primitives::{B256, I256};
+use alloy::primitives::B256;
 use async_trait::async_trait;
 use gps_fact_checker::fact_info::get_fact_info;
 use gps_fact_checker::FactChecker;
@@ -30,13 +30,12 @@ pub struct SharpProverService {
 impl ProverClient for SharpProverService {
     async fn submit_task(&self, task: Task) -> Result<TaskId, ProverClientError> {
         match task {
-            Task::CairoPie(_cairo_pie) => {
-                // let fact_info = get_fact_info(&cairo_pie, None)?;
-                // let encoded_pie =
-                //     snos::sharp::pie::encode_pie_mem(cairo_pie).map_err(ProverClientError::PieEncoding)?;
-                // let (_, job_key) = self.sharp_client.add_job(&encoded_pie).await?;
-                // Ok(combine_task_id(&job_key, &fact_info.fact))
-                Ok(combine_task_id(&Uuid::new_v4(), &B256::from(I256::ZERO)))
+            Task::CairoPie(cairo_pie) => {
+                let fact_info = get_fact_info(&cairo_pie, None)?;
+                let encoded_pie =
+                    snos::sharp::pie::encode_pie_mem(cairo_pie).map_err(ProverClientError::PieEncoding)?;
+                let (_, job_key) = self.sharp_client.add_job(&encoded_pie).await?;
+                Ok(combine_task_id(&job_key, &fact_info.fact))
             }
         }
     }
@@ -75,6 +74,9 @@ impl SharpProverService {
 
     pub fn with_settings(settings: &impl SettingsProvider) -> Self {
         let sharp_cfg: SharpConfig = settings.get_settings(SHARP_SETTINGS_NAME).unwrap();
+
+        log::info!("sharp config : {:?}", sharp_cfg);
+
         let sharp_client = SharpClient::new(sharp_cfg.service_url);
         let fact_checker = FactChecker::new(sharp_cfg.rpc_node_url, sharp_cfg.verifier_address);
         Self::new(sharp_client, fact_checker)

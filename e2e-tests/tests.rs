@@ -60,7 +60,7 @@ pub async fn setup_for_test(
     // Setting up LocalStack
     let localstack_instance = LocalStack {};
     // TODO : uncomment
-    localstack_instance.setup_s3().await.unwrap();
+    // localstack_instance.setup_s3().await.unwrap();
     localstack_instance.setup_sqs().await.unwrap();
     localstack_instance.delete_event_bridge_rule("worker_trigger_scheduled").await.unwrap();
     localstack_instance.setup_event_bridge(WorkerTriggerType::Proving).await.unwrap();
@@ -109,7 +109,8 @@ fn get_env_vec() -> Vec<(String, String)> {
         ("DATA_STORAGE", "s3_localstack"),
         ("ALERTS", "sns"),
         // Sharp configs
-        ("SHARP_PROOF_LAYOUT", "small")
+        ("SHARP_PROOF_LAYOUT", "small"),
+        ("MEMORY_PAGES_CONTRACT_ADDRESS", "0x9fb7F48dCB26b7bFA4e580b2dEFf637B13751942")
     ];
 
     env_vec.into_iter().map(|(first, second)| (first.to_string(), second.to_string())).collect()

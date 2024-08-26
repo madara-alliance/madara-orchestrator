@@ -15,7 +15,7 @@ sol!(
     #[allow(missing_docs)]
     #[sol(rpc)]
     FactRegistry,
-    "tests/artifacts/FactRegistry2.json"
+    "tests/artifacts/FactRegistry.json"
 );
 
 pub struct FactChecker {
@@ -27,6 +27,7 @@ type ProviderT = RootProvider<TransportT>;
 
 impl FactChecker {
     pub fn new(rpc_node_url: Url, verifier_address: Address) -> Self {
+        log::info!(">>> rpc : {} | verifier address : {}", rpc_node_url.to_string(), verifier_address.to_string());
         let provider = ProviderBuilder::new().on_http(rpc_node_url);
         let fact_registry = FactRegistry::new(verifier_address, provider);
         Self { fact_registry }
