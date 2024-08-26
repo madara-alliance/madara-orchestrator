@@ -11,8 +11,7 @@ use orchestrator::queue::job_queue::{
 };
 use std::fs::read;
 
-const PIE_FILE_URL: &str = "https://madara-orchestrator-sharp-pie.s3.amazonaws.com/238996-SN.zip";
-const PIE_FILE_BLOCK_NUMBER: u64 = 238996;
+pub const PIE_FILE_BLOCK_NUMBER: u64 = 101038;
 
 /// LocalStack struct
 pub struct LocalStack;
@@ -58,7 +57,11 @@ impl LocalStack {
         println!("program output file uploaded to localstack s3 ✅");
 
         // getting the PIE file from s3 bucket using URL provided
-        let file = reqwest::get(PIE_FILE_URL).await?;
+        let file = reqwest::get(format!(
+            "https://madara-orchestrator-sharp-pie.s3.amazonaws.com/{}-SN.zip",
+            PIE_FILE_BLOCK_NUMBER
+        ))
+        .await?;
         let file_bytes = file.bytes().await?;
 
         // putting the pie file into localstack s3
