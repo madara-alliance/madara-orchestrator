@@ -1,7 +1,7 @@
 use std::sync::Arc;
 
 use crate::config::{build_da_client, build_prover_service, build_settlement_client, config_force_init, Config};
-use crate::data_storage::{DataStorage, MockDataStorage};
+use crate::data_storage::{DataStorage, DataStorageConfig, MockDataStorage};
 use crate::queue::job_queue::{JOB_PROCESSING_QUEUE, JOB_VERIFICATION_QUEUE};
 use da_client_interface::DaClient;
 use httpmock::MockServer;
@@ -218,7 +218,7 @@ impl TestConfigBuilder {
 
 /// LocalStack (s3 and sqs) & MongoDb Setup using TestContainers ////
 use super::common::testcontainer_setups::LocalStack;
-use crate::data_storage::aws_s3::config::{AWSS3ConfigType, S3LocalStackConfig};
+use crate::data_storage::aws_s3::config::AWSS3Config;
 use crate::data_storage::aws_s3::AWSS3;
 use crate::tests::common::testcontainer_setups::Mongo;
 use aws_config::{BehaviorVersion, Region};
@@ -304,11 +304,9 @@ pub async fn s3_testcontainer_setup() -> (ContainerAsync<LocalStack>, Box<dyn Da
 
     client.create_bucket().bucket(aws_s3_bucket_name.clone()).send().await.unwrap();
 
-    let storage_client = AWSS3::new(AWSS3ConfigType::WithEndpoint(S3LocalStackConfig::new_from_env_with_endpoint(
-        aws_endpoint_url.as_str(),
-    )))
-    .await;
+    let aws_config = aws_config::load_from_env().await.into_builder().endpoint_url(aws_endpoint_url.as_str()).build();
 
+    let storage_client = AWSS3::new(AWSS3Config::new_from_env(), &aws_config);
     (node, Box::new(storage_client) as Box<dyn DataStorage>, client)
 }
 
