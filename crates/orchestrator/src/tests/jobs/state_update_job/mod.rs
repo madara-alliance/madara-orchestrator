@@ -11,11 +11,10 @@ use rstest::*;
 use settlement_client_interface::MockSettlementClient;
 
 use color_eyre::eyre::eyre;
-use utils::env_utils::get_env_var_or_panic;
 
 use crate::config::config;
 use crate::constants::{BLOB_DATA_FILE_NAME, SNOS_OUTPUT_FILE_NAME};
-use crate::data_storage::MockDataStorage;
+use crate::data_storage::{DataStorage, MockDataStorage};
 use crate::jobs::constants::JOB_METADATA_STATE_UPDATE_LAST_FAILED_BLOCK_NO;
 use crate::jobs::constants::{
     JOB_METADATA_STATE_UPDATE_BLOCKS_TO_SETTLE_KEY, JOB_METADATA_STATE_UPDATE_FETCH_FROM_TESTS,
@@ -25,7 +24,7 @@ use crate::jobs::state_update_job::utils::hex_string_to_u8_vec;
 use crate::jobs::state_update_job::{StateUpdateError, StateUpdateJob};
 use crate::jobs::types::{JobStatus, JobType};
 use crate::jobs::{Job, JobError};
-use crate::tests::common::{default_job_item, get_storage_client};
+use crate::tests::common::default_job_item;
 use crate::tests::config::TestConfigBuilder;
 use lazy_static::lazy_static;
 use starknet::providers::jsonrpc::HttpTransport;
@@ -63,9 +62,6 @@ async fn test_process_job_works(
 ) {
     // Will be used by storage client which we call while storing the data.
 
-    use num::ToPrimitive;
-
-    use crate::jobs::state_update_job::utils::fetch_blob_data_for_block;
     dotenvy::from_filename("../.env.test").expect("Failed to load the .env file");
 
     // Mocking the settlement client.
@@ -76,21 +72,17 @@ async fn test_process_job_works(
     // This must be the last block number and should be returned as an output from the process job.
     let last_block_number = block_numbers[block_numbers.len() - 1];
 
-    // Storing `blob_data` and `snos_output` in storage client
-    store_data_in_storage_client_for_s3(block_numbers.clone()).await;
-
-    // Building a temp config that will be used by `fetch_blob_data_for_block` and `fetch_snos_for_block`
-    // functions while fetching the blob data from storage client.
-    TestConfigBuilder::new().build().await;
-
-    // test_process_job_works uses nonce just to write expect_update_state_with_blobs for a mocked settlement client,
-    // which means that nonce ideally is never checked against, hence supplying any `u64` `nonce` works.
-    let nonce: u64 = 3;
-    settlement_client.expect_get_nonce().with().returning(move || Ok(nonce));
-
     // Adding expectations for each block number to be called by settlement client.
     for block in block_numbers.iter().skip(processing_start_index as usize) {
-        let blob_data = fetch_blob_data_for_block(block.to_u64().unwrap()).await.unwrap();
+        // Getting the blob data from file.
+        let blob_data = fs::read_to_string(
+            CURRENT_PATH.join(format!("src/tests/jobs/state_update_job/test_data/{}/{}", block, BLOB_DATA_FILE_NAME)),
+        )
+        .unwrap();
+
+        let blob_data_vec = vec![hex_string_to_u8_vec(&blob_data).unwrap()];
+
+        let blob_data = blob_data_vec;
         settlement_client
             .expect_update_state_with_blobs()
             .with(eq(vec![]), eq(blob_data), always())
@@ -99,8 +91,37 @@ async fn test_process_job_works(
     }
     settlement_client.expect_get_last_settled_block().with().returning(move || Ok(651052));
 
-    // Building new config with mocked settlement client
-    TestConfigBuilder::new().mock_settlement_client(Box::new(settlement_client)).build().await;
+    // Building a temp config that will be used by `fetch_blob_data_for_block` and `fetch_snos_for_block`
+    // functions while fetching the blob data from storage client.
+    let _services = TestConfigBuilder::new()
+        .mock_settlement_client(Box::new(settlement_client))
+        .testcontainer_s3_data_storage()
+        .await
+        .build()
+        .await;
+    let config = config().await;
+    let storage_client = config.storage();
+
+    for block in block_numbers {
+        // Getting the blob data from file.
+        let blob_data_key = block.to_owned().to_string() + "/" + BLOB_DATA_FILE_NAME;
+        let blob_data = fs::read_to_string(
+            CURRENT_PATH.join(format!("src/tests/jobs/state_update_job/test_data/{}/{}", block, BLOB_DATA_FILE_NAME)),
+        )
+        .unwrap();
+        let blob_data_vec = vec![hex_string_to_u8_vec(&blob_data).unwrap()];
+        let blob_serialized = bincode::serialize(&blob_data_vec).unwrap();
+
+        // Getting the snos data from file.
+        let snos_output_key = block.to_owned().to_string() + "/" + SNOS_OUTPUT_FILE_NAME;
+        let snos_output_data = fs::read_to_string(
+            CURRENT_PATH.join(format!("src/tests/jobs/state_update_job/test_data/{}/{}", block, SNOS_OUTPUT_FILE_NAME)),
+        )
+        .unwrap();
+
+        storage_client.put_data(Bytes::from(snos_output_data), &snos_output_key).await.unwrap();
+        storage_client.put_data(Bytes::from(blob_serialized), &blob_data_key).await.unwrap();
+    }
 
     // setting last failed block number as 651053.
     // setting blocks yet to process as 651054 and 651055.
@@ -117,7 +138,6 @@ async fn test_process_job_works(
     job.job_type = JobType::StateTransition;
     job.metadata = metadata;
 
-    let config = config().await;
     let state_update_job = StateUpdateJob {};
     let res = state_update_job.process_job(&config, &mut job).await.unwrap();
     assert_eq!(res, last_block_number.to_string());
@@ -301,32 +321,6 @@ async fn load_state_diff_file(block_no: u64) -> Vec<Vec<u8>> {
     let blob_data = hex_string_to_u8_vec(&file_data).unwrap();
     state_diff_vec.push(blob_data);
     state_diff_vec
-}
-
-async fn store_data_in_storage_client_for_s3(block_numbers: Vec<u64>) {
-    let storage_client = get_storage_client().await;
-    storage_client.build_test_bucket(&get_env_var_or_panic("AWS_S3_BUCKET_NAME")).await.unwrap();
-
-    for block in block_numbers {
-        // Getting the blob data from file.
-        let blob_data_key = block.to_owned().to_string() + "/" + BLOB_DATA_FILE_NAME;
-        let blob_data = fs::read_to_string(
-            CURRENT_PATH.join(format!("src/tests/jobs/state_update_job/test_data/{}/{}", block, BLOB_DATA_FILE_NAME)),
-        )
-        .unwrap();
-        let blob_data_vec = vec![hex_string_to_u8_vec(&blob_data).unwrap()];
-        let blob_serialized = bincode::serialize(&blob_data_vec).unwrap();
-
-        // Getting the snos data from file.
-        let snos_output_key = block.to_owned().to_string() + "/" + SNOS_OUTPUT_FILE_NAME;
-        let snos_output_data = fs::read_to_string(
-            CURRENT_PATH.join(format!("src/tests/jobs/state_update_job/test_data/{}/{}", block, SNOS_OUTPUT_FILE_NAME)),
-        )
-        .unwrap();
-
-        storage_client.put_data(Bytes::from(snos_output_data), &snos_output_key).await.unwrap();
-        storage_client.put_data(Bytes::from(blob_serialized), &blob_data_key).await.unwrap();
-    }
 }
 
 fn parse_block_numbers(blocks_to_settle: &str) -> color_eyre::Result<Vec<u64>> {
