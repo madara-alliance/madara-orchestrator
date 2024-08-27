@@ -14,7 +14,7 @@ use color_eyre::eyre::eyre;
 
 use crate::config::config;
 use crate::constants::{BLOB_DATA_FILE_NAME, SNOS_OUTPUT_FILE_NAME};
-use crate::data_storage::{DataStorage, MockDataStorage};
+use crate::data_storage::MockDataStorage;
 use crate::jobs::constants::JOB_METADATA_STATE_UPDATE_LAST_FAILED_BLOCK_NO;
 use crate::jobs::constants::{
     JOB_METADATA_STATE_UPDATE_BLOCKS_TO_SETTLE_KEY, JOB_METADATA_STATE_UPDATE_FETCH_FROM_TESTS,
@@ -90,6 +90,8 @@ async fn test_process_job_works(
             .returning(|_, _, _| Ok("0xbeef".to_string()));
     }
     settlement_client.expect_get_last_settled_block().with().returning(move || Ok(651052));
+    // Setting random nonce
+    settlement_client.expect_get_nonce().with().returning(move || Ok(2));
 
     // Building a temp config that will be used by `fetch_blob_data_for_block` and `fetch_snos_for_block`
     // functions while fetching the blob data from storage client.
