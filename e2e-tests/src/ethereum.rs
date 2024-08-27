@@ -1,12 +1,13 @@
 use crate::get_env_var_or_panic;
 use alloy::network::EthereumWallet;
 use alloy::node_bindings::{Anvil, AnvilInstance};
+use alloy::primitives::Address;
+use alloy::providers::ext::AnvilApi;
+use alloy::providers::ProviderBuilder;
 use alloy::signers::local::LocalSigner;
 use std::str::FromStr;
 
-// This is the transaction for updateState :
-// https://etherscan.io/tx/0xacc442468b2297ea3fe7aee63f3dac0816625f3f0fd7ba074217316a25658355
-const BLOCK_TO_FORK: u64 = 18169622;
+const BLOCK_TO_FORK: u64 = 20607627;
 
 pub struct EthereumClient {
     anvil_endpoint: String,
@@ -25,7 +26,24 @@ impl EthereumClient {
             .try_spawn()
             .expect("Unable to fork eth mainnet and run anvil.");
 
+        println!("♢ Ethereum Client setup completed.");
+
         Self { anvil_endpoint: forked_anvil.endpoint(), anvil_instance: forked_anvil }
+    }
+
+    /// Impersonate Account on anvil as starknet operator
+    pub async fn impersonate_account_as_starknet_operator(&self) {
+        let provider = ProviderBuilder::new().on_http(self.anvil_endpoint.parse().unwrap());
+
+        // Impersonate account as starknet operator
+        provider
+            .anvil_impersonate_account(
+                Address::from_str("0x2C169DFe5fBbA12957Bdd0Ba47d9CEDbFE260CA7").expect("Unable to parse address"),
+            )
+            .await
+            .expect("Unable to impersonate account.");
+
+        println!("♢ Impersonate Account setup completed.");
     }
 
     /// To get the anvil endpoint

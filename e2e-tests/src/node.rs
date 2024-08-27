@@ -26,24 +26,6 @@ impl Drop for Orchestrator {
 }
 
 impl Orchestrator {
-    // fn cargo_run(root_dir: &Path, binary: &str, args: Vec<&str>, envs: Vec<(String, String)>) -> Child {
-    //     let arguments = [vec!["run", "--bin", binary, "--release", "--"], args].concat();
-    //
-    //     let logs_dir = Path::join(root_dir, Path::new("target/logs"));
-    //     create_dir_all(logs_dir.clone()).expect("Failed to create logs dir");
-    //
-    //     let stdout = Stdio::from(File::create(logs_dir.join(format!("{}-stdout.txt", binary))).unwrap());
-    //     let stderr = Stdio::from(File::create(logs_dir.join(format!("{}-stderr.txt", binary))).unwrap());
-    //
-    //     Command::new("cargo")
-    //         .stdout(stdout)
-    //         .stderr(stderr)
-    //         .envs(envs)
-    //         .args(arguments)
-    //         .spawn()
-    //         .expect("Could not run orchestrator node")
-    // }
-
     pub fn run(envs: Vec<(String, String)>) -> Self {
         let port = get_free_port();
         let address = format!("127.0.0.1:{}", port);

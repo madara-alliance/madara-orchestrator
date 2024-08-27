@@ -76,6 +76,12 @@ impl Job for StateUpdateJob {
         internal_id: String,
         metadata: HashMap<String, String>,
     ) -> Result<JobItem, JobError> {
+        // Inserting the metadata (If it doesn't exist)
+        let mut metadata = metadata.clone();
+        if !metadata.contains_key(JOB_PROCESS_ATTEMPT_METADATA_KEY) {
+            metadata.insert(JOB_PROCESS_ATTEMPT_METADATA_KEY.to_string(), "0".to_string());
+        }
+
         Ok(JobItem {
             id: Uuid::new_v4(),
             internal_id,

@@ -5,6 +5,7 @@ use std::str::FromStr;
 use async_trait::async_trait;
 use color_eyre::eyre::WrapErr;
 use lazy_static::lazy_static;
+use majin_blob_types::state_diffs::DataJson;
 use num_bigint::{BigUint, ToBigUint};
 use num_traits::{Num, Zero};
 use starknet::core::types::{BlockId, FieldElement, MaybePendingStateUpdate, StateUpdate, StorageEntry};
@@ -201,27 +202,25 @@ pub fn convert_to_biguint(elements: Vec<FieldElement>) -> Vec<BigUint> {
 fn data_to_blobs(blob_size: u64, block_data: Vec<BigUint>) -> Result<Vec<Vec<u8>>, JobError> {
     // Validate blob size
     if blob_size < 32 {
-        Err(DaError::InsufficientBlobSize { blob_size })?
+        return Err(DaError::InsufficientBlobSize { blob_size })?;
     }
 
     let mut blobs: Vec<Vec<u8>> = Vec::new();
 
-    // Convert all FieldElements to bytes first
-    let mut bytes: Vec<u8> = block_data.iter().flat_map(|element| element.to_bytes_be().to_vec()).collect();
+    // Convert all BigUint to bytes more efficiently
+    let bytes: Vec<u8> = block_data.iter().flat_map(BigUint::to_bytes_be).collect();
 
     // Process bytes in chunks of blob_size
-    while bytes.len() >= blob_size as usize {
-        let chunk = bytes.drain(..blob_size as usize).collect();
-        blobs.push(chunk);
-    }
+    let chunk_size = blob_size as usize;
+    let chunks = bytes.chunks(chunk_size);
 
-    // Handle any remaining bytes (not a complete blob)
-    if !bytes.is_empty() {
-        let remaining_bytes = bytes.len();
-        let mut last_blob = bytes;
-        last_blob.resize(blob_size as usize, 0); // Pad with zeros
-        blobs.push(last_blob);
-        log::debug!("Warning: Remaining {} bytes not forming a complete blob were padded", remaining_bytes);
+    for chunk in chunks {
+        let mut blob = chunk.to_vec();
+        if blob.len() < chunk_size {
+            blob.resize(chunk_size, 0);
+            log::debug!("Warning: Last chunk of {} bytes was padded to full blob size", chunk.len());
+        }
+        blobs.push(blob);
     }
 
     Ok(blobs)
@@ -270,6 +269,8 @@ pub async fn state_update_to_blob_data(
                 .await
                 .wrap_err("Failed to get nonce ".to_string())?;
 
+            log::info!("Address : {addr} | Nonce : {get_current_nonce_result}");
+            
             nonce = Some(get_current_nonce_result);
         }
         let da_word = da_word(class_flag.is_some(), nonce, writes.len() as u64);
@@ -373,7 +374,7 @@ pub mod test {
     use crate::jobs::da_job::da_word;
     use std::fs;
     use std::fs::File;
-    use std::io::Read;
+    use std::io::{Read};
     use std::sync::Arc;
 
     use crate::config::config;
@@ -436,6 +437,12 @@ pub mod test {
         "src/tests/jobs/da_job/test_data/state_update/640641.txt",
         "src/tests/jobs/da_job/test_data/test_blob/640641.txt",
         "src/tests/jobs/da_job/test_data/nonces/640641.txt"
+    )]
+    #[case(
+        671070,
+        "src/tests/jobs/da_job/test_data/state_update/671070.txt",
+        "src/tests/jobs/da_job/test_data/test_blob/671070.txt",
+        "src/tests/jobs/da_job/test_data/nonces/671070.txt"
     )]
     #[tokio::test]
     async fn test_state_update_to_blob_data(

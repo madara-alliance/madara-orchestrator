@@ -10,6 +10,7 @@ pub struct MongoDbServer {
 
 impl MongoDbServer {
     pub async fn run() -> Self {
+        // TODO : check why test-containers is not working
         // let host_port = get_free_port();
         //
         // let container = GenericImage::new(MONGODB_IMAGE_NAME, MONGODB_IMAGE_TAG)

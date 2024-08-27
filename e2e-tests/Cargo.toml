@@ -26,6 +26,7 @@ tokio-util.workspace = true
 url.workspace = true
 uuid = { version = "1.8.0", features = ["v4"] }
 bytes = "1.6.0"
+serde = { version = "1.0.203", features = ["derive"] }
 
 [[test]]
 name = "test_samples"

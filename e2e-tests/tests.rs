@@ -3,8 +3,8 @@ use e2e_tests::localstack::LocalStack;
 use e2e_tests::sharp::SharpClient;
 use e2e_tests::starknet_client::StarknetClient;
 use e2e_tests::{
-    get_env_var_or_panic, mock_proving_job_endpoint_output, mock_starknet_get_state_update, put_job_data_in_db,
-    MongoDbServer, Orchestrator,
+    get_env_var_or_panic, mock_proving_job_endpoint_output, mock_starknet_get_nonce, mock_starknet_get_state_update,
+    put_job_data_in_db_da, put_job_data_in_db_snos, put_job_data_in_db_update_state, MongoDbServer, Orchestrator,
 };
 use orchestrator::queue::job_queue::WorkerTriggerType;
 use std::time::Duration;
@@ -12,33 +12,43 @@ use tokio::time::sleep;
 
 extern crate e2e_tests;
 
+#[cfg(test)]
 #[tokio::test]
 async fn test_orchestrator_workflow() {
     // Fetching the env vars from the test env file because setting up of the environment
     // requires all these variables.
     dotenvy::from_filename("../.env.test").expect("Failed to load the .env file");
 
-    let (mongo_db_instance, mut starknet_client_mock, _ethereum_client_mock, mut sharp_client_mock, env_vec) =
-        setup_for_test().await.unwrap();
+    let (
+        mongo_db_instance,
+        mut starknet_client_mock,
+        _ethereum_client_mock,
+        mut sharp_client_mock,
+        env_vec,
+        l2_block_number,
+    ) = setup_for_test().await.unwrap();
 
-    // Step 1 : SNOS job runs
+    // Step 1 : SNOS job runs =========================================
     // TODO : Update the code with actual SNOS implementation
     // Updates the job in the db
-    put_job_data_in_db(&mongo_db_instance).await;
+    put_job_data_in_db_snos(&mongo_db_instance, l2_block_number.clone()).await;
 
-    // Step 2: Proving Job
+    // Step 2: Proving Job ============================================
     // Mocking the endpoint
     mock_proving_job_endpoint_output(&mut sharp_client_mock).await;
 
-    // Step 3: DA job
+    // Step 3: DA job =================================================
     // mocking get_block_call from starknet client
-    mock_starknet_get_state_update(&mut starknet_client_mock).await;
 
-    // Step 4: State Update job
-    // For now use_kzg_da is 0
-    // TODO : After getting latest PIE file update the code here to perform actual `update_state_with_blobs`
+    // Adding a mock da job so that worker does not create 60k+ jobs
+    put_job_data_in_db_da(&mongo_db_instance, l2_block_number.clone()).await;
+    mock_starknet_get_state_update(&mut starknet_client_mock, l2_block_number.clone()).await;
+    mock_starknet_get_nonce(&mut starknet_client_mock, l2_block_number.clone()).await;
 
-    println!("Orchestrator setup completed ✅ >>> ");
+    // Step 4: State Update job =======================================
+    put_job_data_in_db_update_state(&mongo_db_instance, l2_block_number).await;
+
+    println!("✅ Orchestrator setup completed.");
 
     // Run orchestrator
     let mut orchestrator = Orchestrator::run(env_vec);
@@ -51,14 +61,19 @@ async fn test_orchestrator_workflow() {
 }
 
 pub async fn setup_for_test(
-) -> color_eyre::Result<(MongoDbServer, StarknetClient, EthereumClient, SharpClient, Vec<(String, String)>)> {
+) -> color_eyre::Result<(MongoDbServer, StarknetClient, EthereumClient, SharpClient, Vec<(String, String)>, String)> {
     let mongo_db_instance = MongoDbServer::run().await;
+    println!("✅ Mongo DB setup completed");
     let starknet_client = StarknetClient::new();
+    println!("✅ Starknet/Madara client setup completed");
     let ethereum_client = EthereumClient::new();
+    ethereum_client.impersonate_account_as_starknet_operator().await;
+    println!("✅ Ethereum client setup completed");
     let sharp_client = SharpClient::new();
+    println!("✅ Sharp client setup completed");
 
     // Setting up LocalStack
-    let localstack_instance = LocalStack {};
+    let localstack_instance = LocalStack::new();
     // TODO : uncomment
     // localstack_instance.setup_s3().await.unwrap();
     localstack_instance.setup_sqs().await.unwrap();
@@ -66,7 +81,7 @@ pub async fn setup_for_test(
     localstack_instance.setup_event_bridge(WorkerTriggerType::Proving).await.unwrap();
     localstack_instance.setup_event_bridge(WorkerTriggerType::DataSubmission).await.unwrap();
     localstack_instance.setup_event_bridge(WorkerTriggerType::UpdateState).await.unwrap();
-    println!("Localstack instance setup completed ✅");
+    println!("✅ Localstack instance setup completed");
 
     let mut env_vec = get_env_vec();
 
@@ -74,6 +89,7 @@ pub async fn setup_for_test(
     env_vec.push(("MONGODB_CONNECTION_STRING".to_string(), mongo_db_instance.endpoint().to_string()));
     env_vec.push(("MADARA_RPC_URL".to_string(), starknet_client.url()));
     env_vec.push(("ETHEREUM_RPC_URL".to_string(), ethereum_client.endpoint()));
+    env_vec.push(("DEFAULT_SETTLEMENT_CLIENT_RPC".to_string(), ethereum_client.endpoint()));
     env_vec.push(("SHARP_URL".to_string(), sharp_client.url()));
 
     // Sharp envs
@@ -82,7 +98,14 @@ pub async fn setup_for_test(
     env_vec.push(("SHARP_USER_KEY".to_string(), get_env_var_or_panic("SHARP_USER_KEY")));
     env_vec.push(("SHARP_SERVER_CRT".to_string(), get_env_var_or_panic("SHARP_SERVER_CRT")));
 
-    Ok((mongo_db_instance, starknet_client, ethereum_client, sharp_client, env_vec))
+    Ok((
+        mongo_db_instance,
+        starknet_client,
+        ethereum_client,
+        sharp_client,
+        env_vec,
+        localstack_instance.l2_block_number(),
+    ))
 }
 
 /// To get env variables to be used in testing
@@ -110,7 +133,7 @@ fn get_env_vec() -> Vec<(String, String)> {
         ("ALERTS", "sns"),
         // Sharp configs
         ("SHARP_PROOF_LAYOUT", "small"),
-        ("MEMORY_PAGES_CONTRACT_ADDRESS", "0x9fb7F48dCB26b7bFA4e580b2dEFf637B13751942")
+        ("MEMORY_PAGES_CONTRACT_ADDRESS", "0x47312450B3Ac8b5b8e247a6bB6d523e7605bDb60")
     ];
 
     env_vec.into_iter().map(|(first, second)| (first.to_string(), second.to_string())).collect()

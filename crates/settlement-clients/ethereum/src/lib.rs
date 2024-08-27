@@ -187,16 +187,16 @@ impl SettlementClient for EthereumSettlementClient {
         nonce: u64,
     ) -> Result<String> {
         //TODO: better file management
-
         let trusted_setup_path: String = CURRENT_PATH
-            .join("src")
-            .join("trusted_setup.txt")
+            .join("crates/settlement-clients/ethereum/src/trusted_setup.txt")
             .to_str()
             .expect("Path contains invalid Unicode")
             .to_string();
         let trusted_setup = KzgSettings::load_trusted_setup_file(Path::new(trusted_setup_path.as_str()))?;
         let (sidecar_blobs, sidecar_commitments, sidecar_proofs) = prepare_sidecar(&state_diff, &trusted_setup).await?;
+        log::info!("proof built.");
         let sidecar = BlobTransactionSidecar::new(sidecar_blobs, sidecar_commitments, sidecar_proofs);
+        log::info!("sidecar built.");
 
         let eip1559_est = self.provider.estimate_eip1559_fees(None).await?;
         let chain_id: u64 = self.provider.get_chain_id().await?.to_string().parse()?;
@@ -213,6 +213,8 @@ impl SettlementClient for EthereumSettlementClient {
         )
         .expect("Unable to build KZG proof for given params.")
         .to_owned();
+
+        log::info!("kzg : {:?}", kzg_proof);
 
         let input_bytes = get_input_data_for_eip_4844(program_output, kzg_proof)?;
 
@@ -293,6 +295,7 @@ impl SettlementClient for EthereumSettlementClient {
 mod test_config {
     use super::*;
     use alloy::network::TransactionBuilder;
+    use rstest::rstest;
 
     pub async fn configure_transaction(
         // provider: Arc<RootProvider<Http<Client>>>,

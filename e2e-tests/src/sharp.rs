@@ -28,10 +28,11 @@ impl SharpClient {
         &mut self,
         path: &str,
         body_contains: Option<&str>,
+        body_contains_2: Option<&str>,
         status: Option<u16>,
         response_body: &Value,
     ) {
-        self.client.add_mock_on_endpoint(path, body_contains, status, response_body);
+        self.client.add_mock_on_endpoint(path, body_contains, body_contains_2, status, response_body);
     }
 }
 

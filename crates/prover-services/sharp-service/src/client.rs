@@ -99,17 +99,10 @@ impl SharpClient {
         match res.status() {
             reqwest::StatusCode::OK => {
                 let text = res.text().await.unwrap();
-                log::info!("Received response text: {:?}", text);
 
                 match serde_json::from_str::<SharpGetStatusResponse>(&text) {
-                    Ok(response) => {
-                        log::info!("Deserialization successful: {:?}", response);
-                        Ok(response)
-                    }
-                    Err(e) => {
-                        log::error!("Deserialization failed: {:?}", e);
-                        Err(SharpError::Other(OtherError::from(e.to_string())))
-                    }
+                    Ok(response) => Ok(response),
+                    Err(e) => Err(SharpError::Other(OtherError::from(e.to_string()))),
                 }
             }
             code => Err(SharpError::SharpService(code)),
