@@ -1,4 +1,5 @@
 use std::sync::Arc;
+use std::time::SystemTime;
 
 use crate::config::{build_da_client, build_prover_service, build_settlement_client, config_force_init, Config};
 use crate::data_storage::{DataStorage, DataStorageConfig, MockDataStorage};
@@ -243,6 +244,8 @@ pub async fn sqs_testcontainer_setup() -> (ContainerAsync<LocalStack>, Box<dyn Q
     let region_provider = Region::new(aws_region);
     let aws_endpoint_url = format!("http://{host_ip}:{host_port}");
 
+    println!("{:?} {} {:?}", SystemTime::now(), "SQS", host_port);
+
     let creds = Credentials::new(aws_access_key_id, aws_secret_access_key, None, None, "test");
     let config = aws_config::defaults(BehaviorVersion::v2024_03_28())
         .region(region_provider)
@@ -287,6 +290,8 @@ pub async fn s3_testcontainer_setup() -> (ContainerAsync<LocalStack>, Box<dyn Da
     let region_provider = Region::new(aws_region);
     let aws_endpoint_url = format!("http://{host_ip}:{host_port}");
 
+    println!("{:?} {} {:?}", SystemTime::now(), "S3", host_port);
+
     let aws_s3_bucket_name = get_env_var_or_panic("AWS_S3_BUCKET_NAME");
 
     // Set up AWS client
@@ -318,6 +323,8 @@ pub async fn mongodb_testcontainer_setup() -> (ContainerAsync<Mongo>, Box<dyn Da
     let host_ip = node.get_host().await.unwrap();
     let host_port = node.get_host_port_ipv4(LOCAL_PORT.tcp()).await.unwrap();
     let connection_url = format!("mongodb://{host_ip}:{host_port}/");
+
+    println!("{:?} {} {:?}", SystemTime::now(), "MONGO", host_port);
 
     let mongo_config = MongoDbConfig { url: connection_url };
     let database = MongoDb::new(mongo_config).await;
