@@ -83,7 +83,7 @@ impl TestConfigBuilder {
         self
     }
 
-    pub async fn testcontainer_sqs_data_storage(mut self, queue_name: String) -> TestConfigBuilder {
+    pub async fn testcontainer_sqs_data_storage(mut self) -> TestConfigBuilder {
         let (node, queue_client, client) = sqs_testcontainer_setup().await;
         self.queue = Some(queue_client);
         self.queue_client = Some(client);

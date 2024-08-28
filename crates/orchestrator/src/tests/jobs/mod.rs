@@ -48,7 +48,7 @@ async fn create_job_job_does_not_exists_in_db_works() {
     let _services = TestConfigBuilder::new()
         .testcontainer_mongo_database()
         .await
-        .testcontainer_sqs_data_storage(JOB_PROCESSING_QUEUE.to_string())
+        .testcontainer_sqs_data_storage()
         .await
         .build()
         .await;
@@ -89,7 +89,7 @@ async fn create_job_job_exists_in_db_works() {
     let _services = TestConfigBuilder::new()
         .testcontainer_mongo_database()
         .await
-        .testcontainer_sqs_data_storage(JOB_PROCESSING_QUEUE.to_string())
+        .testcontainer_sqs_data_storage()
         .await
         .build()
         .await;
@@ -118,7 +118,7 @@ async fn create_job_job_handler_is_not_implemented_panics() {
     let _services = TestConfigBuilder::new()
         .testcontainer_mongo_database()
         .await
-        .testcontainer_sqs_data_storage(JOB_PROCESSING_QUEUE.to_string())
+        .testcontainer_sqs_data_storage()
         .await
         .build()
         .await;
@@ -155,7 +155,7 @@ async fn process_job_with_job_exists_in_db_and_valid_job_processing_status_works
     let _services = TestConfigBuilder::new()
         .testcontainer_mongo_database()
         .await
-        .testcontainer_sqs_data_storage(JOB_VERIFICATION_QUEUE.to_string())
+        .testcontainer_sqs_data_storage()
         .await
         .build()
         .await;
@@ -205,7 +205,7 @@ async fn process_job_with_job_exists_in_db_with_invalid_job_processing_status_er
     let _services = TestConfigBuilder::new()
         .testcontainer_mongo_database()
         .await
-        .testcontainer_sqs_data_storage(JOB_VERIFICATION_QUEUE.to_string())
+        .testcontainer_sqs_data_storage()
         .await
         .build()
         .await;
@@ -242,7 +242,7 @@ async fn process_job_job_does_not_exists_in_db_works() {
     let _services = TestConfigBuilder::new()
         .testcontainer_mongo_database()
         .await
-        .testcontainer_sqs_data_storage(JOB_VERIFICATION_QUEUE.to_string())
+        .testcontainer_sqs_data_storage()
         .await
         .build()
         .await;
@@ -280,7 +280,7 @@ async fn process_job_two_workers_process_same_job_works() {
     let _services = TestConfigBuilder::new()
         .testcontainer_mongo_database()
         .await
-        .testcontainer_sqs_data_storage(JOB_VERIFICATION_QUEUE.to_string())
+        .testcontainer_sqs_data_storage()
         .await
         .build()
         .await;
@@ -324,7 +324,7 @@ async fn verify_job_with_verified_status_works() {
     let _services = TestConfigBuilder::new()
         .testcontainer_mongo_database()
         .await
-        .testcontainer_sqs_data_storage(JOB_PROCESSING_QUEUE.to_string())
+        .testcontainer_sqs_data_storage()
         .await
         .build()
         .await;
@@ -374,7 +374,7 @@ async fn verify_job_with_rejected_status_adds_to_queue_works() {
     let _services = TestConfigBuilder::new()
         .testcontainer_mongo_database()
         .await
-        .testcontainer_sqs_data_storage(JOB_PROCESSING_QUEUE.to_string())
+        .testcontainer_sqs_data_storage()
         .await
         .build()
         .await;
@@ -425,7 +425,7 @@ async fn verify_job_with_rejected_status_works() {
     let _services = TestConfigBuilder::new()
         .testcontainer_mongo_database()
         .await
-        .testcontainer_sqs_data_storage(JOB_PROCESSING_QUEUE.to_string())
+        .testcontainer_sqs_data_storage()
         .await
         .build()
         .await;
@@ -473,7 +473,7 @@ async fn verify_job_with_pending_status_adds_to_queue_works() {
     let _services = TestConfigBuilder::new()
         .testcontainer_mongo_database()
         .await
-        .testcontainer_sqs_data_storage(JOB_VERIFICATION_QUEUE.to_string())
+        .testcontainer_sqs_data_storage()
         .await
         .build()
         .await;
@@ -528,7 +528,7 @@ async fn verify_job_with_pending_status_works() {
     let _services = TestConfigBuilder::new()
         .testcontainer_mongo_database()
         .await
-        .testcontainer_sqs_data_storage(JOB_VERIFICATION_QUEUE.to_string())
+        .testcontainer_sqs_data_storage()
         .await
         .build()
         .await;
