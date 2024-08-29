@@ -12,7 +12,6 @@ use tokio::time::sleep;
 
 extern crate e2e_tests;
 
-#[cfg(test)]
 #[tokio::test]
 async fn test_orchestrator_workflow() {
     // Fetching the env vars from the test env file because setting up of the environment
@@ -74,7 +73,6 @@ pub async fn setup_for_test(
 
     // Setting up LocalStack
     let localstack_instance = LocalStack::new();
-    // TODO : uncomment
     // localstack_instance.setup_s3().await.unwrap();
     localstack_instance.setup_sqs().await.unwrap();
     localstack_instance.delete_event_bridge_rule("worker_trigger_scheduled").await.unwrap();
@@ -125,10 +123,12 @@ fn get_env_vec() -> Vec<(String, String)> {
         // On chain config urls
         ("ETHEREUM_PRIVATE_KEY", "0xac0974bec39a17e36ba4a6b4d238ff944bacb478cbed5efcae784d7bf4f2ff80"), // Private key from anvil
         ("PRIVATE_KEY", "0xdead"), // placeholder key for starknet private key (will not be used as we would be using mocking for madara client for now)
+        ("DEFAULT_L1_CORE_CONTRACT_ADDRESS", "0xc662c410C0ECf747543f5bA90660f6ABeBD9C8c4"),
+        ("STARKNET_OPERATOR_ADDRESS", "0x2C169DFe5fBbA12957Bdd0Ba47d9CEDbFE260CA7"),
         // Config URLs
         ("DA_LAYER", "ethereum"),
         ("PROVER_SERVICE", "sharp"),
-        ("SETTLEMENT_CLIENT", "ethereum"),
+        ("SETTLEMENT_CLIENT", "ethereum_test"),
         ("DATA_STORAGE", "s3_localstack"),
         ("ALERTS", "sns"),
         // Sharp configs

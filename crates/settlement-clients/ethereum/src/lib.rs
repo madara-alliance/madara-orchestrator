@@ -16,6 +16,7 @@ use alloy::{
 use alloy::eips::eip2930::AccessList;
 use alloy::eips::eip4844::BYTES_PER_BLOB;
 use alloy::hex;
+use alloy::providers::ext::AnvilApi;
 use alloy::rpc::types::TransactionRequest;
 use alloy_primitives::Bytes;
 use async_trait::async_trait;
@@ -27,7 +28,6 @@ use mockall::{automock, lazy_static, predicate::*};
 use alloy::providers::ProviderBuilder;
 use conversion::{get_input_data_for_eip_4844, prepare_sidecar};
 use settlement_client_interface::{SettlementClient, SettlementVerificationStatus, SETTLEMENT_SETTINGS_NAME};
-#[cfg(test)]
 use url::Url;
 use utils::{env_utils::get_env_var_or_panic, settings::SettingsProvider};
 
@@ -51,7 +51,7 @@ lazy_static! {
     pub static ref CURRENT_PATH: PathBuf = std::env::current_dir().unwrap();
     pub static ref KZG_SETTINGS: KzgSettings =
         // TODO: set more generalized path
-        KzgSettings::load_trusted_setup_file(CURRENT_PATH.join("src/trusted_setup.txt").as_path())
+        KzgSettings::load_trusted_setup_file(CURRENT_PATH.join("crates/settlement-clients/ethereum/src/trusted_setup.txt").as_path())
             .expect("Error loading trusted setup file");
 }
 
@@ -60,7 +60,6 @@ pub struct EthereumSettlementClient {
     wallet: EthereumWallet,
     wallet_address: Address,
     provider: Arc<RootProvider<Http<Client>>>,
-    #[cfg(test)]
     impersonate_account: Option<Address>,
 }
 
@@ -89,17 +88,9 @@ impl EthereumSettlementClient {
             filler_provider,
         );
 
-        EthereumSettlementClient {
-            provider,
-            core_contract_client,
-            wallet,
-            wallet_address,
-            #[cfg(test)]
-            impersonate_account: None,
-        }
+        EthereumSettlementClient { provider, core_contract_client, wallet, wallet_address, impersonate_account: None }
     }
 
-    #[cfg(test)]
     pub fn with_test_settings(
         provider: RootProvider<Http<Client>>,
         core_contract_address: Address,
@@ -194,9 +185,7 @@ impl SettlementClient for EthereumSettlementClient {
             .to_string();
         let trusted_setup = KzgSettings::load_trusted_setup_file(Path::new(trusted_setup_path.as_str()))?;
         let (sidecar_blobs, sidecar_commitments, sidecar_proofs) = prepare_sidecar(&state_diff, &trusted_setup).await?;
-        log::info!("proof built.");
         let sidecar = BlobTransactionSidecar::new(sidecar_blobs, sidecar_commitments, sidecar_proofs);
-        log::info!("sidecar built.");
 
         let eip1559_est = self.provider.estimate_eip1559_fees(None).await?;
         let chain_id: u64 = self.provider.get_chain_id().await?.to_string().parse()?;
@@ -214,9 +203,14 @@ impl SettlementClient for EthereumSettlementClient {
         .expect("Unable to build KZG proof for given params.")
         .to_owned();
 
-        log::info!("kzg : {:?}", kzg_proof);
-
         let input_bytes = get_input_data_for_eip_4844(program_output, kzg_proof)?;
+
+        // if self.impersonate_account.is_some() {
+        //     self.provider
+        //         .anvil_impersonate_account(self.impersonate_account.unwrap())
+        //         .await
+        //         .expect("Unable to impersonate account.");
+        // }
 
         let tx: TxEip4844 = TxEip4844 {
             chain_id,
@@ -239,18 +233,10 @@ impl SettlementClient for EthereumSettlementClient {
         let tx_signed = variant.into_signed(signature);
         let tx_envelope: TxEnvelope = tx_signed.into();
 
-        // IMP: this conversion strips signature from the transaction
-        #[cfg(not(test))]
-        let txn_request: TransactionRequest = tx_envelope.into();
-
-        #[cfg(test)]
-        let txn_request = test_config::configure_transaction(
-            // self.provider.clone(),
-            tx_envelope,
-            self.impersonate_account,
-            nonce,
-        )
-        .await;
+        let txn_request: TransactionRequest = match self.impersonate_account {
+            Some(account) => test_config::configure_transaction(tx_envelope, Some(account), nonce).await,
+            None => tx_envelope.into(),
+        };
 
         let pending_transaction = self.provider.send_transaction(txn_request).await?;
         return Ok(pending_transaction.tx_hash().to_string());
@@ -291,11 +277,9 @@ impl SettlementClient for EthereumSettlementClient {
     }
 }
 
-#[cfg(test)]
 mod test_config {
     use super::*;
     use alloy::network::TransactionBuilder;
-    use rstest::rstest;
 
     pub async fn configure_transaction(
         // provider: Arc<RootProvider<Http<Client>>>,

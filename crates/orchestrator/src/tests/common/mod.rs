@@ -61,7 +61,7 @@ pub async fn create_sqs_queues() -> color_eyre::Result<()> {
     for queue_url in queue_urls {
         match sqs_client.delete_queue().queue_url(queue_url).send().await {
             Ok(_) => log::debug!("Successfully deleted queue: {}", queue_url),
-            Err(_e) => { },
+            Err(_e) => {}
         }
     }
 

@@ -21,7 +21,7 @@ use super::{JobError, OtherError};
 use crate::config::{config, Config};
 use crate::constants::SNOS_OUTPUT_FILE_NAME;
 use crate::jobs::constants::JOB_METADATA_STATE_UPDATE_BLOCKS_TO_SETTLE_KEY;
-use crate::jobs::state_update_job::utils::fetch_blob_data_for_block;
+use crate::jobs::state_update_job::utils::{fetch_blob_data_for_block, fetch_program_data_for_block};
 use crate::jobs::types::{JobItem, JobStatus, JobType, JobVerificationStatus};
 use crate::jobs::Job;
 
@@ -146,6 +146,8 @@ impl Job for StateUpdateJob {
     /// 1. the last settlement tx hash is successful,
     /// 2. the expected last settled block from our configuration is indeed the one found in the provider.
     async fn verify_job(&self, config: &Config, job: &mut JobItem) -> Result<JobVerificationStatus, JobError> {
+        log::info!("job item : {:?}", job);
+
         let attempt_no = job
             .metadata
             .get(JOB_PROCESS_ATTEMPT_METADATA_KEY)
@@ -280,12 +282,13 @@ impl StateUpdateJob {
             unimplemented!("update_state_for_block not implemented as of now for calldata DA.")
         } else if snos.use_kzg_da == Felt252::ONE {
             let blob_data = fetch_blob_data_for_block(block_no).await.map_err(|e| JobError::Other(OtherError(e)))?;
-
-            // TODO : Fetch Program Output from data storage client
+            let program_output =
+                fetch_program_data_for_block(block_no).await.map_err(|e| JobError::Other(OtherError(e)))?;
+            // TODO :
             // Fetching nonce before the transaction is run
             // Sending update_state transaction from the settlement client
             settlement_client
-                .update_state_with_blobs(vec![], blob_data, nonce)
+                .update_state_with_blobs(program_output, blob_data, nonce)
                 .await
                 .map_err(|e| JobError::Other(OtherError(e)))?
         } else {

@@ -86,22 +86,23 @@ impl LocalStack {
         s3_client.put_data(Bytes::from(snos_output_json), &snos_output_key).await?;
         println!("✔️ snos output file uploaded to localstack s3.");
 
-        let program_output_key = self.l2_block_number.to_string() + "/program_output.json";
+        let program_output_key = self.l2_block_number.to_string() + "/program_output.txt";
         let program_output = read(format!("artifacts/program_output_{}.txt", self.l2_block_number)).unwrap();
         s3_client.put_data(Bytes::from(program_output), &program_output_key).await?;
         println!("✔️ program output file uploaded to localstack s3.");
 
+        // TODO : uncomment
         // getting the PIE file from s3 bucket using URL provided
-        let file = reqwest::get(format!(
-            "https://madara-orchestrator-sharp-pie.s3.amazonaws.com/{}-SN.zip",
-            self.l2_block_number
-        ))
-        .await?;
-        let file_bytes = file.bytes().await?;
-
-        // putting the pie file into localstack s3
-        let s3_file_key = self.l2_block_number.to_string() + "/pie.zip";
-        s3_client.put_data(file_bytes, &s3_file_key).await?;
+        // let file = reqwest::get(format!(
+        //     "https://madara-orchestrator-sharp-pie.s3.amazonaws.com/{}-SN.zip",
+        //     self.l2_block_number
+        // ))
+        // .await?;
+        // let file_bytes = file.bytes().await?;
+        //
+        // // putting the pie file into localstack s3
+        // let s3_file_key = self.l2_block_number.to_string() + "/pie.zip";
+        // s3_client.put_data(file_bytes, &s3_file_key).await?;
         println!("✔️ PIE file uploaded to localstack s3");
 
         Ok(())
@@ -186,8 +187,8 @@ impl LocalStack {
         let event_bridge_client = self.event_bridge_client().await;
 
         let list_targets_output = event_bridge_client.list_targets_by_rule().rule(rule_name).send().await;
-        
-        match list_targets_output { 
+
+        match list_targets_output {
             Ok(output) => {
                 let targets = output.targets();
                 if !targets.is_empty() {
@@ -205,7 +206,7 @@ impl LocalStack {
                 println!("🧹 Rule deleted successfully.");
 
                 Ok(())
-            },
+            }
             Err(_) => {
                 return Ok(());
             }

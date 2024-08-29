@@ -24,8 +24,8 @@ pub use mongodb::MongoDbServer;
 pub use node::Orchestrator;
 pub use orchestrator::database::mongodb::MongoDb as MongoDbClient;
 use orchestrator::jobs::types::{ExternalId, JobItem, JobStatus, JobType};
-use uuid::Uuid;
 use serde::{Deserialize, Serialize};
+use uuid::Uuid;
 
 const MIN_PORT: u16 = 49_152;
 const MAX_PORT: u16 = 65_535;
@@ -168,7 +168,7 @@ pub async fn mock_starknet_get_nonce(starknet_client: &mut StarknetClient, l2_bl
     #[derive(Deserialize, Debug, Serialize)]
     struct NonceAddress {
         nonce: String,
-        address: String
+        address: String,
     }
 
     // Parse the JSON string into a HashMap

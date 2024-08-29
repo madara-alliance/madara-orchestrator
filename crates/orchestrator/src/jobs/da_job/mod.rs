@@ -3,9 +3,9 @@ use std::ops::{Add, Mul, Rem};
 use std::str::FromStr;
 
 use async_trait::async_trait;
+use bytes::Buf;
 use color_eyre::eyre::WrapErr;
 use lazy_static::lazy_static;
-use majin_blob_types::state_diffs::DataJson;
 use num_bigint::{BigUint, ToBigUint};
 use num_traits::{Num, Zero};
 use starknet::core::types::{BlockId, FieldElement, MaybePendingStateUpdate, StateUpdate, StorageEntry};
@@ -18,6 +18,7 @@ use super::types::{JobItem, JobStatus, JobType, JobVerificationStatus};
 use super::{Job, JobError, OtherError};
 use crate::config::Config;
 use crate::constants::BLOB_DATA_FILE_NAME;
+use crate::jobs::state_update_job::utils::biguint_vec_to_u8_vec;
 
 lazy_static! {
     /// EIP-4844 BLS12-381 modulus.
@@ -102,8 +103,11 @@ impl Job for DaJob {
         // transforming the data so that we can apply FFT on this.
         // @note: we can skip this step if in the above step we return vec<BigUint> directly
         let blob_data_biguint = convert_to_biguint(blob_data.clone());
+
         // data transformation on the data
         let transformed_data = fft_transformation(blob_data_biguint);
+
+        store_blob_data(transformed_data.clone(), block_no, config).await?;
 
         let max_bytes_per_blob = config.da_client().max_bytes_per_blob().await;
         let max_blob_per_txn = config.da_client().max_blob_per_txn().await;
@@ -199,7 +203,7 @@ pub fn convert_to_biguint(elements: Vec<FieldElement>) -> Vec<BigUint> {
     biguint_vec
 }
 
-fn data_to_blobs(blob_size: u64, block_data: Vec<BigUint>) -> Result<Vec<Vec<u8>>, JobError> {
+pub fn data_to_blobs(blob_size: u64, block_data: Vec<BigUint>) -> Result<Vec<Vec<u8>>, JobError> {
     // Validate blob size
     if blob_size < 32 {
         return Err(DaError::InsufficientBlobSize { blob_size })?;
@@ -269,8 +273,6 @@ pub async fn state_update_to_blob_data(
                 .await
                 .wrap_err("Failed to get nonce ".to_string())?;
 
-            log::info!("Address : {addr} | Nonce : {get_current_nonce_result}");
-            
             nonce = Some(get_current_nonce_result);
         }
         let da_word = da_word(class_flag.is_some(), nonce, writes.len() as u64);
@@ -302,29 +304,18 @@ pub async fn state_update_to_blob_data(
         blob_data.push(*compiled_class_hash);
     }
 
-    // saving the blob data of the block to storage client
-    store_blob_data(blob_data.clone(), block_no, config).await?;
-
     Ok(blob_data)
 }
 
 /// To store the blob data using the storage client with path <block_number>/blob_data.txt
-async fn store_blob_data(blob_data: Vec<FieldElement>, block_number: u64, config: &Config) -> Result<(), JobError> {
+async fn store_blob_data(blob_data: Vec<BigUint>, block_number: u64, config: &Config) -> Result<(), JobError> {
     let storage_client = config.storage();
     let key = block_number.to_string() + "/" + BLOB_DATA_FILE_NAME;
-    let data_blob_big_uint = convert_to_biguint(blob_data.clone());
 
-    let blobs_array = data_to_blobs(config.da_client().max_bytes_per_blob().await, data_blob_big_uint)?;
+    let blob_data_vec_u8 = biguint_vec_to_u8_vec(blob_data.as_slice());
 
-    let blob = blobs_array.clone();
-
-    // converting Vec<Vec<u8> into Vec<u8>
-    let blob_vec_u8 = bincode::serialize(&blob)
-        .wrap_err("Unable to Serialize blobs (Vec<Vec<u8> into Vec<u8>)".to_string())
-        .map_err(|e| JobError::Other(OtherError(e)))?;
-
-    if !blobs_array.is_empty() {
-        storage_client.put_data(blob_vec_u8.into(), &key).await.map_err(|e| JobError::Other(OtherError(e)))?;
+    if !blob_data_vec_u8.is_empty() {
+        storage_client.put_data(blob_data_vec_u8.into(), &key).await.map_err(|e| JobError::Other(OtherError(e)))?;
     }
 
     Ok(())
@@ -374,7 +365,7 @@ pub mod test {
     use crate::jobs::da_job::da_word;
     use std::fs;
     use std::fs::File;
-    use std::io::{Read};
+    use std::io::Read;
     use std::sync::Arc;
 
     use crate::config::config;

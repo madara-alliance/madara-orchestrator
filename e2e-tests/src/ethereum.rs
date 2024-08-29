@@ -11,24 +11,23 @@ const BLOCK_TO_FORK: u64 = 20607627;
 
 pub struct EthereumClient {
     anvil_endpoint: String,
-    anvil_instance: AnvilInstance,
+    anvil_instance: Option<AnvilInstance>,
 }
 
 impl EthereumClient {
-    /// To create a new Ethereum Client (spawns a new anvil instance)
+    /// Run : anvil --fork-url https://mainnet.infura.io/v3/bf9e41563a6a45e28eb60382d85ef3c9@20607627
     pub fn new() -> Self {
-        let eth_mainnet_rpc_url = get_env_var_or_panic("ETHEREUM_MAINNET_RPC_URL");
-
-        let forked_anvil = Anvil::new()
-            .fork(eth_mainnet_rpc_url)
-            .port(8545u16)
-            .fork_block_number(BLOCK_TO_FORK)
-            .try_spawn()
-            .expect("Unable to fork eth mainnet and run anvil.");
+        // let eth_mainnet_rpc_url = get_env_var_or_panic("ETHEREUM_MAINNET_RPC_URL");
+        //
+        // let forked_anvil = Anvil::new()
+        //     .fork(eth_mainnet_rpc_url)
+        //     .fork_block_number(BLOCK_TO_FORK)
+        //     .try_spawn()
+        //     .expect("Unable to fork eth mainnet and run anvil.");
 
         println!("♢ Ethereum Client setup completed.");
 
-        Self { anvil_endpoint: forked_anvil.endpoint(), anvil_instance: forked_anvil }
+        Self { anvil_endpoint: "http://localhost:8545".parse().unwrap(), anvil_instance: None }
     }
 
     /// Impersonate Account on anvil as starknet operator
@@ -49,11 +48,6 @@ impl EthereumClient {
     /// To get the anvil endpoint
     pub fn endpoint(&self) -> String {
         self.anvil_endpoint.clone()
-    }
-
-    /// To get anvil instance
-    pub fn anvil_instance(&self) -> &AnvilInstance {
-        &self.anvil_instance
     }
 
     /// To get the signer

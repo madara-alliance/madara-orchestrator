@@ -20,8 +20,6 @@ impl Worker for UpdateStateWorker {
         let latest_successful_job =
             config.database().get_latest_job_by_type_and_status(JobType::StateTransition, JobStatus::Completed).await?;
 
-        log::info!("[UpdateStateWorker] latest_successful_job : {:?}", latest_successful_job);
-
         match latest_successful_job {
             Some(job) => {
                 let latest_successful_job_internal_id = job.internal_id;
@@ -41,10 +39,8 @@ impl Worker for UpdateStateWorker {
                     .await?;
 
                 let result_vector = intersection(&successful_da_jobs, &successful_da_jobs_without_successor);
-                log::info!("[UpdateStateWorker] result_vector : {:?}", result_vector);
 
                 if result_vector.len() == 0 {
-                    log::info!("[UpdateStateWorker] not creating job.......!!!");
                     return Ok(());
                 }
 
@@ -53,8 +49,6 @@ impl Worker for UpdateStateWorker {
                     JOB_METADATA_STATE_UPDATE_BLOCKS_TO_SETTLE_KEY.to_string(),
                     Self::parse_job_items_into_block_number_list(result_vector.clone()),
                 );
-
-                log::info!("[UpdateStateWorker] creating job.......!!!");
 
                 // Creating a single job for all the pending blocks.
                 create_job(JobType::StateTransition, result_vector[0].internal_id.clone(), metadata).await?;
@@ -68,13 +62,7 @@ impl Worker for UpdateStateWorker {
                     .get_jobs_without_successor(JobType::DataSubmission, JobStatus::Completed, JobType::StateTransition)
                     .await?;
 
-                log::info!(
-                    "[UpdateStateWorker] latest_successful_jobs_without_successor : {:?}",
-                    latest_successful_jobs_without_successor
-                );
-
                 let job = latest_successful_jobs_without_successor[0].clone();
-                log::info!("[UpdateStateWorker] latest_successful_jobs_without_successor : job : {:?}", job);
                 let mut metadata = job.metadata;
 
                 metadata.insert(
@@ -82,7 +70,6 @@ impl Worker for UpdateStateWorker {
                     Self::parse_job_items_into_block_number_list(latest_successful_jobs_without_successor.clone()),
                 );
 
-                log::info!("[UpdateStateWorker] creating job.......!!!");
                 create_job(JobType::StateTransition, job.internal_id, metadata).await?;
 
                 return Ok(());
