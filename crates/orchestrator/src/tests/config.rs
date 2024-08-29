@@ -11,6 +11,7 @@ use prover_client_interface::ProverClient;
 use settlement_client_interface::SettlementClient;
 use starknet::providers::jsonrpc::HttpTransport;
 use starknet::providers::{JsonRpcClient, Url};
+use testcontainers::core::logs::consumer::logging_consumer::LoggingConsumer;
 use utils::env_utils::get_env_var_or_panic;
 use utils::settings::default::DefaultSettingsProvider;
 
@@ -228,13 +229,26 @@ use aws_sdk_sqs as sqs;
 use aws_sdk_sqs::config::Credentials;
 use testcontainers::core::IntoContainerPort;
 use testcontainers::runners::AsyncRunner;
-use testcontainers::ContainerAsync;
+use testcontainers::{ContainerAsync, ImageExt};
 
 /// Localstack SQS testcontainer
 pub async fn sqs_testcontainer_setup() -> (ContainerAsync<LocalStack>, Box<dyn QueueProvider>, sqs::Client) {
     dotenvy::from_filename("../.env.test").unwrap();
+    let _ = pretty_env_logger::try_init();
 
-    let node = LocalStack::default().start().await.unwrap();
+    let logger = LoggingConsumer::new()
+        .with_stdout_level(log::Level::Info)
+        .with_stdout_level(log::Level::Debug)
+        .with_stdout_level(log::Level::Error)
+        .with_stdout_level(log::Level::Trace)
+        .with_stdout_level(log::Level::Warn)
+        .with_stderr_level(log::Level::Info)
+        .with_stderr_level(log::Level::Debug)
+        .with_stderr_level(log::Level::Error)
+        .with_stderr_level(log::Level::Trace)
+        .with_stderr_level(log::Level::Warn);
+
+    let node = LocalStack::default().with_log_consumer(logger).start().await.unwrap();
     let host_ip = node.get_host().await.unwrap();
     let host_port = node.get_host_port_ipv4(4566).await.unwrap();
 
@@ -244,7 +258,7 @@ pub async fn sqs_testcontainer_setup() -> (ContainerAsync<LocalStack>, Box<dyn Q
     let region_provider = Region::new(aws_region);
     let aws_endpoint_url = format!("http://{host_ip}:{host_port}");
 
-    println!("{:?} {} {:?}", SystemTime::now(), "SQS", host_port);
+    println!("{:?} SQS {:?}", SystemTime::now(), host_port);
 
     let creds = Credentials::new(aws_access_key_id, aws_secret_access_key, None, None, "test");
     let config = aws_config::defaults(BehaviorVersion::v2024_03_28())
@@ -280,7 +294,24 @@ fn transform_url(input: &str, host_port: &u16) -> String {
 pub async fn s3_testcontainer_setup() -> (ContainerAsync<LocalStack>, Box<dyn DataStorage>, s3::Client) {
     dotenvy::from_filename("../.env.test").unwrap();
 
-    let node = LocalStack::default().start().await.unwrap();
+    // let (tx, rx) = std::sync::mpsc::sync_channel(1);
+
+    let _ = pretty_env_logger::try_init();
+
+    let logger = LoggingConsumer::new()
+        .with_stdout_level(log::Level::Info)
+        .with_stdout_level(log::Level::Debug)
+        .with_stdout_level(log::Level::Error)
+        .with_stdout_level(log::Level::Trace)
+        .with_stdout_level(log::Level::Warn)
+        .with_stderr_level(log::Level::Info)
+        .with_stderr_level(log::Level::Debug)
+        .with_stderr_level(log::Level::Error)
+        .with_stderr_level(log::Level::Trace)
+        .with_stderr_level(log::Level::Warn);
+
+    let node = LocalStack::default().with_log_consumer(logger).start().await.unwrap();
+
     let host_ip = node.get_host().await.unwrap();
     let host_port = node.get_host_port_ipv4(4566).await.unwrap();
 
@@ -290,7 +321,7 @@ pub async fn s3_testcontainer_setup() -> (ContainerAsync<LocalStack>, Box<dyn Da
     let region_provider = Region::new(aws_region);
     let aws_endpoint_url = format!("http://{host_ip}:{host_port}");
 
-    println!("{:?} {} {:?}", SystemTime::now(), "S3", host_port);
+    println!("{:?} S3 {:?}", SystemTime::now(), host_port);
 
     let aws_s3_bucket_name = get_env_var_or_panic("AWS_S3_BUCKET_NAME");
 
@@ -318,13 +349,27 @@ pub async fn s3_testcontainer_setup() -> (ContainerAsync<LocalStack>, Box<dyn Da
 /// MongoDb testcontainer
 pub async fn mongodb_testcontainer_setup() -> (ContainerAsync<Mongo>, Box<dyn Database>) {
     const LOCAL_PORT: u16 = 27017; // Default MongoDB port
+    let _ = pretty_env_logger::try_init();
 
-    let node = Mongo::default().start().await.unwrap();
+    let logger = LoggingConsumer::new()
+        .with_stdout_level(log::Level::Info)
+        .with_stdout_level(log::Level::Debug)
+        .with_stdout_level(log::Level::Error)
+        .with_stdout_level(log::Level::Trace)
+        .with_stdout_level(log::Level::Warn)
+        .with_stderr_level(log::Level::Info)
+        .with_stderr_level(log::Level::Debug)
+        .with_stderr_level(log::Level::Error)
+        .with_stderr_level(log::Level::Trace)
+        .with_stderr_level(log::Level::Warn);
+
+    let node = Mongo::default().with_log_consumer(logger).start().await.unwrap();
+
     let host_ip = node.get_host().await.unwrap();
     let host_port = node.get_host_port_ipv4(LOCAL_PORT.tcp()).await.unwrap();
     let connection_url = format!("mongodb://{host_ip}:{host_port}/");
 
-    println!("{:?} {} {:?}", SystemTime::now(), "MONGO", host_port);
+    println!("{:?} MONGO {:?}", SystemTime::now(), host_port);
 
     let mongo_config = MongoDbConfig { url: connection_url };
     let database = MongoDb::new(mongo_config).await;

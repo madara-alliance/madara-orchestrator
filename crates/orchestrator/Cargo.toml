@@ -29,6 +29,7 @@ cairo-vm = { workspace = true }
 color-eyre = { workspace = true }
 da-client-interface = { workspace = true }
 dotenvy = { workspace = true }
+env_logger = "0.11.5"
 ethereum-da-client = { workspace = true, optional = true }
 ethereum-settlement-client = { workspace = true }
 futures = { workspace = true }
@@ -72,6 +73,7 @@ mongodb = ["dep:mongodb"]
 
 [dev-dependencies]
 assert_matches = "1.5.0"
+pretty_env_logger.workspace = true
 testcontainers.workspace = true
 hyper = { version = "0.14", features = ["full"] }
 rstest = { workspace = true }

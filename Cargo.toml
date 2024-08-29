@@ -52,12 +52,13 @@ httpmock = { version = "0.7.0", features = ["remote"] }
 num-bigint = { version = "0.4.4" }
 arc-swap = { version = "1.7.1" }
 num-traits = "0.2"
+pretty_env_logger = "0.5"
 lazy_static = "1.4.0"
 stark_evm_adapter = "0.1.1"
 hex = "0.4"
 itertools = "0.13.0"
 mockall = "0.12.1"
-testcontainers = "0.18.0"
+testcontainers = "0.21.1"
 
 # Cairo VM
 cairo-vm = { git = "https://github.com/lambdaclass/cairo-vm", features = [

@@ -1,7 +1,11 @@
+// use std::collections::HashMap;
+
 use testcontainers::{
     core::{CmdWaitFor, ExecCommand, WaitFor},
     Image,
 };
+
+const DEFAULT_WAIT: u64 = 3000;
 
 /// LocalStack using TestContainers ////
 
@@ -20,8 +24,21 @@ impl Image for LocalStack {
     }
 
     fn ready_conditions(&self) -> Vec<WaitFor> {
-        vec![WaitFor::message_on_stdout("Ready.")]
+        vec![WaitFor::message_on_stdout("Ready."), WaitFor::millis(DEFAULT_WAIT)]
     }
+
+    // fn env_vars(
+    //         &self,
+    //     ) -> impl IntoIterator<Item = (impl Into<std::borrow::Cow<'_, str>>, impl Into<std::borrow::Cow<'_, str>>)> {
+
+    //         let mut env_vars = HashMap::new();
+    //         env_vars.insert("LS_LOG".to_owned(), "debug".to_owned());
+    //         // env_vars.insert("POSTGRES_USER".to_owned(), "postgres".to_owned());
+    //         // env_vars.insert("POSTGRES_PASSWORD".to_owned(), "postgres".to_owned());
+
+    //         env_vars
+
+    // }
 }
 
 /// Mongo using TestContainers ////
