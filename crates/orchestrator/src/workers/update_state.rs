@@ -40,7 +40,7 @@ impl Worker for UpdateStateWorker {
 
                 let result_vector = intersection(&successful_da_jobs, &successful_da_jobs_without_successor);
 
-                if result_vector.len() == 0 {
+                if result_vector.is_empty() {
                     return Ok(());
                 }
 
@@ -85,7 +85,7 @@ impl UpdateStateWorker {
     }
 }
 
-fn intersection<T: Eq + Clone>(vec1: &Vec<T>, vec2: &Vec<T>) -> Vec<T> {
+fn intersection<T: Eq + Clone>(vec1: &[T], vec2: &[T]) -> Vec<T> {
     vec1.iter().filter(|&item| vec2.contains(item)).cloned().collect()
 }
 

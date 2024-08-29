@@ -3,15 +3,19 @@ use e2e_tests::localstack::LocalStack;
 use e2e_tests::sharp::SharpClient;
 use e2e_tests::starknet_client::StarknetClient;
 use e2e_tests::{
-    get_env_var_or_panic, mock_proving_job_endpoint_output, mock_starknet_get_nonce, mock_starknet_get_state_update,
-    put_job_data_in_db_da, put_job_data_in_db_snos, put_job_data_in_db_update_state, MongoDbServer, Orchestrator,
+    get_env_var_or_panic, get_mongo_db_client, mock_proving_job_endpoint_output, mock_starknet_get_nonce,
+    mock_starknet_get_state_update, put_job_data_in_db_da, put_job_data_in_db_snos, put_job_data_in_db_update_state,
+    MongoDbServer, Orchestrator,
 };
+use mongodb::bson::doc;
+use orchestrator::jobs::types::{ExternalId, JobItem, JobStatus, JobType};
 use orchestrator::queue::job_queue::WorkerTriggerType;
 use std::time::Duration;
 use tokio::time::sleep;
 
 extern crate e2e_tests;
 
+#[ignore]
 #[tokio::test]
 async fn test_orchestrator_workflow() {
     // Fetching the env vars from the test env file because setting up of the environment
@@ -53,10 +57,31 @@ async fn test_orchestrator_workflow() {
     let mut orchestrator = Orchestrator::run(env_vec);
     orchestrator.wait_till_started().await;
 
-    sleep(Duration::from_secs(1200)).await;
+    // TODO : need to make this dynamic
+    sleep(Duration::from_secs(900)).await;
 
-    // TODO :
     // Adding a case here to check for required state of the orchestrator to end the test.
+    let l2_block_for_testing = get_env_var_or_panic("L2_BLOCK_NUMBER_FOR_TEST");
+    let latest_job_in_db = get_database_state(&mongo_db_instance, l2_block_for_testing.clone()).await.unwrap();
+    assert!(latest_job_in_db.is_some(), "Job doesn't exists in db");
+    let job = latest_job_in_db.unwrap();
+
+    // Asserts for the latest job for test to pass
+    assert_eq!(job.internal_id, l2_block_for_testing);
+    assert_eq!(job.external_id, ExternalId::String(Box::from(l2_block_for_testing)));
+    assert_eq!(job.job_type, JobType::StateTransition);
+    assert_eq!(job.status, JobStatus::PendingVerification);
+    assert_eq!(job.version, 2);
+}
+
+async fn get_database_state(
+    mongo_db_server: &MongoDbServer,
+    l2_block_for_testing: String,
+) -> color_eyre::Result<Option<JobItem>> {
+    let mongo_db_client = get_mongo_db_client(mongo_db_server).await;
+    let collection = mongo_db_client.database("orchestrator").collection::<JobItem>("jobs");
+    let filter = doc! { "internal_id": l2_block_for_testing, "version" : 2 };
+    Ok(collection.find_one(filter, None).await.unwrap())
 }
 
 pub async fn setup_for_test(

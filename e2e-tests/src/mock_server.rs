@@ -39,3 +39,9 @@ impl MockServerGlobal {
         });
     }
 }
+
+impl Default for MockServerGlobal {
+    fn default() -> Self {
+        Self::new()
+    }
+}

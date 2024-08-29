@@ -1,17 +1,18 @@
 use crate::get_env_var_or_panic;
 use alloy::network::EthereumWallet;
-use alloy::node_bindings::{Anvil, AnvilInstance};
+use alloy::node_bindings::AnvilInstance;
 use alloy::primitives::Address;
 use alloy::providers::ext::AnvilApi;
 use alloy::providers::ProviderBuilder;
 use alloy::signers::local::LocalSigner;
 use std::str::FromStr;
 
+#[allow(dead_code)]
 const BLOCK_TO_FORK: u64 = 20607627;
 
 pub struct EthereumClient {
     anvil_endpoint: String,
-    anvil_instance: Option<AnvilInstance>,
+    pub anvil_instance: Option<AnvilInstance>,
 }
 
 impl EthereumClient {

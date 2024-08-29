@@ -1,0 +1,71 @@
+name: Rust Test & Coverage
+
+on:
+  pull_request_target:
+    branches:
+      - main
+    types: [opened, synchronize, reopened]
+  push:
+    branches-ignore:
+      - main
+  workflow_call:
+  workflow_dispatch:
+
+jobs:
+  coverage:
+    runs-on: ubuntu-latest
+
+    services:
+      localstack:
+        image: localstack/localstack
+        env:
+          SERVICES: s3, sqs
+          DEFAULT_REGION: us-east-1
+          AWS_ACCESS_KEY_ID: "AWS_ACCESS_KEY_ID"
+          AWS_SECRET_ACCESS_KEY: "AWS_SECRET_ACCESS_KEY"
+        ports:
+          - 4566:4566
+      mongodb:
+        image: mongo:latest
+        ports:
+          - 27017:27017
+
+    steps:
+      - uses: actions/checkout@v3
+
+      # selecting a toolchain either by action or manual `rustup` calls should happen
+      # before the plugin, as the cache uses the current rustc version as its cache key
+      - run: rustup show
+
+      - name: Install Rust toolchain
+        uses: actions-rs/toolchain@v1
+        with:
+          profile: minimal
+          toolchain: stable
+          override: true
+
+      - name: Rust Cache
+        uses: Swatinem/rust-cache@v2
+
+      - name: Install Foundry
+        uses: foundry-rs/foundry-toolchain@v1
+
+      - name: Check Anvil Installation
+        run: |
+          if command -v anvil &> /dev/null
+          then
+              echo "Anvil is installed. Version information:"
+              anvil --version
+          else
+              echo "Anvil is not installed or not in PATH"
+              exit 1
+          fi
+
+      - name: Running anvil
+        run: |
+          # Forking block number : 20607627 on ethereum mainnet
+          anvil --fork-url ${{ secrets.ETHEREUM_BLAST_RPC_URL }}@20607627
+
+      - name: Run e2e test
+        run: |
+          RUST_LOG=trace cargo test test_orchestrator_workflow -- --ignored --nocapture

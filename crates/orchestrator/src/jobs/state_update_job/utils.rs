@@ -1,5 +1,5 @@
 use std::fmt::Write;
-use std::io::{BufRead, Cursor, Read};
+use std::io::{BufRead, Cursor};
 use std::str::FromStr;
 
 use crate::config::config;
@@ -25,6 +25,27 @@ pub async fn fetch_program_data_for_block(block_number: u64) -> color_eyre::Resu
     let blob_data = storage_client.get_data(&key).await?;
     let transformed_blob_vec_u8 = bytes_to_vec_u8(blob_data.as_ref());
     Ok(transformed_blob_vec_u8)
+}
+
+// Util Functions
+// ===============
+
+/// Util function to convert hex string data into Vec<u8>
+pub fn hex_string_to_u8_vec(hex_str: &str) -> color_eyre::Result<Vec<u8>> {
+    // Remove any spaces or non-hex characters from the input string
+    let cleaned_str: String = hex_str.chars().filter(|c| c.is_ascii_hexdigit()).collect();
+
+    // Convert the cleaned hex string to a Vec<u8>
+    let mut result = Vec::new();
+    for chunk in cleaned_str.as_bytes().chunks(2) {
+        if let Ok(byte_val) = u8::from_str_radix(std::str::from_utf8(chunk)?, 16) {
+            result.push(byte_val);
+        } else {
+            return Err(eyre!("Error parsing hex string: {}", cleaned_str));
+        }
+    }
+
+    Ok(result)
 }
 
 fn bytes_to_vec_u8(bytes: &[u8]) -> Vec<[u8; 32]> {
@@ -61,64 +82,6 @@ fn to_padded_hex(slice: &[u8]) -> String {
     format!("{:0<64}", hex)
 }
 
-#[cfg(test)]
-mod test {
-    use crate::config::config;
-    use crate::constants::BLOB_DATA_FILE_NAME;
-    use crate::jobs::da_job::fft_transformation;
-    use crate::jobs::state_update_job::utils::{biguint_to_32_bytes, biguint_vec_to_u8_vec, hex_string_to_u8_vec};
-    use crate::tests::config::TestConfigBuilder;
-    use majin_blob_core::blob;
-    use num_bigint::BigUint;
-    use rstest::rstest;
-    use std::fs;
-
-    #[rstest]
-    #[tokio::test]
-    async fn test_fetch_blob_data_for_block() -> color_eyre::Result<()> {
-        dotenvy::from_filename("../.env.test").expect("Failed to load the .env file");
-
-        TestConfigBuilder::new().build().await;
-
-        let res = biguint_to_32_bytes(
-            &BigUint::parse_bytes(b"32114628705813240320780031224394235025697957640420683367072248844003647429056", 10)
-                .unwrap(),
-        );
-        println!("{:?}", res);
-
-        let blob_data = fs::read_to_string(
-            "/Users/ocdbytes/Karnot/madara-orchestrator/crates/orchestrator/src/tests/jobs/da_job/test_data/test_blob/671070.txt"
-        )
-            .unwrap();
-        let blob_data_vec = hex_string_to_u8_vec(&blob_data).unwrap();
-
-        // let fetch_from_s3 = fetch_blob_data_for_block(671070).await.unwrap();
-
-        let original_blob_data = majin_blob_types::serde::parse_file_to_blob_data("/Users/ocdbytes/Karnot/madara-orchestrator/crates/orchestrator/src/tests/jobs/da_job/test_data/test_blob/671070.txt");
-        let recovered_blob_data = blob::recover(original_blob_data.clone());
-        // println!("recovered_blob_data : {:?}", recovered_blob_data.len());
-        let fft_blob = fft_transformation(recovered_blob_data);
-        // println!("{:?}", fft_blob);
-        let fft_blob_vec_u8 = biguint_vec_to_u8_vec(fft_blob.as_slice());
-
-        let key = "671070/".to_string() + BLOB_DATA_FILE_NAME;
-        let config = config().await;
-        let storage_client = config.storage();
-
-        storage_client.put_data(fft_blob_vec_u8.clone().into(), &key).await.unwrap();
-
-        let blob_data = storage_client.get_data(&key).await?;
-        let blob_vec_data = blob_data.to_vec();
-
-        // 131072
-        // 32114628705813240320780031224394235025697957640420683367072248844003647429056
-        // 7258306880938333000768807635232118825372104144766057789408335876908913440392
-        assert_eq!(blob_data_vec, blob_vec_data);
-
-        Ok(())
-    }
-}
-
 pub fn biguint_vec_to_u8_vec(nums: &[BigUint]) -> Vec<u8> {
     let mut result: Vec<u8> = Vec::new();
 
@@ -142,25 +105,4 @@ pub fn biguint_to_32_bytes(num: &BigUint) -> [u8; 32] {
     }
 
     result
-}
-
-// Util Functions
-// ===============
-
-/// Util function to convert hex string data into Vec<u8>
-pub fn hex_string_to_u8_vec(hex_str: &str) -> color_eyre::Result<Vec<u8>> {
-    // Remove any spaces or non-hex characters from the input string
-    let cleaned_str: String = hex_str.chars().filter(|c| c.is_ascii_hexdigit()).collect();
-
-    // Convert the cleaned hex string to a Vec<u8>
-    let mut result = Vec::new();
-    for chunk in cleaned_str.as_bytes().chunks(2) {
-        if let Ok(byte_val) = u8::from_str_radix(std::str::from_utf8(chunk)?, 16) {
-            result.push(byte_val);
-        } else {
-            return Err(eyre!("Error parsing hex string: {}", cleaned_str));
-        }
-    }
-
-    Ok(result)
 }

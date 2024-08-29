@@ -3,7 +3,6 @@ use std::ops::{Add, Mul, Rem};
 use std::str::FromStr;
 
 use async_trait::async_trait;
-use bytes::Buf;
 use color_eyre::eyre::WrapErr;
 use lazy_static::lazy_static;
 use num_bigint::{BigUint, ToBigUint};
@@ -206,7 +205,7 @@ pub fn convert_to_biguint(elements: Vec<FieldElement>) -> Vec<BigUint> {
 pub fn data_to_blobs(blob_size: u64, block_data: Vec<BigUint>) -> Result<Vec<Vec<u8>>, JobError> {
     // Validate blob size
     if blob_size < 32 {
-        return Err(DaError::InsufficientBlobSize { blob_size })?;
+        Err(DaError::InsufficientBlobSize { blob_size })?
     }
 
     let mut blobs: Vec<Vec<u8>> = Vec::new();

@@ -30,17 +30,12 @@ pub struct SharpProverService {
 impl ProverClient for SharpProverService {
     async fn submit_task(&self, task: Task) -> Result<TaskId, ProverClientError> {
         match task {
-            Task::CairoPie(_cairo_pie) => {
-                // TODO : uncomment
-                // let fact_info = get_fact_info(&cairo_pie, None)?;
-                // let encoded_pie =
-                //     snos::sharp::pie::encode_pie_mem(cairo_pie).map_err(ProverClientError::PieEncoding)?;
-                // let (_, job_key) = self.sharp_client.add_job(&encoded_pie).await?;
-                // Ok(combine_task_id(&job_key, &fact_info.fact))
-                Ok(combine_task_id(
-                    &Uuid::from_str("e8466e7d-1845-4432-ab6c-74416ceecbf4").unwrap(),
-                    &B256::from_str("0x9df222fc30d7794179db23eab807860f7d010744d1c85dbc606886f17eae69b0").unwrap(),
-                ))
+            Task::CairoPie(cairo_pie) => {
+                let fact_info = get_fact_info(&cairo_pie, None)?;
+                let encoded_pie =
+                    snos::sharp::pie::encode_pie_mem(cairo_pie).map_err(ProverClientError::PieEncoding)?;
+                let (_, job_key) = self.sharp_client.add_job(&encoded_pie).await?;
+                Ok(combine_task_id(&job_key, &fact_info.fact))
             }
         }
     }

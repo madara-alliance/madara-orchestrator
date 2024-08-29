@@ -16,7 +16,6 @@ use alloy::{
 use alloy::eips::eip2930::AccessList;
 use alloy::eips::eip4844::BYTES_PER_BLOB;
 use alloy::hex;
-use alloy::providers::ext::AnvilApi;
 use alloy::rpc::types::TransactionRequest;
 use alloy_primitives::Bytes;
 use async_trait::async_trait;
@@ -205,13 +204,6 @@ impl SettlementClient for EthereumSettlementClient {
 
         let input_bytes = get_input_data_for_eip_4844(program_output, kzg_proof)?;
 
-        // if self.impersonate_account.is_some() {
-        //     self.provider
-        //         .anvil_impersonate_account(self.impersonate_account.unwrap())
-        //         .await
-        //         .expect("Unable to impersonate account.");
-        // }
-
         let tx: TxEip4844 = TxEip4844 {
             chain_id,
             nonce,
@@ -234,7 +226,9 @@ impl SettlementClient for EthereumSettlementClient {
         let tx_envelope: TxEnvelope = tx_signed.into();
 
         let txn_request: TransactionRequest = match self.impersonate_account {
-            Some(account) => test_config::configure_transaction(tx_envelope, Some(account), nonce).await,
+            Some(account) => {
+                test_config::configure_transaction(self.provider.clone(), tx_envelope, Some(account)).await
+            }
             None => tx_envelope.into(),
         };
 
@@ -282,10 +276,10 @@ mod test_config {
     use alloy::network::TransactionBuilder;
 
     pub async fn configure_transaction(
-        // provider: Arc<RootProvider<Http<Client>>>,
+        provider: Arc<RootProvider<Http<Client>>>,
         tx_envelope: TxEnvelope,
         impersonate_account: Option<Address>,
-        nonce: u64,
+        // nonce: u64,
     ) -> TransactionRequest {
         let mut txn_request: TransactionRequest = tx_envelope.into();
 
@@ -296,8 +290,8 @@ mod test_config {
         //      - if "1" then : Testing via impersonating `Starknet Operator Address`.
         // Note : changing between "0" and "1" is handled automatically by each test function, `no` manual change in `env.test` is needed.
         if let Some(impersonate_account) = impersonate_account {
-            // let nonce =
-            // provider.get_transaction_count(impersonate_account).await.unwrap().to_string().parse::<u64>().unwrap();
+            let nonce =
+                provider.get_transaction_count(impersonate_account).await.unwrap().to_string().parse::<u64>().unwrap();
             txn_request.set_nonce(nonce);
             txn_request = txn_request.with_from(impersonate_account);
         }

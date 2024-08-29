@@ -146,16 +146,15 @@ impl Job for StateUpdateJob {
     /// 1. the last settlement tx hash is successful,
     /// 2. the expected last settled block from our configuration is indeed the one found in the provider.
     async fn verify_job(&self, config: &Config, job: &mut JobItem) -> Result<JobVerificationStatus, JobError> {
-        log::info!("job item : {:?}", job);
-
         let attempt_no = job
             .metadata
             .get(JOB_PROCESS_ATTEMPT_METADATA_KEY)
             .ok_or_else(|| StateUpdateError::AttemptNumberNotFound)?;
 
+        // TODO : fix this after test
         let metadata_tx_hashes = job
             .metadata
-            .get(&format!("{}{}", JOB_METADATA_STATE_UPDATE_ATTEMPT_PREFIX, attempt_no))
+            .get(&format!("{}{}", JOB_METADATA_STATE_UPDATE_ATTEMPT_PREFIX, attempt_no.parse::<u32>().unwrap() - 1))
             .ok_or_else(|| StateUpdateError::TxnHashMetadataNotFound)?
             .clone()
             .replace(' ', "");

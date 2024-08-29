@@ -91,18 +91,17 @@ impl LocalStack {
         s3_client.put_data(Bytes::from(program_output), &program_output_key).await?;
         println!("✔️ program output file uploaded to localstack s3.");
 
-        // TODO : uncomment
         // getting the PIE file from s3 bucket using URL provided
-        // let file = reqwest::get(format!(
-        //     "https://madara-orchestrator-sharp-pie.s3.amazonaws.com/{}-SN.zip",
-        //     self.l2_block_number
-        // ))
-        // .await?;
-        // let file_bytes = file.bytes().await?;
-        //
-        // // putting the pie file into localstack s3
-        // let s3_file_key = self.l2_block_number.to_string() + "/pie.zip";
-        // s3_client.put_data(file_bytes, &s3_file_key).await?;
+        let file = reqwest::get(format!(
+            "https://madara-orchestrator-sharp-pie.s3.amazonaws.com/{}-SN.zip",
+            self.l2_block_number
+        ))
+        .await?;
+        let file_bytes = file.bytes().await?;
+
+        // putting the pie file into localstack s3
+        let s3_file_key = self.l2_block_number.to_string() + "/pie.zip";
+        s3_client.put_data(file_bytes, &s3_file_key).await?;
         println!("✔️ PIE file uploaded to localstack s3");
 
         Ok(())
@@ -126,7 +125,7 @@ impl LocalStack {
 
         let queue_attributes = sqs_client
             .get_queue_attributes()
-            .queue_url(&queue_url.queue_url.unwrap())
+            .queue_url(queue_url.queue_url.unwrap())
             .attribute_names(QueueAttributeName::QueueArn)
             .send()
             .await?;
@@ -139,7 +138,7 @@ impl LocalStack {
         // Create the EventBridge target with the input transformer
         let input_transformer = InputTransformer::builder()
             .input_paths_map("$.time", "time")
-            .input_template(format!("{}", event_detail))
+            .input_template(event_detail.to_string())
             .build()?;
 
         event_bridge_client
@@ -207,9 +206,13 @@ impl LocalStack {
 
                 Ok(())
             }
-            Err(_) => {
-                return Ok(());
-            }
+            Err(_) => Ok(()),
         }
+    }
+}
+
+impl Default for LocalStack {
+    fn default() -> Self {
+        Self::new()
     }
 }
