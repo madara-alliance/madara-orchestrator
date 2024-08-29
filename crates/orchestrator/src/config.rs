@@ -6,6 +6,7 @@ use crate::data_storage::aws_s3::config::{AWSS3Config, AWSS3ConfigType};
 use crate::data_storage::aws_s3::AWSS3;
 use crate::data_storage::{DataStorage, DataStorageConfig};
 use arc_swap::{ArcSwap, Guard};
+use aws_config::SdkConfig;
 use da_client_interface::{DaClient, DaConfig};
 use dotenvy::dotenv;
 use ethereum_da_client::config::EthereumDaConfig;
@@ -58,10 +59,16 @@ pub async fn init_config() -> Config {
     ));
 
     // init database
-    let database = Box::new(MongoDb::new(MongoDbConfig::new_from_env()).await);
+    let database = build_database_client().await;
+
+    // init AWS
+    let aws_config = aws_config::load_from_env().await;
 
     // init the queue
-    let queue = Box::new(SqsQueue {});
+    // TODO: we use omniqueue for now which doesn't support loading AWS config
+    // from `SdkConfig`. We can later move to using `aws_sdk_sqs`. This would require
+    // us stop using the generic omniqueue abstractions for message ack/nack
+    let queue = build_queue_client(&aws_config);
 
     let da_client = build_da_client().await;
 
@@ -69,7 +76,7 @@ pub async fn init_config() -> Config {
     let settlement_client = build_settlement_client(&settings_provider).await;
     let prover_client = build_prover_service(&settings_provider);
 
-    let storage_client = build_storage_client().await;
+    let storage_client = build_storage_client(&aws_config).await;
 
     let alerts_client = build_alert_client().await;
 
@@ -199,9 +206,9 @@ pub async fn build_settlement_client(
     }
 }
 
-pub async fn build_storage_client() -> Box<dyn DataStorage + Send + Sync> {
+pub async fn build_storage_client(aws_config: &SdkConfig) -> Box<dyn DataStorage + Send + Sync> {
     match get_env_var_or_panic("DATA_STORAGE").as_str() {
-        "s3" => Box::new(AWSS3::new(AWSS3ConfigType::WithoutEndpoint(AWSS3Config::new_from_env())).await),
+        "s3" => Box::new(AWSS3::new(AWSS3Config::new_from_env(), aws_config)),
         _ => panic!("Unsupported Storage Client"),
     }
 }
@@ -210,5 +217,18 @@ pub async fn build_alert_client() -> Box<dyn Alerts + Send + Sync> {
     match get_env_var_or_panic("ALERTS").as_str() {
         "sns" => Box::new(AWSSNS::new().await),
         _ => panic!("Unsupported Alert Client"),
+    }
+}
+pub fn build_queue_client(_aws_config: &SdkConfig) -> Box<dyn QueueProvider + Send + Sync> {
+    match get_env_var_or_panic("QUEUE_PROVIDER").as_str() {
+        "sqs" => Box::new(SqsQueue {}),
+        _ => panic!("Unsupported Queue Client"),
+    }
+}
+
+pub async fn build_database_client() -> Box<dyn Database + Send + Sync> {
+    match get_env_var_or_panic("DATABASE").as_str() {
+        "mongodb" => Box::new(MongoDb::new(MongoDbConfig::new_from_env()).await),
+        _ => panic!("Unsupported Database Client"),
     }
 }
