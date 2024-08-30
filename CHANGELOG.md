@@ -6,6 +6,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ## Added
 
+- alerts module.
 - Tests for Settlement client.
 - Worker queues to listen for trigger events.
 - Tests for prover client.
@@ -30,6 +31,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ## Changed
 
+- refactor AWS config usage and clean .env files
 - GitHub's coverage CI yml file for localstack and db testing.
 - Orchestrator :Moved TestConfigBuilder to `config.rs` in tests folder.
 - `.env` file requires two more variables which are queue urls for processing
@@ -37,6 +39,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ## Removed
 
+- revert CI changes from settlement client PR.
 - `init_config` from all the tests.
 - `fetch_from_test` argument
 

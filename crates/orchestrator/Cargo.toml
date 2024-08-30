@@ -20,6 +20,7 @@ async-trait = { workspace = true }
 aws-config = { workspace = true }
 aws-sdk-s3 = { workspace = true }
 aws-sdk-sqs = { workspace = true }
+aws-sdk-sns = { version = "1.40.0", features = ["behavior-version-latest"] }
 axum = { workspace = true, features = ["macros"] }
 axum-macros = { workspace = true }
 bincode = { workspace = true }

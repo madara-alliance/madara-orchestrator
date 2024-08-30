@@ -1,15 +1,10 @@
 name: Rust Test & Coverage
 
 on:
-  pull_request_target:
-    branches:
-      - main
-    types: [opened, synchronize, reopened]
-  push:
-    branches-ignore:
-      - main
   workflow_call:
-  workflow_dispatch:
+    secrets:
+      ETHEREUM_BLAST_RPC_URL:
+        required: true
 
 jobs:
   coverage:
@@ -19,7 +14,7 @@ jobs:
       localstack:
         image: localstack/localstack
         env:
-          SERVICES: s3, sqs
+          SERVICES: s3, sqs, sns
           DEFAULT_REGION: us-east-1
           AWS_ACCESS_KEY_ID: "AWS_ACCESS_KEY_ID"
           AWS_SECRET_ACCESS_KEY: "AWS_SECRET_ACCESS_KEY"
@@ -74,7 +69,7 @@ jobs:
       - name: Run llvm-cov tests
         env:
           ETHEREUM_BLAST_RPC_URL: ${{ secrets.ETHEREUM_BLAST_RPC_URL }}
-        run: cargo llvm-cov nextest --release --lcov --output-path lcov.info --test-threads=1
+        run: RUST_LOG=debug RUST_BACKTRACE=1 cargo llvm-cov nextest --release --lcov --output-path lcov.info --test-threads=1
 
       - name: Coveralls
         uses: coverallsapp/github-action@v2

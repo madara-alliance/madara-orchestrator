@@ -4,11 +4,14 @@ use std::collections::HashMap;
 
 use ::uuid::Uuid;
 use aws_config::Region;
+use aws_sdk_sns::error::SdkError;
+use aws_sdk_sns::operation::create_topic::CreateTopicError;
 use mongodb::Client;
 use rstest::*;
 use serde::Deserialize;
+use utils::env_utils::get_env_var_or_panic;
 
-use crate::data_storage::aws_s3::config::{AWSS3ConfigType, S3LocalStackConfig};
+use crate::data_storage::aws_s3::config::AWSS3Config;
 use crate::data_storage::aws_s3::AWSS3;
 use crate::data_storage::{DataStorage, DataStorageConfig};
 use crate::database::mongodb::config::MongoDbConfig;
@@ -38,6 +41,18 @@ pub fn custom_job_item(default_job_item: JobItem, #[default(String::from("0"))] 
     job_item.internal_id = internal_id;
 
     job_item
+}
+
+pub async fn create_sns_arn() -> Result<(), SdkError<CreateTopicError>> {
+    let sns_client = get_sns_client().await;
+    sns_client.create_topic().name(get_env_var_or_panic("AWS_SNS_ARN_NAME")).send().await?;
+    Ok(())
+}
+
+pub async fn get_sns_client() -> aws_sdk_sns::client::Client {
+    let sns_region = get_env_var_or_panic("AWS_SNS_REGION");
+    let config = aws_config::from_env().region(Region::new(sns_region)).load().await;
+    aws_sdk_sns::Client::new(&config)
 }
 
 pub async fn drop_database() -> color_eyre::Result<()> {
@@ -71,7 +86,7 @@ pub async fn create_sqs_queues() -> color_eyre::Result<()> {
     Ok(())
 }
 
-async fn get_sqs_client() -> aws_sdk_sqs::Client {
+pub async fn get_sqs_client() -> aws_sdk_sqs::Client {
     // This function is for localstack. So we can hardcode the region for this as of now.
     let region_provider = Region::new("us-east-1");
     let config = aws_config::from_env().region(region_provider).load().await;
@@ -84,5 +99,7 @@ pub struct MessagePayloadType {
 }
 
 pub async fn get_storage_client() -> Box<dyn DataStorage + Send + Sync> {
-    Box::new(AWSS3::new(AWSS3ConfigType::WithEndpoint(S3LocalStackConfig::new_from_env())).await)
+    let aws_config =
+        aws_config::load_from_env().await.into_builder().endpoint_url(get_env_var_or_panic("AWS_ENDPOINT_URL")).build();
+    Box::new(AWSS3::new(AWSS3Config::new_from_env(), &aws_config))
 }
