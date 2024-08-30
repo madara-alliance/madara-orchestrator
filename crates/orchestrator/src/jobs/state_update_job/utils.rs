@@ -48,7 +48,7 @@ pub fn hex_string_to_u8_vec(hex_str: &str) -> color_eyre::Result<Vec<u8>> {
     Ok(result)
 }
 
-fn bytes_to_vec_u8(bytes: &[u8]) -> Vec<[u8; 32]> {
+pub fn bytes_to_vec_u8(bytes: &[u8]) -> Vec<[u8; 32]> {
     let cursor = Cursor::new(bytes);
     let reader = std::io::BufReader::new(cursor);
 

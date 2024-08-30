@@ -1,15 +1,7 @@
 name: E2E test
 
 on:
-  pull_request_target:
-    branches:
-      - main
-    types: [opened, synchronize, reopened]
-  push:
-    branches-ignore:
-      - main
   workflow_call:
-  workflow_dispatch:
 
 jobs:
   coverage:
@@ -19,7 +11,6 @@ jobs:
       localstack:
         image: localstack/localstack
         env:
-          SERVICES: s3, sqs
           DEFAULT_REGION: us-east-1
           AWS_ACCESS_KEY_ID: "AWS_ACCESS_KEY_ID"
           AWS_SECRET_ACCESS_KEY: "AWS_SECRET_ACCESS_KEY"
@@ -68,4 +59,4 @@ jobs:
 
       - name: Run e2e test
         run: |
-          RUST_LOG=trace cargo test test_orchestrator_workflow -- --ignored --nocapture
+          RUST_LOG=trace SETTLEMENT_LAYER=ethereum_test cargo test test_orchestrator_workflow -- --ignored --nocapture

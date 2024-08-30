@@ -1,4 +1,4 @@
-use std::path::{Path, PathBuf};
+use std::path::PathBuf;
 use std::str::FromStr;
 use std::sync::Arc;
 
@@ -46,12 +46,40 @@ use {alloy::providers::RootProvider, alloy::transports::http::Http, reqwest::Cli
 
 pub const ENV_PRIVATE_KEY: &str = "ETHEREUM_PRIVATE_KEY";
 
+/// Finds the root directory of the project.
+///
+/// This function traverses up the directory tree from the current working directory
+/// until it finds a directory that contains both a 'Cargo.toml' file and a 'crates' directory.
+///
+/// # Returns
+///
+/// Returns a `PathBuf` representing the absolute path to the project root.
+///
+/// # Panics
+///
+/// Panics if it can't find a directory matching the criteria for the project root.
+pub fn find_project_root() -> PathBuf {
+    let mut current_dir = std::env::current_dir().expect("Failed to get current directory");
+
+    loop {
+        if current_dir.join("Cargo.toml").exists() && current_dir.join("crates").is_dir() {
+            return current_dir;
+        }
+
+        if let Some(parent) = current_dir.parent() {
+            current_dir = parent.to_path_buf();
+        } else {
+            panic!("Couldn't find project root containing Cargo.toml and crates directory");
+        }
+    }
+}
+
 lazy_static! {
-    pub static ref CURRENT_PATH: PathBuf = std::env::current_dir().unwrap();
-    pub static ref KZG_SETTINGS: KzgSettings =
-        // TODO: set more generalized path
-        KzgSettings::load_trusted_setup_file(CURRENT_PATH.join("crates/settlement-clients/ethereum/src/trusted_setup.txt").as_path())
-            .expect("Error loading trusted setup file");
+    pub static ref PROJECT_ROOT: PathBuf = find_project_root();
+    pub static ref KZG_SETTINGS: KzgSettings = KzgSettings::load_trusted_setup_file(
+        &PROJECT_ROOT.join("crates/settlement-clients/ethereum/src/trusted_setup.txt")
+    )
+    .expect("Error loading trusted setup file");
 }
 
 pub struct EthereumSettlementClient {
@@ -176,14 +204,7 @@ impl SettlementClient for EthereumSettlementClient {
         state_diff: Vec<Vec<u8>>,
         nonce: u64,
     ) -> Result<String> {
-        //TODO: better file management
-        let trusted_setup_path: String = CURRENT_PATH
-            .join("crates/settlement-clients/ethereum/src/trusted_setup.txt")
-            .to_str()
-            .expect("Path contains invalid Unicode")
-            .to_string();
-        let trusted_setup = KzgSettings::load_trusted_setup_file(Path::new(trusted_setup_path.as_str()))?;
-        let (sidecar_blobs, sidecar_commitments, sidecar_proofs) = prepare_sidecar(&state_diff, &trusted_setup).await?;
+        let (sidecar_blobs, sidecar_commitments, sidecar_proofs) = prepare_sidecar(&state_diff, &KZG_SETTINGS).await?;
         let sidecar = BlobTransactionSidecar::new(sidecar_blobs, sidecar_commitments, sidecar_proofs);
 
         let eip1559_est = self.provider.estimate_eip1559_fees(None).await?;
@@ -231,6 +252,8 @@ impl SettlementClient for EthereumSettlementClient {
             }
             None => tx_envelope.into(),
         };
+
+        log::info!("txn_request : {:?}", txn_request);
 
         let pending_transaction = self.provider.send_transaction(txn_request).await?;
         return Ok(pending_transaction.tx_hash().to_string());

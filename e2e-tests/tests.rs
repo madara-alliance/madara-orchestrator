@@ -20,7 +20,7 @@ extern crate e2e_tests;
 async fn test_orchestrator_workflow() {
     // Fetching the env vars from the test env file because setting up of the environment
     // requires all these variables.
-    dotenvy::from_filename("../.env.test").expect("Failed to load the .env file");
+    dotenvy::from_filename(".env.test").expect("Failed to load the .env file");
 
     let (
         mongo_db_instance,
@@ -98,7 +98,7 @@ pub async fn setup_for_test(
 
     // Setting up LocalStack
     let localstack_instance = LocalStack::new();
-    // localstack_instance.setup_s3().await.unwrap();
+    localstack_instance.setup_s3().await.unwrap();
     localstack_instance.setup_sqs().await.unwrap();
     localstack_instance.delete_event_bridge_rule("worker_trigger_scheduled").await.unwrap();
     localstack_instance.setup_event_bridge(WorkerTriggerType::Proving).await.unwrap();
@@ -112,7 +112,7 @@ pub async fn setup_for_test(
     env_vec.push(("MONGODB_CONNECTION_STRING".to_string(), mongo_db_instance.endpoint().to_string()));
     env_vec.push(("MADARA_RPC_URL".to_string(), starknet_client.url()));
     env_vec.push(("ETHEREUM_RPC_URL".to_string(), ethereum_client.endpoint()));
-    env_vec.push(("DEFAULT_SETTLEMENT_CLIENT_RPC".to_string(), ethereum_client.endpoint()));
+    env_vec.push(("SETTLEMENT_CLIENT_RPC".to_string(), ethereum_client.endpoint()));
     env_vec.push(("SHARP_URL".to_string(), sharp_client.url()));
 
     // Sharp envs
@@ -153,8 +153,8 @@ fn get_env_vec() -> Vec<(String, String)> {
         // Config URLs
         ("DA_LAYER", "ethereum"),
         ("PROVER_SERVICE", "sharp"),
-        ("SETTLEMENT_CLIENT", "ethereum_test"),
-        ("DATA_STORAGE", "s3_localstack"),
+        ("SETTLEMENT_LAYER", "ethereum_test"),
+        ("DATA_STORAGE", "s3"),
         ("ALERTS", "sns"),
         // Sharp configs
         ("SHARP_PROOF_LAYOUT", "small"),

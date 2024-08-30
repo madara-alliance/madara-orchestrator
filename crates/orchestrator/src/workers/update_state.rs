@@ -62,6 +62,10 @@ impl Worker for UpdateStateWorker {
                     .get_jobs_without_successor(JobType::DataSubmission, JobStatus::Completed, JobType::StateTransition)
                     .await?;
 
+                if latest_successful_jobs_without_successor.is_empty() {
+                    return Ok(());
+                }
+
                 let job = latest_successful_jobs_without_successor[0].clone();
                 let mut metadata = job.metadata;
 

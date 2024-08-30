@@ -98,7 +98,7 @@ impl LocalStack {
         ))
         .await?;
         let file_bytes = file.bytes().await?;
-
+        
         // putting the pie file into localstack s3
         let s3_file_key = self.l2_block_number.to_string() + "/pie.zip";
         s3_client.put_data(file_bytes, &s3_file_key).await?;
