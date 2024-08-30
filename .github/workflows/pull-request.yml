@@ -26,3 +26,9 @@ jobs:
     uses: ./.github/workflows/coverage.yml
     needs: rust_build
     secrets: inherit
+
+  e2e-test:
+    name: E2E test
+    uses: ./.github/workflows/e2e-test.yml
+    needs: coverage
+    secrets: inherit
