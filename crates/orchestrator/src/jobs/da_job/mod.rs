@@ -409,24 +409,24 @@ pub mod test {
     /// Compares the generated blob data against expected values to ensure correctness.
     /// Verifies the data integrity by checking that the parsed state diffs match the expected diffs.
     #[rstest]
-    // #[case(
-    //     631861,
-    //     "src/tests/jobs/da_job/test_data/state_update/631861.txt",
-    //     "src/tests/jobs/da_job/test_data/test_blob/631861.txt",
-    //     "src/tests/jobs/da_job/test_data/nonces/631861.txt"
-    // )]
-    // #[case(
-    //     638353,
-    //     "src/tests/jobs/da_job/test_data/state_update/638353.txt",
-    //     "src/tests/jobs/da_job/test_data/test_blob/638353.txt",
-    //     "src/tests/jobs/da_job/test_data/nonces/638353.txt"
-    // )]
-    // #[case(
-    //     640641,
-    //     "src/tests/jobs/da_job/test_data/state_update/640641.txt",
-    //     "src/tests/jobs/da_job/test_data/test_blob/640641.txt",
-    //     "src/tests/jobs/da_job/test_data/nonces/640641.txt"
-    // )]
+    #[case(
+        631861,
+        "src/tests/jobs/da_job/test_data/state_update/631861.txt",
+        "src/tests/jobs/da_job/test_data/test_blob/631861.txt",
+        "src/tests/jobs/da_job/test_data/nonces/631861.txt"
+    )]
+    #[case(
+        638353,
+        "src/tests/jobs/da_job/test_data/state_update/638353.txt",
+        "src/tests/jobs/da_job/test_data/test_blob/638353.txt",
+        "src/tests/jobs/da_job/test_data/nonces/638353.txt"
+    )]
+    #[case(
+        640641,
+        "src/tests/jobs/da_job/test_data/state_update/640641.txt",
+        "src/tests/jobs/da_job/test_data/test_blob/640641.txt",
+        "src/tests/jobs/da_job/test_data/nonces/640641.txt"
+    )]
     #[case(
         671070,
         "src/tests/jobs/da_job/test_data/state_update/671070.txt",
@@ -452,8 +452,7 @@ pub mod test {
         // Mocking storage client
 
         let provider = JsonRpcClient::new(HttpTransport::new(
-            Url::parse("https://starknet-mainnet.infura.io/v3/bf9e41563a6a45e28eb60382d85ef3c9")
-                .expect("Failed to parse URL"),
+            Url::parse(format!("http://localhost:{}", server.port()).as_str()).expect("Failed to parse URL"),
         ));
 
         // mock block number (madara) : 5
