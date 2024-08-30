@@ -1,4 +1,3 @@
-use crate::config::config;
 use crate::tests::config::TestConfigBuilder;
 use bytes::Bytes;
 use rstest::rstest;
@@ -11,12 +10,11 @@ use serde_json::json;
 #[rstest]
 #[tokio::test]
 async fn test_put_and_get_data_s3() -> color_eyre::Result<()> {
-    let _services = TestConfigBuilder::new().testcontainer_s3_data_storage().await.build().await;
+    let services = TestConfigBuilder::new().testcontainer_s3_data_storage().await.build().await;
 
     dotenvy::from_filename("../.env.test")?;
 
-    let config = config().await;
-    let s3_client = config.storage();
+    let s3_client = services.config.storage();
 
     let mock_data = json!(
         {

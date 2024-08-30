@@ -62,5 +62,6 @@ async fn test_health_endpoint(#[future] setup_server: SocketAddr) {
 #[rstest]
 #[tokio::test]
 async fn test_init_consumer() {
-    assert!(init_consumers().await.is_ok());
+    let services = TestConfigBuilder::new().build().await;
+    assert!(init_consumers(services.config).await.is_ok());
 }

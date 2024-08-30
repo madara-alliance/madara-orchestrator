@@ -12,7 +12,6 @@ use settlement_client_interface::MockSettlementClient;
 
 use color_eyre::eyre::eyre;
 
-use crate::config::config;
 use crate::constants::{BLOB_DATA_FILE_NAME, SNOS_OUTPUT_FILE_NAME};
 use crate::data_storage::MockDataStorage;
 use crate::jobs::constants::JOB_METADATA_STATE_UPDATE_LAST_FAILED_BLOCK_NO;
@@ -42,12 +41,12 @@ pub const X_0_FILE_NAME: &str = "x_0.txt";
 #[rstest]
 #[tokio::test]
 async fn test_process_job_attempt_not_present_fails() {
-    TestConfigBuilder::new().build().await;
+    let services = TestConfigBuilder::new().build().await;
 
     let mut job = default_job_item();
-    let config = config().await;
+
     let state_update_job = StateUpdateJob {};
-    let res = state_update_job.process_job(&config, &mut job).await.unwrap_err();
+    let res = state_update_job.process_job(services.config, &mut job).await.unwrap_err();
     assert_eq!(res, JobError::StateUpdateJobError(StateUpdateError::AttemptNumberNotFound));
 }
 
@@ -95,14 +94,14 @@ async fn test_process_job_works(
 
     // Building a temp config that will be used by `fetch_blob_data_for_block` and `fetch_snos_for_block`
     // functions while fetching the blob data from storage client.
-    let _services = TestConfigBuilder::new()
+    let services = TestConfigBuilder::new()
         .mock_settlement_client(Box::new(settlement_client))
         .testcontainer_s3_data_storage()
         .await
         .build()
         .await;
-    let config = config().await;
-    let storage_client = config.storage();
+
+    let storage_client = services.config.storage();
 
     for block in block_numbers {
         // Getting the blob data from file.
@@ -141,7 +140,7 @@ async fn test_process_job_works(
     job.metadata = metadata;
 
     let state_update_job = StateUpdateJob {};
-    let res = state_update_job.process_job(&config, &mut job).await.unwrap();
+    let res = state_update_job.process_job(services.config, &mut job).await.unwrap();
     assert_eq!(res, last_block_number.to_string());
 }
 
@@ -150,11 +149,9 @@ async fn test_process_job_works(
 #[rstest]
 #[tokio::test]
 async fn create_job_works() {
-    TestConfigBuilder::new().build().await;
+    let services = TestConfigBuilder::new().build().await;
 
-    let config = config().await;
-
-    let job = StateUpdateJob.create_job(&config, String::from("0"), HashMap::default()).await;
+    let job = StateUpdateJob.create_job(services.config, String::from("0"), HashMap::default()).await;
     assert!(job.is_ok());
 
     let job = job.unwrap();
@@ -223,7 +220,7 @@ async fn process_job_works() {
             .returning(|_, _, _| Ok(String::from("0x5d17fac98d9454030426606019364f6e68d915b91f6210ef1e2628cd6987442")));
     }
 
-    TestConfigBuilder::new()
+    let services = TestConfigBuilder::new()
         .mock_settlement_client(Box::new(settlement_client))
         .mock_storage_client(Box::new(storage_client))
         .build()
@@ -235,8 +232,8 @@ async fn process_job_works() {
     metadata.insert(String::from(JOB_PROCESS_ATTEMPT_METADATA_KEY), String::from("0"));
 
     let mut job =
-        StateUpdateJob.create_job(config().await.as_ref(), String::from("internal_id"), metadata).await.unwrap();
-    assert_eq!(StateUpdateJob.process_job(config().await.as_ref(), &mut job).await.unwrap(), "651056".to_string())
+        StateUpdateJob.create_job(services.config.clone(), String::from("internal_id"), metadata).await.unwrap();
+    assert_eq!(StateUpdateJob.process_job(services.config, &mut job).await.unwrap(), "651056".to_string())
 }
 
 #[rstest]
@@ -254,19 +251,19 @@ async fn process_job_invalid_inputs_errors(#[case] block_numbers_to_settle: Stri
         Url::parse(format!("http://localhost:{}", server.port()).as_str()).expect("Failed to parse URL"),
     ));
 
-    TestConfigBuilder::new()
+    let services = TestConfigBuilder::new()
         .mock_starknet_client(Arc::new(provider))
         .mock_settlement_client(Box::new(settlement_client))
         .build()
         .await;
-    let config = config().await;
 
     let mut metadata: HashMap<String, String> = HashMap::new();
     metadata.insert(String::from(JOB_METADATA_STATE_UPDATE_BLOCKS_TO_SETTLE_KEY), block_numbers_to_settle);
     metadata.insert(String::from(JOB_PROCESS_ATTEMPT_METADATA_KEY), String::from("0"));
 
-    let mut job = StateUpdateJob.create_job(&config, String::from("internal_id"), metadata).await.unwrap();
-    let status = StateUpdateJob.process_job(&config, &mut job).await;
+    let mut job =
+        StateUpdateJob.create_job(services.config.clone(), String::from("internal_id"), metadata).await.unwrap();
+    let status = StateUpdateJob.process_job(services.config, &mut job).await;
     assert!(status.is_err());
 
     if let Err(error) = status {
@@ -291,7 +288,7 @@ async fn process_job_invalid_input_gap_panics() {
         Url::parse(format!("http://localhost:{}", server.port()).as_str()).expect("Failed to parse URL"),
     ));
 
-    TestConfigBuilder::new()
+    let services = TestConfigBuilder::new()
         .mock_starknet_client(Arc::new(provider))
         .mock_settlement_client(Box::new(settlement_client))
         .build()
@@ -302,8 +299,8 @@ async fn process_job_invalid_input_gap_panics() {
     metadata.insert(String::from(JOB_PROCESS_ATTEMPT_METADATA_KEY), String::from("0"));
 
     let mut job =
-        StateUpdateJob.create_job(config().await.as_ref(), String::from("internal_id"), metadata).await.unwrap();
-    let response = StateUpdateJob.process_job(config().await.as_ref(), &mut job).await;
+        StateUpdateJob.create_job(services.config.clone(), String::from("internal_id"), metadata).await.unwrap();
+    let response = StateUpdateJob.process_job(services.config, &mut job).await;
 
     assert_matches!(response,
         Err(e) => {

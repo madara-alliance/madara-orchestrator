@@ -1,7 +1,7 @@
 use std::sync::Arc;
 use std::time::SystemTime;
 
-use crate::config::{build_da_client, build_prover_service, build_settlement_client, config_force_init, Config};
+use crate::config::{build_da_client, build_prover_service, build_settlement_client, Config};
 use crate::data_storage::{DataStorage, DataStorageConfig, MockDataStorage};
 use crate::queue::job_queue::{JOB_PROCESSING_QUEUE, JOB_VERIFICATION_QUEUE};
 use da_client_interface::DaClient;
@@ -49,6 +49,16 @@ pub struct TestConfigBuilder {
     data_storage_client: Option<aws_sdk_s3::Client>,
     queue_node: Option<ContainerAsync<LocalStack>>,
     queue_client: Option<sqs::Client>,
+}
+
+pub struct TestConfigBuildReturn {
+    pub mock_server: MockServer,
+    pub data_storage_node: Option<ContainerAsync<LocalStack>>,
+    pub data_storage_client: Option<aws_sdk_s3::Client>,
+    pub database_node: Option<ContainerAsync<Mongo>>,
+    pub queue_client: Option<sqs::Client>,
+    pub queue_node: Option<ContainerAsync<LocalStack>>,
+    pub config: Arc<Config>,
 }
 
 impl Default for TestConfigBuilder {
@@ -135,16 +145,7 @@ impl TestConfigBuilder {
         self
     }
 
-    pub async fn build(
-        mut self,
-    ) -> (
-        MockServer,
-        Option<ContainerAsync<LocalStack>>,
-        Option<aws_sdk_s3::Client>,
-        Option<ContainerAsync<Mongo>>,
-        Option<sqs::Client>,
-        Option<ContainerAsync<LocalStack>>,
-    ) {
+    pub async fn build(mut self) -> TestConfigBuildReturn {
         dotenvy::from_filename("../.env.test").expect("Failed to load the .env file");
 
         let server = MockServer::start();
@@ -188,7 +189,7 @@ impl TestConfigBuilder {
         // Deleting the database
         // drop_database().await.expect("Unable to drop the database.");
 
-        let config = Config::new(
+        let config = Arc::new(Config::new(
             self.starknet_client.unwrap_or_else(|| {
                 let provider = JsonRpcClient::new(HttpTransport::new(
                     Url::parse(format!("http://localhost:{}", server.port()).as_str()).expect("Failed to parse URL"),
@@ -201,20 +202,19 @@ impl TestConfigBuilder {
             self.database.unwrap(),
             self.queue.unwrap_or_else(|| Box::new(SqsQueue::new_from_env())),
             self.storage.unwrap(),
-        );
+        ));
 
         // drop_database().await.unwrap();
 
-        config_force_init(config).await;
-
-        (
-            server,
-            self.data_storage_node,
-            self.data_storage_client,
-            self.database_node,
-            self.queue_client,
-            self.queue_node,
-        )
+        TestConfigBuildReturn {
+            mock_server: server,
+            data_storage_node: self.data_storage_node,
+            data_storage_client: self.data_storage_client,
+            database_node: self.database_node,
+            queue_client: self.queue_client,
+            queue_node: self.queue_node,
+            config,
+        }
     }
 }
 
