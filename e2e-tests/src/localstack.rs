@@ -4,7 +4,7 @@ use aws_sdk_eventbridge::types::{InputTransformer, RuleState, Target};
 use aws_sdk_sqs::types::QueueAttributeName;
 use aws_sdk_sqs::types::QueueAttributeName::VisibilityTimeout;
 use bytes::Bytes;
-use orchestrator::data_storage::aws_s3::config::{AWSS3ConfigType, S3LocalStackConfig};
+use orchestrator::data_storage::aws_s3::config::AWSS3Config;
 use orchestrator::data_storage::aws_s3::AWSS3;
 use orchestrator::data_storage::{DataStorage, DataStorageConfig};
 use orchestrator::queue::job_queue::{
@@ -173,7 +173,8 @@ impl LocalStack {
     }
 
     async fn s3_client(&self) -> Box<dyn DataStorage + Send + Sync> {
-        Box::new(AWSS3::new(AWSS3ConfigType::WithEndpoint(S3LocalStackConfig::new_from_env())).await)
+        let aws_config = aws_config::load_from_env().await;
+        Box::new(AWSS3::new(AWSS3Config::new_from_env(), &aws_config))
     }
 
     async fn event_bridge_client(&self) -> aws_sdk_eventbridge::Client {

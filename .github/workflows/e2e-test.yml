@@ -1,4 +1,4 @@
-name: Rust Test & Coverage
+name: E2E test
 
 on:
   pull_request_target:
@@ -63,8 +63,8 @@ jobs:
 
       - name: Running anvil
         run: |
-          # Forking block number : 20607627 on ethereum mainnet
-          anvil --fork-url ${{ secrets.ETHEREUM_BLAST_RPC_URL }}@20607627
+          # Forking block number : 20607627 on Ethereum Mainnet
+          anvil --fork-url ${{ secrets.ETHEREUM_BLAST_RPC_URL }}@20607627 &
 
       - name: Run e2e test
         run: |
