@@ -59,4 +59,4 @@ jobs:
 
       - name: Run e2e test
         run: |
-          RUST_LOG=trace SETTLEMENT_LAYER=ethereum_test cargo test test_orchestrator_workflow -- --ignored --nocapture
+          RUST_LOG=trace SETTLEMENT_LAYER=ethereum_test cargo test test_orchestrator_workflow -- --nocapture
