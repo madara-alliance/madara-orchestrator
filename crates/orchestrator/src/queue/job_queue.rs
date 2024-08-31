@@ -159,7 +159,7 @@ where
 {
     log::info!("Handling job with id {:?}", job_message.id);
 
-    match handler(job_message.id, config).await {
+    match handler(job_message.id, config.clone()).await {
         Ok(_) => {
             message
                 .ack()
@@ -171,8 +171,7 @@ where
         }
         Err(e) => {
             log::error!("Failed to handle job with id {:?}. Error: {:?}", job_message.id, e);
-            config()
-                .await
+            config
                 .alerts()
                 .send_alert_message(e.to_string())
                 .await
@@ -205,7 +204,7 @@ where
     log::info!("Handling worker trigger for worker type : {:?}", job_message.worker);
     let worker_handler = get_worker_handler_from_worker_trigger_type(job_message.worker.clone());
 
-    match handler(worker_handler, config).await {
+    match handler(worker_handler, config.clone()).await {
         Ok(_) => {
             message
                 .ack()
@@ -217,8 +216,7 @@ where
         }
         Err(e) => {
             log::error!("Failed to handle worker trigger {:?}. Error: {:?}", job_message.worker, e);
-            config()
-                .await
+            config
                 .alerts()
                 .send_alert_message(e.to_string())
                 .await

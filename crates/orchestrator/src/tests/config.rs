@@ -1,13 +1,9 @@
 use std::sync::Arc;
 use std::time::{Duration, SystemTime};
 
-use crate::config::{build_da_client, build_prover_service, build_settlement_client, Config};
+use crate::config::{build_alert_client, build_da_client, build_prover_service, build_settlement_client, Config};
 use crate::data_storage::{DataStorage, DataStorageConfig, MockDataStorage};
 use crate::queue::job_queue::{JOB_PROCESSING_QUEUE, JOB_VERIFICATION_QUEUE};
-use crate::config::{
-    build_alert_client, build_da_client, build_prover_service, build_settlement_client, config_force_init, Config,
-};
-use crate::data_storage::DataStorage;
 use da_client_interface::DaClient;
 use httpmock::MockServer;
 
@@ -27,7 +23,7 @@ use crate::database::mongodb::MongoDb;
 use crate::database::{Database, MockDatabase};
 use crate::queue::sqs::SqsQueue;
 use crate::queue::QueueProvider;
-use crate::tests::common::{create_sns_arn, create_sqs_queues, drop_database, get_storage_client};
+use crate::tests::common::create_sns_arn;
 
 // Inspiration : https://rust-unofficial.github.io/patterns/patterns/creational/builder.html
 // TestConfigBuilder allows to heavily customise the global configs based on the test's requirement.
@@ -259,11 +255,11 @@ pub async fn sqs_testcontainer_setup() -> (ContainerAsync<LocalStack>, Box<dyn Q
     dotenvy::from_filename("../.env.test").unwrap();
     let _ = pretty_env_logger::try_init();
 
-    let mut node : ContainerAsync<LocalStack> ;
-    let mut host_ip : Host;
-    let mut host_port : u16;
+    let node: ContainerAsync<LocalStack>;
+    let host_ip: Host;
+    let host_port: u16;
 
-    let mut attempt_count : u16 = 1;
+    let mut attempt_count: u16 = 1;
 
     loop {
         let logger = LoggingConsumer::new()
@@ -294,7 +290,7 @@ pub async fn sqs_testcontainer_setup() -> (ContainerAsync<LocalStack>, Box<dyn Q
                     break; // Exit the loop if the health check is successful
                 } else {
                     eprintln!("LocalStack is not healthy. Status: {}", response.status());
-                    attempt_count+=1;
+                    attempt_count += 1;
                     if attempt_count == 10 {
                         panic!("Too Many Attempts");
                     }
@@ -304,9 +300,8 @@ pub async fn sqs_testcontainer_setup() -> (ContainerAsync<LocalStack>, Box<dyn Q
                 eprintln!("Failed to perform health check: {:?}", e);
             }
         }
-      
     }
-    
+
     let aws_access_key_id = get_env_var_or_panic("AWS_ACCESS_KEY_ID");
     let aws_secret_access_key = get_env_var_or_panic("AWS_SECRET_ACCESS_KEY");
     let aws_region = get_env_var_or_panic("AWS_REGION");
@@ -353,11 +348,11 @@ pub async fn s3_testcontainer_setup() -> (ContainerAsync<LocalStack>, Box<dyn Da
 
     let _ = pretty_env_logger::try_init();
 
-    let mut node : ContainerAsync<LocalStack> ;
-    let mut host_ip : Host;
-    let mut host_port : u16;
+    let node: ContainerAsync<LocalStack>;
+    let host_ip: Host;
+    let host_port: u16;
 
-    let mut attempt_count : u16 = 1;
+    let mut attempt_count: u16 = 1;
 
     loop {
         let logger = LoggingConsumer::new()
@@ -375,7 +370,7 @@ pub async fn s3_testcontainer_setup() -> (ContainerAsync<LocalStack>, Box<dyn Da
         let i_node = LocalStack::default().with_log_consumer(logger).start().await.unwrap();
         let i_host_ip = i_node.get_host().await.unwrap();
         let i_host_port = i_node.get_host_port_ipv4(4566).await.unwrap();
-    
+
         sleep(Duration::from_secs(3)).await;
         // curl
         match reqwest::get(format!("http://{}:{}/", i_host_ip, i_host_port)).await {
@@ -388,7 +383,7 @@ pub async fn s3_testcontainer_setup() -> (ContainerAsync<LocalStack>, Box<dyn Da
                     break; // Exit the loop if the health check is successful
                 } else {
                     eprintln!("LocalStack is not healthy. Status: {}", response.status());
-                    attempt_count+=1;
+                    attempt_count += 1;
                     if attempt_count == 10 {
                         panic!("Too Many Attempts");
                     }
@@ -398,11 +393,8 @@ pub async fn s3_testcontainer_setup() -> (ContainerAsync<LocalStack>, Box<dyn Da
                 eprintln!("Failed to perform health check: {:?}", e);
             }
         }
-
-      
     }
 
-    
     let aws_access_key_id = get_env_var_or_panic("AWS_ACCESS_KEY_ID");
     let aws_secret_access_key = get_env_var_or_panic("AWS_SECRET_ACCESS_KEY");
     let aws_region = get_env_var_or_panic("AWS_REGION");
