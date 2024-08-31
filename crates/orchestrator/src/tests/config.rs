@@ -1,5 +1,5 @@
 use std::sync::Arc;
-use std::time::SystemTime;
+use std::time::{Duration, SystemTime};
 
 use crate::config::{build_da_client, build_prover_service, build_settlement_client, Config};
 use crate::data_storage::{DataStorage, DataStorageConfig, MockDataStorage};
@@ -12,6 +12,8 @@ use settlement_client_interface::SettlementClient;
 use starknet::providers::jsonrpc::HttpTransport;
 use starknet::providers::{JsonRpcClient, Url};
 use testcontainers::core::logs::consumer::logging_consumer::LoggingConsumer;
+use tokio::time::sleep;
+use url::Host;
 use utils::env_utils::get_env_var_or_panic;
 use utils::settings::default::DefaultSettingsProvider;
 
@@ -236,22 +238,54 @@ pub async fn sqs_testcontainer_setup() -> (ContainerAsync<LocalStack>, Box<dyn Q
     dotenvy::from_filename("../.env.test").unwrap();
     let _ = pretty_env_logger::try_init();
 
-    let logger = LoggingConsumer::new()
-        .with_stdout_level(log::Level::Info)
-        .with_stdout_level(log::Level::Debug)
-        .with_stdout_level(log::Level::Error)
-        .with_stdout_level(log::Level::Trace)
-        .with_stdout_level(log::Level::Warn)
-        .with_stderr_level(log::Level::Info)
-        .with_stderr_level(log::Level::Debug)
-        .with_stderr_level(log::Level::Error)
-        .with_stderr_level(log::Level::Trace)
-        .with_stderr_level(log::Level::Warn);
+    let mut node : ContainerAsync<LocalStack> ;
+    let mut host_ip : Host;
+    let mut host_port : u16;
 
-    let node = LocalStack::default().with_log_consumer(logger).start().await.unwrap();
-    let host_ip = node.get_host().await.unwrap();
-    let host_port = node.get_host_port_ipv4(4566).await.unwrap();
+    let mut attempt_count : u16 = 1;
 
+    loop {
+        let logger = LoggingConsumer::new()
+            .with_stdout_level(log::Level::Info)
+            .with_stdout_level(log::Level::Debug)
+            .with_stdout_level(log::Level::Error)
+            .with_stdout_level(log::Level::Trace)
+            .with_stdout_level(log::Level::Warn)
+            .with_stderr_level(log::Level::Info)
+            .with_stderr_level(log::Level::Debug)
+            .with_stderr_level(log::Level::Error)
+            .with_stderr_level(log::Level::Trace)
+            .with_stderr_level(log::Level::Warn);
+
+        let i_node = LocalStack::default().with_log_consumer(logger).start().await.unwrap();
+        let i_host_ip = i_node.get_host().await.unwrap();
+        let i_host_port = i_node.get_host_port_ipv4(4566).await.unwrap();
+
+        sleep(Duration::from_secs(3)).await;
+        // curl
+        match reqwest::get(format!("http://{}:{}/", i_host_ip, i_host_port)).await {
+            Ok(response) => {
+                if response.status().as_u16() == 200 {
+                    println!("LocalStack is healthy!");
+                    node = i_node;
+                    host_ip = i_host_ip;
+                    host_port = i_host_port;
+                    break; // Exit the loop if the health check is successful
+                } else {
+                    eprintln!("LocalStack is not healthy. Status: {}", response.status());
+                    attempt_count+=1;
+                    if attempt_count == 10 {
+                        panic!("Too Many Attempts");
+                    }
+                }
+            }
+            Err(e) => {
+                eprintln!("Failed to perform health check: {:?}", e);
+            }
+        }
+      
+    }
+    
     let aws_access_key_id = get_env_var_or_panic("AWS_ACCESS_KEY_ID");
     let aws_secret_access_key = get_env_var_or_panic("AWS_SECRET_ACCESS_KEY");
     let aws_region = get_env_var_or_panic("AWS_REGION");
@@ -298,23 +332,56 @@ pub async fn s3_testcontainer_setup() -> (ContainerAsync<LocalStack>, Box<dyn Da
 
     let _ = pretty_env_logger::try_init();
 
-    let logger = LoggingConsumer::new()
-        .with_stdout_level(log::Level::Info)
-        .with_stdout_level(log::Level::Debug)
-        .with_stdout_level(log::Level::Error)
-        .with_stdout_level(log::Level::Trace)
-        .with_stdout_level(log::Level::Warn)
-        .with_stderr_level(log::Level::Info)
-        .with_stderr_level(log::Level::Debug)
-        .with_stderr_level(log::Level::Error)
-        .with_stderr_level(log::Level::Trace)
-        .with_stderr_level(log::Level::Warn);
+    let mut node : ContainerAsync<LocalStack> ;
+    let mut host_ip : Host;
+    let mut host_port : u16;
 
-    let node = LocalStack::default().with_log_consumer(logger).start().await.unwrap();
+    let mut attempt_count : u16 = 1;
 
-    let host_ip = node.get_host().await.unwrap();
-    let host_port = node.get_host_port_ipv4(4566).await.unwrap();
+    loop {
+        let logger = LoggingConsumer::new()
+            .with_stdout_level(log::Level::Info)
+            .with_stdout_level(log::Level::Debug)
+            .with_stdout_level(log::Level::Error)
+            .with_stdout_level(log::Level::Trace)
+            .with_stdout_level(log::Level::Warn)
+            .with_stderr_level(log::Level::Info)
+            .with_stderr_level(log::Level::Debug)
+            .with_stderr_level(log::Level::Error)
+            .with_stderr_level(log::Level::Trace)
+            .with_stderr_level(log::Level::Warn);
 
+        let i_node = LocalStack::default().with_log_consumer(logger).start().await.unwrap();
+        let i_host_ip = i_node.get_host().await.unwrap();
+        let i_host_port = i_node.get_host_port_ipv4(4566).await.unwrap();
+    
+        sleep(Duration::from_secs(3)).await;
+        // curl
+        match reqwest::get(format!("http://{}:{}/", i_host_ip, i_host_port)).await {
+            Ok(response) => {
+                if response.status().as_u16() == 200 {
+                    println!("LocalStack is healthy!");
+                    node = i_node;
+                    host_ip = i_host_ip;
+                    host_port = i_host_port;
+                    break; // Exit the loop if the health check is successful
+                } else {
+                    eprintln!("LocalStack is not healthy. Status: {}", response.status());
+                    attempt_count+=1;
+                    if attempt_count == 10 {
+                        panic!("Too Many Attempts");
+                    }
+                }
+            }
+            Err(e) => {
+                eprintln!("Failed to perform health check: {:?}", e);
+            }
+        }
+
+      
+    }
+
+    
     let aws_access_key_id = get_env_var_or_panic("AWS_ACCESS_KEY_ID");
     let aws_secret_access_key = get_env_var_or_panic("AWS_SECRET_ACCESS_KEY");
     let aws_region = get_env_var_or_panic("AWS_REGION");
