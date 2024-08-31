@@ -4701,6 +4701,7 @@ dependencies = [
  "async-trait",
  "cairo-vm 1.0.0-rc3",
  "itertools 0.13.0",
+ "num-bigint",
  "starknet",
  "thiserror",
  "url",
