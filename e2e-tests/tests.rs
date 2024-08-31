@@ -15,7 +15,6 @@ use tokio::time::sleep;
 
 extern crate e2e_tests;
 
-#[ignore]
 #[tokio::test]
 async fn test_orchestrator_workflow() {
     // Fetching the env vars from the test env file because setting up of the environment
