@@ -143,7 +143,7 @@ pub async fn create_job(
     let job_item = job_handler.create_job(config.clone(), internal_id.clone(), metadata.clone()).await?;
     config.database().create_job(job_item.clone()).await.map_err(|e| JobError::Other(OtherError(e)))?;
 
-    add_job_to_process_queue(job_item.id, config.clone()).await.map_err(|e| JobError::Other(OtherError(e)))?;
+    add_job_to_process_queue(job_item.id, config).await.map_err(|e| JobError::Other(OtherError(e)))?;
     Ok(())
 }
 
@@ -187,7 +187,7 @@ pub async fn process_job(id: Uuid, config: Arc<Config>) -> Result<(), JobError> 
     add_job_to_verification_queue(
         job.id,
         Duration::from_secs(job_handler.verification_polling_delay_seconds()),
-        config.clone(),
+        config,
     )
     .await
     .map_err(|e| JobError::Other(OtherError(e)))?;
@@ -262,7 +262,7 @@ pub async fn verify_job(id: Uuid, config: Arc<Config>) -> Result<(), JobError> {
             add_job_to_verification_queue(
                 job.id,
                 Duration::from_secs(job_handler.verification_polling_delay_seconds()),
-                config.clone(),
+                config,
             )
             .await
             .map_err(|e| JobError::Other(OtherError(e)))?;

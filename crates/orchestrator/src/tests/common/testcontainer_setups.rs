@@ -1,28 +1,27 @@
-// use std::collections::HashMap;
-
 use testcontainers::{
     core::{CmdWaitFor, ExecCommand, WaitFor},
     Image,
 };
 
 const DEFAULT_WAIT: u64 = 3000;
-
 /// LocalStack using TestContainers ////
-
 #[derive(Default, Debug, Clone)]
 pub struct LocalStack {
     _priv: (),
 }
 
 impl Image for LocalStack {
+    /// Informs docker which Image to load.
     fn name(&self) -> &str {
         "localstack/localstack"
     }
 
+    /// Informs docker which version of image to load.
     fn tag(&self) -> &str {
         "latest"
     }
 
+    /// Waits for these conditions to be met before interacting with the Image.
     fn ready_conditions(&self) -> Vec<WaitFor> {
         vec![WaitFor::message_on_stdout("Ready."), WaitFor::millis(DEFAULT_WAIT)]
     }
@@ -33,16 +32,11 @@ impl Image for LocalStack {
 
     //         let mut env_vars = HashMap::new();
     //         env_vars.insert("LS_LOG".to_owned(), "debug".to_owned());
-    //         // env_vars.insert("POSTGRES_USER".to_owned(), "postgres".to_owned());
-    //         // env_vars.insert("POSTGRES_PASSWORD".to_owned(), "postgres".to_owned());
-
     //         env_vars
-
     // }
 }
 
 /// Mongo using TestContainers ////
-
 #[derive(Debug, Clone)]
 enum InstanceKind {
     Standalone,
@@ -70,16 +64,19 @@ impl Mongo {
 }
 
 impl Image for Mongo {
+    /// Informs docker which Image to load.
     fn name(&self) -> &str {
         "mongo"
     }
 
+    /// Informs docker which version of image to load.
     fn tag(&self) -> &str {
         "latest"
     }
 
+    /// Waits for these conditions to be met before interacting with the Image.
     fn ready_conditions(&self) -> Vec<WaitFor> {
-        vec![WaitFor::message_on_stdout("Waiting for connections")]
+        vec![WaitFor::message_on_stdout("Waiting for connections"), WaitFor::millis(DEFAULT_WAIT)]
     }
 
     fn cmd(&self) -> impl IntoIterator<Item = impl Into<std::borrow::Cow<'_, str>>> {

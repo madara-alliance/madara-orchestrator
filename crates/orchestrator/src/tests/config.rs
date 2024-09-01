@@ -1,12 +1,13 @@
 use std::sync::Arc;
-use std::time::{Duration, SystemTime};
+use std::time::Duration;
 
 use crate::config::{build_alert_client, build_da_client, build_prover_service, build_settlement_client, Config};
-use crate::data_storage::{DataStorage, DataStorageConfig, MockDataStorage};
+use crate::data_storage::{DataStorage, DataStorageConfig};
 use crate::queue::job_queue::{JOB_PROCESSING_QUEUE, JOB_VERIFICATION_QUEUE};
 use da_client_interface::DaClient;
 use httpmock::MockServer;
 
+use super::common::get_storage_client;
 use crate::alerts::Alerts;
 use prover_client_interface::ProverClient;
 use settlement_client_interface::SettlementClient;
@@ -20,7 +21,7 @@ use utils::settings::default::DefaultSettingsProvider;
 
 use crate::database::mongodb::config::MongoDbConfig;
 use crate::database::mongodb::MongoDb;
-use crate::database::{Database, MockDatabase};
+use crate::database::{Database, DatabaseConfig};
 use crate::queue::sqs::SqsQueue;
 use crate::queue::QueueProvider;
 use crate::tests::common::create_sns_arn;
@@ -165,7 +166,7 @@ impl TestConfigBuilder {
 
         // init database
         if self.database.is_none() {
-            self.database = Some(Box::new(MockDatabase::new()));
+            self.database = Some(Box::new(MongoDb::new(MongoDbConfig::new_from_env()).await));
         }
 
         // init the DA client
@@ -180,21 +181,20 @@ impl TestConfigBuilder {
 
         // init the storage client
         if self.storage.is_none() {
-            self.storage = Some(Box::new(MockDataStorage::new()));
-
-            // self.storage = Some(MockDataStorage::new());
-            // match get_env_var_or_panic("DATA_STORAGE").as_str() {
-            //     "s3" => self
-            //         .storage
-            //         .as_ref()
-            //         .unwrap()
-            //         .build_test_bucket(&get_env_var_or_panic("AWS_S3_BUCKET_NAME"))
-            //         .await
-            //         .unwrap(),
-            //     _ => panic!("Unsupported Storage Client"),
-            // }
+            self.storage = Some(get_storage_client().await);
+            match get_env_var_or_panic("DATA_STORAGE").as_str() {
+                "s3" => self
+                    .storage
+                    .as_ref()
+                    .unwrap()
+                    .build_test_bucket(&get_env_var_or_panic("AWS_S3_BUCKET_NAME"))
+                    .await
+                    .unwrap(),
+                _ => panic!("Unsupported Storage Client"),
+            }
         }
 
+        // init the alert client
         if self.alerts.is_none() {
             self.alerts = Some(build_alert_client().await);
         }
@@ -204,6 +204,7 @@ impl TestConfigBuilder {
 
         // Deleting the database
         // drop_database().await.expect("Unable to drop the database.");
+
         // Creating the SNS ARN
         create_sns_arn().await.expect("Unable to create the sns arn");
 
@@ -223,8 +224,6 @@ impl TestConfigBuilder {
             self.alerts.unwrap(),
         ));
 
-        // drop_database().await.unwrap();
-
         TestConfigBuildReturn {
             mock_server: server,
             data_storage_node: self.data_storage_node,
@@ -238,6 +237,7 @@ impl TestConfigBuilder {
 }
 
 /// LocalStack (s3 and sqs) & MongoDb Setup using TestContainers ////
+
 use super::common::testcontainer_setups::LocalStack;
 use crate::data_storage::aws_s3::config::AWSS3Config;
 use crate::data_storage::aws_s3::AWSS3;
@@ -249,6 +249,8 @@ use aws_sdk_sqs::config::Credentials;
 use testcontainers::core::IntoContainerPort;
 use testcontainers::runners::AsyncRunner;
 use testcontainers::{ContainerAsync, ImageExt};
+
+const DEFAULT_RETRY_ATTEMPTS: u16 = 10;
 
 /// Localstack SQS testcontainer
 pub async fn sqs_testcontainer_setup() -> (ContainerAsync<LocalStack>, Box<dyn QueueProvider>, sqs::Client) {
@@ -274,12 +276,13 @@ pub async fn sqs_testcontainer_setup() -> (ContainerAsync<LocalStack>, Box<dyn Q
             .with_stderr_level(log::Level::Trace)
             .with_stderr_level(log::Level::Warn);
 
+        // We create internal services and after only health check we assign them to the main services variables, to ensure proper scoping.
         let i_node = LocalStack::default().with_log_consumer(logger).start().await.unwrap();
         let i_host_ip = i_node.get_host().await.unwrap();
         let i_host_port = i_node.get_host_port_ipv4(4566).await.unwrap();
 
         sleep(Duration::from_secs(3)).await;
-        // curl
+
         match reqwest::get(format!("http://{}:{}/", i_host_ip, i_host_port)).await {
             Ok(response) => {
                 if response.status().as_u16() == 200 {
@@ -287,11 +290,12 @@ pub async fn sqs_testcontainer_setup() -> (ContainerAsync<LocalStack>, Box<dyn Q
                     node = i_node;
                     host_ip = i_host_ip;
                     host_port = i_host_port;
-                    break; // Exit the loop if the health check is successful
+                    // Exit the loop if the health check is successful
+                    break;
                 } else {
                     eprintln!("LocalStack is not healthy. Status: {}", response.status());
                     attempt_count += 1;
-                    if attempt_count == 10 {
+                    if attempt_count >= DEFAULT_RETRY_ATTEMPTS {
                         panic!("Too Many Attempts");
                     }
                 }
@@ -307,8 +311,6 @@ pub async fn sqs_testcontainer_setup() -> (ContainerAsync<LocalStack>, Box<dyn Q
     let aws_region = get_env_var_or_panic("AWS_REGION");
     let region_provider = Region::new(aws_region);
     let aws_endpoint_url = format!("http://{host_ip}:{host_port}");
-
-    println!("{:?} SQS {:?}", SystemTime::now(), host_port);
 
     let creds = Credentials::new(aws_access_key_id, aws_secret_access_key, None, None, "test");
     let config = aws_config::defaults(BehaviorVersion::v2024_03_28())
@@ -343,9 +345,6 @@ fn transform_url(input: &str, host_port: &u16) -> String {
 /// LocalStack S3 testcontainer
 pub async fn s3_testcontainer_setup() -> (ContainerAsync<LocalStack>, Box<dyn DataStorage>, s3::Client) {
     dotenvy::from_filename("../.env.test").unwrap();
-
-    // let (tx, rx) = std::sync::mpsc::sync_channel(1);
-
     let _ = pretty_env_logger::try_init();
 
     let node: ContainerAsync<LocalStack>;
@@ -354,6 +353,7 @@ pub async fn s3_testcontainer_setup() -> (ContainerAsync<LocalStack>, Box<dyn Da
 
     let mut attempt_count: u16 = 1;
 
+    // TODO:Can generalize the two loops into a pure function.
     loop {
         let logger = LoggingConsumer::new()
             .with_stdout_level(log::Level::Info)
@@ -367,6 +367,7 @@ pub async fn s3_testcontainer_setup() -> (ContainerAsync<LocalStack>, Box<dyn Da
             .with_stderr_level(log::Level::Trace)
             .with_stderr_level(log::Level::Warn);
 
+        // We create internal services and after only health check we assign them to the main services variables, to ensure proper scoping.
         let i_node = LocalStack::default().with_log_consumer(logger).start().await.unwrap();
         let i_host_ip = i_node.get_host().await.unwrap();
         let i_host_port = i_node.get_host_port_ipv4(4566).await.unwrap();
@@ -384,7 +385,7 @@ pub async fn s3_testcontainer_setup() -> (ContainerAsync<LocalStack>, Box<dyn Da
                 } else {
                     eprintln!("LocalStack is not healthy. Status: {}", response.status());
                     attempt_count += 1;
-                    if attempt_count == 10 {
+                    if attempt_count >= DEFAULT_RETRY_ATTEMPTS {
                         panic!("Too Many Attempts");
                     }
                 }
@@ -401,13 +402,10 @@ pub async fn s3_testcontainer_setup() -> (ContainerAsync<LocalStack>, Box<dyn Da
     let region_provider = Region::new(aws_region);
     let aws_endpoint_url = format!("http://{host_ip}:{host_port}");
 
-    println!("{:?} S3 {:?}", SystemTime::now(), host_port);
-
     let aws_s3_bucket_name = get_env_var_or_panic("AWS_S3_BUCKET_NAME");
 
     // Set up AWS client
     let creds = Credentials::new(aws_access_key_id, aws_secret_access_key, None, None, "test");
-
     let config = aws_sdk_s3::config::Builder::default()
         .behavior_version(BehaviorVersion::v2024_03_28())
         .region(region_provider)
@@ -418,6 +416,7 @@ pub async fn s3_testcontainer_setup() -> (ContainerAsync<LocalStack>, Box<dyn Da
 
     let client = s3::Client::from_conf(config);
 
+    // Creating s3 bucket.
     client.create_bucket().bucket(aws_s3_bucket_name.clone()).send().await.unwrap();
 
     let aws_config = aws_config::load_from_env().await.into_builder().endpoint_url(aws_endpoint_url.as_str()).build();
@@ -448,8 +447,6 @@ pub async fn mongodb_testcontainer_setup() -> (ContainerAsync<Mongo>, Box<dyn Da
     let host_ip = node.get_host().await.unwrap();
     let host_port = node.get_host_port_ipv4(LOCAL_PORT.tcp()).await.unwrap();
     let connection_url = format!("mongodb://{host_ip}:{host_port}/");
-
-    println!("{:?} MONGO {:?}", SystemTime::now(), host_port);
 
     let mongo_config = MongoDbConfig { url: connection_url };
     let database = MongoDb::new(mongo_config).await;
