@@ -57,7 +57,7 @@ jobs:
       - name: Run llvm-cov tests
         env:
           ETHEREUM_BLAST_RPC_URL: ${{ secrets.ETHEREUM_BLAST_RPC_URL }}
-        run: RUST_LOG=debug RUST_BACKTRACE=1 cargo llvm-cov nextest --release --lcov --output-path lcov.info --nocapture
+        run: cargo llvm-cov nextest --release --lcov --output-path lcov.info
 
       - name: Coveralls
         uses: coverallsapp/github-action@v2
