@@ -26,7 +26,7 @@ use crate::tests::config::TestConfigBuilder;
 async fn test_create_job() {
     let services = TestConfigBuilder::new().build().await;
 
-    let job = ProvingJob.create_job(services.config.clone(), String::from("0"), HashMap::new()).await;
+    let job = ProvingJob.create_job(services.config, String::from("0"), HashMap::new()).await;
     assert!(job.is_ok());
 
     let job = job.unwrap();
