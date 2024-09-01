@@ -58,7 +58,7 @@ stark_evm_adapter = "0.1.1"
 hex = "0.4"
 itertools = "0.13.0"
 mockall = "0.12.1"
-testcontainers = { version = "0.21.1" , features = ["http_wait"] }
+testcontainers = { version = "0.21.1", features = ["http_wait"] }
 
 # Cairo VM
 cairo-vm = { git = "https://github.com/lambdaclass/cairo-vm", features = [
