@@ -124,10 +124,9 @@ fn calculate_node_hash(node_data: &[u8]) -> B256 {
     let hash_biguint = BigUint::from_bytes_be(hash.as_slice());
     let incremented_hash = hash_biguint.add(BigUint::from(1u8));
     let mut hash_bytes = incremented_hash.to_bytes_be();
-    while hash_bytes.len() < 32 {
-        hash_bytes.insert(0, 0);
-    }
-    B256::from_slice(&hash_bytes[..32])
+    let mut padded_bytes = vec![0; 32 - hash_bytes.len()];
+    padded_bytes.append(&mut hash_bytes);
+    B256::from_slice(&padded_bytes[..32])
 }
 
 #[cfg(test)]
@@ -148,20 +147,7 @@ mod test {
     /// This will ensure that our logic here is correct.
     #[test]
     fn test_generate_merkle_root() {
-        let program_output_vec: Vec<Felt252> = vec![
-            1.into(),
-            2.into(),
-            3.into(),
-            4.into(),
-            5.into(),
-            6.into(),
-            7.into(),
-            8.into(),
-            9.into(),
-            10.into(),
-            11.into(),
-            12.into(),
-        ];
+        let program_output_vec: Vec<Felt252> = (1..=12).map(|i| i.into()).collect();
 
         let fact_topology =
             FactTopology { tree_structure: vec![1, 0, 1, 0, 0, 2, 1, 1, 0, 2], page_sizes: vec![4, 4, 4] };
