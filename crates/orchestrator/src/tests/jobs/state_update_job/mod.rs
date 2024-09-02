@@ -95,7 +95,7 @@ async fn test_process_job_works(
     // Building a temp config that will be used by `fetch_blob_data_for_block` and `fetch_snos_for_block`
     // functions while fetching the blob data from storage client.
     let services = TestConfigBuilder::new()
-        .mock_settlement_client(Box::new(settlement_client))
+        .add_settlement_client(Box::new(settlement_client))
         .testcontainer_s3_data_storage()
         .await
         .build()
@@ -221,8 +221,8 @@ async fn process_job_works() {
     }
 
     let services = TestConfigBuilder::new()
-        .mock_settlement_client(Box::new(settlement_client))
-        .mock_storage_client(Box::new(storage_client))
+        .add_settlement_client(Box::new(settlement_client))
+        .add_storage_client(Box::new(storage_client))
         .build()
         .await;
 
@@ -252,8 +252,8 @@ async fn process_job_invalid_inputs_errors(#[case] block_numbers_to_settle: Stri
     ));
 
     let services = TestConfigBuilder::new()
-        .mock_starknet_client(Arc::new(provider))
-        .mock_settlement_client(Box::new(settlement_client))
+        .add_starknet_client(Arc::new(provider))
+        .add_settlement_client(Box::new(settlement_client))
         .build()
         .await;
 
@@ -289,8 +289,8 @@ async fn process_job_invalid_input_gap_panics() {
     ));
 
     let services = TestConfigBuilder::new()
-        .mock_starknet_client(Arc::new(provider))
-        .mock_settlement_client(Box::new(settlement_client))
+        .add_starknet_client(Arc::new(provider))
+        .add_settlement_client(Box::new(settlement_client))
         .build()
         .await;
 

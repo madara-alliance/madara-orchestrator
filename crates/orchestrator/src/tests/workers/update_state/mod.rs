@@ -108,10 +108,10 @@ async fn test_update_state_worker(
 
     // mock block number (madara) : 5
     let services = TestConfigBuilder::new()
-        .mock_starknet_client(Arc::new(provider))
-        .mock_db_client(Box::new(db))
-        .mock_queue(Box::new(queue))
-        .mock_da_client(Box::new(da_client))
+        .add_starknet_client(Arc::new(provider))
+        .add_db_client(Box::new(db))
+        .add_queue(Box::new(queue))
+        .add_da_client(Box::new(da_client))
         .build()
         .await;
 

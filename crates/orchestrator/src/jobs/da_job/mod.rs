@@ -463,9 +463,11 @@ pub mod test {
 
         // mock block number (madara) : 5
         let services = TestConfigBuilder::new()
-            .mock_starknet_client(Arc::new(provider))
-            .mock_da_client(Box::new(da_client))
-            .mock_storage_client(Box::new(storage_client))
+            .add_starknet_client(Arc::new(provider))
+            .add_da_client(Box::new(da_client))
+            .add_storage_client(Box::new(storage_client))
+            .testcontainer_mongo_database()
+            .await
             .build()
             .await;
 

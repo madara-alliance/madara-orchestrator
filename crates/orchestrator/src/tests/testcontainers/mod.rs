@@ -2,8 +2,14 @@ use crate::jobs::types::JobStatus::Created;
 use crate::jobs::types::JobType::DataSubmission;
 use crate::jobs::types::{ExternalId, JobItem};
 use crate::queue::job_queue::{JobQueueMessage, JOB_PROCESSING_QUEUE};
-use crate::tests::config::{mongodb_testcontainer_setup, s3_testcontainer_setup, sqs_testcontainer_setup};
+use crate::tests::config::SNS_ALERT_TEST_QUEUE_NAME;
+use crate::tests::config::{
+    mongodb_testcontainer_setup, s3_testcontainer_setup, sns_sqs_testcontainer_setup, sqs_testcontainer_setup,
+};
 use bytes::Bytes;
+use std::time::Duration;
+use tokio::time::sleep;
+
 use rstest::rstest;
 use std::collections::HashMap;
 use utils::env_utils::get_env_var_or_panic;
@@ -15,7 +21,11 @@ use uuid::Uuid;
 #[case(Uuid::new_v4())]
 #[tokio::test]
 async fn testing_parallel_sqs(#[case] id: Uuid) {
-    let (_node, sqs_queue, _client) = sqs_testcontainer_setup().await;
+    let (_node, sqs_queue, sqs_client) = sqs_testcontainer_setup().await;
+
+    let urll = sqs_client.get_queue_url().queue_name(JOB_PROCESSING_QUEUE.to_string()).send().await.unwrap();
+
+    println!("Sdsdfdf {:?}", urll);
 
     let message = JobQueueMessage { id };
     let _ = sqs_queue
@@ -51,6 +61,30 @@ async fn testing_parallel_s3(#[case] id: Uuid) {
     let val = storage_client.get_data(key).await.unwrap();
 
     println!("{:?}", val);
+}
+
+#[rstest]
+#[case(Uuid::new_v4())]
+#[case(Uuid::new_v4())]
+#[case(Uuid::new_v4())]
+#[tokio::test]
+async fn testing_parallel_sns(#[case] id: Uuid) {
+    let (_node, sns_alert, sqs_queue, sns_client, _sqs_client, _sqs_arn, _queue_host_url) =
+        sns_sqs_testcontainer_setup().await;
+
+    let list_topics_output = sns_client.list_topics().send().await.unwrap();
+    let topics_list = list_topics_output.topics.unwrap();
+    assert_ne!(0, topics_list.len());
+
+    // Sending the alert message
+    let id = sns_alert.send_alert_message(id.to_string()).await.unwrap();
+    assert!(id.is_some(), "No message ID.");
+
+    sleep(Duration::from_secs(5)).await;
+
+    let consumed_messages = sqs_queue.consume_message_from_queue(SNS_ALERT_TEST_QUEUE_NAME.to_string()).await;
+
+    assert!(consumed_messages.unwrap().take_payload().is_some());
 }
 
 #[rstest]

@@ -44,7 +44,7 @@ async fn test_da_job_process_job_failure_on_small_blob_size(
         .await
         .testcontainer_mongo_database()
         .await
-        .mock_da_client(Box::new(da_client))
+        .add_da_client(Box::new(da_client))
         .build()
         .await;
     let server = services.mock_server;
@@ -183,12 +183,8 @@ async fn test_da_job_process_job_success(
     da_client.expect_max_blob_per_txn().with().returning(|| 6);
     da_client.expect_max_bytes_per_blob().with().returning(|| 131072);
 
-    let services = TestConfigBuilder::new()
-        .testcontainer_s3_data_storage()
-        .await
-        .mock_da_client(Box::new(da_client))
-        .build()
-        .await;
+    let services =
+        TestConfigBuilder::new().testcontainer_s3_data_storage().await.add_da_client(Box::new(da_client)).build().await;
     let server = services.mock_server;
 
     let state_update = read_state_update_from_file(state_update_file.as_str()).expect("issue while reading");

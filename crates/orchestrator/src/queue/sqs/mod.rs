@@ -26,10 +26,6 @@ impl SqsQueue {
         let base_url = get_env_var_or_panic("QUEUE_BASE_URL");
         SqsQueue { base_url }
     }
-
-    pub fn get_queue_url(&self, queue_name: String) -> String {
-        format!("{}/{}", self.base_url.clone(), queue_name)
-    }
 }
 
 lazy_static! {
@@ -58,6 +54,10 @@ impl QueueProvider for SqsQueue {
     async fn consume_message_from_queue(&self, queue_name: String) -> std::result::Result<Delivery, QueueError> {
         let mut consumer = get_consumer(self.get_queue_url(queue_name)).await?;
         consumer.receive().await
+    }
+
+    fn get_queue_url(&self, queue_name: String) -> String {
+        format!("{}/{}", self.base_url.clone(), queue_name)
     }
 }
 

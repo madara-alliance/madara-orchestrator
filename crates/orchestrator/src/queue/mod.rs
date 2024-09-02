@@ -23,6 +23,7 @@ pub trait QueueProvider: Send + Sync {
         delay: Option<Duration>,
     ) -> EyreResult<()>;
     async fn consume_message_from_queue(&self, queue_name: String) -> std::result::Result<Delivery, QueueError>;
+    fn get_queue_url(&self, queue_name: String) -> String;
 }
 
 pub async fn init_consumers(config: Arc<Config>) -> Result<(), JobError> {

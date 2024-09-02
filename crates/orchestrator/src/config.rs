@@ -188,7 +188,7 @@ pub async fn build_storage_client(aws_config: &SdkConfig) -> Box<dyn DataStorage
 
 pub async fn build_alert_client() -> Box<dyn Alerts + Send + Sync> {
     match get_env_var_or_panic("ALERTS").as_str() {
-        "sns" => Box::new(AWSSNS::new().await),
+        "sns" => Box::new(AWSSNS::new_from_env().await),
         _ => panic!("Unsupported Alert Client"),
     }
 }

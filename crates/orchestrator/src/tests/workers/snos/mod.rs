@@ -96,10 +96,10 @@ async fn test_snos_worker(#[case] db_val: bool) -> Result<(), Box<dyn Error>> {
     ));
 
     let services = TestConfigBuilder::new()
-        .mock_starknet_client(Arc::new(provider))
-        .mock_db_client(Box::new(db))
-        .mock_queue(Box::new(queue))
-        .mock_da_client(Box::new(da_client))
+        .add_starknet_client(Arc::new(provider))
+        .add_db_client(Box::new(db))
+        .add_queue(Box::new(queue))
+        .add_da_client(Box::new(da_client))
         .build()
         .await;
 
