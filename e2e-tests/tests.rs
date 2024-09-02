@@ -57,7 +57,7 @@ async fn test_orchestrator_workflow() {
     orchestrator.wait_till_started().await;
 
     // TODO : need to make this dynamic
-    sleep(Duration::from_secs(720)).await;
+    sleep(Duration::from_secs(900)).await;
 
     // Adding a case here to check for required state of the orchestrator to end the test.
     let l2_block_for_testing = get_env_var_or_panic("L2_BLOCK_NUMBER_FOR_TEST");
