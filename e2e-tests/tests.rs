@@ -57,7 +57,7 @@ async fn test_orchestrator_workflow() {
     orchestrator.wait_till_started().await;
 
     // TODO : need to make this dynamic
-    sleep(Duration::from_secs(900)).await;
+    sleep(Duration::from_secs(720)).await;
 
     // Adding a case here to check for required state of the orchestrator to end the test.
     let l2_block_for_testing = get_env_var_or_panic("L2_BLOCK_NUMBER_FOR_TEST");
@@ -69,8 +69,8 @@ async fn test_orchestrator_workflow() {
     assert_eq!(job.internal_id, l2_block_for_testing);
     assert_eq!(job.external_id, ExternalId::String(Box::from(l2_block_for_testing)));
     assert_eq!(job.job_type, JobType::StateTransition);
-    assert_eq!(job.status, JobStatus::PendingVerification);
-    assert_eq!(job.version, 2);
+    assert_eq!(job.status, JobStatus::Completed);
+    assert_eq!(job.version, 3);
 }
 
 async fn get_database_state(
@@ -79,7 +79,7 @@ async fn get_database_state(
 ) -> color_eyre::Result<Option<JobItem>> {
     let mongo_db_client = get_mongo_db_client(mongo_db_server).await;
     let collection = mongo_db_client.database("orchestrator").collection::<JobItem>("jobs");
-    let filter = doc! { "internal_id": l2_block_for_testing, "version" : 2 };
+    let filter = doc! { "internal_id": l2_block_for_testing, "job_type" : "StateTransition" };
     Ok(collection.find_one(filter, None).await.unwrap())
 }
 

@@ -253,8 +253,6 @@ impl SettlementClient for EthereumSettlementClient {
             None => tx_envelope.into(),
         };
 
-        log::info!("txn_request : {:?}", txn_request);
-
         let pending_transaction = self.provider.send_transaction(txn_request).await?;
         return Ok(pending_transaction.tx_hash().to_string());
     }

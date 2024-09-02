@@ -151,7 +151,9 @@ impl Job for StateUpdateJob {
             .get(JOB_PROCESS_ATTEMPT_METADATA_KEY)
             .ok_or_else(|| StateUpdateError::AttemptNumberNotFound)?;
 
-        // TODO : fix this after test
+        // We are doing attempt_no - 1 because the attempt number is increased in the
+        // global process job function and the transaction hash is stored with attempt
+        // number : 0
         let metadata_tx_hashes = job
             .metadata
             .get(&format!("{}{}", JOB_METADATA_STATE_UPDATE_ATTEMPT_PREFIX, attempt_no.parse::<u32>().unwrap() - 1))
