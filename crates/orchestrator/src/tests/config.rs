@@ -20,7 +20,7 @@ use utils::env_utils::get_env_var_or_panic;
 
 use crate::database::mongodb::config::MongoDbConfig;
 use crate::database::mongodb::MongoDb;
-use crate::database::{Database, DatabaseConfig, MockDatabase};
+use crate::database::{Database, MockDatabase};
 use crate::queue::sqs::SqsQueue;
 use crate::queue::{MockQueueProvider, QueueProvider};
 
@@ -400,7 +400,7 @@ async fn setup_aws_shared_config(host_ip: Host, host_port: u16) -> SdkConfig {
     let aws_endpoint_url = format!("http://{host_ip}:{host_port}");
 
     let creds = Credentials::new(aws_access_key_id, aws_secret_access_key, None, None, "test");
-    
+
     aws_config::defaults(BehaviorVersion::v2024_03_28())
         .region(region_provider)
         .credentials_provider(creds)

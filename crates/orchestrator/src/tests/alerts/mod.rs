@@ -9,9 +9,7 @@ async fn sns_alert_subscribe_to_topic_receive_alert_works() {
     let services = TestConfigBuilder::new().testcontainer_sns_sqs_alert().await.build().await;
 
     let sqs_client = services.queue_client.unwrap();
-    let queue = sqs_client.create_queue().queue_name(SNS_ALERT_TEST_QUEUE_NAME).send().await.unwrap();
-    let queue_url = queue.queue_url().unwrap();
-
+    let _queue = sqs_client.create_queue().queue_name(SNS_ALERT_TEST_QUEUE_NAME).send().await.unwrap();
     let message_to_send = "Hello World :)";
 
     // Getting sns client from the module
