@@ -15,9 +15,8 @@ use starknet::providers::{JsonRpcClient, Url};
 use utils::env_utils::get_env_var_or_panic;
 use utils::settings::default::DefaultSettingsProvider;
 
-use crate::database::mongodb::config::MongoDbConfig;
 use crate::database::mongodb::MongoDb;
-use crate::database::{Database, DatabaseConfig};
+use crate::database::Database;
 use crate::queue::sqs::SqsQueue;
 use crate::queue::QueueProvider;
 use crate::tests::common::{create_sns_arn, create_sqs_queues, drop_database, get_storage_client};
@@ -115,12 +114,12 @@ impl TestConfigBuilder {
 
         // init database
         if self.database.is_none() {
-            self.database = Some(Box::new(MongoDb::new(MongoDbConfig::new_from_env()).await));
+            self.database = Some(Box::new(MongoDb::with_settings(&settings_provider).await));
         }
 
         // init the DA client
         if self.da_client.is_none() {
-            self.da_client = Some(build_da_client().await);
+            self.da_client = Some(build_da_client(&settings_provider).await);
         }
 
         // init the Settings client
@@ -144,7 +143,7 @@ impl TestConfigBuilder {
         }
 
         if self.alerts.is_none() {
-            self.alerts = Some(build_alert_client().await);
+            self.alerts = Some(build_alert_client(&settings_provider).await);
         }
 
         // Deleting and Creating the queues in sqs.

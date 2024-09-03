@@ -10,13 +10,11 @@ use mongodb::Client;
 use rstest::*;
 use serde::Deserialize;
 use utils::env_utils::get_env_var_or_panic;
+use utils::settings::default::DefaultSettingsProvider;
 
-use crate::data_storage::aws_s3::config::AWSS3Config;
 use crate::data_storage::aws_s3::AWSS3;
-use crate::data_storage::{DataStorage, DataStorageConfig};
-use crate::database::mongodb::config::MongoDbConfig;
+use crate::data_storage::DataStorage;
 use crate::database::mongodb::MongoDb;
-use crate::database::DatabaseConfig;
 use crate::jobs::types::JobStatus::Created;
 use crate::jobs::types::JobType::DataSubmission;
 use crate::jobs::types::{ExternalId, JobItem};
@@ -56,7 +54,7 @@ pub async fn get_sns_client() -> aws_sdk_sns::client::Client {
 }
 
 pub async fn drop_database() -> color_eyre::Result<()> {
-    let db_client: Client = MongoDb::new(MongoDbConfig::new_from_env()).await.client();
+    let db_client: Client = MongoDb::with_settings(&DefaultSettingsProvider {}).await.client();
     // dropping all the collection.
     // use .collection::<JobItem>("<collection_name>")
     // if only particular collection is to be dropped
@@ -99,7 +97,5 @@ pub struct MessagePayloadType {
 }
 
 pub async fn get_storage_client() -> Box<dyn DataStorage + Send + Sync> {
-    let aws_config =
-        aws_config::load_from_env().await.into_builder().endpoint_url(get_env_var_or_panic("AWS_ENDPOINT_URL")).build();
-    Box::new(AWSS3::new(AWSS3Config::new_from_env(), &aws_config))
+    Box::new(AWSS3::with_settings(&DefaultSettingsProvider {}).await)
 }

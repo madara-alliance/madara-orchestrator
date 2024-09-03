@@ -2,14 +2,13 @@ use std::sync::Arc;
 
 use crate::alerts::aws_sns::AWSSNS;
 use crate::alerts::Alerts;
-use crate::data_storage::aws_s3::config::AWSS3Config;
 use crate::data_storage::aws_s3::AWSS3;
-use crate::data_storage::{DataStorage, DataStorageConfig};
+use crate::data_storage::DataStorage;
 use arc_swap::{ArcSwap, Guard};
 use aws_config::SdkConfig;
-use da_client_interface::{DaClient, DaConfig};
+use da_client_interface::DaClient;
 use dotenvy::dotenv;
-use ethereum_da_client::config::EthereumDaConfig;
+use ethereum_da_client::EthereumDaClient;
 use ethereum_settlement_client::EthereumSettlementClient;
 use prover_client_interface::ProverClient;
 use settlement_client_interface::SettlementClient;
@@ -22,9 +21,8 @@ use utils::env_utils::get_env_var_or_panic;
 use utils::settings::default::DefaultSettingsProvider;
 use utils::settings::SettingsProvider;
 
-use crate::database::mongodb::config::MongoDbConfig;
 use crate::database::mongodb::MongoDb;
-use crate::database::{Database, DatabaseConfig};
+use crate::database::Database;
 use crate::queue::sqs::SqsQueue;
 use crate::queue::QueueProvider;
 
@@ -58,9 +56,6 @@ pub async fn init_config() -> Config {
         Url::parse(get_env_var_or_panic("MADARA_RPC_URL").as_str()).expect("Failed to parse URL"),
     ));
 
-    // init database
-    let database = build_database_client().await;
-
     // init AWS
     let aws_config = aws_config::load_from_env().await;
 
@@ -70,15 +65,14 @@ pub async fn init_config() -> Config {
     // us stop using the generic omniqueue abstractions for message ack/nack
     let queue = build_queue_client(&aws_config);
 
-    let da_client = build_da_client().await;
-
     let settings_provider = DefaultSettingsProvider {};
+    // init database
+    let database = build_database_client(&settings_provider).await;
+    let da_client = build_da_client(&settings_provider).await;
     let settlement_client = build_settlement_client(&settings_provider).await;
     let prover_client = build_prover_service(&settings_provider);
-
-    let storage_client = build_storage_client(&aws_config).await;
-
-    let alerts_client = build_alert_client().await;
+    let storage_client = build_storage_client(&settings_provider).await;
+    let alerts_client = build_alert_client(&settings_provider).await;
 
     Config::new(
         Arc::new(provider),
@@ -177,12 +171,9 @@ pub async fn config_force_init(config: Config) {
 }
 
 /// Builds the DA client based on the environment variable DA_LAYER
-pub async fn build_da_client() -> Box<dyn DaClient + Send + Sync> {
+pub async fn build_da_client(settings_provider: &impl SettingsProvider) -> Box<dyn DaClient + Send + Sync> {
     match get_env_var_or_panic("DA_LAYER").as_str() {
-        "ethereum" => {
-            let config = EthereumDaConfig::new_from_env();
-            Box::new(config.build_client().await)
-        }
+        "ethereum" => Box::new(EthereumDaClient::with_settings(settings_provider)),
         _ => panic!("Unsupported DA layer"),
     }
 }
@@ -206,19 +197,20 @@ pub async fn build_settlement_client(
     }
 }
 
-pub async fn build_storage_client(aws_config: &SdkConfig) -> Box<dyn DataStorage + Send + Sync> {
+pub async fn build_storage_client(settings_provider: &impl SettingsProvider) -> Box<dyn DataStorage + Send + Sync> {
     match get_env_var_or_panic("DATA_STORAGE").as_str() {
-        "s3" => Box::new(AWSS3::new(AWSS3Config::new_from_env(), aws_config)),
+        "s3" => Box::new(AWSS3::with_settings(settings_provider).await),
         _ => panic!("Unsupported Storage Client"),
     }
 }
 
-pub async fn build_alert_client() -> Box<dyn Alerts + Send + Sync> {
+pub async fn build_alert_client(settings_provider: &impl SettingsProvider) -> Box<dyn Alerts + Send + Sync> {
     match get_env_var_or_panic("ALERTS").as_str() {
-        "sns" => Box::new(AWSSNS::new().await),
+        "sns" => Box::new(AWSSNS::with_settings(settings_provider).await),
         _ => panic!("Unsupported Alert Client"),
     }
 }
+
 pub fn build_queue_client(_aws_config: &SdkConfig) -> Box<dyn QueueProvider + Send + Sync> {
     match get_env_var_or_panic("QUEUE_PROVIDER").as_str() {
         "sqs" => Box::new(SqsQueue {}),
@@ -226,9 +218,9 @@ pub fn build_queue_client(_aws_config: &SdkConfig) -> Box<dyn QueueProvider + Se
     }
 }
 
-pub async fn build_database_client() -> Box<dyn Database + Send + Sync> {
+pub async fn build_database_client(settings_provider: &impl SettingsProvider) -> Box<dyn Database + Send + Sync> {
     match get_env_var_or_panic("DATABASE").as_str() {
-        "mongodb" => Box::new(MongoDb::new(MongoDbConfig::new_from_env()).await),
+        "mongodb" => Box::new(MongoDb::with_settings(settings_provider).await),
         _ => panic!("Unsupported Database Client"),
     }
 }
