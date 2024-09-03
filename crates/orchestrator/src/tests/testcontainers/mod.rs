@@ -8,14 +8,14 @@ use uuid::Uuid;
 
 use utils::env_utils::get_env_var_or_panic;
 
-use crate::jobs::types::{ExternalId, JobItem};
 use crate::jobs::types::JobStatus::Created;
 use crate::jobs::types::JobType::DataSubmission;
-use crate::queue::job_queue::{JOB_PROCESSING_QUEUE, JobQueueMessage};
+use crate::jobs::types::{ExternalId, JobItem};
+use crate::queue::job_queue::{JobQueueMessage, JOB_PROCESSING_QUEUE};
+use crate::tests::config::SNS_ALERT_TEST_QUEUE_NAME;
 use crate::tests::config::{
     mongodb_testcontainer_setup, s3_testcontainer_setup, sns_sqs_testcontainer_setup, sqs_testcontainer_setup,
 };
-use crate::tests::config::SNS_ALERT_TEST_QUEUE_NAME;
 
 #[rstest]
 #[case(Uuid::new_v4())]
