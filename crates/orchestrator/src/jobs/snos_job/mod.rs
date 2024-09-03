@@ -89,7 +89,7 @@ impl Job for SnosJob {
         let cairo_pie = todo!();
         let snos_output = todo!();
 
-        self.store_snos_outputs(config.storage(), job.internal_id, block_number, cairo_pie, snos_output).await?;
+        self.store(config.storage(), job.internal_id, block_number, cairo_pie, snos_output).await?;
 
         Ok(String::from("TODO: ID"))
     }
@@ -132,9 +132,9 @@ impl SnosJob {
 
     /// Stores the [CairoPie] and the [StarknetOsOutput] in our Data Storage.
     /// The paths will be:
-    ///     - [block_number]/cairo_pie.json
+    ///     - [block_number]/cairo_pie.zip
     ///     - [block_number]/snos_output.json
-    async fn store_snos_outputs(
+    async fn store(
         &self,
         data_storage: &dyn DataStorage,
         internal_id: String,
@@ -159,7 +159,6 @@ impl SnosJob {
         data_storage.put_data(snos_output_json.into(), &snos_output_key).await.map_err(|e| {
             SnosError::SnosOutputUnstorable { internal_id: internal_id.clone(), message: e.to_string() }
         })?;
-
         Ok(())
     }
 
@@ -167,12 +166,12 @@ impl SnosJob {
     async fn cairo_pie_to_zip_bytes(&self, cairo_pie: CairoPie) -> Result<Bytes> {
         let cairo_pie_zipfile = NamedTempFile::new()?;
         cairo_pie.write_zip_file(cairo_pie_zipfile.path())?;
-        let cairo_pie_zip_bytes = self.file_to_bytes(cairo_pie_zipfile).unwrap();
+        let cairo_pie_zip_bytes = self.tempfile_to_bytes(cairo_pie_zipfile).unwrap();
         Ok(cairo_pie_zip_bytes)
     }
 
     /// Converts a [NamedTempFile] to [Bytes].
-    fn file_to_bytes(&self, mut tmp_file: NamedTempFile) -> Result<Bytes> {
+    fn tempfile_to_bytes(&self, mut tmp_file: NamedTempFile) -> Result<Bytes> {
         let mut buffer = Vec::new();
         tmp_file.as_file_mut().read_to_end(&mut buffer)?;
         Ok(Bytes::from(buffer))
