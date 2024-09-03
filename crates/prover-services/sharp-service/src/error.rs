@@ -1,41 +1,7 @@
 use alloy::primitives::hex::FromHexError;
-use color_eyre::eyre::eyre;
 use gps_fact_checker::error::FactCheckerError;
 use prover_client_interface::ProverClientError;
 use reqwest::StatusCode;
-use std::fmt;
-
-// ====================================================
-/// Wrapper Type for Other(<>) job type
-#[derive(Debug)]
-pub struct OtherError(color_eyre::eyre::Error);
-
-impl fmt::Display for OtherError {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        self.0.fmt(f)
-    }
-}
-
-impl std::error::Error for OtherError {}
-
-impl PartialEq for OtherError {
-    fn eq(&self, _other: &Self) -> bool {
-        false
-    }
-}
-
-impl From<color_eyre::eyre::Error> for OtherError {
-    fn from(err: color_eyre::eyre::Error) -> Self {
-        OtherError(err)
-    }
-}
-
-impl From<String> for OtherError {
-    fn from(error_string: String) -> Self {
-        OtherError(eyre!(error_string))
-    }
-}
-// ====================================================
 
 #[derive(Debug, thiserror::Error)]
 pub enum SharpError {
@@ -58,7 +24,7 @@ pub enum SharpError {
     #[error("Failed to get url as path segment mut. URL is cannot-be-a-base.")]
     PathSegmentMutFailOnUrl,
     #[error("Other error: {0}")]
-    Other(#[from] OtherError),
+    Other(#[from] color_eyre::eyre::Error),
 }
 
 impl From<SharpError> for ProverClientError {

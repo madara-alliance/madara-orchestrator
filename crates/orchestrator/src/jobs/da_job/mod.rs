@@ -203,7 +203,7 @@ pub fn convert_to_biguint(elements: Vec<FieldElement>) -> Vec<BigUint> {
     biguint_vec
 }
 
-pub fn data_to_blobs(blob_size: u64, block_data: Vec<BigUint>) -> Result<Vec<Vec<u8>>, JobError> {
+fn data_to_blobs(blob_size: u64, block_data: Vec<BigUint>) -> Result<Vec<Vec<u8>>, JobError> {
     // Validate blob size
     if blob_size < 32 {
         Err(DaError::InsufficientBlobSize { blob_size })?
@@ -211,8 +211,8 @@ pub fn data_to_blobs(blob_size: u64, block_data: Vec<BigUint>) -> Result<Vec<Vec
 
     let mut blobs: Vec<Vec<u8>> = Vec::new();
 
-    // Convert all BigUint to bytes more efficiently
-    let bytes: Vec<u8> = block_data.iter().flat_map(BigUint::to_bytes_be).collect();
+    // Convert all BigUint to bytes
+    let bytes: Vec<u8> = block_data.into_iter().flat_map(|num| num.to_bytes_be()).collect();
 
     // Process bytes in chunks of blob_size
     let chunk_size = blob_size as usize;

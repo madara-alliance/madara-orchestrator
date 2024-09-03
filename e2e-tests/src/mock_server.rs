@@ -28,13 +28,17 @@ impl MockServerGlobal {
     pub fn add_mock_on_endpoint(
         &mut self,
         path: &str,
-        body_contains: Option<&str>,
-        body_contains_2: Option<&str>,
+        body_contains: Vec<String>,
         status: Option<u16>,
         response_body: &Value,
     ) {
         self.mock_server.mock(|when, then| {
-            when.path(path).body_contains(body_contains.unwrap_or("")).body_contains(body_contains_2.unwrap_or(""));
+            let mut request = when.path(path);
+
+            for condition in body_contains {
+                request = request.body_contains(&condition);
+            }
+
             then.status(status.unwrap_or(200)).body(serde_json::to_vec(response_body).unwrap());
         });
     }

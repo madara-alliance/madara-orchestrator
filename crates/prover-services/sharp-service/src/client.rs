@@ -1,12 +1,13 @@
 use base64::engine::general_purpose;
 use base64::Engine;
+use color_eyre::Report;
 use reqwest::{Certificate, ClientBuilder, Identity};
 use std::clone::Clone;
 use url::Url;
 use utils::env_utils::get_env_var_or_panic;
 use uuid::Uuid;
 
-use crate::error::{OtherError, SharpError};
+use crate::error::SharpError;
 use crate::types::{SharpAddJobResponse, SharpGetStatusResponse};
 
 /// SHARP API async wrapper
@@ -102,7 +103,7 @@ impl SharpClient {
 
                 match serde_json::from_str::<SharpGetStatusResponse>(&text) {
                     Ok(response) => Ok(response),
-                    Err(e) => Err(SharpError::Other(OtherError::from(e.to_string()))),
+                    Err(e) => Err(SharpError::Other(Report::new(e))),
                 }
             }
             code => Err(SharpError::SharpService(code)),

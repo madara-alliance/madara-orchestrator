@@ -22,36 +22,28 @@ impl Worker for UpdateStateWorker {
 
         match latest_successful_job {
             Some(job) => {
-                let latest_successful_job_internal_id = job.internal_id;
-
-                let successful_da_jobs = config
-                    .database()
-                    .get_jobs_after_internal_id_by_job_type(
-                        JobType::DataSubmission,
-                        JobStatus::Completed,
-                        latest_successful_job_internal_id,
-                    )
-                    .await?;
-
                 let successful_da_jobs_without_successor = config
                     .database()
                     .get_jobs_without_successor(JobType::DataSubmission, JobStatus::Completed, JobType::StateTransition)
                     .await?;
 
-                let result_vector = intersection(&successful_da_jobs, &successful_da_jobs_without_successor);
-
-                if result_vector.is_empty() {
+                if successful_da_jobs_without_successor.is_empty() {
                     return Ok(());
                 }
 
                 let mut metadata = job.metadata;
                 metadata.insert(
                     JOB_METADATA_STATE_UPDATE_BLOCKS_TO_SETTLE_KEY.to_string(),
-                    Self::parse_job_items_into_block_number_list(result_vector.clone()),
+                    Self::parse_job_items_into_block_number_list(successful_da_jobs_without_successor.clone()),
                 );
 
                 // Creating a single job for all the pending blocks.
-                create_job(JobType::StateTransition, result_vector[0].internal_id.clone(), metadata).await?;
+                create_job(
+                    JobType::StateTransition,
+                    successful_da_jobs_without_successor[0].internal_id.clone(),
+                    metadata,
+                )
+                .await?;
 
                 Ok(())
             }
@@ -87,10 +79,6 @@ impl UpdateStateWorker {
     pub fn parse_job_items_into_block_number_list(job_items: Vec<JobItem>) -> String {
         job_items.iter().map(|j| j.internal_id.clone()).collect::<Vec<String>>().join(",")
     }
-}
-
-fn intersection<T: Eq + Clone>(vec1: &[T], vec2: &[T]) -> Vec<T> {
-    vec1.iter().filter(|&item| vec2.contains(item)).cloned().collect()
 }
 
 #[cfg(test)]

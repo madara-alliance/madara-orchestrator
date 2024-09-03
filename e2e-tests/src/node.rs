@@ -6,7 +6,8 @@ use std::time::Duration;
 use tokio::net::TcpStream;
 use url::Url;
 
-use crate::{get_free_port, get_repository_root};
+use crate::get_free_port;
+use crate::utils::get_repository_root;
 
 const CONNECTION_ATTEMPTS: usize = 360;
 const CONNECTION_ATTEMPT_DELAY_MS: u64 = 500;

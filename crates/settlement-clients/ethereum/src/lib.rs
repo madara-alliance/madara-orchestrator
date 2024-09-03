@@ -300,7 +300,6 @@ mod test_config {
         provider: Arc<RootProvider<Http<Client>>>,
         tx_envelope: TxEnvelope,
         impersonate_account: Option<Address>,
-        // nonce: u64,
     ) -> TransactionRequest {
         let mut txn_request: TransactionRequest = tx_envelope.into();
 

@@ -14,11 +14,11 @@ bytes = "1.6.0"
 color-eyre.workspace = true
 dotenvy.workspace = true
 httpmock.workspace = true
-log = "0.4.21"
+log.workspace = true
 mongodb.workspace = true
 orchestrator.workspace = true
 reqwest = { workspace = true, features = ["json"] }
-serde = { version = "1.0.203", features = ["derive"] }
+serde.workspace = true
 serde_json.workspace = true
 starknet.workspace = true
 testcontainers.workspace = true
@@ -26,8 +26,9 @@ tokio = { workspace = true, features = ["full"] }
 tokio-stream.workspace = true
 tokio-util.workspace = true
 url.workspace = true
+utils.workspace = true
 uuid = { version = "1.8.0", features = ["v4"] }
 
 [[test]]
-name = "test_samples"
+name = "test_orchestrator_workflow"
 path = "tests.rs"

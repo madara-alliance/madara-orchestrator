@@ -45,6 +45,7 @@ color-eyre = "0.6.2"
 c-kzg = "1.0.0"
 dotenvy = "0.15.7"
 futures = "0.3.30"
+log = "0.4.21"
 mongodb = { version = "2.8.1" }
 omniqueue = { version = "0.2.0" }
 reqwest = { version = "0.11.24", features = ["rustls-tls", "native-tls"] }
