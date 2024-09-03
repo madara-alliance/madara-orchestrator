@@ -85,7 +85,7 @@ impl Job for SnosJob {
         let cairo_pie = todo!();
         let snos_output = todo!();
 
-        self.store_into_cloud_storage(job.internal_id, config.storage(), block_number, cairo_pie, snos_output).await?;
+        self.store_snos_outputs(config.storage(), job.internal_id, block_number, cairo_pie, snos_output).await?;
 
         Ok(String::from("TODO: ID"))
     }
@@ -126,14 +126,14 @@ impl SnosJob {
         Ok(block_number)
     }
 
-    /// Stores the [CairoPie] and the [StarknetOsOutput] in our Cloud storage.
-    /// The path will be:
+    /// Stores the [CairoPie] and the [StarknetOsOutput] in our Data Storage.
+    /// The paths will be:
     ///     - [block_number]/cairo_pie.json
     ///     - [block_number]/snos_output.json
-    async fn store_into_cloud_storage(
+    async fn store_snos_outputs(
         &self,
-        internal_id: String,
         data_storage: &dyn DataStorage,
+        internal_id: String,
         block_number: u64,
         cairo_pie: CairoPie,
         snos_output: StarknetOsOutput,
