@@ -82,7 +82,7 @@ lazy_static! {
     .expect("Error loading trusted setup file");
 }
 
-pub struct EthereumSettlementClient {
+pub struct EthereumSettlementClient { 
     core_contract_client: StarknetValidityContractClient,
     wallet: EthereumWallet,
     wallet_address: Address,
