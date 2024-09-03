@@ -62,6 +62,7 @@ starknet-os = { workspace = true }
 starknet-settlement-client = { workspace = true }
 strum_macros = "0.26.4"
 thiserror = { workspace = true }
+tempfile = { workspace = true }
 tokio = { workspace = true, features = ["sync", "macros", "rt-multi-thread"] }
 tracing = { workspace = true }
 tracing-subscriber = { workspace = true, features = ["env-filter"] }

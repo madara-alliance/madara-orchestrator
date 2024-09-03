@@ -1,12 +1,16 @@
 use std::collections::HashMap;
+use std::fs::File;
+use std::io::Read;
 
 use async_trait::async_trait;
 use chrono::{SubsecRound, Utc};
+use bytes::Bytes;
 use cairo_vm::types::layout_name::LayoutName;
 use cairo_vm::vm::runners::cairo_pie::CairoPie;
 use color_eyre::Result;
 use prove_block::{prove_block, ProveBlockError};
 use starknet_os::io::output::StarknetOsOutput;
+use tempfile::NamedTempFile;
 use thiserror::Error;
 use utils::env_utils::get_env_var_or_panic;
 use uuid::Uuid;
@@ -139,12 +143,11 @@ impl SnosJob {
         snos_output: StarknetOsOutput,
     ) -> Result<(), SnosError> {
         let cairo_pie_key = format!("{block_number}/{CAIRO_PIE_FILE_NAME}");
-        let cairo_pie_json = serde_json::to_vec(&cairo_pie).map_err(|e| SnosError::CairoPieUnserializable {
-            internal_id: internal_id.clone(),
-            message: e.to_string(),
+        let cairo_pie_zip_bytes = self.cairo_pie_to_zip_bytes(cairo_pie).await.map_err(|e| {
+            SnosError::CairoPieUnserializable { internal_id: internal_id.clone(), message: e.to_string() }
         })?;
         data_storage
-            .put_data(cairo_pie_json.into(), &cairo_pie_key)
+            .put_data(cairo_pie_zip_bytes, &cairo_pie_key)
             .await
             .map_err(|e| SnosError::CairoPieUnstorable { internal_id: internal_id.clone(), message: e.to_string() })?;
 
@@ -158,5 +161,20 @@ impl SnosJob {
         })?;
 
         Ok(())
+    }
+
+    /// Converts the [CairoPie] input as a zip file and returns the tempfile generated.
+    async fn cairo_pie_to_zip_bytes(&self, cairo_pie: CairoPie) -> Result<Bytes> {
+        let cairo_pie_zipfile = NamedTempFile::new()?;
+        cairo_pie.write_zip_file(cairo_pie_zipfile.path())?;
+        let cairo_pie_zip_bytes = self.file_to_bytes(cairo_pie_zipfile).unwrap();
+        Ok(cairo_pie_zip_bytes)
+    }
+
+    /// Converts a [NamedTempFile] to [Bytes].
+    fn file_to_bytes(&self, mut tmp_file: NamedTempFile) -> Result<Bytes> {
+        let mut buffer = Vec::new();
+        tmp_file.as_file_mut().read_to_end(&mut buffer)?;
+        Ok(Bytes::from(buffer))
     }
 }
