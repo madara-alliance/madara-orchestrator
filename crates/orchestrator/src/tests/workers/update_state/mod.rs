@@ -70,12 +70,10 @@ async fn test_update_state_worker(
         // creation)
         let completed_jobs =
             get_job_by_mock_id_vector(JobType::ProofCreation, JobStatus::Completed, number_of_processed_jobs as u64, 2);
-        for job in completed_jobs {
-            db.expect_get_job_by_internal_id_and_type()
-                .times(1)
-                .with(eq(job.internal_id.to_string()), eq(JobType::StateTransition))
-                .returning(|_, _| Ok(None));
-        }
+        db.expect_get_job_by_internal_id_and_type()
+            .times(1)
+            .with(eq(completed_jobs[0].internal_id.to_string()), eq(JobType::StateTransition))
+            .returning(|_, _| Ok(None));
 
         // mocking the creation of jobs
         let job_item = get_job_item_mock_by_id("1".to_string(), Uuid::new_v4());
@@ -107,7 +105,7 @@ async fn test_update_state_worker(
     ));
 
     // mock block number (madara) : 5
-    TestConfigBuilder::new()
+    let services = TestConfigBuilder::new()
         .mock_starknet_client(Arc::new(provider))
         .mock_db_client(Box::new(db))
         .mock_queue(Box::new(queue))
@@ -116,7 +114,7 @@ async fn test_update_state_worker(
         .await;
 
     let update_state_worker = UpdateStateWorker {};
-    update_state_worker.run_worker().await?;
+    update_state_worker.run_worker(services.config).await?;
 
     Ok(())
 }

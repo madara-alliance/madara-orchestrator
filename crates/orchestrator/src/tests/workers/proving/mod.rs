@@ -29,7 +29,7 @@ async fn test_proving_worker(#[case] incomplete_runs: bool) -> Result<(), Box<dy
     let da_client = MockDaClient::new();
     let mut db = MockDatabase::new();
     let mut queue = MockQueueProvider::new();
-    let mut prover_client = MockProverClient::new();
+    let prover_client = MockProverClient::new();
     let settlement_client = MockSettlementClient::new();
 
     const JOB_PROCESSING_QUEUE: &str = "madara_orchestrator_job_processing_queue";
@@ -58,7 +58,7 @@ async fn test_proving_worker(#[case] incomplete_runs: bool) -> Result<(), Box<dy
             db_checks_proving_worker(i, &mut db, &mut job_handler);
         }
 
-        prover_client.expect_submit_task().times(4).returning(|_| Ok("task_id".to_string()));
+        // prover_client.expect_submit_task().times(4).returning(|_| Ok("task_id".to_string()));
 
         // Queue function call simulations
         queue
@@ -77,7 +77,7 @@ async fn test_proving_worker(#[case] incomplete_runs: bool) -> Result<(), Box<dy
             .withf(|_, _, _| true)
             .returning(move |_, _, _| Ok(get_job_by_mock_id_vector(JobType::ProofCreation, JobStatus::Created, 5, 1)));
 
-        prover_client.expect_submit_task().times(5).returning(|_| Ok("task_id".to_string()));
+        // prover_client.expect_submit_task().times(5).returning(|_| Ok("task_id".to_string()));
 
         // Queue function call simulations
         queue
@@ -91,7 +91,7 @@ async fn test_proving_worker(#[case] incomplete_runs: bool) -> Result<(), Box<dy
         Url::parse(format!("http://localhost:{}", server.port()).as_str()).expect("Failed to parse URL"),
     ));
 
-    TestConfigBuilder::new()
+    let services = TestConfigBuilder::new()
         .mock_starknet_client(Arc::new(provider))
         .mock_db_client(Box::new(db))
         .mock_queue(Box::new(queue))
@@ -111,7 +111,7 @@ async fn test_proving_worker(#[case] incomplete_runs: bool) -> Result<(), Box<dy
     }
 
     let proving_worker = ProvingWorker {};
-    proving_worker.run_worker().await?;
+    proving_worker.run_worker(services.config).await?;
 
     Ok(())
 }

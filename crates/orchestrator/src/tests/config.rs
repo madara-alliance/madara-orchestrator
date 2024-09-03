@@ -1,26 +1,21 @@
 use std::sync::Arc;
 
-use crate::config::{
-    build_alert_client, build_da_client, build_prover_service, build_settlement_client, config_force_init, Config,
-};
-use crate::data_storage::DataStorage;
-use da_client_interface::DaClient;
 use httpmock::MockServer;
-
-use crate::alerts::Alerts;
-use prover_client_interface::ProverClient;
-use settlement_client_interface::SettlementClient;
 use starknet::providers::jsonrpc::HttpTransport;
 use starknet::providers::{JsonRpcClient, Url};
-use utils::env_utils::get_env_var_or_panic;
+
+use da_client_interface::DaClient;
+use prover_client_interface::ProverClient;
+use settlement_client_interface::SettlementClient;
 use utils::settings::default::DefaultSettingsProvider;
 
-use crate::database::mongodb::config::MongoDbConfig;
-use crate::database::mongodb::MongoDb;
-use crate::database::{Database, DatabaseConfig};
+use crate::alerts::Alerts;
+use crate::config::{build_alert_client, build_da_client, build_prover_service, build_settlement_client, Config};
+use crate::data_storage::{DataStorage, MockDataStorage};
+use crate::database::{Database, MockDatabase};
 use crate::queue::sqs::SqsQueue;
 use crate::queue::QueueProvider;
-use crate::tests::common::{create_sns_arn, create_sqs_queues, drop_database, get_storage_client};
+use crate::tests::common::{create_sns_arn, create_sqs_queues, drop_database};
 
 // Inspiration : https://rust-unofficial.github.io/patterns/patterns/creational/builder.html
 // TestConfigBuilder allows to heavily customise the global configs based on the test's requirement.
@@ -52,6 +47,10 @@ impl Default for TestConfigBuilder {
     }
 }
 
+pub struct TestConfigBuilderReturns {
+    pub server: MockServer,
+    pub config: Arc<Config>,
+}
 impl TestConfigBuilder {
     /// Create a new config
     pub fn new() -> TestConfigBuilder {
@@ -107,7 +106,7 @@ impl TestConfigBuilder {
         self
     }
 
-    pub async fn build(mut self) -> MockServer {
+    pub async fn build(mut self) -> TestConfigBuilderReturns {
         dotenvy::from_filename("../.env.test").expect("Failed to load the .env file");
 
         let server = MockServer::start();
@@ -115,7 +114,7 @@ impl TestConfigBuilder {
 
         // init database
         if self.database.is_none() {
-            self.database = Some(Box::new(MongoDb::new(MongoDbConfig::new_from_env()).await));
+            self.database = Some(Box::new(MockDatabase::new()));
         }
 
         // init the DA client
@@ -130,17 +129,7 @@ impl TestConfigBuilder {
 
         // init the storage client
         if self.storage.is_none() {
-            self.storage = Some(get_storage_client().await);
-            match get_env_var_or_panic("DATA_STORAGE").as_str() {
-                "s3" => self
-                    .storage
-                    .as_ref()
-                    .unwrap()
-                    .build_test_bucket(&get_env_var_or_panic("AWS_S3_BUCKET_NAME"))
-                    .await
-                    .unwrap(),
-                _ => panic!("Unsupported Storage Client"),
-            }
+            self.storage = Some(Box::new(MockDataStorage::new()));
         }
 
         if self.alerts.is_none() {
@@ -154,7 +143,7 @@ impl TestConfigBuilder {
         // Creating the SNS ARN
         create_sns_arn().await.expect("Unable to create the sns arn");
 
-        let config = Config::new(
+        let config = Arc::new(Config::new(
             self.starknet_client.unwrap_or_else(|| {
                 let provider = JsonRpcClient::new(HttpTransport::new(
                     Url::parse(format!("http://localhost:{}", server.port()).as_str()).expect("Failed to parse URL"),
@@ -168,12 +157,8 @@ impl TestConfigBuilder {
             self.queue.unwrap_or_else(|| Box::new(SqsQueue {})),
             self.storage.unwrap(),
             self.alerts.unwrap(),
-        );
+        ));
 
-        drop_database().await.unwrap();
-
-        config_force_init(config).await;
-
-        server
+        TestConfigBuilderReturns { server, config }
     }
 }

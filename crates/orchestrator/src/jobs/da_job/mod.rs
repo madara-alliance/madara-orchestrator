@@ -1,6 +1,7 @@
 use std::collections::HashMap;
 use std::ops::{Add, Mul, Rem};
 use std::str::FromStr;
+use std::sync::Arc;
 
 use async_trait::async_trait;
 use color_eyre::eyre::WrapErr;
@@ -59,7 +60,7 @@ pub struct DaJob;
 impl Job for DaJob {
     async fn create_job(
         &self,
-        _config: &Config,
+        _config: Arc<Config>,
         internal_id: String,
         metadata: HashMap<String, String>,
     ) -> Result<JobItem, JobError> {
@@ -74,7 +75,7 @@ impl Job for DaJob {
         })
     }
 
-    async fn process_job(&self, config: &Config, job: &mut JobItem) -> Result<String, JobError> {
+    async fn process_job(&self, config: Arc<Config>, job: &mut JobItem) -> Result<String, JobError> {
         let block_no = job
             .internal_id
             .parse::<u64>()
@@ -95,7 +96,7 @@ impl Job for DaJob {
             MaybePendingStateUpdate::Update(state_update) => state_update,
         };
         // constructing the data from the rpc
-        let blob_data = state_update_to_blob_data(block_no, state_update, config)
+        let blob_data = state_update_to_blob_data(block_no, state_update, config.clone())
             .await
             .map_err(|e| JobError::Other(OtherError(e)))?;
         // transforming the data so that we can apply FFT on this.
@@ -135,7 +136,7 @@ impl Job for DaJob {
         Ok(external_id)
     }
 
-    async fn verify_job(&self, config: &Config, job: &mut JobItem) -> Result<JobVerificationStatus, JobError> {
+    async fn verify_job(&self, config: Arc<Config>, job: &mut JobItem) -> Result<JobVerificationStatus, JobError> {
         Ok(config
             .da_client()
             .verify_inclusion(job.external_id.unwrap_string().map_err(|e| JobError::Other(OtherError(e)))?)
@@ -230,7 +231,7 @@ fn data_to_blobs(blob_size: u64, block_data: Vec<BigUint>) -> Result<Vec<Vec<u8>
 pub async fn state_update_to_blob_data(
     block_no: u64,
     state_update: StateUpdate,
-    config: &Config,
+    config: Arc<Config>,
 ) -> color_eyre::Result<Vec<FieldElement>> {
     let state_diff = state_update.state_diff;
     let mut blob_data: Vec<FieldElement> = vec![
@@ -308,7 +309,7 @@ pub async fn state_update_to_blob_data(
 }
 
 /// To store the blob data using the storage client with path <block_number>/blob_data.txt
-async fn store_blob_data(blob_data: Vec<FieldElement>, block_number: u64, config: &Config) -> Result<(), JobError> {
+async fn store_blob_data(blob_data: Vec<FieldElement>, block_number: u64, config: Arc<Config>) -> Result<(), JobError> {
     let storage_client = config.storage();
     let key = block_number.to_string() + "/" + BLOB_DATA_FILE_NAME;
     let data_blob_big_uint = convert_to_biguint(blob_data.clone());
@@ -376,7 +377,6 @@ pub mod test {
     use std::io::Read;
     use std::sync::Arc;
 
-    use crate::config::config;
     use crate::data_storage::MockDataStorage;
     use crate::tests::config::TestConfigBuilder;
     use ::serde::{Deserialize, Serialize};
@@ -462,19 +462,17 @@ pub mod test {
         ));
 
         // mock block number (madara) : 5
-        TestConfigBuilder::new()
+        let services = TestConfigBuilder::new()
             .mock_starknet_client(Arc::new(provider))
             .mock_da_client(Box::new(da_client))
             .mock_storage_client(Box::new(storage_client))
             .build()
             .await;
 
-        let config = config().await;
-
         get_nonce_attached(&server, nonce_file_path);
 
         let state_update = read_state_update_from_file(state_update_file_path).expect("issue while reading");
-        let blob_data = state_update_to_blob_data(block_no, state_update, &config)
+        let blob_data = state_update_to_blob_data(block_no, state_update, services.config)
             .await
             .expect("issue while converting state update to blob data");
 
