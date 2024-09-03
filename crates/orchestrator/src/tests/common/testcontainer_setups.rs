@@ -25,15 +25,6 @@ impl Image for LocalStack {
     fn ready_conditions(&self) -> Vec<WaitFor> {
         vec![WaitFor::message_on_stdout("Ready."), WaitFor::millis(DEFAULT_WAIT)]
     }
-
-    // fn env_vars(
-    //         &self,
-    //     ) -> impl IntoIterator<Item = (impl Into<std::borrow::Cow<'_, str>>, impl Into<std::borrow::Cow<'_, str>>)> {
-
-    //         let mut env_vars = HashMap::new();
-    //         env_vars.insert("LS_LOG".to_owned(), "debug".to_owned());
-    //         env_vars
-    // }
 }
 
 /// Mongo using TestContainers ////
@@ -82,7 +73,7 @@ impl Image for Mongo {
     fn cmd(&self) -> impl IntoIterator<Item = impl Into<std::borrow::Cow<'_, str>>> {
         match self.kind {
             InstanceKind::Standalone => Vec::<String>::new(),
-            InstanceKind::ReplSet => vec!["--replSet".to_string(), "rs".to_string()],
+            InstanceKind::ReplSet => Vec::new(),
         }
     }
 

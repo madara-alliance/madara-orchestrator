@@ -1,28 +1,41 @@
-use crate::alerts::aws_sns::AWSSNS;
-use crate::config::Config;
-use crate::data_storage::{DataStorage, DataStorageConfig, MockDataStorage};
-use crate::queue::job_queue::{JOB_PROCESSING_QUEUE, JOB_VERIFICATION_QUEUE};
-use aws_sdk_s3::config::Credentials;
-use aws_sdk_sqs::types::QueueAttributeName::QueueArn;
-use da_client_interface::{DaClient, MockDaClient};
-use httpmock::MockServer;
 use std::sync::Arc;
-use testcontainers::core::IntoContainerPort;
 
-use crate::alerts::{Alerts, MockAlerts};
-use prover_client_interface::{MockProverClient, ProverClient};
-use settlement_client_interface::{MockSettlementClient, SettlementClient};
+use aws_config::{BehaviorVersion, Region, SdkConfig};
+use aws_sdk_s3 as s3;
+use aws_sdk_s3::config::Credentials;
+use aws_sdk_sns as sns;
+use aws_sdk_sqs as sqs;
+use aws_sdk_sqs::types::QueueAttributeName::QueueArn;
+use httpmock::MockServer;
 use starknet::providers::jsonrpc::HttpTransport;
 use starknet::providers::{JsonRpcClient, Url};
 use testcontainers::core::logs::consumer::logging_consumer::LoggingConsumer;
+use testcontainers::core::IntoContainerPort;
+use testcontainers::runners::AsyncRunner;
+use testcontainers::{ContainerAsync, ImageExt};
 use url::Host;
+
+use da_client_interface::{DaClient, MockDaClient};
+use prover_client_interface::{MockProverClient, ProverClient};
+use settlement_client_interface::{MockSettlementClient, SettlementClient};
 use utils::env_utils::get_env_var_or_panic;
 
+use crate::alerts::aws_sns::AWSSNS;
+use crate::alerts::{Alerts, MockAlerts};
+use crate::config::Config;
+use crate::data_storage::aws_s3::config::AWSS3Config;
+use crate::data_storage::aws_s3::AWSS3;
+use crate::data_storage::{DataStorage, DataStorageConfig, MockDataStorage};
 use crate::database::mongodb::config::MongoDbConfig;
 use crate::database::mongodb::MongoDb;
 use crate::database::{Database, MockDatabase};
+use crate::queue::job_queue::{JOB_PROCESSING_QUEUE, JOB_VERIFICATION_QUEUE};
 use crate::queue::sqs::SqsQueue;
 use crate::queue::{MockQueueProvider, QueueProvider};
+use crate::tests::common::testcontainer_setups::Mongo;
+
+/// LocalStack (s3 and sqs) & MongoDb Setup using TestContainers ////
+use super::common::testcontainer_setups::LocalStack;
 
 // Inspiration : https://rust-unofficial.github.io/patterns/patterns/creational/builder.html
 // TestConfigBuilder allows to heavily customise the global configs based on the test's requirement.
@@ -121,6 +134,10 @@ impl TestConfigBuilder {
     }
 
     // IMP! Don't use SQS ans SNS testcontainer setups together
+    // SQS testcontainer setup creates all the queues in one go, except for the test queue for SNS
+    // SNS testcontainer internally calls SQS testcontainer setup as well as creates the test queue for SNS,
+    // so if we have to use the other queues, rather than recreating them with SQS setup,
+    // we should utilise the ones already created with SNS
     pub async fn testcontainer_sns_sqs_alert(mut self) -> TestConfigBuilder {
         let (node, sns_alert, sqs_queue, sns_client, sqs_client, _sqs_arn, _queue_host_url) =
             sns_sqs_testcontainer_setup().await;
@@ -255,18 +272,6 @@ impl TestConfigBuilder {
     }
 }
 
-/// LocalStack (s3 and sqs) & MongoDb Setup using TestContainers ////
-use super::common::testcontainer_setups::LocalStack;
-use crate::data_storage::aws_s3::config::AWSS3Config;
-use crate::data_storage::aws_s3::AWSS3;
-use crate::tests::common::testcontainer_setups::Mongo;
-use aws_config::{BehaviorVersion, Region, SdkConfig};
-use aws_sdk_s3 as s3;
-use aws_sdk_sns as sns;
-use aws_sdk_sqs as sqs;
-use testcontainers::runners::AsyncRunner;
-use testcontainers::{ContainerAsync, ImageExt};
-
 /// LocalStack S3 testcontainer
 pub async fn s3_testcontainer_setup() -> (ContainerAsync<LocalStack>, Box<dyn DataStorage>, s3::Client) {
     let (node, host_ip, host_port) = setup_localstack().await;
@@ -362,7 +367,8 @@ async fn setup_localstack() -> (ContainerAsync<LocalStack>, Host, u16) {
     let mut attempt_count: u16 = 1;
 
     loop {
-        let logger = LoggingConsumer::new().with_stdout_level(log::Level::Info).with_stderr_level(log::Level::Error);
+        let logger: LoggingConsumer =
+            LoggingConsumer::new().with_stdout_level(log::Level::Trace).with_stderr_level(log::Level::Trace);
 
         let node = LocalStack::default().with_log_consumer(logger).start().await.unwrap();
         let host_ip = node.get_host().await.unwrap();
@@ -414,17 +420,8 @@ pub async fn mongodb_testcontainer_setup() -> (ContainerAsync<Mongo>, Box<dyn Da
     const LOCAL_PORT: u16 = 27017; // Default MongoDB port
     let _ = pretty_env_logger::try_init();
 
-    let logger = LoggingConsumer::new()
-        .with_stdout_level(log::Level::Info)
-        .with_stdout_level(log::Level::Debug)
-        .with_stdout_level(log::Level::Error)
-        .with_stdout_level(log::Level::Trace)
-        .with_stdout_level(log::Level::Warn)
-        .with_stderr_level(log::Level::Info)
-        .with_stderr_level(log::Level::Debug)
-        .with_stderr_level(log::Level::Error)
-        .with_stderr_level(log::Level::Trace)
-        .with_stderr_level(log::Level::Warn);
+    let logger: LoggingConsumer =
+        LoggingConsumer::new().with_stdout_level(log::Level::Trace).with_stderr_level(log::Level::Trace);
 
     let node = Mongo::default().with_log_consumer(logger).start().await.unwrap();
 
