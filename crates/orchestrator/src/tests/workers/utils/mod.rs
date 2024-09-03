@@ -1,3 +1,8 @@
+use std::collections::HashMap;
+
+use mockall::predicate::eq;
+use uuid::Uuid;
+
 use crate::database::MockDatabase;
 use crate::jobs::types::{ExternalId, JobItem, JobStatus, JobType};
 use crate::jobs::MockJob;

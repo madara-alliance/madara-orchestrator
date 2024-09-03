@@ -2,22 +2,23 @@ use std::collections::HashMap;
 use std::fmt;
 use std::time::Duration;
 
-use crate::config::{config, Config};
-use crate::jobs::constants::{JOB_PROCESS_ATTEMPT_METADATA_KEY, JOB_VERIFICATION_ATTEMPT_METADATA_KEY};
-use crate::jobs::types::{JobItem, JobStatus, JobType, JobVerificationStatus};
-use crate::queue::job_queue::{add_job_to_process_queue, add_job_to_verification_queue, ConsumptionError};
 use async_trait::async_trait;
 use color_eyre::eyre::{eyre, Context};
 use da_job::DaError;
 use mockall::automock;
 use mockall_double::double;
 use proving_job::ProvingError;
+use snos_job::SnosError;
 use state_update_job::StateUpdateError;
 use tracing::log;
 use uuid::Uuid;
 
+use crate::config::{config, Config};
+use crate::jobs::constants::{JOB_PROCESS_ATTEMPT_METADATA_KEY, JOB_VERIFICATION_ATTEMPT_METADATA_KEY};
 #[double]
 use crate::jobs::job_handler_factory::factory;
+use crate::jobs::types::{JobItem, JobStatus, JobType, JobVerificationStatus};
+use crate::queue::job_queue::{add_job_to_process_queue, add_job_to_verification_queue, ConsumptionError};
 
 pub mod constants;
 pub mod da_job;
@@ -51,6 +52,9 @@ pub enum JobError {
 
     #[error("Proving Error: {0}")]
     StateUpdateJobError(#[from] StateUpdateError),
+
+    #[error("Snos Error: {0}")]
+    SnosJobError(#[from] SnosError),
 
     #[error("Queue Handling Error: {0}")]
     ConsumptionError(#[from] ConsumptionError),
@@ -195,8 +199,8 @@ pub async fn process_job(id: Uuid) -> Result<(), JobError> {
 
 /// Verifies the job and updates the status of the job in the DB. If the verification fails, it
 /// retries processing the job if the max attempts have not been exceeded. If the max attempts have
-/// been exceeded, it marks the job as timed out. If the verification is still pending, it pushes the
-/// job back to the queue.
+/// been exceeded, it marks the job as timed out. If the verification is still pending, it pushes
+/// the job back to the queue.
 pub async fn verify_job(id: Uuid) -> Result<(), JobError> {
     let config = config().await;
     let mut job = get_job(id).await?;

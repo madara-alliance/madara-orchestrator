@@ -5,18 +5,14 @@ use std::sync::Arc;
 use alloy::consensus::{
     BlobTransactionSidecar, SignableTransaction, TxEip4844, TxEip4844Variant, TxEip4844WithSidecar, TxEnvelope,
 };
-use alloy::{
-    network::EthereumWallet,
-    primitives::{Address, B256, U256},
-    providers::{PendingTransactionConfig, Provider},
-    rpc::types::TransactionReceipt,
-    signers::local::PrivateKeySigner,
-};
-
 use alloy::eips::eip2930::AccessList;
 use alloy::eips::eip4844::BYTES_PER_BLOB;
 use alloy::hex;
-use alloy::rpc::types::TransactionRequest;
+use alloy::network::EthereumWallet;
+use alloy::primitives::{Address, B256, U256};
+use alloy::providers::{PendingTransactionConfig, Provider, ProviderBuilder};
+use alloy::rpc::types::{TransactionReceipt, TransactionRequest};
+use alloy::signers::local::PrivateKeySigner;
 use alloy_primitives::Bytes;
 use async_trait::async_trait;
 use c_kzg::{Blob, Bytes32, KzgCommitment, KzgProof, KzgSettings};
@@ -141,11 +137,7 @@ impl EthereumSettlementClient {
             &KZG_SETTINGS,
         )?;
 
-        if !eval {
-            Err(eyre!("ERROR : Assertion failed, not able to verify the proof."))
-        } else {
-            Ok(kzg_proof)
-        }
+        if !eval { Err(eyre!("ERROR : Assertion failed, not able to verify the proof.")) } else { Ok(kzg_proof) }
     }
 }
 
@@ -274,8 +266,9 @@ impl SettlementClient for EthereumSettlementClient {
 
 #[cfg(feature = "testing")]
 mod test_config {
-    use super::*;
     use alloy::network::TransactionBuilder;
+
+    use super::*;
 
     pub async fn configure_transaction(
         provider: Arc<RootProvider<Http<Client>>>,
@@ -285,11 +278,14 @@ mod test_config {
         let mut txn_request: TransactionRequest = tx_envelope.into();
 
         // IMPORTANT to understand #[cfg(test)], #[cfg(not(test))] and SHOULD_IMPERSONATE_ACCOUNT
-        // Two tests :  `update_state_blob_with_dummy_contract_works` & `update_state_blob_with_impersonation_works` use a env var `SHOULD_IMPERSONATE_ACCOUNT` to inform the function `update_state_with_blobs` about the kind of testing,
+        // Two tests :  `update_state_blob_with_dummy_contract_works` &
+        // `update_state_blob_with_impersonation_works` use a env var `SHOULD_IMPERSONATE_ACCOUNT` to inform
+        // the function `update_state_with_blobs` about the kind of testing,
         // `SHOULD_IMPERSONATE_ACCOUNT` can have any of "0" or "1" value :
         //      - if "0" then : Testing via default Anvil address.
         //      - if "1" then : Testing via impersonating `Starknet Operator Address`.
-        // Note : changing between "0" and "1" is handled automatically by each test function, `no` manual change in `env.test` is needed.
+        // Note : changing between "0" and "1" is handled automatically by each test function, `no` manual
+        // change in `env.test` is needed.
         if let Some(impersonate_account) = impersonate_account {
             let nonce =
                 provider.get_transaction_count(impersonate_account).await.unwrap().to_string().parse::<u64>().unwrap();

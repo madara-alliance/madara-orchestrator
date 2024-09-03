@@ -80,16 +80,14 @@ mockall = "0.13.0"
 testcontainers = "0.18.0"
 
 # Cairo VM
-cairo-vm = { git = "https://github.com/lambdaclass/cairo-vm", features = [
+cairo-vm = { git = "https://github.com/Moonsong-Labs/cairo-vm", rev = "40ebe36e64ffa429ff18cba8ef0bd7d2c122ac12", features = [
   "extensive_hints",
   "cairo-1-hints",
 ] }
 
-# TODO: we currently use the Moonsong fork & the os-output-serde branch so we
-# can deserialize our snos input json into a StarknetOsInput struct.
-# TODO: update back to the main repo once it's merged
-# Sharp (Starkware)
-snos = { git = "https://github.com/keep-starknet-strange/snos" }
+# Snos & Sharp (Starkware)
+starknet-os = { git = "https://github.com/keep-starknet-strange/snos" }
+prove_block = { git = "https://github.com/keep-starknet-strange/snos" }
 
 # Madara prover API
 madara-prover-common = { git = "https://github.com/Moonsong-Labs/madara-prover-api", branch = "od/use-latest-cairo-vm" }

@@ -1,9 +1,6 @@
 use std::collections::HashMap;
 use std::time::Duration;
 
-use crate::queue::job_queue::{
-    JOB_HANDLE_FAILURE_QUEUE, JOB_PROCESSING_QUEUE, JOB_VERIFICATION_QUEUE, WORKER_TRIGGER_QUEUE,
-};
 use async_trait::async_trait;
 use color_eyre::Result;
 use lazy_static::lazy_static;
@@ -11,6 +8,9 @@ use omniqueue::backends::{SqsBackend, SqsConfig, SqsConsumer, SqsProducer};
 use omniqueue::{Delivery, QueueError};
 use utils::env_utils::get_env_var_or_panic;
 
+use crate::queue::job_queue::{
+    JOB_HANDLE_FAILURE_QUEUE, JOB_PROCESSING_QUEUE, JOB_VERIFICATION_QUEUE, WORKER_TRIGGER_QUEUE,
+};
 use crate::queue::QueueProvider;
 pub struct SqsQueue;
 

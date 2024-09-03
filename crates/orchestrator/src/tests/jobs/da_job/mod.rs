@@ -1,10 +1,5 @@
-use crate::jobs::da_job::test::{get_nonce_attached, read_state_update_from_file};
-use crate::jobs::da_job::{DaError, DaJob};
-use crate::jobs::types::{ExternalId, JobItem, JobStatus, JobType};
-use crate::jobs::JobError;
-use crate::tests::common::drop_database;
-use crate::tests::config::TestConfigBuilder;
-use crate::{config::config, jobs::Job};
+use std::collections::HashMap;
+
 use assert_matches::assert_matches;
 use chrono::{SubsecRound, Utc};
 use color_eyre::eyre::eyre;
@@ -13,8 +8,15 @@ use mockall::predicate::always;
 use rstest::rstest;
 use serde_json::json;
 use starknet_core::types::{FieldElement, MaybePendingStateUpdate, PendingStateUpdate, StateDiff};
-use std::collections::HashMap;
 use uuid::Uuid;
+
+use crate::config::config;
+use crate::jobs::da_job::test::{get_nonce_attached, read_state_update_from_file};
+use crate::jobs::da_job::{DaError, DaJob};
+use crate::jobs::types::{ExternalId, JobItem, JobStatus, JobType};
+use crate::jobs::{Job, JobError};
+use crate::tests::common::drop_database;
+use crate::tests::config::TestConfigBuilder;
 
 /// Tests the DA Job's handling of a blob length exceeding the supported size.
 /// It mocks the DA client to simulate the environment and expects an error on job processing.

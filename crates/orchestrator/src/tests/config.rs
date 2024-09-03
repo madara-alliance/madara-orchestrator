@@ -7,8 +7,6 @@ use crate::config::{
 use crate::data_storage::DataStorage;
 use da_client_interface::DaClient;
 use httpmock::MockServer;
-
-use crate::alerts::Alerts;
 use prover_client_interface::ProverClient;
 use settlement_client_interface::SettlementClient;
 use starknet::providers::jsonrpc::HttpTransport;

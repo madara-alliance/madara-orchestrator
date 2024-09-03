@@ -33,7 +33,7 @@ impl ProverClient for SharpProverService {
             Task::CairoPie(cairo_pie) => {
                 let fact_info = get_fact_info(&cairo_pie, None)?;
                 let encoded_pie =
-                    snos::sharp::pie::encode_pie_mem(cairo_pie).map_err(ProverClientError::PieEncoding)?;
+                    starknet_os::sharp::pie::encode_pie_mem(cairo_pie).map_err(ProverClientError::PieEncoding)?;
                 let (_, job_key) = self.sharp_client.add_job(&encoded_pie).await?;
                 Ok(combine_task_id(&job_key, &fact_info.fact))
             }
@@ -45,8 +45,8 @@ impl ProverClient for SharpProverService {
         let res = self.sharp_client.get_job_status(&job_key).await?;
 
         match res.status {
-            // TODO : We would need to remove the FAILED, UNKNOWN, NOT_CREATED status as it is not in the sharp client response specs :
-            // https://docs.google.com/document/d/1-9ggQoYmjqAtLBGNNR2Z5eLreBmlckGYjbVl0khtpU0
+            // TODO : We would need to remove the FAILED, UNKNOWN, NOT_CREATED status as it is not in the sharp client
+            // response specs : https://docs.google.com/document/d/1-9ggQoYmjqAtLBGNNR2Z5eLreBmlckGYjbVl0khtpU0
             // We are waiting for the official public API spec before making changes
             CairoJobStatus::FAILED => Ok(TaskStatus::Failed(res.error_log.unwrap_or_default())),
             CairoJobStatus::INVALID => {

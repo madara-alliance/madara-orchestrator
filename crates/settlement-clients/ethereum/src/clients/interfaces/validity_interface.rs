@@ -1,15 +1,13 @@
 use std::sync::Arc;
 
+use alloy::network::Ethereum;
+use alloy::primitives::{I256, U256};
+use alloy::providers::Provider;
+use alloy::rpc::types::eth::TransactionReceipt;
+use alloy::sol;
+use alloy::transports::http::Http;
+use alloy::transports::{RpcError, TransportErrorKind};
 use async_trait::async_trait;
-
-use alloy::{
-    network::Ethereum,
-    primitives::{I256, U256},
-    providers::Provider,
-    rpc::types::eth::TransactionReceipt,
-    sol,
-    transports::{http::Http, RpcError, TransportErrorKind},
-};
 
 use crate::types::LocalWalletSignerMiddleware;
 

@@ -49,7 +49,10 @@ pub enum DaError {
     #[error("Blob size must be at least 32 bytes to accommodate a single FieldElement/BigUint, but was {blob_size:?}")]
     InsufficientBlobSize { blob_size: u64 },
 
-    #[error("Exceeded the maximum number of blobs per transaction: allowed {max_blob_per_txn:?}, found {current_blob_length:?} for block {block_no:?} and job id {job_id:?}")]
+    #[error(
+        "Exceeded the maximum number of blobs per transaction: allowed {max_blob_per_txn:?}, found \
+         {current_blob_length:?} for block {block_no:?} and job id {job_id:?}"
+    )]
     MaxBlobsLimitExceeded { max_blob_per_txn: u64, current_blob_length: u64, block_no: String, job_id: Uuid },
 
     #[error("Other error: {0}")]
@@ -328,7 +331,12 @@ fn da_word(class_flag: bool, nonce_change: Option<FieldElement>, num_changes: u6
 
     // checking for nonce here
     if let Some(_new_nonce) = nonce_change {
-        let bytes: [u8; 32] = nonce_change.expect("Not able to convert the nonce_change var into [u8; 32] type. Possible Error : Improper parameter length.").to_bytes_be();
+        let bytes: [u8; 32] = nonce_change
+            .expect(
+                "Not able to convert the nonce_change var into [u8; 32] type. Possible Error : Improper parameter \
+                 length.",
+            )
+            .to_bytes_be();
         let biguint = BigUint::from_bytes_be(&bytes);
         let binary_string_local = format!("{:b}", biguint);
         let padded_binary_string = format!("{:0>64}", binary_string_local);
@@ -353,7 +361,6 @@ fn da_word(class_flag: bool, nonce_change: Option<FieldElement>, num_changes: u6
 #[cfg(test)]
 
 pub mod test {
-    use crate::jobs::da_job::da_word;
     use std::fs;
     use std::fs::File;
     use std::io::Read;
@@ -374,10 +381,16 @@ pub mod test {
     use starknet_core::types::{FieldElement, StateUpdate};
     use url::Url;
 
-    /// Tests `da_word` function with various inputs for class flag, new nonce, and number of changes.
-    /// Verifies that `da_word` produces the correct FieldElement based on the provided parameters.
-    /// Uses test cases with different combinations of inputs and expected output strings.
-    /// Asserts the function's correctness by comparing the computed and expected FieldElements.
+    use crate::config::config;
+    use crate::data_storage::MockDataStorage;
+    use crate::jobs::da_job::da_word;
+    use crate::tests::config::TestConfigBuilder;
+
+    /// Tests `da_word` function with various inputs for class flag, new nonce, and number of
+    /// changes. Verifies that `da_word` produces the correct FieldElement based on the provided
+    /// parameters. Uses test cases with different combinations of inputs and expected output
+    /// strings. Asserts the function's correctness by comparing the computed and expected
+    /// FieldElements.
     #[rstest]
     #[case(false, 1, 1, "18446744073709551617")]
     #[case(false, 1, 0, "18446744073709551616")]
@@ -395,10 +408,11 @@ pub mod test {
         assert_eq!(da_word, expected);
     }
 
-    /// Tests `state_update_to_blob_data` conversion with different state update files and block numbers.
-    /// Mocks DA client and storage client interactions for the test environment.
+    /// Tests `state_update_to_blob_data` conversion with different state update files and block
+    /// numbers. Mocks DA client and storage client interactions for the test environment.
     /// Compares the generated blob data against expected values to ensure correctness.
-    /// Verifies the data integrity by checking that the parsed state diffs match the expected diffs.
+    /// Verifies the data integrity by checking that the parsed state diffs match the expected
+    /// diffs.
     #[rstest]
     #[case(
         631861,
@@ -554,10 +568,6 @@ pub mod test {
 
         let mut new_hex_chars = hex_chars.join("");
         new_hex_chars = new_hex_chars.trim_start_matches('0').to_string();
-        if new_hex_chars.is_empty() {
-            "0x0".to_string()
-        } else {
-            format!("0x{}", new_hex_chars)
-        }
+        if new_hex_chars.is_empty() { "0x0".to_string() } else { format!("0x{}", new_hex_chars) }
     }
 }

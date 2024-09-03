@@ -1,11 +1,13 @@
+use std::time::Duration;
+
+use aws_sdk_sqs::types::QueueAttributeName::QueueArn;
+use rstest::rstest;
+use tokio::time::sleep;
+use utils::env_utils::get_env_var_or_panic;
+
 use crate::config::config;
 use crate::tests::common::{get_sns_client, get_sqs_client};
 use crate::tests::config::TestConfigBuilder;
-use aws_sdk_sqs::types::QueueAttributeName::QueueArn;
-use rstest::rstest;
-use std::time::Duration;
-use tokio::time::sleep;
-use utils::env_utils::get_env_var_or_panic;
 
 pub const SNS_ALERT_TEST_QUEUE: &str = "orchestrator_sns_alert_testing_queue";
 

@@ -1,11 +1,10 @@
 use rstest::rstest;
 
+use super::database::build_job_item;
 use crate::config::config;
 use crate::jobs::handle_job_failure;
-use crate::jobs::types::JobType;
-use crate::{jobs::types::JobStatus, tests::config::TestConfigBuilder};
-
-use super::database::build_job_item;
+use crate::jobs::types::{JobStatus, JobType};
+use crate::tests::config::TestConfigBuilder;
 
 #[cfg(test)]
 pub mod da_job;
@@ -22,6 +21,7 @@ use std::collections::HashMap;
 use std::sync::Arc;
 use std::time::Duration;
 
+use assert_matches::assert_matches;
 use mockall::predicate::eq;
 use mongodb::bson::doc;
 use omniqueue::QueueError;
@@ -530,7 +530,7 @@ async fn handle_job_failure_with_failed_job_status_works(#[case] job_type: JobTy
     let mut job_expected = build_job_item(job_type.clone(), JobStatus::Failed, internal_id);
     let mut job_metadata = job_expected.metadata.clone();
     job_metadata.insert("last_job_status".to_string(), job_status.to_string());
-    job_expected.metadata = job_metadata.clone();
+    job_expected.metadata.clone_from(&job_metadata);
 
     let job_id = job_expected.id;
 
@@ -571,7 +571,7 @@ async fn handle_job_failure_with_correct_job_status_works(#[case] job_type: JobT
     let mut job_expected = job.clone();
     let mut job_metadata = job_expected.metadata.clone();
     job_metadata.insert("last_job_status".to_string(), job_status.to_string());
-    job_expected.metadata = job_metadata.clone();
+    job_expected.metadata.clone_from(&job_metadata);
     job_expected.status = JobStatus::Failed;
     job_expected.version = 1;
 

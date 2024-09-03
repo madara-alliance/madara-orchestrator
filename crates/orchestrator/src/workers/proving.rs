@@ -1,9 +1,11 @@
+use std::error::Error;
+
+use async_trait::async_trait;
+
 use crate::config::config;
 use crate::jobs::create_job;
 use crate::jobs::types::{JobStatus, JobType};
 use crate::workers::Worker;
-use async_trait::async_trait;
-use std::error::Error;
 
 pub struct ProvingWorker;
 

@@ -5,12 +5,15 @@ use std::sync::Arc;
 
 use assert_matches::assert_matches;
 use bytes::Bytes;
+use color_eyre::eyre::eyre;
 use httpmock::prelude::*;
+use lazy_static::lazy_static;
 use mockall::predicate::{always, eq};
 use rstest::*;
 use settlement_client_interface::MockSettlementClient;
-
-use color_eyre::eyre::eyre;
+use starknet::providers::jsonrpc::HttpTransport;
+use starknet::providers::JsonRpcClient;
+use url::Url;
 use utils::env_utils::get_env_var_or_panic;
 
 use crate::config::config;
@@ -26,10 +29,6 @@ use crate::jobs::types::{JobStatus, JobType};
 use crate::jobs::{Job, JobError};
 use crate::tests::common::{default_job_item, get_storage_client};
 use crate::tests::config::TestConfigBuilder;
-use lazy_static::lazy_static;
-use starknet::providers::jsonrpc::HttpTransport;
-use starknet::providers::JsonRpcClient;
-use url::Url;
 
 lazy_static! {
     pub static ref CURRENT_PATH: PathBuf = std::env::current_dir().unwrap();
@@ -78,12 +77,13 @@ async fn test_process_job_works(
     // Storing `blob_data` and `snos_output` in storage client
     store_data_in_storage_client_for_s3(block_numbers.clone()).await;
 
-    // Building a temp config that will be used by `fetch_blob_data_for_block` and `fetch_snos_for_block`
-    // functions while fetching the blob data from storage client.
+    // Building a temp config that will be used by `fetch_blob_data_for_block` and
+    // `fetch_snos_for_block` functions while fetching the blob data from storage client.
     TestConfigBuilder::new().build().await;
 
-    // test_process_job_works uses nonce just to write expect_update_state_with_blobs for a mocked settlement client,
-    // which means that nonce ideally is never checked against, hence supplying any `u64` `nonce` works.
+    // test_process_job_works uses nonce just to write expect_update_state_with_blobs for a mocked
+    // settlement client, which means that nonce ideally is never checked against, hence supplying
+    // any `u64` `nonce` works.
     let nonce: u64 = 3;
     settlement_client.expect_get_nonce().with().returning(move || Ok(nonce));
 

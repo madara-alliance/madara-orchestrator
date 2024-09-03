@@ -9,6 +9,8 @@ use utils::settings::Settings;
 
 pub const AWS_SNS_SETTINGS_NAME: &str = "sns";
 
+use crate::alerts::Alerts;
+
 pub struct AWSSNS {
     client: Client,
     topic_arn: String,

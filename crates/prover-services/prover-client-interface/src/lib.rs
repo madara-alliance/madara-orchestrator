@@ -41,5 +41,5 @@ pub enum ProverClientError {
     #[error("Fact checker error: {0}")]
     FactChecker(#[from] gps_fact_checker::error::FactCheckerError),
     #[error("Failed to encode Cairo PIE: {0}")]
-    PieEncoding(#[source] snos::error::SnOsError),
+    PieEncoding(#[source] starknet_os::error::SnOsError),
 }

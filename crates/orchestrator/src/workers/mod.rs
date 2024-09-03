@@ -1,7 +1,10 @@
-use crate::{config::config, jobs::types::JobStatus};
-use async_trait::async_trait;
 use std::error::Error;
 use thiserror::Error;
+
+use async_trait::async_trait;
+
+use crate::config::config;
+use crate::jobs::types::JobStatus;
 
 pub mod data_submission_worker;
 pub mod proof_registration;
@@ -33,8 +36,8 @@ pub trait Worker: Send + Sync {
     async fn run_worker(&self) -> Result<(), Box<dyn Error>>;
 
     // Assumption
-    // If say a job for block X fails, we don't want the worker to respawn another job for the same block
-    // we will resolve the existing failed job first.
+    // If say a job for block X fails, we don't want the worker to respawn another job for the same
+    // block we will resolve the existing failed job first.
 
     // We assume the system to keep working till a job hasn't failed,
     // as soon as it fails we currently halt any more execution and wait for manual intervention.

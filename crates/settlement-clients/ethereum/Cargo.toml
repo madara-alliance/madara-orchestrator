@@ -18,7 +18,7 @@ reqwest = { workspace = true }
 rstest = { workspace = true }
 serde = { workspace = true, default-features = false, features = ["derive"] }
 settlement-client-interface = { workspace = true }
-snos = { workspace = true }
+starknet-os = { workspace = true }
 tokio = { workspace = true }
 url = { workspace = true }
 utils = { workspace = true }

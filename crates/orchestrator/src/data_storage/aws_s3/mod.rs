@@ -10,6 +10,9 @@ use utils::settings::Settings;
 
 pub const S3_SETTINGS_NAME: &str = "s3";
 
+use crate::data_storage::aws_s3::config::AWSS3Config;
+use crate::data_storage::DataStorage;
+
 /// Module for AWS S3 config structs and implementations
 pub mod config;
 

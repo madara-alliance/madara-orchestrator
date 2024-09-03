@@ -7,18 +7,16 @@ use async_trait::async_trait;
 use cairo_vm::Felt252;
 use chrono::{SubsecRound, Utc};
 use color_eyre::eyre::eyre;
-use snos::io::output::StarknetOsOutput;
+use settlement_client_interface::SettlementVerificationStatus;
+use starknet_os::io::output::StarknetOsOutput;
 use thiserror::Error;
 use uuid::Uuid;
-
-use settlement_client_interface::SettlementVerificationStatus;
 
 use super::constants::{
     JOB_METADATA_STATE_UPDATE_ATTEMPT_PREFIX, JOB_METADATA_STATE_UPDATE_LAST_FAILED_BLOCK_NO,
     JOB_PROCESS_ATTEMPT_METADATA_KEY,
 };
 use super::{JobError, OtherError};
-
 use crate::config::{config, Config};
 use crate::constants::SNOS_OUTPUT_FILE_NAME;
 use crate::jobs::constants::JOB_METADATA_STATE_UPDATE_BLOCKS_TO_SETTLE_KEY;
@@ -46,7 +44,10 @@ pub enum StateUpdateError {
     #[error("Tx {tx_hash:?} should not be pending.")]
     TxnShouldNotBePending { tx_hash: String },
 
-    #[error("Last number in block_numbers array returned as None. Possible Error : Delay in job processing or Failed job execution.")]
+    #[error(
+        "Last number in block_numbers array returned as None. Possible Error : Delay in job processing or Failed job \
+         execution."
+    )]
     LastNumberReturnedError,
 
     #[error("No block numbers found.")]
@@ -147,7 +148,8 @@ impl Job for StateUpdateJob {
     /// Returns the status of the passed job.
     /// Status will be verified if:
     /// 1. the last settlement tx hash is successful,
-    /// 2. the expected last settled block from our configuration is indeed the one found in the provider.
+    /// 2. the expected last settled block from our configuration is indeed the one found in the
+    ///    provider.
     async fn verify_job(&self, config: &Config, job: &mut JobItem) -> Result<JobVerificationStatus, JobError> {
         let attempt_no = job
             .metadata

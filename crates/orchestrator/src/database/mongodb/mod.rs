@@ -1,7 +1,6 @@
-use async_std::stream::StreamExt;
-use futures::TryStreamExt;
 use std::collections::HashMap;
 
+use async_std::stream::StreamExt;
 use async_trait::async_trait;
 use chrono::{SubsecRound, Utc};
 use color_eyre::eyre::eyre;
