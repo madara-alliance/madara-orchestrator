@@ -26,15 +26,15 @@ use crate::tests::common::{create_sns_arn, create_sqs_queues, drop_database};
 pub enum ClientType {
     // Internal Clients
     StarknetClient(Arc<JsonRpcClient<HttpTransport>>),
-    DaClient(Arc<Box<dyn DaClient>>),
-    ProverClient(Arc<Box<dyn ProverClient>>),
-    SettlementClient(Arc<Box<dyn SettlementClient>>),
-    Alerts(Arc<Box<dyn Alerts>>),
+    DaClient(Box<dyn DaClient>),
+    ProverClient(Box<dyn ProverClient>),
+    SettlementClient(Box<dyn SettlementClient>),
+    Alerts(Box<dyn Alerts>),
 
     // External Clients
-    Database(Arc<Box<dyn Database>>),
-    Queue(Arc<Box<dyn QueueProvider>>),
-    Storage(Arc<Box<dyn DataStorage>>),
+    Database(Box<dyn Database>),
+    Queue(Box<dyn QueueProvider>),
+    Storage(Box<dyn DataStorage>),
 }
 
 // By default, everything is on Dummy.
@@ -52,45 +52,45 @@ impl From<JsonRpcClient<HttpTransport>> for ClientValue {
 
 impl From<MockProverClient> for ClientValue {
     fn from(client: MockProverClient) -> Self {
-        ClientValue::MockBySelf(ClientType::ProverClient(Arc::new(Box::new(client))))
+        ClientValue::MockBySelf(ClientType::ProverClient(Box::new(client)))
     }
 }
 
 impl From<MockDatabase> for ClientValue {
     fn from(client: MockDatabase) -> Self {
-        ClientValue::MockBySelf(ClientType::Database(Arc::new(Box::new(client))))
+        ClientValue::MockBySelf(ClientType::Database(Box::new(client)))
     }
 }
 
 impl From<MockDaClient> for ClientValue {
     fn from(client: MockDaClient) -> Self {
-        ClientValue::MockBySelf(ClientType::DaClient(Arc::new(Box::new(client))))
+        ClientValue::MockBySelf(ClientType::DaClient(Box::new(client)))
     }
 }
 
 impl From<MockQueueProvider> for ClientValue {
     fn from(client: MockQueueProvider) -> Self {
-        ClientValue::MockBySelf(ClientType::Queue(Arc::new(Box::new(client))))
+        ClientValue::MockBySelf(ClientType::Queue(Box::new(client)))
     }
 }
 
 impl From<MockDataStorage> for ClientValue {
     fn from(client: MockDataStorage) -> Self {
-        ClientValue::MockBySelf(ClientType::Storage(Arc::new(Box::new(client))))
+        ClientValue::MockBySelf(ClientType::Storage(Box::new(client)))
     }
 }
 
 impl From<MockSettlementClient> for ClientValue {
     fn from(client: MockSettlementClient) -> Self {
-        ClientValue::MockBySelf(ClientType::SettlementClient(Arc::new(Box::new(client))))
+        ClientValue::MockBySelf(ClientType::SettlementClient(Box::new(client)))
     }
 }
 
-impl From<Box<dyn SettlementClient + Send + Sync>> for ClientValue {
-    fn from(client: Box<dyn SettlementClient + Send + Sync>) -> Self {
-        ClientValue::MockBySelf(ClientType::SettlementClient(Arc::new(client)))
-    }
-}
+// impl From<Box<dyn SettlementClient + Send + Sync>> for ClientValue {
+//     fn from(client: Box<dyn SettlementClient + Send + Sync>) -> Self {
+//         ClientValue::MockBySelf(ClientType::SettlementClient(Arc::new(client)))
+//     }
+// }
 
 // TestBuilder for Config
 pub struct TestConfigBuilder {
@@ -168,7 +168,7 @@ impl TestConfigBuilder {
     }
 
     pub fn configure_storage_client(mut self, storage_client_option: ClientValue) -> TestConfigBuilder {
-        self.starknet_client_option = storage_client_option;
+        self.storage_option = storage_client_option;
         self
     }
 
@@ -181,151 +181,35 @@ impl TestConfigBuilder {
         self
     }
 
-    async fn init_da_client(&mut self) -> Arc<Box<dyn DaClient>> {
-        match &self.da_client_option {
-            ClientValue::MockBySelf(client) => {
-                if let ClientType::DaClient(da_client) = client {
-                    Arc::clone(da_client)
-                } else {
-                    panic!("MockBySelf client is not a DaClient");
-                }
-            }
-            ClientValue::Actual => Arc::new(build_da_client().await),
-            ClientValue::Dummy => Arc::new(Box::new(MockDaClient::new())),
-        }
-    }
-
-    async fn init_starknet_client(&mut self) -> Arc<JsonRpcClient<HttpTransport>> {
-        let provider = JsonRpcClient::new(HttpTransport::new(
-            Url::parse(format!("http://localhost:{}", self.server.port()).as_str()).expect("Failed to parse URL"),
-        ));
-        match &self.starknet_client_option {
-            ClientValue::MockBySelf(client) => {
-                if let ClientType::StarknetClient(starknet_client) = client {
-                    Arc::clone(starknet_client)
-                } else {
-                    panic!("MockBySelf client is not a StarknetClient");
-                }
-            }
-            ClientValue::Actual => Arc::new(provider),
-            // TODO: There's no mock for this
-            ClientValue::Dummy => Arc::new(provider),
-        }
-    }
-
-    async fn init_prover_client(&mut self) -> Arc<Box<dyn ProverClient>> {
-        let settings_provider = DefaultSettingsProvider {};
-
-        match &self.prover_client_option {
-            ClientValue::MockBySelf(client) => {
-                if let ClientType::ProverClient(prover_client) = client {
-                    Arc::clone(prover_client)
-                } else {
-                    panic!("MockBySelf client is not a ProverClient");
-                }
-            }
-
-            ClientValue::Actual => Arc::new(build_prover_service(&settings_provider)),
-            ClientValue::Dummy => {
-                let x: Arc<Box<dyn ProverClient>> = Arc::new(Box::new(MockProverClient::new()));
-                x
-            }
-        }
-    }
-
-    async fn init_settlement_client(&mut self) -> Arc<Box<dyn SettlementClient>> {
-        let settings_provider = DefaultSettingsProvider {};
-        match &self.settlement_client_option {
-            ClientValue::MockBySelf(client) => {
-                if let ClientType::SettlementClient(settlement_client) = client {
-                    Arc::clone(settlement_client)
-                } else {
-                    panic!("MockBySelf client is not a SettlementClient");
-                }
-            }
-            ClientValue::Actual => Arc::new(build_settlement_client(&settings_provider).await),
-            ClientValue::Dummy => Arc::new(Box::new(MockSettlementClient::new())),
-        }
-    }
-
-    async fn init_alerts(&mut self) -> Arc<Box<dyn Alerts>> {
-        match &self.alerts_option {
-            ClientValue::MockBySelf(client) => {
-                if let ClientType::Alerts(alerts) = client {
-                    Arc::clone(alerts)
-                } else {
-                    panic!("MockBySelf client is not an Alerts");
-                }
-            }
-            ClientValue::Actual => Arc::new(build_alert_client().await),
-            ClientValue::Dummy => Arc::new(Box::new(MockAlerts::new())),
-        }
-    }
-
-    async fn init_storage_client(&mut self) -> Arc<Box<dyn DataStorage>> {
-        let aws_config = aws_config::load_from_env().await;
-        match &self.storage_option {
-            ClientValue::MockBySelf(client) => {
-                if let ClientType::Storage(storage) = client {
-                    Arc::clone(storage)
-                } else {
-                    panic!("MockBySelf client is not a Storage");
-                }
-            }
-            ClientValue::Actual => Arc::new(build_storage_client(&aws_config).await),
-            ClientValue::Dummy => Arc::new(Box::new(MockDataStorage::new())),
-        }
-    }
-
-    async fn init_queue_client(&mut self) -> Arc<Box<dyn QueueProvider>> {
-        let aws_config = aws_config::load_from_env().await;
-        match &self.queue_option {
-            ClientValue::MockBySelf(client) => {
-                if let ClientType::Queue(queue) = client {
-                    Arc::clone(queue)
-                } else {
-                    panic!("MockBySelf client is not a Queue");
-                }
-            }
-            ClientValue::Actual => Arc::new(build_queue_client(&aws_config)),
-            ClientValue::Dummy => Arc::new(Box::new(MockQueueProvider::new())),
-        }
-    }
-
-    async fn init_database(&mut self) -> Arc<Box<dyn Database>> {
-        match &self.database_option {
-            ClientValue::MockBySelf(client) => {
-                if let ClientType::Database(database) = client {
-                    Arc::clone(database)
-                } else {
-                    panic!("MockBySelf client is not a Database");
-                }
-            }
-            ClientValue::Actual => Arc::new(build_database_client().await),
-            ClientValue::Dummy => Arc::new(Box::new(MockDatabase::new())),
-        }
-    }
-
-    pub async fn build(mut self) -> TestConfigBuilderReturns {
+    pub async fn build(self) -> TestConfigBuilderReturns {
         dotenvy::from_filename("../.env.test").expect("Failed to load the .env file");
         use std::sync::Arc;
 
-        // Generic function to unwrap Arc<Box<dyn Trait>>
-        fn unwrap_arc<T: ?Sized>(arc: Arc<Box<T>>) -> Box<T> {
-            Arc::try_unwrap(arc).unwrap_or_else(|_| panic!("Unwrapping from Arc panicked."))
-        }
+        let TestConfigBuilder {
+            server,
+            starknet_client_option,
+            alerts_option,
+            da_client_option,
+            prover_client_option,
+            settlement_client_option,
+            database_option,
+            queue_option,
+            storage_option,
+        } = self;
 
         // Usage in your code
-        let starknet_client = self.init_starknet_client().await;
-        let alerts = unwrap_arc(self.init_alerts().await);
-        let da_client = unwrap_arc(self.init_da_client().await);
-        let settlement_client = unwrap_arc(self.init_settlement_client().await);
-        let prover_client = unwrap_arc(self.init_prover_client().await);
+        let starknet_client = init_starknet_client(starknet_client_option).await;
+        let alerts = init_alerts(alerts_option).await;
+        let da_client = init_da_client(da_client_option).await;
+
+        let settlement_client = init_settlement_client(settlement_client_option).await;
+
+        let prover_client = init_prover_client(prover_client_option).await;
 
         // External Dependencies
-        let storage = unwrap_arc(self.init_storage_client().await);
-        let database = unwrap_arc(self.init_database().await);
-        let queue = unwrap_arc(self.init_queue_client().await);
+        let storage = init_storage_client(storage_option).await;
+        let database = init_database(database_option).await;
+        let queue = init_queue_client(queue_option).await;
         // Deleting and Creating the queues in sqs.
         create_sqs_queues().await.expect("Not able to delete and create the queues.");
         // Deleting the database
@@ -344,6 +228,124 @@ impl TestConfigBuilder {
             alerts,
         ));
 
-        TestConfigBuilderReturns { server: self.server, config }
+        TestConfigBuilderReturns { server, config }
+    }
+}
+
+async fn init_da_client(service: ClientValue) -> Box<dyn DaClient> {
+    match service {
+        ClientValue::MockBySelf(client) => {
+            if let ClientType::DaClient(da_client) = client {
+                da_client
+            } else {
+                panic!("MockBySelf client is not a DaClient");
+            }
+        }
+        ClientValue::Actual => build_da_client().await,
+        ClientValue::Dummy => Box::new(MockDaClient::new()),
+    }
+}
+
+async fn init_settlement_client(service: ClientValue) -> Box<dyn SettlementClient> {
+    let settings_provider = DefaultSettingsProvider {};
+    match service {
+        ClientValue::MockBySelf(client) => {
+            if let ClientType::SettlementClient(settlement_client) = client {
+                settlement_client
+            } else {
+                panic!("MockBySelf client is not a SettlementClient");
+            }
+        }
+        ClientValue::Actual => build_settlement_client(&settings_provider).await,
+        ClientValue::Dummy => Box::new(MockSettlementClient::new()),
+    }
+}
+
+async fn init_starknet_client(service: ClientValue) -> Arc<JsonRpcClient<HttpTransport>> {
+    let provider =
+        || JsonRpcClient::new(HttpTransport::new(Url::parse("http://localhost:8545").expect("Failed to parse URL")));
+    match service {
+        ClientValue::MockBySelf(client) => {
+            if let ClientType::StarknetClient(starknet_client) = client {
+                starknet_client
+            } else {
+                panic!("MockBySelf client is not a StarknetClient");
+            }
+        }
+        ClientValue::Actual => Arc::new(provider()),
+        ClientValue::Dummy => Arc::new(provider()),
+    }
+}
+
+async fn init_prover_client(service: ClientValue) -> Box<dyn ProverClient> {
+    let settings_provider = DefaultSettingsProvider {};
+    match service {
+        ClientValue::MockBySelf(client) => {
+            if let ClientType::ProverClient(prover_client) = client {
+                prover_client
+            } else {
+                panic!("MockBySelf client is not a ProverClient");
+            }
+        }
+        ClientValue::Actual => build_prover_service(&settings_provider),
+        ClientValue::Dummy => Box::new(MockProverClient::new()),
+    }
+}
+
+async fn init_alerts(service: ClientValue) -> Box<dyn Alerts> {
+    match service {
+        ClientValue::MockBySelf(client) => {
+            if let ClientType::Alerts(alerts) = client {
+                alerts
+            } else {
+                panic!("MockBySelf client is not an Alerts");
+            }
+        }
+        ClientValue::Actual => build_alert_client().await,
+        ClientValue::Dummy => Box::new(MockAlerts::new()),
+    }
+}
+
+async fn init_storage_client(service: ClientValue) -> Box<dyn DataStorage> {
+    let aws_config = aws_config::load_from_env().await;
+    match service {
+        ClientValue::MockBySelf(client) => {
+            if let ClientType::Storage(storage) = client {
+                storage
+            } else {
+                panic!("MockBySelf client is not a Storage");
+            }
+        }
+        ClientValue::Actual => build_storage_client(&aws_config).await,
+        ClientValue::Dummy => Box::new(MockDataStorage::new()),
+    }
+}
+
+async fn init_queue_client(service: ClientValue) -> Box<dyn QueueProvider> {
+    let aws_config = aws_config::load_from_env().await;
+    match service {
+        ClientValue::MockBySelf(client) => {
+            if let ClientType::Queue(queue) = client {
+                queue
+            } else {
+                panic!("MockBySelf client is not a Queue");
+            }
+        }
+        ClientValue::Actual => build_queue_client(&aws_config),
+        ClientValue::Dummy => Box::new(MockQueueProvider::new()),
+    }
+}
+
+async fn init_database(service: ClientValue) -> Box<dyn Database> {
+    match service {
+        ClientValue::MockBySelf(client) => {
+            if let ClientType::Database(database) = client {
+                database
+            } else {
+                panic!("MockBySelf client is not a Database");
+            }
+        }
+        ClientValue::Actual => build_database_client().await,
+        ClientValue::Dummy => Box::new(MockDatabase::new()),
     }
 }

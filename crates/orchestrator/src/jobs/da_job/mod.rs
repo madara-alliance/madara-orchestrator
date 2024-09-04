@@ -375,7 +375,6 @@ pub mod test {
     use std::fs;
     use std::fs::File;
     use std::io::Read;
-    use std::sync::Arc;
 
     use ::serde::{Deserialize, Serialize};
     use color_eyre::Result;
@@ -394,7 +393,6 @@ pub mod test {
 
     use crate::data_storage::MockDataStorage;
     use crate::jobs::da_job::da_word;
-    use crate::tests::config::{ClientType, ClientValue, TestConfigBuilder};
 
     /// Tests `da_word` function with various inputs for class flag, new nonce, and number of changes.
     /// Verifies that `da_word` produces the correct FieldElement based on the provided parameters.
@@ -447,7 +445,10 @@ pub mod test {
         #[case] file_path: &str,
         #[case] nonce_file_path: &str,
     ) {
-        use crate::jobs::da_job::{convert_to_biguint, state_update_to_blob_data};
+        use crate::{
+            jobs::da_job::{convert_to_biguint, state_update_to_blob_data},
+            tests::config::TestConfigBuilder,
+        };
 
         let server = MockServer::start();
         let mut da_client = MockDaClient::new();
@@ -466,9 +467,9 @@ pub mod test {
 
         // mock block number (madara) : 5
         let services = TestConfigBuilder::new()
-            .configure_starknet_client(ClientValue::MockBySelf(ClientType::StarknetClient(Arc::new(provider))))
-            .configure_da_client(ClientValue::MockBySelf(ClientType::DaClient(Arc::new(Box::new(da_client)))))
-            .configure_storage_client(ClientValue::MockBySelf(ClientType::Storage(Arc::new(Box::new(storage_client)))))
+            .configure_starknet_client(provider.into())
+            .configure_da_client(da_client.into())
+            .configure_storage_client(storage_client.into())
             .build()
             .await;
 
