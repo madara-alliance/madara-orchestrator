@@ -215,7 +215,7 @@ impl TestConfigBuilder {
 
     async fn init_prover_client(&mut self) -> Arc<Box<dyn ProverClient>> {
         let settings_provider = DefaultSettingsProvider {};
-        
+
         match &self.prover_client_option {
             ClientValue::MockBySelf(client) => {
                 if let ClientType::ProverClient(prover_client) = client {
@@ -225,10 +225,7 @@ impl TestConfigBuilder {
                 }
             }
 
-            ClientValue::Actual => {
-                
-                Arc::new(build_prover_service(&settings_provider))
-            }
+            ClientValue::Actual => Arc::new(build_prover_service(&settings_provider)),
             ClientValue::Dummy => {
                 let x: Arc<Box<dyn ProverClient>> = Arc::new(Box::new(MockProverClient::new()));
                 x
