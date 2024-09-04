@@ -14,10 +14,11 @@ use thiserror::Error;
 use tracing::log;
 use uuid::Uuid;
 
-use super::types::{JobItem, JobStatus, JobType, JobVerificationStatus};
-use super::{Job, JobError, OtherError};
 use crate::config::Config;
 use crate::constants::BLOB_DATA_FILE_NAME;
+
+use super::types::{JobItem, JobStatus, JobType, JobVerificationStatus};
+use super::{Job, JobError, OtherError};
 
 lazy_static! {
     /// EIP-4844 BLS12-381 modulus.
@@ -371,17 +372,13 @@ fn da_word(class_flag: bool, nonce_change: Option<FieldElement>, num_changes: u6
 #[cfg(test)]
 
 pub mod test {
-    use crate::jobs::da_job::da_word;
     use std::fs;
     use std::fs::File;
     use std::io::Read;
     use std::sync::Arc;
 
-    use crate::data_storage::MockDataStorage;
-    use crate::tests::config::TestConfigBuilder;
     use ::serde::{Deserialize, Serialize};
     use color_eyre::Result;
-    use da_client_interface::MockDaClient;
     use httpmock::prelude::*;
     use majin_blob_core::blob;
     use majin_blob_types::serde;
@@ -392,6 +389,12 @@ pub mod test {
     use starknet::providers::JsonRpcClient;
     use starknet_core::types::{FieldElement, StateUpdate};
     use url::Url;
+
+    use da_client_interface::MockDaClient;
+
+    use crate::data_storage::MockDataStorage;
+    use crate::jobs::da_job::da_word;
+    use crate::tests::config::{ClientType, ClientValue, TestConfigBuilder};
 
     /// Tests `da_word` function with various inputs for class flag, new nonce, and number of changes.
     /// Verifies that `da_word` produces the correct FieldElement based on the provided parameters.
@@ -463,9 +466,9 @@ pub mod test {
 
         // mock block number (madara) : 5
         let services = TestConfigBuilder::new()
-            .mock_starknet_client(Arc::new(provider))
-            .mock_da_client(Box::new(da_client))
-            .mock_storage_client(Box::new(storage_client))
+            .configure_starknet_client(ClientValue::MockBySelf(ClientType::StarknetClient(Arc::new(provider))))
+            .configure_da_client(ClientValue::MockBySelf(ClientType::DaClient(Arc::new(Box::new(da_client)))))
+            .configure_storage_client(ClientValue::MockBySelf(ClientType::Storage(Arc::new(Box::new(storage_client)))))
             .build()
             .await;
 

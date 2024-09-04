@@ -92,12 +92,12 @@ async fn test_proving_worker(#[case] incomplete_runs: bool) -> Result<(), Box<dy
     ));
 
     let services = TestConfigBuilder::new()
-        .mock_starknet_client(Arc::new(provider))
-        .mock_db_client(Box::new(db))
-        .mock_queue(Box::new(queue))
-        .mock_da_client(Box::new(da_client))
-        .mock_prover_client(Box::new(prover_client))
-        .mock_settlement_client(Box::new(settlement_client))
+        .configure_starknet_client(provider.into())
+        .configure_database(db.into())
+        .configure_queue_client(queue.into())
+        .configure_da_client(da_client.into())
+        .configure_prover_client(prover_client.into())
+        .configure_settlement_client(settlement_client.into())
         .build()
         .await;
 

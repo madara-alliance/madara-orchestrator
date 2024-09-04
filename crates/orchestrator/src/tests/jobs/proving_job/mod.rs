@@ -3,7 +3,6 @@ use std::collections::HashMap;
 use std::fs::File;
 use std::io::Read;
 use std::path::Path;
-use std::sync::Arc;
 
 use crate::data_storage::MockDataStorage;
 use httpmock::prelude::*;
@@ -45,7 +44,7 @@ async fn test_verify_job(#[from(default_job_item)] mut job_item: JobItem) {
     let mut prover_client = MockProverClient::new();
     prover_client.expect_get_task_status().times(1).returning(|_| Ok(TaskStatus::Succeeded));
 
-    let services = TestConfigBuilder::new().mock_prover_client(Box::new(prover_client)).build().await;
+    let services = TestConfigBuilder::new().configure_prover_client(prover_client.into()).build().await;
 
     assert!(ProvingJob.verify_job(services.config, &mut job_item).await.is_ok());
 }
@@ -71,9 +70,9 @@ async fn test_process_job() {
     storage.expect_get_data().with(eq("0/pie.zip")).return_once(move |_| Ok(buffer_bytes));
 
     let services = TestConfigBuilder::new()
-        .mock_starknet_client(Arc::new(provider))
-        .mock_prover_client(Box::new(prover_client))
-        .mock_storage_client(Box::new(storage))
+        .configure_starknet_client(provider.into())
+        .configure_prover_client(prover_client.into())
+        .configure_storage_client(storage.into())
         .build()
         .await;
 

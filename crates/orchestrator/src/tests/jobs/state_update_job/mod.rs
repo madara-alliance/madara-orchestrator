@@ -1,7 +1,6 @@
 use std::collections::HashMap;
 use std::fs;
 use std::path::PathBuf;
-use std::sync::Arc;
 
 use assert_matches::assert_matches;
 use bytes::Bytes;
@@ -94,7 +93,7 @@ async fn test_process_job_works(
 
     // Building a temp config that will be used by `fetch_blob_data_for_block` and `fetch_snos_for_block`
     // functions while fetching the blob data from storage client.
-    let services = TestConfigBuilder::new().mock_settlement_client(Box::new(settlement_client)).build().await;
+    let services = TestConfigBuilder::new().configure_settlement_client(settlement_client.into()).build().await;
 
     let storage_client = services.config.storage();
 
@@ -216,8 +215,8 @@ async fn process_job_works() {
     }
 
     let services = TestConfigBuilder::new()
-        .mock_settlement_client(Box::new(settlement_client))
-        .mock_storage_client(Box::new(storage_client))
+        .configure_settlement_client(settlement_client.into())
+        .configure_storage_client(storage_client.into())
         .build()
         .await;
 
@@ -247,8 +246,8 @@ async fn process_job_invalid_inputs_errors(#[case] block_numbers_to_settle: Stri
     ));
 
     let services = TestConfigBuilder::new()
-        .mock_starknet_client(Arc::new(provider))
-        .mock_settlement_client(Box::new(settlement_client))
+        .configure_settlement_client(settlement_client.into())
+        .configure_starknet_client(provider.into())
         .build()
         .await;
 
@@ -284,8 +283,8 @@ async fn process_job_invalid_input_gap_panics() {
     ));
 
     let services = TestConfigBuilder::new()
-        .mock_starknet_client(Arc::new(provider))
-        .mock_settlement_client(Box::new(settlement_client))
+        .configure_starknet_client(provider.into())
+        .configure_settlement_client(settlement_client.into())
         .build()
         .await;
 
