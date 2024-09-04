@@ -4,6 +4,7 @@ use std::fs::File;
 use std::io::Read;
 use std::path::Path;
 use std::sync::Arc;
+use chrono::{SubsecRound, Utc};
 
 use crate::config::config;
 use crate::data_storage::MockDataStorage;
@@ -92,6 +93,8 @@ async fn test_process_job() {
                     external_id: String::new().into(),
                     metadata: HashMap::new(),
                     version: 0,
+                    created_at: Utc::now().round_subsecs(0),
+                    updated_at: Utc::now().round_subsecs(0)
                 }
             )
             .await

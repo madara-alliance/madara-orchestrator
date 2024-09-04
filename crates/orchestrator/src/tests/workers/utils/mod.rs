@@ -3,6 +3,7 @@ use crate::jobs::types::{ExternalId, JobItem, JobStatus, JobType};
 use crate::jobs::MockJob;
 use mockall::predicate::eq;
 use std::collections::HashMap;
+use chrono::{SubsecRound, Utc};
 use uuid::Uuid;
 
 pub fn get_job_item_mock_by_id(id: String, uuid: Uuid) -> JobItem {
@@ -14,6 +15,8 @@ pub fn get_job_item_mock_by_id(id: String, uuid: Uuid) -> JobItem {
         external_id: ExternalId::Number(0),
         metadata: HashMap::new(),
         version: 0,
+        created_at: Utc::now().round_subsecs(0),
+        updated_at: Utc::now().round_subsecs(0)
     }
 }
 
@@ -46,6 +49,8 @@ pub fn get_job_by_mock_id_vector(
             external_id: ExternalId::Number(0),
             metadata: HashMap::new(),
             version: 0,
+            created_at: Utc::now().round_subsecs(0),
+            updated_at: Utc::now().round_subsecs(0)
         })
     }
 
@@ -63,6 +68,8 @@ pub fn db_checks_proving_worker(id: i32, db: &mut MockDatabase, mock_job: &mut M
             external_id: ExternalId::Number(0),
             metadata: HashMap::new(),
             version: 0,
+            created_at: Utc::now().round_subsecs(0),
+            updated_at: Utc::now().round_subsecs(0)
         }
     }
 

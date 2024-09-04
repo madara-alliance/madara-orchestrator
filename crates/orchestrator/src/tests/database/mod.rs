@@ -4,6 +4,7 @@ use crate::tests::config::TestConfigBuilder;
 use arc_swap::Guard;
 use rstest::*;
 use std::sync::Arc;
+use chrono::{SubsecRound, Utc};
 use uuid::Uuid;
 
 #[rstest]
@@ -224,5 +225,7 @@ pub fn build_job_item(job_type: JobType, job_status: JobStatus, internal_id: u64
         external_id: ExternalId::Number(0),
         metadata: Default::default(),
         version: 0,
+        created_at: Utc::now().round_subsecs(0),
+        updated_at: Utc::now().round_subsecs(0)
     }
 }
