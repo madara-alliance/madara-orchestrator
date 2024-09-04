@@ -17,6 +17,7 @@ httpmock.workspace = true
 log.workspace = true
 mongodb.workspace = true
 orchestrator.workspace = true
+ethereum-settlement-client.workspace = true
 reqwest = { workspace = true, features = ["json"] }
 serde.workspace = true
 serde_json.workspace = true
@@ -27,7 +28,7 @@ tokio-stream.workspace = true
 tokio-util.workspace = true
 url.workspace = true
 utils.workspace = true
-uuid = { version = "1.8.0", features = ["v4"] }
+uuid.workspace = true
 
 [[test]]
 name = "test_orchestrator_workflow"

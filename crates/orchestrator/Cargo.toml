@@ -69,6 +69,7 @@ default = ["ethereum", "with_mongodb", "with_sqs"]
 ethereum = ["ethereum-da-client"]
 with_mongodb = ["mongodb"]
 with_sqs = ["omniqueue"]
+testing = []
 
 [dev-dependencies]
 assert_matches = "1.5.0"

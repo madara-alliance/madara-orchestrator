@@ -3979,6 +3979,7 @@ dependencies = [
  "bytes",
  "color-eyre",
  "dotenvy",
+ "ethereum-settlement-client",
  "httpmock",
  "log",
  "mongodb",

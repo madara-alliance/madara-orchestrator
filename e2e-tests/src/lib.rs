@@ -1,4 +1,3 @@
-pub mod ethereum;
 pub mod localstack;
 pub mod mock_server;
 pub mod mongodb;

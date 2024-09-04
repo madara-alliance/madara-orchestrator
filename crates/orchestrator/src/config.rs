@@ -1,6 +1,10 @@
+#[cfg(feature = "testing")]
 use alloy::primitives::Address;
+#[cfg(feature = "testing")]
 use alloy::providers::RootProvider;
+#[cfg(feature = "testing")]
 use std::str::FromStr;
+
 use std::sync::Arc;
 
 use crate::alerts::aws_sns::AWSSNS;
@@ -203,13 +207,21 @@ pub async fn build_settlement_client(
     settings_provider: &impl SettingsProvider,
 ) -> Box<dyn SettlementClient + Send + Sync> {
     match get_env_var_or_panic("SETTLEMENT_LAYER").as_str() {
-        "ethereum" => Box::new(EthereumSettlementClient::with_settings(settings_provider)),
-        "ethereum_test" => Box::new(EthereumSettlementClient::with_test_settings(
-            RootProvider::new_http(get_env_var_or_panic("ETHEREUM_RPC_URL").as_str().parse().unwrap()),
-            Address::from_str(&get_env_var_or_panic("DEFAULT_L1_CORE_CONTRACT_ADDRESS")).unwrap(),
-            Url::from_str(get_env_var_or_panic("ETHEREUM_RPC_URL").as_str()).unwrap(),
-            Some(Address::from_str(get_env_var_or_panic("STARKNET_OPERATOR_ADDRESS").as_str()).unwrap()),
-        )),
+        "ethereum" => {
+            #[cfg(not(feature = "testing"))]
+            {
+                Box::new(EthereumSettlementClient::with_settings(settings_provider))
+            }
+            #[cfg(feature = "testing")]
+            {
+                Box::new(EthereumSettlementClient::with_test_settings(
+                    RootProvider::new_http(get_env_var_or_panic("SETTLEMENT_RPC_URL").as_str().parse().unwrap()),
+                    Address::from_str(&get_env_var_or_panic("DEFAULT_L1_CORE_CONTRACT_ADDRESS")).unwrap(),
+                    Url::from_str(get_env_var_or_panic("SETTLEMENT_RPC_URL").as_str()).unwrap(),
+                    Some(Address::from_str(get_env_var_or_panic("STARKNET_OPERATOR_ADDRESS").as_str()).unwrap()),
+                ))
+            }
+        }
         "starknet" => Box::new(StarknetSettlementClient::with_settings(settings_provider).await),
         _ => panic!("Unsupported Settlement layer"),
     }

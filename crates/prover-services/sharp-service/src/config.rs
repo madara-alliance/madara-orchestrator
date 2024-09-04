@@ -19,7 +19,7 @@ impl Default for SharpConfig {
     fn default() -> Self {
         Self {
             service_url: get_env_var_or_panic("SHARP_URL").parse().unwrap(),
-            rpc_node_url: get_env_var_or_panic("ETHEREUM_RPC_URL").parse().unwrap(),
+            rpc_node_url: get_env_var_or_panic("SETTLEMENT_RPC_URL").parse().unwrap(),
             verifier_address: get_env_var_or_panic("MEMORY_PAGES_CONTRACT_ADDRESS").parse().unwrap(),
         }
     }

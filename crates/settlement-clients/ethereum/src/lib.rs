@@ -27,6 +27,7 @@ use mockall::{automock, lazy_static, predicate::*};
 use alloy::providers::ProviderBuilder;
 use conversion::{get_input_data_for_eip_4844, prepare_sidecar};
 use settlement_client_interface::{SettlementClient, SettlementVerificationStatus, SETTLEMENT_SETTINGS_NAME};
+#[cfg(feature = "testing")]
 use url::Url;
 use utils::{env_utils::get_env_var_or_panic, settings::SettingsProvider};
 
@@ -37,51 +38,22 @@ use crate::conversion::{slice_u8_to_u256, vec_u8_32_to_vec_u256};
 pub mod clients;
 pub mod config;
 pub mod conversion;
-
-#[cfg(test)]
-mod tests;
+pub mod tests;
 pub mod types;
 
 use {alloy::providers::RootProvider, alloy::transports::http::Http, reqwest::Client};
 
 pub const ENV_PRIVATE_KEY: &str = "ETHEREUM_PRIVATE_KEY";
 
-/// Finds the root directory of the project.
-///
-/// This function traverses up the directory tree from the current working directory
-/// until it finds a directory that contains both a 'Cargo.toml' file and a 'crates' directory.
-///
-/// # Returns
-///
-/// Returns a `PathBuf` representing the absolute path to the project root.
-///
-/// # Panics
-///
-/// Panics if it can't find a directory matching the criteria for the project root.
-pub fn find_project_root() -> PathBuf {
-    let mut current_dir = std::env::current_dir().expect("Failed to get current directory");
-
-    loop {
-        if current_dir.join("Cargo.toml").exists() && current_dir.join("crates").is_dir() {
-            return current_dir;
-        }
-
-        if let Some(parent) = current_dir.parent() {
-            current_dir = parent.to_path_buf();
-        } else {
-            panic!("Couldn't find project root containing Cargo.toml and crates directory");
-        }
-    }
-}
-
 lazy_static! {
-    pub static ref PROJECT_ROOT: PathBuf = find_project_root();
+    pub static ref PROJECT_ROOT: PathBuf = PathBuf::from(format!("{}/../../../", env!("CARGO_MANIFEST_DIR")));
     pub static ref KZG_SETTINGS: KzgSettings = KzgSettings::load_trusted_setup_file(
         &PROJECT_ROOT.join("crates/settlement-clients/ethereum/src/trusted_setup.txt")
     )
     .expect("Error loading trusted setup file");
 }
 
+#[allow(dead_code)]
 pub struct EthereumSettlementClient {
     core_contract_client: StarknetValidityContractClient,
     wallet: EthereumWallet,
@@ -118,6 +90,7 @@ impl EthereumSettlementClient {
         EthereumSettlementClient { provider, core_contract_client, wallet, wallet_address, impersonate_account: None }
     }
 
+    #[cfg(feature = "testing")]
     pub fn with_test_settings(
         provider: RootProvider<Http<Client>>,
         core_contract_address: Address,
@@ -246,11 +219,17 @@ impl SettlementClient for EthereumSettlementClient {
         let tx_signed = variant.into_signed(signature);
         let tx_envelope: TxEnvelope = tx_signed.into();
 
-        let txn_request: TransactionRequest = match self.impersonate_account {
-            Some(account) => {
-                test_config::configure_transaction(self.provider.clone(), tx_envelope, Some(account)).await
-            }
-            None => tx_envelope.into(),
+        #[cfg(not(feature = "testing"))]
+        let txn_request = {
+            let txn_request: TransactionRequest = tx_envelope.clone().into();
+            txn_request
+        };
+
+        #[cfg(feature = "testing")]
+        let txn_request = {
+            let txn_request =
+                test_config::configure_transaction(self.provider.clone(), tx_envelope, self.impersonate_account).await;
+            txn_request
         };
 
         let pending_transaction = self.provider.send_transaction(txn_request).await?;
@@ -292,6 +271,7 @@ impl SettlementClient for EthereumSettlementClient {
     }
 }
 
+#[cfg(feature = "testing")]
 mod test_config {
     use super::*;
     use alloy::network::TransactionBuilder;

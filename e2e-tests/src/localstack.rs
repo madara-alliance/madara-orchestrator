@@ -16,9 +16,8 @@ use utils::env_utils::get_env_var_or_panic;
 
 /// LocalStack struct
 pub struct LocalStack {
-    l2_block_number: String,
     sqs_client: aws_sdk_sqs::Client,
-    s3_client: Box<dyn DataStorage + Send + Sync>,
+    pub s3_client: Box<dyn DataStorage + Send + Sync>,
     event_bridge_client: aws_sdk_eventbridge::Client,
 }
 
@@ -28,15 +27,10 @@ impl LocalStack {
         let config = aws_config::from_env().region(region_provider).load().await;
 
         Self {
-            l2_block_number: get_env_var_or_panic("L2_BLOCK_NUMBER_FOR_TEST"),
             sqs_client: aws_sdk_sqs::Client::new(&config),
             s3_client: Box::new(AWSS3::new(AWSS3Config::new_from_env(), &config)),
             event_bridge_client: aws_sdk_eventbridge::Client::new(&config),
         }
-    }
-
-    pub fn l2_block_number(&self) -> String {
-        self.l2_block_number.clone()
     }
 
     /// To set up SQS on localstack instance
@@ -79,37 +73,6 @@ impl LocalStack {
             .send()
             .await?;
         println!("🌊 SQS queues creation completed.");
-
-        Ok(())
-    }
-
-    /// To set up s3 files needed for e2e testing
-    pub async fn setup_s3(&self) -> color_eyre::Result<()> {
-        self.s3_client.build_test_bucket(&get_env_var_or_panic("AWS_S3_BUCKET_NAME")).await.unwrap();
-
-        // putting the snos output and program output for the given block into localstack s3
-        let snos_output_key = self.l2_block_number.to_string() + "/snos_output.json";
-        let snos_output_json = read("artifacts/snos_output.json").unwrap();
-        self.s3_client.put_data(Bytes::from(snos_output_json), &snos_output_key).await?;
-        println!("✅ snos output file uploaded to localstack s3.");
-
-        let program_output_key = self.l2_block_number.to_string() + "/program_output.txt";
-        let program_output = read(format!("artifacts/program_output_{}.txt", self.l2_block_number)).unwrap();
-        self.s3_client.put_data(Bytes::from(program_output), &program_output_key).await?;
-        println!("✅ program output file uploaded to localstack s3.");
-
-        // getting the PIE file from s3 bucket using URL provided
-        let file = reqwest::get(format!(
-            "https://madara-orchestrator-sharp-pie.s3.amazonaws.com/{}-SN.zip",
-            self.l2_block_number
-        ))
-        .await?;
-        let file_bytes = file.bytes().await?;
-
-        // putting the pie file into localstack s3
-        let s3_file_key = self.l2_block_number.to_string() + "/pie.zip";
-        self.s3_client.put_data(file_bytes, &s3_file_key).await?;
-        println!("✅ PIE file uploaded to localstack s3");
 
         Ok(())
     }
@@ -195,4 +158,37 @@ impl LocalStack {
             Err(_) => Ok(()),
         }
     }
+}
+
+// Tests specific functions
+// ======================================
+
+/// To set up s3 files needed for e2e test (test_orchestrator_workflow)
+pub async fn setup_s3(s3_client: Box<dyn DataStorage + Send + Sync>) -> color_eyre::Result<()> {
+    let l2_block_number = get_env_var_or_panic("L2_BLOCK_NUMBER_FOR_TEST");
+    s3_client.build_test_bucket(&get_env_var_or_panic("AWS_S3_BUCKET_NAME")).await.unwrap();
+
+    // putting the snos output and program output for the given block into localstack s3
+    let snos_output_key = l2_block_number.to_string() + "/snos_output.json";
+    let snos_output_json = read("artifacts/snos_output.json").unwrap();
+    s3_client.put_data(Bytes::from(snos_output_json), &snos_output_key).await?;
+    println!("✅ snos output file uploaded to localstack s3.");
+
+    let program_output_key = l2_block_number.to_string() + "/program_output.txt";
+    let program_output = read(format!("artifacts/program_output_{}.txt", l2_block_number)).unwrap();
+    s3_client.put_data(Bytes::from(program_output), &program_output_key).await?;
+    println!("✅ program output file uploaded to localstack s3.");
+
+    // getting the PIE file from s3 bucket using URL provided
+    let file =
+        reqwest::get(format!("https://madara-orchestrator-sharp-pie.s3.amazonaws.com/{}-SN.zip", l2_block_number))
+            .await?;
+    let file_bytes = file.bytes().await?;
+
+    // putting the pie file into localstack s3
+    let s3_file_key = l2_block_number.to_string() + "/pie.zip";
+    s3_client.put_data(file_bytes, &s3_file_key).await?;
+    println!("✅ PIE file uploaded to localstack s3");
+
+    Ok(())
 }
