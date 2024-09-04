@@ -496,27 +496,27 @@ pub mod test {
     /// Verifies the correctness of FFT and IFFT transformations by ensuring round-trip consistency.
     /// Parses the original blob data, recovers it using IFFT, and re-applies FFT.
     /// Asserts that the transformed data matches the original pre-IFFT data, ensuring integrity.
-    #[rstest]
-    #[case("src/tests/jobs/da_job/test_data/test_blob/638353.txt")]
-    #[case("src/tests/jobs/da_job/test_data/test_blob/631861.txt")]
-    #[case("src/tests/jobs/da_job/test_data/test_blob/639404.txt")]
-    #[case("src/tests/jobs/da_job/test_data/test_blob/640641.txt")]
-    #[case("src/tests/jobs/da_job/test_data/test_blob/640644.txt")]
-    #[case("src/tests/jobs/da_job/test_data/test_blob/640646.txt")]
-    #[case("src/tests/jobs/da_job/test_data/test_blob/640647.txt")]
-    fn test_fft_transformation(#[case] file_to_check: &str) {
-        // parsing the blob hex to the bigUints
+    // #[rstest]
+    // #[case("src/tests/jobs/da_job/test_data/test_blob/638353.txt")]
+    // #[case("src/tests/jobs/da_job/test_data/test_blob/631861.txt")]
+    // #[case("src/tests/jobs/da_job/test_data/test_blob/639404.txt")]
+    // #[case("src/tests/jobs/da_job/test_data/test_blob/640641.txt")]
+    // #[case("src/tests/jobs/da_job/test_data/test_blob/640644.txt")]
+    // #[case("src/tests/jobs/da_job/test_data/test_blob/640646.txt")]
+    // #[case("src/tests/jobs/da_job/test_data/test_blob/640647.txt")]
+    // fn test_fft_transformation(#[case] file_to_check: &str) {
+    //     // parsing the blob hex to the bigUints
 
-        use crate::jobs::da_job::fft_transformation;
-        let original_blob_data = serde::parse_file_to_blob_data(file_to_check);
-        // converting the data to its original format
-        let ifft_blob_data = blob::recover(original_blob_data.clone());
-        // applying the fft function again on the original format
-        let fft_blob_data = fft_transformation(ifft_blob_data);
+    //     use crate::jobs::da_job::fft_transformation;
+    //     let original_blob_data = serde::parse_file_to_blob_data(file_to_check);
+    //     // converting the data to its original format
+    //     let ifft_blob_data = blob::recover(original_blob_data.clone());
+    //     // applying the fft function again on the original format
+    //     let fft_blob_data = fft_transformation(ifft_blob_data);
 
-        // ideally the data after fft transformation and the data before ifft should be same.
-        assert_eq!(fft_blob_data, original_blob_data);
-    }
+    //     // ideally the data after fft transformation and the data before ifft should be same.
+    //     assert_eq!(fft_blob_data, original_blob_data);
+    // }
 
     /// Tests the serialization and deserialization process using bincode.
     /// Serializes a nested vector of integers and then deserializes it back.

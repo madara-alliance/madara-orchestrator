@@ -7,14 +7,14 @@ use tokio::time::sleep;
 use utils::env_utils::get_env_var_or_panic;
 
 use crate::tests::common::{get_sns_client, get_sqs_client};
-use crate::tests::config::TestConfigBuilder;
+use crate::tests::config::{ClientValue, TestConfigBuilder};
 
 pub const SNS_ALERT_TEST_QUEUE: &str = "orchestrator_sns_alert_testing_queue";
 
 #[rstest]
 #[tokio::test]
 async fn sns_alert_subscribe_to_topic_receive_alert_works() {
-    let services = TestConfigBuilder::new().build().await;
+    let services = TestConfigBuilder::new().configure_alerts(ClientValue::Actual).build().await;
 
     let sqs_client = get_sqs_client().await;
     let queue = sqs_client.create_queue().queue_name(SNS_ALERT_TEST_QUEUE).send().await.unwrap();

@@ -60,6 +60,8 @@ async fn test_process_job_works(
 ) {
     // Will be used by storage client which we call while storing the data.
 
+    use crate::tests::config::ClientValue;
+
     dotenvy::from_filename("../.env.test").expect("Failed to load the .env file");
 
     // Mocking the settlement client.
@@ -93,7 +95,11 @@ async fn test_process_job_works(
 
     // Building a temp config that will be used by `fetch_blob_data_for_block` and `fetch_snos_for_block`
     // functions while fetching the blob data from storage client.
-    let services = TestConfigBuilder::new().configure_settlement_client(settlement_client.into()).build().await;
+    let services = TestConfigBuilder::new()
+        .configure_storage_client(ClientValue::Actual)
+        .configure_settlement_client(settlement_client.into())
+        .build()
+        .await;
 
     let storage_client = services.config.storage();
 

@@ -7,17 +7,20 @@ use starknet::providers::{JsonRpcClient, Url};
 use da_client_interface::{DaClient, MockDaClient};
 use prover_client_interface::{MockProverClient, ProverClient};
 use settlement_client_interface::{MockSettlementClient, SettlementClient};
+use utils::env_utils::get_env_var_or_panic;
 use utils::settings::default::DefaultSettingsProvider;
 
 use crate::alerts::{Alerts, MockAlerts};
 use crate::config::{
     build_alert_client, build_da_client, build_database_client, build_prover_service, build_queue_client,
-    build_settlement_client, build_storage_client, Config,
+    build_settlement_client, Config,
 };
 use crate::data_storage::{DataStorage, MockDataStorage};
 use crate::database::{Database, MockDatabase};
 use crate::queue::{MockQueueProvider, QueueProvider};
 use crate::tests::common::{create_sns_arn, create_sqs_queues, drop_database};
+
+use super::common::get_storage_client;
 
 // Inspiration : https://rust-unofficial.github.io/patterns/patterns/creational/builder.html
 // TestConfigBuilder allows to heavily customise the global configs based on the test's requirement.
@@ -198,7 +201,8 @@ impl TestConfigBuilder {
         } = self;
 
         // Usage in your code
-        let starknet_client = init_starknet_client(starknet_client_option).await;
+        let port: u16 = server.port();
+        let starknet_client = init_starknet_client(starknet_client_option, port).await;
         let alerts = init_alerts(alerts_option).await;
         let da_client = init_da_client(da_client_option).await;
 
@@ -261,9 +265,13 @@ async fn init_settlement_client(service: ClientValue) -> Box<dyn SettlementClien
     }
 }
 
-async fn init_starknet_client(service: ClientValue) -> Arc<JsonRpcClient<HttpTransport>> {
-    let provider =
-        || JsonRpcClient::new(HttpTransport::new(Url::parse("http://localhost:8545").expect("Failed to parse URL")));
+async fn init_starknet_client(service: ClientValue, port: u16) -> Arc<JsonRpcClient<HttpTransport>> {
+    let provider = || {
+        JsonRpcClient::new(HttpTransport::new(
+            Url::parse(format!("http://localhost:{}", port).as_str()).expect("Failed to parse URL"),
+        ))
+    };
+
     match service {
         ClientValue::MockBySelf(client) => {
             if let ClientType::StarknetClient(starknet_client) = client {
@@ -307,7 +315,7 @@ async fn init_alerts(service: ClientValue) -> Box<dyn Alerts> {
 }
 
 async fn init_storage_client(service: ClientValue) -> Box<dyn DataStorage> {
-    let aws_config = aws_config::load_from_env().await;
+    // let aws_config = aws_config::load_from_env().await;
     match service {
         ClientValue::MockBySelf(client) => {
             if let ClientType::Storage(storage) = client {
@@ -316,7 +324,14 @@ async fn init_storage_client(service: ClientValue) -> Box<dyn DataStorage> {
                 panic!("MockBySelf client is not a Storage");
             }
         }
-        ClientValue::Actual => build_storage_client(&aws_config).await,
+        ClientValue::Actual => {
+            let storage = get_storage_client().await;
+            match get_env_var_or_panic("DATA_STORAGE").as_str() {
+                "s3" => storage.as_ref().build_test_bucket(&get_env_var_or_panic("AWS_S3_BUCKET_NAME")).await.unwrap(),
+                _ => panic!("Unsupported Storage Client"),
+            }
+            storage
+        }
         ClientValue::Dummy => Box::new(MockDataStorage::new()),
     }
 }

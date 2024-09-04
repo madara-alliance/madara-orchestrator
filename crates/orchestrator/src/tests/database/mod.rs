@@ -2,7 +2,7 @@ use rstest::*;
 use uuid::Uuid;
 
 use crate::jobs::types::{ExternalId, JobItem, JobStatus, JobType};
-use crate::tests::config::TestConfigBuilder;
+use crate::tests::config::{ClientValue, TestConfigBuilder};
 
 #[rstest]
 #[tokio::test]
@@ -16,7 +16,7 @@ async fn test_database_connection() -> color_eyre::Result<()> {
 #[rstest]
 #[tokio::test]
 async fn database_create_job_works() {
-    let services = TestConfigBuilder::new().build().await;
+    let services = TestConfigBuilder::new().configure_database(ClientValue::Actual).build().await;
     let config = services.config;
     let database_client = config.database();
 
@@ -55,7 +55,7 @@ async fn database_create_job_works() {
 #[case(false)]
 #[tokio::test]
 async fn database_get_jobs_without_successor_works(#[case] is_successor: bool) {
-    let services = TestConfigBuilder::new().build().await;
+    let services = TestConfigBuilder::new().configure_database(ClientValue::Actual).build().await;
     let config = services.config;
     let database_client = config.database();
 
@@ -99,7 +99,7 @@ async fn database_get_jobs_without_successor_works(#[case] is_successor: bool) {
 #[rstest]
 #[tokio::test]
 async fn database_get_last_successful_job_by_type_works() {
-    let services = TestConfigBuilder::new().build().await;
+    let services = TestConfigBuilder::new().configure_database(ClientValue::Actual).build().await;
     let config = services.config;
     let database_client = config.database();
 
@@ -127,7 +127,7 @@ async fn database_get_last_successful_job_by_type_works() {
 #[rstest]
 #[tokio::test]
 async fn database_get_jobs_after_internal_id_by_job_type_works() {
-    let services = TestConfigBuilder::new().build().await;
+    let services = TestConfigBuilder::new().configure_database(ClientValue::Actual).build().await;
     let config = services.config;
     let database_client = config.database();
 
@@ -162,7 +162,7 @@ async fn database_get_jobs_after_internal_id_by_job_type_works() {
 #[rstest]
 #[tokio::test]
 async fn database_update_job_status_passing_case_works() {
-    let services = TestConfigBuilder::new().build().await;
+    let services = TestConfigBuilder::new().configure_database(ClientValue::Actual).build().await;
     let config = services.config;
 
     let database_client = config.database();
@@ -181,7 +181,7 @@ async fn database_update_job_status_passing_case_works() {
 #[rstest]
 #[tokio::test]
 async fn database_update_job_status_failing_case_works() {
-    let services = TestConfigBuilder::new().build().await;
+    let services = TestConfigBuilder::new().configure_database(ClientValue::Actual).build().await;
     let config = services.config;
     let database_client = config.database();
 

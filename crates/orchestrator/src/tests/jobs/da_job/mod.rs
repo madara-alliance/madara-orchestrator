@@ -16,7 +16,7 @@ use crate::jobs::types::{ExternalId, JobItem, JobStatus, JobType};
 use crate::jobs::Job;
 use crate::jobs::JobError;
 use crate::tests::common::drop_database;
-use crate::tests::config::TestConfigBuilder;
+use crate::tests::config::{ClientValue, TestConfigBuilder};
 
 /// Tests the DA Job's handling of a blob length exceeding the supported size.
 /// It mocks the DA client to simulate the environment and expects an error on job processing.
@@ -42,7 +42,12 @@ async fn test_da_job_process_job_failure_on_small_blob_size(
     da_client.expect_max_blob_per_txn().with().returning(|| 1);
     da_client.expect_max_bytes_per_blob().with().returning(|| 1200);
 
-    let services = TestConfigBuilder::new().configure_da_client(da_client.into()).build().await;
+    let services = TestConfigBuilder::new()
+        .configure_starknet_client(ClientValue::Actual)
+        .configure_storage_client(ClientValue::Actual)
+        .configure_da_client(da_client.into())
+        .build()
+        .await;
 
     let state_update = read_state_update_from_file(state_update_file.as_str()).expect("issue while reading");
 
@@ -82,7 +87,7 @@ async fn test_da_job_process_job_failure_on_small_blob_size(
     );
 
     state_update_mock.assert();
-    let _ = drop_database().await;
+    // let _ = drop_database().await;
 }
 
 /// Tests DA Job processing failure when a block is in pending state.
@@ -92,7 +97,11 @@ async fn test_da_job_process_job_failure_on_small_blob_size(
 #[rstest]
 #[tokio::test]
 async fn test_da_job_process_job_failure_on_pending_block() {
-    let services = TestConfigBuilder::new().build().await;
+    let services = TestConfigBuilder::new()
+        .configure_starknet_client(ClientValue::Actual)
+        .configure_da_client(ClientValue::Actual)
+        .build()
+        .await;
     let server = services.server;
     let internal_id = "1";
 
@@ -177,7 +186,11 @@ async fn test_da_job_process_job_success(
     da_client.expect_max_blob_per_txn().with().returning(|| 6);
     da_client.expect_max_bytes_per_blob().with().returning(|| 131072);
 
-    let services = TestConfigBuilder::new().configure_da_client(da_client.into()).build().await;
+    let services = TestConfigBuilder::new()
+        .configure_storage_client(ClientValue::Actual)
+        .configure_da_client(da_client.into())
+        .build()
+        .await;
     let server = services.server;
 
     let state_update = read_state_update_from_file(state_update_file.as_str()).expect("issue while reading");
