@@ -13,11 +13,11 @@ aws-sdk-sqs.workspace = true
 bytes = "1.6.0"
 color-eyre.workspace = true
 dotenvy.workspace = true
+ethereum-settlement-client.workspace = true
 httpmock.workspace = true
 log.workspace = true
 mongodb.workspace = true
 orchestrator.workspace = true
-ethereum-settlement-client.workspace = true
 reqwest = { workspace = true, features = ["json"] }
 serde.workspace = true
 serde_json.workspace = true
