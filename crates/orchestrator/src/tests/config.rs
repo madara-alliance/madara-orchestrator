@@ -1,5 +1,6 @@
 use std::sync::Arc;
 
+use aws_config::SdkConfig;
 use httpmock::MockServer;
 use starknet::providers::jsonrpc::HttpTransport;
 use starknet::providers::{JsonRpcClient, Url};
@@ -75,22 +76,22 @@ impl_mock_from! {
 // TestBuilder for Config
 pub struct TestConfigBuilder {
     /// The starknet client to get data from the node
-    starknet_client_option: ConfigType,
+    starknet_client_type: ConfigType,
     /// The DA client to interact with the DA layer
-    da_client_option: ConfigType,
+    da_client_type: ConfigType,
     /// The service that produces proof and registers it on chain
-    prover_client_option: ConfigType,
+    prover_client_type: ConfigType,
     /// Settlement client
-    settlement_client_option: ConfigType,
+    settlement_client_type: ConfigType,
 
     /// Alerts client
-    alerts_option: ConfigType,
+    alerts_type: ConfigType,
     /// The database client
-    database_option: ConfigType,
+    database_type: ConfigType,
     /// Queue client
-    queue_option: ConfigType,
+    queue_type: ConfigType,
     /// Storage client
-    storage_option: ConfigType,
+    storage_type: ConfigType,
 }
 
 impl Default for TestConfigBuilder {
@@ -102,96 +103,98 @@ impl Default for TestConfigBuilder {
 pub struct TestConfigBuilderReturns {
     pub server: Option<MockServer>,
     pub config: Arc<Config>,
+    pub aws_config: SdkConfig,
 }
 impl TestConfigBuilder {
     /// Create a new config
     pub fn new() -> TestConfigBuilder {
         TestConfigBuilder {
-            starknet_client_option: ConfigType::Dummy,
-            da_client_option: ConfigType::Dummy,
-            prover_client_option: ConfigType::Dummy,
-            settlement_client_option: ConfigType::Dummy,
-            database_option: ConfigType::Dummy,
-            queue_option: ConfigType::Dummy,
-            storage_option: ConfigType::Dummy,
-            alerts_option: ConfigType::Dummy,
+            starknet_client_type: ConfigType::Dummy,
+            da_client_type: ConfigType::Dummy,
+            prover_client_type: ConfigType::Dummy,
+            settlement_client_type: ConfigType::Dummy,
+            database_type: ConfigType::Dummy,
+            queue_type: ConfigType::Dummy,
+            storage_type: ConfigType::Dummy,
+            alerts_type: ConfigType::Dummy,
         }
     }
 
-    pub fn configure_da_client(mut self, da_client_option: ConfigType) -> TestConfigBuilder {
-        self.da_client_option = da_client_option;
+    pub fn configure_da_client(mut self, da_client_type: ConfigType) -> TestConfigBuilder {
+        self.da_client_type = da_client_type;
         self
     }
 
-    pub fn configure_settlement_client(mut self, settlement_client_option: ConfigType) -> TestConfigBuilder {
-        self.settlement_client_option = settlement_client_option;
+    pub fn configure_settlement_client(mut self, settlement_client_type: ConfigType) -> TestConfigBuilder {
+        self.settlement_client_type = settlement_client_type;
         self
     }
 
-    pub fn configure_starknet_client(mut self, starknet_client_option: ConfigType) -> TestConfigBuilder {
-        self.starknet_client_option = starknet_client_option;
+    pub fn configure_starknet_client(mut self, starknet_client_type: ConfigType) -> TestConfigBuilder {
+        self.starknet_client_type = starknet_client_type;
         self
     }
 
-    pub fn configure_prover_client(mut self, prover_client_option: ConfigType) -> TestConfigBuilder {
-        self.prover_client_option = prover_client_option;
+    pub fn configure_prover_client(mut self, prover_client_type: ConfigType) -> TestConfigBuilder {
+        self.prover_client_type = prover_client_type;
         self
     }
 
     pub fn configure_alerts(mut self, alert_option: ConfigType) -> TestConfigBuilder {
-        self.alerts_option = alert_option;
+        self.alerts_type = alert_option;
         self
     }
 
     pub fn configure_storage_client(mut self, storage_client_option: ConfigType) -> TestConfigBuilder {
-        self.storage_option = storage_client_option;
+        self.storage_type = storage_client_option;
         self
     }
 
-    pub fn configure_queue_client(mut self, queue_option: ConfigType) -> TestConfigBuilder {
-        self.queue_option = queue_option;
+    pub fn configure_queue_client(mut self, queue_type: ConfigType) -> TestConfigBuilder {
+        self.queue_type = queue_type;
         self
     }
-    pub fn configure_database(mut self, database_option: ConfigType) -> TestConfigBuilder {
-        self.database_option = database_option;
+    pub fn configure_database(mut self, database_type: ConfigType) -> TestConfigBuilder {
+        self.database_type = database_type;
         self
     }
 
     pub async fn build(self) -> TestConfigBuilderReturns {
         dotenvy::from_filename("../.env.test").expect("Failed to load the .env file");
+
+        let aws_config = aws_config::load_from_env().await;
+
         use std::sync::Arc;
 
         let TestConfigBuilder {
-            starknet_client_option,
-            alerts_option,
-            da_client_option,
-            prover_client_option,
-            settlement_client_option,
-            database_option,
-            queue_option,
-            storage_option,
+            starknet_client_type,
+            alerts_type,
+            da_client_type,
+            prover_client_type,
+            settlement_client_type,
+            database_type,
+            queue_type,
+            storage_type,
         } = self;
 
-        // Usage in your code
+        let (starknet_client, server) = init_starknet_client(starknet_client_type).await;
+        let alerts = init_alerts(alerts_type, &aws_config).await;
+        let da_client = init_da_client(da_client_type).await;
 
-        let (starknet_client, server) = init_starknet_client(starknet_client_option).await;
-        let alerts = init_alerts(alerts_option).await;
-        let da_client = init_da_client(da_client_option).await;
+        let settlement_client = init_settlement_client(settlement_client_type).await;
 
-        let settlement_client = init_settlement_client(settlement_client_option).await;
-
-        let prover_client = init_prover_client(prover_client_option).await;
+        let prover_client = init_prover_client(prover_client_type).await;
 
         // External Dependencies
-        let storage = init_storage_client(storage_option).await;
-        let database = init_database(database_option).await;
-        let queue = init_queue_client(queue_option).await;
+        let storage = init_storage_client(storage_type).await;
+        let database = init_database(database_type).await;
+        let queue = init_queue_client(queue_type).await;
         // Deleting and Creating the queues in sqs.
         create_sqs_queues().await.expect("Not able to delete and create the queues.");
         // Deleting the database
         drop_database().await.expect("Unable to drop the database.");
         // Creating the SNS ARN
-        create_sns_arn().await.expect("Unable to create the sns arn");
+        create_sns_arn(&aws_config).await.expect("Unable to create the sns arn");
 
         let config = Arc::new(Config::new(
             starknet_client,
@@ -204,7 +207,7 @@ impl TestConfigBuilder {
             alerts,
         ));
 
-        TestConfigBuilderReturns { server, config }
+        TestConfigBuilderReturns { server, config, aws_config }
     }
 }
 
@@ -243,10 +246,10 @@ async fn init_prover_client(service: ConfigType) -> Box<dyn ProverClient> {
     }
 }
 
-async fn init_alerts(service: ConfigType) -> Box<dyn Alerts> {
+async fn init_alerts(service: ConfigType, aws_config: &SdkConfig) -> Box<dyn Alerts> {
     match service {
         ConfigType::Mock(client) => impl_mock_match!(client, MockType::Alerts, Alerts),
-        ConfigType::Actual => build_alert_client().await,
+        ConfigType::Actual => build_alert_client(aws_config).await,
         ConfigType::Dummy => Box::new(MockAlerts::new()),
     }
 }
@@ -267,10 +270,9 @@ async fn init_storage_client(service: ConfigType) -> Box<dyn DataStorage> {
 }
 
 async fn init_queue_client(service: ConfigType) -> Box<dyn QueueProvider> {
-    let aws_config = aws_config::load_from_env().await;
     match service {
         ConfigType::Mock(client) => impl_mock_match!(client, MockType::Queue, Queue),
-        ConfigType::Actual => build_queue_client(&aws_config),
+        ConfigType::Actual => build_queue_client(),
         ConfigType::Dummy => Box::new(MockQueueProvider::new()),
     }
 }
