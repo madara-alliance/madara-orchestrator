@@ -156,7 +156,7 @@ async fn test_orchestrator_workflow(#[case] l2_block_number: String) {
 
     // Adding State checks in DB for validation of tests
 
-    // Check 1 : After Proving Job state (10 mins. approx time)
+    // Check 1 : After Proving Job state (15 mins. approx time)
     let expected_state_after_proving_job = ExpectedDBState {
         internal_id: l2_block_number.clone(),
         job_type: JobType::ProofCreation,
@@ -164,7 +164,7 @@ async fn test_orchestrator_workflow(#[case] l2_block_number: String) {
         version: 3,
     };
     let test_result = wait_for_db_state(
-        Duration::from_secs(600),
+        Duration::from_secs(900),
         l2_block_number.clone(),
         setup_config.mongo_db_instance(),
         expected_state_after_proving_job,

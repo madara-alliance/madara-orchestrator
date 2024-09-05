@@ -118,7 +118,7 @@ where
     F: FnOnce(Uuid) -> Fut,
     Fut: Future<Output = Result<(), JobError>>,
 {
-    log::info!("Consuming from queue {:?}", queue);
+    log::debug!("Consuming from queue {:?}", queue);
     let delivery = get_delivery_from_queue(&queue).await?;
 
     let message = match delivery {
@@ -145,7 +145,7 @@ where
     F: FnOnce(Box<dyn Worker>) -> Fut,
     Fut: Future<Output = color_eyre::Result<()>>,
 {
-    log::info!("Consuming from queue {:?}", queue);
+    log::debug!("Consuming from queue {:?}", queue);
     let delivery = get_delivery_from_queue(&queue).await?;
 
     let message = match delivery {
