@@ -69,6 +69,8 @@ impl MongoDb {
         Ok(())
     }
 
+    // TODO : remove this function
+    // Do this process in single db transaction.
     /// To update the document version
     async fn post_job_update(&self, current_job: &JobItem) -> Result<()> {
         let filter = doc! {
