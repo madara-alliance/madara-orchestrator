@@ -16,7 +16,7 @@ use crate::jobs::types::{ExternalId, JobItem, JobStatus, JobType};
 use crate::jobs::Job;
 use crate::jobs::JobError;
 use crate::tests::common::drop_database;
-use crate::tests::config::{ClientValue, TestConfigBuilder};
+use crate::tests::config::{ConfigType, TestConfigBuilder};
 
 /// Tests the DA Job's handling of a blob length exceeding the supported size.
 /// It mocks the DA client to simulate the environment and expects an error on job processing.
@@ -43,8 +43,8 @@ async fn test_da_job_process_job_failure_on_small_blob_size(
     da_client.expect_max_bytes_per_blob().with().returning(|| 1200);
 
     let services = TestConfigBuilder::new()
-        .configure_starknet_client(ClientValue::Actual)
-        .configure_storage_client(ClientValue::Actual)
+        .configure_starknet_client(ConfigType::Actual)
+        .configure_storage_client(ConfigType::Actual)
         .configure_da_client(da_client.into())
         .build()
         .await;
@@ -54,9 +54,10 @@ async fn test_da_job_process_job_failure_on_small_blob_size(
     let state_update = MaybePendingStateUpdate::Update(state_update);
     let state_update = serde_json::to_value(&state_update).unwrap();
     let response = json!({ "id": 640641,"jsonrpc":"2.0","result": state_update });
-    get_nonce_attached(&services.server, nonces_file.as_str());
+    let server = services.server.unwrap();
+    get_nonce_attached(&server, nonces_file.as_str());
 
-    let state_update_mock = services.server.mock(|when, then| {
+    let state_update_mock = server.mock(|when, then| {
         when.path("/").body_contains("starknet_getStateUpdate");
         then.status(200).body(serde_json::to_vec(&response).unwrap());
     });
@@ -98,11 +99,11 @@ async fn test_da_job_process_job_failure_on_small_blob_size(
 #[tokio::test]
 async fn test_da_job_process_job_failure_on_pending_block() {
     let services = TestConfigBuilder::new()
-        .configure_starknet_client(ClientValue::Actual)
-        .configure_da_client(ClientValue::Actual)
+        .configure_starknet_client(ConfigType::Actual)
+        .configure_da_client(ConfigType::Actual)
         .build()
         .await;
-    let server = services.server;
+    let server = services.server.unwrap();
     let internal_id = "1";
 
     let pending_state_update = MaybePendingStateUpdate::PendingUpdate(PendingStateUpdate {
@@ -187,11 +188,11 @@ async fn test_da_job_process_job_success(
     da_client.expect_max_bytes_per_blob().with().returning(|| 131072);
 
     let services = TestConfigBuilder::new()
-        .configure_storage_client(ClientValue::Actual)
+        .configure_storage_client(ConfigType::Actual)
         .configure_da_client(da_client.into())
         .build()
         .await;
-    let server = services.server;
+    let server = services.server.unwrap();
 
     let state_update = read_state_update_from_file(state_update_file.as_str()).expect("issue while reading");
 
