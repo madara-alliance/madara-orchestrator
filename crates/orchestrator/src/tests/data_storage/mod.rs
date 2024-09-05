@@ -2,7 +2,7 @@ use bytes::Bytes;
 use rstest::rstest;
 use serde_json::json;
 
-use crate::tests::config::{ClientValue, TestConfigBuilder};
+use crate::tests::config::{ConfigType, TestConfigBuilder};
 
 /// This test checks the ability to put and get data from AWS S3 using `AWSS3`.
 /// It puts JSON data into a test bucket and retrieves it, verifying the data
@@ -11,7 +11,7 @@ use crate::tests::config::{ClientValue, TestConfigBuilder};
 #[rstest]
 #[tokio::test]
 async fn test_put_and_get_data_s3() -> color_eyre::Result<()> {
-    let services = TestConfigBuilder::new().configure_storage_client(ClientValue::Actual).build().await;
+    let services = TestConfigBuilder::new().configure_storage_client(ConfigType::Actual).build().await;
 
     dotenvy::from_filename("../.env.test")?;
 

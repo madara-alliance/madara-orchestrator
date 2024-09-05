@@ -58,8 +58,6 @@ async fn test_proving_worker(#[case] incomplete_runs: bool) -> Result<(), Box<dy
             db_checks_proving_worker(i, &mut db, &mut job_handler);
         }
 
-        // prover_client.expect_submit_task().times(4).returning(|_| Ok("task_id".to_string()));
-
         // Queue function call simulations
         queue
             .expect_send_message_to_queue()
@@ -76,8 +74,6 @@ async fn test_proving_worker(#[case] incomplete_runs: bool) -> Result<(), Box<dy
             .times(1)
             .withf(|_, _, _| true)
             .returning(move |_, _, _| Ok(get_job_by_mock_id_vector(JobType::ProofCreation, JobStatus::Created, 5, 1)));
-
-        // prover_client.expect_submit_task().times(5).returning(|_| Ok("task_id".to_string()));
 
         // Queue function call simulations
         queue

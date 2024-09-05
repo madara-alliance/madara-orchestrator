@@ -18,7 +18,7 @@ use crate::jobs::types::{ExternalId, JobItem, JobVerificationStatus};
 use crate::jobs::{create_job, increment_key_in_metadata, process_job, verify_job, Job, MockJob};
 use crate::queue::job_queue::{JOB_PROCESSING_QUEUE, JOB_VERIFICATION_QUEUE};
 use crate::tests::common::MessagePayloadType;
-use crate::tests::config::ClientValue;
+use crate::tests::config::ConfigType;
 use crate::{jobs::types::JobStatus, tests::config::TestConfigBuilder};
 
 use super::database::build_job_item;
@@ -44,8 +44,8 @@ async fn create_job_job_does_not_exists_in_db_works() {
     job_handler.expect_create_job().times(1).returning(move |_, _, _| Ok(job_item_clone.clone()));
 
     let services = TestConfigBuilder::new()
-        .configure_database(ClientValue::Actual)
-        .configure_queue_client(ClientValue::Actual)
+        .configure_database(ConfigType::Actual)
+        .configure_queue_client(ConfigType::Actual)
         .build()
         .await;
 
@@ -83,8 +83,8 @@ async fn create_job_job_exists_in_db_works() {
     let job_item = build_job_item_by_type_and_status(JobType::ProofCreation, JobStatus::Created, "0".to_string());
 
     let services = TestConfigBuilder::new()
-        .configure_database(ClientValue::Actual)
-        .configure_queue_client(ClientValue::Actual)
+        .configure_database(ConfigType::Actual)
+        .configure_queue_client(ConfigType::Actual)
         .build()
         .await;
 
@@ -111,8 +111,8 @@ async fn create_job_job_exists_in_db_works() {
 #[tokio::test]
 async fn create_job_job_handler_is_not_implemented_panics() {
     let services = TestConfigBuilder::new()
-        .configure_database(ClientValue::Actual)
-        .configure_queue_client(ClientValue::Actual)
+        .configure_database(ConfigType::Actual)
+        .configure_queue_client(ConfigType::Actual)
         .build()
         .await;
 
@@ -147,8 +147,8 @@ async fn process_job_with_job_exists_in_db_and_valid_job_processing_status_works
 
     // Building config
     let services = TestConfigBuilder::new()
-        .configure_database(ClientValue::Actual)
-        .configure_queue_client(ClientValue::Actual)
+        .configure_database(ConfigType::Actual)
+        .configure_queue_client(ConfigType::Actual)
         .build()
         .await;
     let database_client = services.config.database();
@@ -194,8 +194,8 @@ async fn process_job_with_job_exists_in_db_with_invalid_job_processing_status_er
 
     // building config
     let services = TestConfigBuilder::new()
-        .configure_database(ClientValue::Actual)
-        .configure_queue_client(ClientValue::Actual)
+        .configure_database(ConfigType::Actual)
+        .configure_queue_client(ConfigType::Actual)
         .build()
         .await;
     let database_client = services.config.database();
@@ -228,8 +228,8 @@ async fn process_job_job_does_not_exists_in_db_works() {
 
     // building config
     let services = TestConfigBuilder::new()
-        .configure_database(ClientValue::Actual)
-        .configure_queue_client(ClientValue::Actual)
+        .configure_database(ConfigType::Actual)
+        .configure_queue_client(ConfigType::Actual)
         .build()
         .await;
 
@@ -263,8 +263,8 @@ async fn process_job_two_workers_process_same_job_works() {
 
     // building config
     let services = TestConfigBuilder::new()
-        .configure_database(ClientValue::Actual)
-        .configure_queue_client(ClientValue::Actual)
+        .configure_database(ConfigType::Actual)
+        .configure_queue_client(ConfigType::Actual)
         .build()
         .await;
     let db_client = services.config.database();
@@ -307,8 +307,8 @@ async fn verify_job_with_verified_status_works() {
 
     // building config
     let services = TestConfigBuilder::new()
-        .configure_database(ClientValue::Actual)
-        .configure_queue_client(ClientValue::Actual)
+        .configure_database(ConfigType::Actual)
+        .configure_queue_client(ConfigType::Actual)
         .build()
         .await;
 
@@ -354,8 +354,8 @@ async fn verify_job_with_rejected_status_adds_to_queue_works() {
 
     // building config
     let services = TestConfigBuilder::new()
-        .configure_database(ClientValue::Actual)
-        .configure_queue_client(ClientValue::Actual)
+        .configure_database(ConfigType::Actual)
+        .configure_queue_client(ConfigType::Actual)
         .build()
         .await;
 
@@ -403,8 +403,8 @@ async fn verify_job_with_rejected_status_works() {
 
     // building config
     let services = TestConfigBuilder::new()
-        .configure_database(ClientValue::Actual)
-        .configure_queue_client(ClientValue::Actual)
+        .configure_database(ConfigType::Actual)
+        .configure_queue_client(ConfigType::Actual)
         .build()
         .await;
 
@@ -448,8 +448,8 @@ async fn verify_job_with_pending_status_adds_to_queue_works() {
 
     // building config
     let services = TestConfigBuilder::new()
-        .configure_database(ClientValue::Actual)
-        .configure_queue_client(ClientValue::Actual)
+        .configure_database(ConfigType::Actual)
+        .configure_queue_client(ConfigType::Actual)
         .build()
         .await;
 
@@ -500,8 +500,8 @@ async fn verify_job_with_pending_status_works() {
 
     // building config
     let services = TestConfigBuilder::new()
-        .configure_database(ClientValue::Actual)
-        .configure_queue_client(ClientValue::Actual)
+        .configure_database(ConfigType::Actual)
+        .configure_queue_client(ConfigType::Actual)
         .build()
         .await;
 
@@ -562,8 +562,8 @@ fn build_job_item_by_type_and_status(job_type: JobType, job_status: JobStatus, i
 #[tokio::test]
 async fn handle_job_failure_with_failed_job_status_works(#[case] job_type: JobType, #[case] job_status: JobStatus) {
     let services = TestConfigBuilder::new()
-        .configure_database(ClientValue::Actual)
-        .configure_queue_client(ClientValue::Actual)
+        .configure_database(ConfigType::Actual)
+        .configure_queue_client(ConfigType::Actual)
         .build()
         .await;
 
@@ -596,8 +596,8 @@ async fn handle_job_failure_with_failed_job_status_works(#[case] job_type: JobTy
 #[tokio::test]
 async fn handle_job_failure_with_correct_job_status_works(#[case] job_type: JobType, #[case] job_status: JobStatus) {
     let services = TestConfigBuilder::new()
-        .configure_database(ClientValue::Actual)
-        .configure_queue_client(ClientValue::Actual)
+        .configure_database(ConfigType::Actual)
+        .configure_queue_client(ConfigType::Actual)
         .build()
         .await;
 
@@ -635,8 +635,8 @@ async fn handle_job_failure_job_status_completed_works(#[case] job_type: JobType
     let job_status = JobStatus::Completed;
 
     let services = TestConfigBuilder::new()
-        .configure_database(ClientValue::Actual)
-        .configure_queue_client(ClientValue::Actual)
+        .configure_database(ConfigType::Actual)
+        .configure_queue_client(ConfigType::Actual)
         .build()
         .await;
 
