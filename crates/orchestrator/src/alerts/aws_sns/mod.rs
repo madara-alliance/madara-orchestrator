@@ -13,12 +13,6 @@ impl AWSSNS {
     pub async fn new(config: &SdkConfig) -> Self {
         AWSSNS { client: Client::new(config) }
     }
-
-    /// To create a new SNS client from the environment variables
-    pub async fn new_from_env() -> Self {
-        let config = aws_config::from_env().load().await;
-        AWSSNS { client: Client::new(&config) }
-    }
 }
 
 #[async_trait]
