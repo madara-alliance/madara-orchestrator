@@ -1,18 +1,11 @@
-use crate::settings::{GetSettings, SettingsProvider, SettingsProviderError};
-use serde::de::DeserializeOwned;
+use crate::env_utils::get_env_var_or_panic;
+use crate::settings::{Settings, SettingsProviderError};
 
 #[derive(Debug, Clone, Default)]
 pub struct EnvSettingsProvider {}
 
-impl SettingsProvider for EnvSettingsProvider {
-    fn get_default_settings<T: DeserializeOwned + Default>(
-        &self,
-        _section: &'static str,
-    ) -> Result<T, SettingsProviderError> {
-        todo!()
-    }
-
-    fn get_settings<T: GetSettings>(&self, _name: &'static str) -> Result<T, SettingsProviderError> {
-        Ok(T::get_settings())
+impl Settings for EnvSettingsProvider {
+    fn get_settings(&self, name: &'static str) -> Result<String, SettingsProviderError> {
+        Ok(get_env_var_or_panic(name))
     }
 }

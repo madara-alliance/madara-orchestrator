@@ -1,6 +1,5 @@
 use serde::{Deserialize, Serialize};
-use utils::env_utils::get_env_var_or_panic;
-use utils::settings::GetSettings;
+use utils::settings::Settings;
 
 #[derive(Clone, Serialize, Deserialize)]
 pub struct AWSSNSConfig {
@@ -10,14 +9,11 @@ pub struct AWSSNSConfig {
     pub sns_arn_region: String,
 }
 
-impl Default for AWSSNSConfig {
-    fn default() -> Self {
-        Self { sns_arn: get_env_var_or_panic("AWS_SNS_ARN"), sns_arn_region: get_env_var_or_panic("AWS_SNS_REGION") }
-    }
-}
-
-impl GetSettings for AWSSNSConfig {
-    fn get_settings() -> Self {
-        Self { sns_arn: get_env_var_or_panic("AWS_SNS_ARN"), sns_arn_region: get_env_var_or_panic("AWS_SNS_REGION") }
+impl AWSSNSConfig {
+    pub fn new_with_settings(settings: &impl Settings) -> color_eyre::Result<Self> {
+        Ok(Self {
+            sns_arn: settings.get_settings("AWS_SNS_ARN")?,
+            sns_arn_region: settings.get_settings("AWS_SNS_REGION")?,
+        })
     }
 }

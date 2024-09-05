@@ -14,7 +14,7 @@ use mockall::predicate::*;
 use reqwest::Client;
 use std::str::FromStr;
 use url::Url;
-use utils::settings::SettingsProvider;
+use utils::settings::Settings;
 
 pub const DA_SETTINGS_NAME: &str = "ethereum";
 
@@ -47,16 +47,9 @@ impl DaClient for EthereumDaClient {
 }
 
 impl EthereumDaClient {
-    pub fn with_default_settings(settings: &impl SettingsProvider) -> Self {
-        let config: EthereumDaConfig = settings.get_default_settings(DA_SETTINGS_NAME).unwrap();
-        let client =
-            RpcClient::new_http(Url::from_str(config.rpc_url.as_str()).expect("Failed to parse SETTLEMENT_RPC_URL"));
-        let provider = ProviderBuilder::<_, Ethereum>::new().on_client(client);
-        EthereumDaClient { provider }
-    }
-
-    pub fn with_env_settings(settings: &impl SettingsProvider) -> Self {
-        let config: EthereumDaConfig = settings.get_settings(DA_SETTINGS_NAME).unwrap();
+    pub fn new_with_settings(settings: &impl Settings) -> Self {
+        let config = EthereumDaConfig::new_with_settings(settings)
+            .expect("Not able to create EthereumDaClient from given settings.");
         let client =
             RpcClient::new_http(Url::from_str(config.rpc_url.as_str()).expect("Failed to parse SETTLEMENT_RPC_URL"));
         let provider = ProviderBuilder::<_, Ethereum>::new().on_client(client);

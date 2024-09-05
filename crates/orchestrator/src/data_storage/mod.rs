@@ -5,6 +5,7 @@ use async_trait::async_trait;
 use bytes::Bytes;
 use color_eyre::Result;
 use mockall::automock;
+use utils::settings::Settings;
 
 /// DataStorage trait contains the functions used to store and get the data from
 /// the cloud provider storage.
@@ -26,5 +27,5 @@ pub trait DataStorage: Send + Sync {
 pub trait DataStorageConfig {
     /// Get a config file from environment vars in system or
     /// dotenv file.
-    fn new_from_env() -> Self;
+    fn new_with_settings(settings: &impl Settings) -> Self;
 }

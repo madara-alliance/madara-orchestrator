@@ -1,6 +1,5 @@
 use serde::{Deserialize, Serialize};
-use utils::env_utils::get_env_var_or_panic;
-use utils::settings::GetSettings;
+use utils::settings::Settings;
 
 use crate::data_storage::DataStorageConfig;
 
@@ -14,20 +13,11 @@ pub struct AWSS3Config {
 /// Implementation of `DataStorageConfig` for `AWSS3Config`
 impl DataStorageConfig for AWSS3Config {
     /// To return the config struct by creating it from the environment variables.
-    fn new_from_env() -> Self {
-        Self { bucket_name: get_env_var_or_panic("AWS_S3_BUCKET_NAME") }
-    }
-}
-
-impl Default for AWSS3Config {
-    /// Default config for aws s3
-    fn default() -> Self {
-        Self { bucket_name: get_env_var_or_panic("AWS_S3_BUCKET_NAME") }
-    }
-}
-
-impl GetSettings for AWSS3Config {
-    fn get_settings() -> Self {
-        Self { bucket_name: get_env_var_or_panic("AWS_S3_BUCKET_NAME") }
+    fn new_with_settings(settings: &impl Settings) -> Self {
+        Self {
+            bucket_name: settings
+                .get_settings("AWS_S3_BUCKET_NAME")
+                .expect("Not able to get AWS_S3_BUCKET_NAME from settings provided."),
+        }
     }
 }

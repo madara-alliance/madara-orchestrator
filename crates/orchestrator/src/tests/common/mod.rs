@@ -10,7 +10,6 @@ use mongodb::Client;
 use rstest::*;
 use serde::Deserialize;
 use utils::env_utils::get_env_var_or_panic;
-use utils::settings::default::DefaultSettingsProvider;
 use utils::settings::env::EnvSettingsProvider;
 
 use crate::data_storage::aws_s3::AWSS3;
@@ -55,7 +54,7 @@ pub async fn get_sns_client() -> aws_sdk_sns::client::Client {
 }
 
 pub async fn drop_database() -> color_eyre::Result<()> {
-    let db_client: Client = MongoDb::with_settings(&DefaultSettingsProvider {}).await.client();
+    let db_client: Client = MongoDb::new_with_settings(&EnvSettingsProvider {}).await.client();
     // dropping all the collection.
     // use .collection::<JobItem>("<collection_name>")
     // if only particular collection is to be dropped
@@ -98,5 +97,5 @@ pub struct MessagePayloadType {
 }
 
 pub async fn get_storage_client() -> Box<dyn DataStorage + Send + Sync> {
-    Box::new(AWSS3::with_env_settings(&EnvSettingsProvider {}).await)
+    Box::new(AWSS3::new_with_settings(&EnvSettingsProvider {}).await)
 }

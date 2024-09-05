@@ -114,7 +114,7 @@ impl TestConfigBuilder {
 
         // init database
         if self.database.is_none() {
-            self.database = Some(Box::new(MongoDb::with_env_settings(&settings_provider).await));
+            self.database = Some(Box::new(MongoDb::new_with_settings(&settings_provider).await));
         }
 
         // init the DA client

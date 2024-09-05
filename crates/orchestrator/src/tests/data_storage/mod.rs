@@ -14,7 +14,7 @@ use utils::settings::env::EnvSettingsProvider;
 #[tokio::test]
 async fn test_put_and_get_data_s3() -> color_eyre::Result<()> {
     dotenvy::from_filename("../.env.test")?;
-    let s3_client = AWSS3::with_env_settings(&EnvSettingsProvider {}).await;
+    let s3_client = AWSS3::new_with_settings(&EnvSettingsProvider {}).await;
     s3_client.build_test_bucket(&get_env_var_or_panic("AWS_S3_BUCKET_NAME")).await.unwrap();
 
     let mock_data = json!(

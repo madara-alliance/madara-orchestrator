@@ -26,10 +26,10 @@ use mockall::{automock, lazy_static, predicate::*};
 
 use alloy::providers::ProviderBuilder;
 use conversion::{get_input_data_for_eip_4844, prepare_sidecar};
-use settlement_client_interface::{SettlementClient, SettlementVerificationStatus, SETTLEMENT_SETTINGS_NAME};
+use settlement_client_interface::{SettlementClient, SettlementConfig, SettlementVerificationStatus};
 #[cfg(test)]
 use url::Url;
-use utils::{env_utils::get_env_var_or_panic, settings::SettingsProvider};
+use utils::env_utils::get_env_var_or_panic;
 
 use crate::clients::interfaces::validity_interface::StarknetValidityContractTrait;
 use crate::clients::StarknetValidityContractClient;
@@ -43,6 +43,7 @@ pub mod conversion;
 mod tests;
 pub mod types;
 
+use utils::settings::Settings;
 use {alloy::providers::RootProvider, alloy::transports::http::Http, reqwest::Client};
 
 pub const ENV_PRIVATE_KEY: &str = "ETHEREUM_PRIVATE_KEY";
@@ -65,43 +66,8 @@ pub struct EthereumSettlementClient {
 }
 
 impl EthereumSettlementClient {
-    pub fn with_default_settings(settings: &impl SettingsProvider) -> Self {
-        let settlement_cfg: EthereumSettlementConfig = settings.get_default_settings(SETTLEMENT_SETTINGS_NAME).unwrap();
-
-        let private_key = get_env_var_or_panic(ENV_PRIVATE_KEY);
-        let signer: PrivateKeySigner = private_key.parse().expect("Failed to parse private key");
-        let wallet_address = signer.address();
-        let wallet = EthereumWallet::from(signer);
-
-        // provider without wallet
-        let provider = Arc::new(ProviderBuilder::new().on_http(settlement_cfg.rpc_url.clone()));
-
-        // provider with wallet
-        let filler_provider = Arc::new(
-            ProviderBuilder::new().with_recommended_fillers().wallet(wallet.clone()).on_http(settlement_cfg.rpc_url),
-        );
-
-        let core_contract_client = StarknetValidityContractClient::new(
-            Address::from_str(&settlement_cfg.core_contract_address)
-                .expect("Failed to convert the validity contract address.")
-                .0
-                .into(),
-            filler_provider,
-        );
-
-        EthereumSettlementClient {
-            provider,
-            core_contract_client,
-            wallet,
-            wallet_address,
-            #[cfg(test)]
-            impersonate_account: None,
-        }
-    }
-
-    pub fn with_env_settings(settings: &impl SettingsProvider) -> Self {
-        let settlement_cfg: EthereumSettlementConfig = settings.get_settings(SETTLEMENT_SETTINGS_NAME).unwrap();
-
+    pub fn new_with_settings(settings: &impl Settings) -> Self {
+        let settlement_cfg = EthereumSettlementConfig::new_with_settings(settings);
         let private_key = get_env_var_or_panic(ENV_PRIVATE_KEY);
         let signer: PrivateKeySigner = private_key.parse().expect("Failed to parse private key");
         let wallet_address = signer.address();

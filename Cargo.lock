@@ -8287,6 +8287,7 @@ dependencies = [
  "color-eyre",
  "mockall 0.12.1",
  "starknet",
+ "utils",
 ]
 
 [[package]]
@@ -8365,6 +8366,7 @@ dependencies = [
  "async-trait",
  "base64 0.22.1",
  "cairo-vm 1.0.0-rc3",
+ "color-eyre",
  "dotenvy",
  "gps-fact-checker",
  "hex",
