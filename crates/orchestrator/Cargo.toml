@@ -24,7 +24,7 @@ aws-sdk-sqs = { workspace = true }
 axum = { workspace = true, features = ["macros"] }
 axum-macros = { workspace = true }
 bincode = { workspace = true }
-bytes = "1.6.0"
+bytes.workspace = true
 c-kzg = { workspace = true }
 cairo-vm = { workspace = true }
 color-eyre = { workspace = true }

@@ -1,6 +1,5 @@
 use base64::engine::general_purpose;
 use base64::Engine;
-use color_eyre::Report;
 use reqwest::{Certificate, ClientBuilder, Identity};
 use std::clone::Clone;
 use url::Url;
@@ -98,14 +97,7 @@ impl SharpClient {
         let res = self.client.post(base_url.clone()).send().await.map_err(SharpError::GetJobStatusFailure)?;
 
         match res.status() {
-            reqwest::StatusCode::OK => {
-                let text = res.text().await.unwrap();
-
-                match serde_json::from_str::<SharpGetStatusResponse>(&text) {
-                    Ok(response) => Ok(response),
-                    Err(e) => Err(SharpError::Other(Report::new(e))),
-                }
-            }
+            reqwest::StatusCode::OK => res.json().await.map_err(SharpError::GetJobStatusFailure),
             code => Err(SharpError::SharpService(code)),
         }
     }

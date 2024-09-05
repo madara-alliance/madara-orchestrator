@@ -78,6 +78,10 @@ impl FromStr for WorkerTriggerType {
     }
 }
 
+// TODO : Need to check why serde deserializer was failing here.
+// TODO : Remove this custom deserializer.
+/// Implemented a custom deserializer as when using serde json deserializer
+/// It was unable to deserialize the response from the event trigger.
 impl<'de> Deserialize<'de> for WorkerTriggerMessage {
     fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
     where

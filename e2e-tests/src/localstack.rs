@@ -2,7 +2,6 @@ use aws_config::Region;
 use aws_sdk_eventbridge::types::{InputTransformer, RuleState, Target};
 use aws_sdk_sqs::types::QueueAttributeName;
 use aws_sdk_sqs::types::QueueAttributeName::VisibilityTimeout;
-use bytes::Bytes;
 use orchestrator::data_storage::aws_s3::config::AWSS3Config;
 use orchestrator::data_storage::aws_s3::AWSS3;
 use orchestrator::data_storage::{DataStorage, DataStorageConfig};
@@ -11,7 +10,6 @@ use orchestrator::queue::job_queue::{
     WORKER_TRIGGER_QUEUE,
 };
 use std::collections::HashMap;
-use std::fs::read;
 use utils::env_utils::get_env_var_or_panic;
 
 /// LocalStack struct
@@ -31,6 +29,11 @@ impl LocalStack {
             s3_client: Box::new(AWSS3::new(AWSS3Config::new_from_env(), &config)),
             event_bridge_client: aws_sdk_eventbridge::Client::new(&config),
         }
+    }
+
+    #[allow(clippy::borrowed_box)]
+    pub fn s3_client(&self) -> &Box<dyn DataStorage + Send + Sync> {
+        &self.s3_client
     }
 
     /// To set up SQS on localstack instance
@@ -158,37 +161,4 @@ impl LocalStack {
             Err(_) => Ok(()),
         }
     }
-}
-
-// Tests specific functions
-// ======================================
-
-/// To set up s3 files needed for e2e test (test_orchestrator_workflow)
-pub async fn setup_s3(s3_client: Box<dyn DataStorage + Send + Sync>) -> color_eyre::Result<()> {
-    let l2_block_number = get_env_var_or_panic("L2_BLOCK_NUMBER_FOR_TEST");
-    s3_client.build_test_bucket(&get_env_var_or_panic("AWS_S3_BUCKET_NAME")).await.unwrap();
-
-    // putting the snos output and program output for the given block into localstack s3
-    let snos_output_key = l2_block_number.to_string() + "/snos_output.json";
-    let snos_output_json = read("artifacts/snos_output.json").unwrap();
-    s3_client.put_data(Bytes::from(snos_output_json), &snos_output_key).await?;
-    println!("✅ snos output file uploaded to localstack s3.");
-
-    let program_output_key = l2_block_number.to_string() + "/program_output.txt";
-    let program_output = read(format!("artifacts/program_output_{}.txt", l2_block_number)).unwrap();
-    s3_client.put_data(Bytes::from(program_output), &program_output_key).await?;
-    println!("✅ program output file uploaded to localstack s3.");
-
-    // getting the PIE file from s3 bucket using URL provided
-    let file =
-        reqwest::get(format!("https://madara-orchestrator-sharp-pie.s3.amazonaws.com/{}-SN.zip", l2_block_number))
-            .await?;
-    let file_bytes = file.bytes().await?;
-
-    // putting the pie file into localstack s3
-    let s3_file_key = l2_block_number.to_string() + "/pie.zip";
-    s3_client.put_data(file_bytes, &s3_file_key).await?;
-    println!("✅ PIE file uploaded to localstack s3");
-
-    Ok(())
 }

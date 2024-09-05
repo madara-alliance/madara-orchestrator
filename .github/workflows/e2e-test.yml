@@ -38,6 +38,20 @@ jobs:
       - name: Rust Cache
         uses: Swatinem/rust-cache@v2
 
+      - name: Install Foundry
+        uses: foundry-rs/foundry-toolchain@v1
+
+      - name: Check Anvil Installation
+        run: |
+          if command -v anvil &> /dev/null
+          then
+              echo "Anvil is installed. Version information:"
+              anvil --version
+          else
+              echo "Anvil is not installed or not in PATH"
+              exit 1
+          fi
+
       - name: Run e2e test
         run: |
-          RUST_LOG=trace SETTLEMENT_LAYER=ethereum_test cargo test --features testing test_orchestrator_workflow -- --nocapture
+          RUST_LOG=trace cargo test --features testing test_orchestrator_workflow -- --nocapture
