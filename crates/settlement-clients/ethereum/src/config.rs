@@ -4,6 +4,7 @@ use serde::{Deserialize, Serialize};
 use settlement_client_interface::SettlementConfig;
 use url::Url;
 use utils::env_utils::get_env_var_or_panic;
+use utils::settings::GetSettings;
 
 pub const ENV_CORE_CONTRACT_ADDRESS: &str = "STARKNET_SOLIDITY_CORE_CONTRACT_ADDRESS";
 pub const SETTLEMENT_RPC_URL: &str = "SETTLEMENT_RPC_URL";
@@ -26,6 +27,15 @@ impl SettlementConfig for EthereumSettlementConfig {
 
 impl Default for EthereumSettlementConfig {
     fn default() -> Self {
+        Self {
+            rpc_url: get_env_var_or_panic(SETTLEMENT_RPC_URL).parse().unwrap(),
+            core_contract_address: get_env_var_or_panic(L1_CORE_CONTRACT_ADDRESS),
+        }
+    }
+}
+
+impl GetSettings for EthereumSettlementConfig {
+    fn get_settings() -> Self {
         Self {
             rpc_url: get_env_var_or_panic(SETTLEMENT_RPC_URL).parse().unwrap(),
             core_contract_address: get_env_var_or_panic(L1_CORE_CONTRACT_ADDRESS),

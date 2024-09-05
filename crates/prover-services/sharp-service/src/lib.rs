@@ -71,7 +71,14 @@ impl SharpProverService {
         Self { sharp_client, fact_checker }
     }
 
-    pub fn with_settings(settings: &impl SettingsProvider) -> Self {
+    pub fn with_default_settings(settings: &impl SettingsProvider) -> Self {
+        let sharp_cfg: SharpConfig = settings.get_default_settings(SHARP_SETTINGS_NAME).unwrap();
+        let sharp_client = SharpClient::new(sharp_cfg.service_url);
+        let fact_checker = FactChecker::new(sharp_cfg.rpc_node_url, sharp_cfg.verifier_address);
+        Self::new(sharp_client, fact_checker)
+    }
+
+    pub fn with_env_settings(settings: &impl SettingsProvider) -> Self {
         let sharp_cfg: SharpConfig = settings.get_settings(SHARP_SETTINGS_NAME).unwrap();
         let sharp_client = SharpClient::new(sharp_cfg.service_url);
         let fact_checker = FactChecker::new(sharp_cfg.rpc_node_url, sharp_cfg.verifier_address);
@@ -79,7 +86,7 @@ impl SharpProverService {
     }
 
     pub fn with_test_settings(settings: &impl SettingsProvider, port: u16) -> Self {
-        let sharp_cfg: SharpConfig = settings.get_settings(SHARP_SETTINGS_NAME).unwrap();
+        let sharp_cfg: SharpConfig = settings.get_default_settings(SHARP_SETTINGS_NAME).unwrap();
         let sharp_client = SharpClient::new(format!("http://127.0.0.1:{}", port).parse().unwrap());
         let fact_checker = FactChecker::new(sharp_cfg.rpc_node_url, sharp_cfg.verifier_address);
         Self::new(sharp_client, fact_checker)
@@ -117,7 +124,7 @@ mod tests {
     async fn sharp_reproduce_rate_limiting_issue() {
         // TODO: leaving this test to check if the issue still reproduces (504 error after 8th job status
         // query)
-        let sharp_service = SharpProverService::with_settings(&DefaultSettingsProvider {});
+        let sharp_service = SharpProverService::with_default_settings(&DefaultSettingsProvider {});
         let cairo_pie_path: PathBuf =
             [env!("CARGO_MANIFEST_DIR"), "tests", "artifacts", "fibonacci.zip"].iter().collect();
         let cairo_pie = CairoPie::read_zip_file(&cairo_pie_path).unwrap();

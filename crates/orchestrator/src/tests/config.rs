@@ -13,7 +13,7 @@ use settlement_client_interface::SettlementClient;
 use starknet::providers::jsonrpc::HttpTransport;
 use starknet::providers::{JsonRpcClient, Url};
 use utils::env_utils::get_env_var_or_panic;
-use utils::settings::default::DefaultSettingsProvider;
+use utils::settings::env::EnvSettingsProvider;
 
 use crate::database::mongodb::MongoDb;
 use crate::database::Database;
@@ -110,11 +110,11 @@ impl TestConfigBuilder {
         dotenvy::from_filename("../.env.test").expect("Failed to load the .env file");
 
         let server = MockServer::start();
-        let settings_provider = DefaultSettingsProvider {};
+        let settings_provider = EnvSettingsProvider {};
 
         // init database
         if self.database.is_none() {
-            self.database = Some(Box::new(MongoDb::with_settings(&settings_provider).await));
+            self.database = Some(Box::new(MongoDb::with_env_settings(&settings_provider).await));
         }
 
         // init the DA client

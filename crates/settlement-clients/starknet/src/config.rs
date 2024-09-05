@@ -4,6 +4,7 @@ use serde::{Deserialize, Serialize};
 use settlement_client_interface::SettlementConfig;
 use url::Url;
 use utils::env_utils::{get_env_var_or_default, get_env_var_or_panic};
+use utils::settings::GetSettings;
 
 pub const ENV_STARKNET_RPC_URL: &str = "STARKNET_RPC_URL";
 pub const ENV_CORE_CONTRACT_ADDRESS: &str = "STARKNET_CAIRO_CORE_CONTRACT_ADDRESS";
@@ -34,6 +35,16 @@ impl SettlementConfig for StarknetSettlementConfig {
 
 impl Default for StarknetSettlementConfig {
     fn default() -> Self {
+        Self {
+            rpc_url: "https://free-rpc.nethermind.io/sepolia-juno".parse().unwrap(),
+            core_contract_address: "TODO:https://github.com/keep-starknet-strange/piltover".into(),
+            tx_finality_retry_delay_in_seconds: 60,
+        }
+    }
+}
+
+impl GetSettings for StarknetSettlementConfig {
+    fn get_settings() -> Self {
         Self {
             rpc_url: "https://free-rpc.nethermind.io/sepolia-juno".parse().unwrap(),
             core_contract_address: "TODO:https://github.com/keep-starknet-strange/piltover".into(),

@@ -15,7 +15,12 @@ pub struct AWSSNS {
 }
 
 impl AWSSNS {
-    pub async fn with_settings(settings: &impl SettingsProvider) -> Self {
+    pub async fn with_default_settings(settings: &impl SettingsProvider) -> Self {
+        let sns_config: AWSSNSConfig = settings.get_default_settings(AWS_SNS_SETTINGS_NAME).unwrap();
+        let config = aws_config::from_env().region(Region::new(sns_config.sns_arn_region)).load().await;
+        Self { client: Client::new(&config), topic_arn: sns_config.sns_arn }
+    }
+    pub async fn with_env_settings(settings: &impl SettingsProvider) -> Self {
         let sns_config: AWSSNSConfig = settings.get_settings(AWS_SNS_SETTINGS_NAME).unwrap();
         let config = aws_config::from_env().region(Region::new(sns_config.sns_arn_region)).load().await;
         Self { client: Client::new(&config), topic_arn: sns_config.sns_arn }

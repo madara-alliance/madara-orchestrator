@@ -1,5 +1,6 @@
 use serde::{Deserialize, Serialize};
 use utils::env_utils::get_env_var_or_panic;
+use utils::settings::GetSettings;
 
 use crate::data_storage::DataStorageConfig;
 
@@ -21,6 +22,12 @@ impl DataStorageConfig for AWSS3Config {
 impl Default for AWSS3Config {
     /// Default config for aws s3
     fn default() -> Self {
+        Self { bucket_name: get_env_var_or_panic("AWS_S3_BUCKET_NAME") }
+    }
+}
+
+impl GetSettings for AWSS3Config {
+    fn get_settings() -> Self {
         Self { bucket_name: get_env_var_or_panic("AWS_S3_BUCKET_NAME") }
     }
 }

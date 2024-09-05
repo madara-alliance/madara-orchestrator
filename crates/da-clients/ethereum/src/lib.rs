@@ -47,7 +47,15 @@ impl DaClient for EthereumDaClient {
 }
 
 impl EthereumDaClient {
-    pub fn with_settings(settings: &impl SettingsProvider) -> Self {
+    pub fn with_default_settings(settings: &impl SettingsProvider) -> Self {
+        let config: EthereumDaConfig = settings.get_default_settings(DA_SETTINGS_NAME).unwrap();
+        let client =
+            RpcClient::new_http(Url::from_str(config.rpc_url.as_str()).expect("Failed to parse SETTLEMENT_RPC_URL"));
+        let provider = ProviderBuilder::<_, Ethereum>::new().on_client(client);
+        EthereumDaClient { provider }
+    }
+
+    pub fn with_env_settings(settings: &impl SettingsProvider) -> Self {
         let config: EthereumDaConfig = settings.get_settings(DA_SETTINGS_NAME).unwrap();
         let client =
             RpcClient::new_http(Url::from_str(config.rpc_url.as_str()).expect("Failed to parse SETTLEMENT_RPC_URL"));

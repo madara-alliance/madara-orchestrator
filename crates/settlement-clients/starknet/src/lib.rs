@@ -45,6 +45,36 @@ const MAX_RETRIES_VERIFY_TX_FINALITY: usize = 10;
 
 impl StarknetSettlementClient {
     pub async fn with_settings(settings: &impl SettingsProvider) -> Self {
+        let settlement_cfg: StarknetSettlementConfig = settings.get_default_settings(SETTLEMENT_SETTINGS_NAME).unwrap();
+        let provider = Arc::new(JsonRpcClient::new(HttpTransport::new(settlement_cfg.rpc_url)));
+
+        let public_key = get_env_var_or_panic(ENV_PUBLIC_KEY);
+        let signer_address = FieldElement::from_hex_be(&public_key).expect("invalid signer address");
+
+        // TODO: Very insecure way of building the signer. Needs to be adjusted.
+        let private_key = get_env_var_or_panic(ENV_PRIVATE_KEY);
+        let signer = FieldElement::from_hex_be(&private_key).expect("Invalid private key");
+        let signer = LocalWallet::from(SigningKey::from_secret_scalar(signer));
+
+        let core_contract_address =
+            FieldElement::from_hex_be(&settlement_cfg.core_contract_address).expect("Invalid core contract address");
+
+        let account = SingleOwnerAccount::new(
+            provider.clone(),
+            signer,
+            signer_address,
+            provider.chain_id().await.unwrap(),
+            ExecutionEncoding::Legacy,
+        );
+
+        StarknetSettlementClient {
+            account,
+            core_contract_address,
+            tx_finality_retry_delay_in_seconds: settlement_cfg.tx_finality_retry_delay_in_seconds,
+        }
+    }
+
+    pub async fn with_env_settings(settings: &impl SettingsProvider) -> Self {
         let settlement_cfg: StarknetSettlementConfig = settings.get_settings(SETTLEMENT_SETTINGS_NAME).unwrap();
         let provider = Arc::new(JsonRpcClient::new(HttpTransport::new(settlement_cfg.rpc_url)));
 

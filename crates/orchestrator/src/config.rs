@@ -18,7 +18,7 @@ use starknet::providers::{JsonRpcClient, Url};
 use starknet_settlement_client::StarknetSettlementClient;
 use tokio::sync::OnceCell;
 use utils::env_utils::get_env_var_or_panic;
-use utils::settings::default::DefaultSettingsProvider;
+use utils::settings::env::EnvSettingsProvider;
 use utils::settings::SettingsProvider;
 
 use crate::database::mongodb::MongoDb;
@@ -65,7 +65,7 @@ pub async fn init_config() -> Config {
     // us stop using the generic omniqueue abstractions for message ack/nack
     let queue = build_queue_client(&aws_config);
 
-    let settings_provider = DefaultSettingsProvider {};
+    let settings_provider = EnvSettingsProvider {};
     // init database
     let database = build_database_client(&settings_provider).await;
     let da_client = build_da_client(&settings_provider).await;
@@ -173,7 +173,7 @@ pub async fn config_force_init(config: Config) {
 /// Builds the DA client based on the environment variable DA_LAYER
 pub async fn build_da_client(settings_provider: &impl SettingsProvider) -> Box<dyn DaClient + Send + Sync> {
     match get_env_var_or_panic("DA_LAYER").as_str() {
-        "ethereum" => Box::new(EthereumDaClient::with_settings(settings_provider)),
+        "ethereum" => Box::new(EthereumDaClient::with_env_settings(settings_provider)),
         _ => panic!("Unsupported DA layer"),
     }
 }
@@ -181,7 +181,7 @@ pub async fn build_da_client(settings_provider: &impl SettingsProvider) -> Box<d
 /// Builds the prover service based on the environment variable PROVER_SERVICE
 pub fn build_prover_service(settings_provider: &impl SettingsProvider) -> Box<dyn ProverClient> {
     match get_env_var_or_panic("PROVER_SERVICE").as_str() {
-        "sharp" => Box::new(SharpProverService::with_settings(settings_provider)),
+        "sharp" => Box::new(SharpProverService::with_env_settings(settings_provider)),
         _ => panic!("Unsupported prover service"),
     }
 }
@@ -191,22 +191,22 @@ pub async fn build_settlement_client(
     settings_provider: &impl SettingsProvider,
 ) -> Box<dyn SettlementClient + Send + Sync> {
     match get_env_var_or_panic("SETTLEMENT_LAYER").as_str() {
-        "ethereum" => Box::new(EthereumSettlementClient::with_settings(settings_provider)),
-        "starknet" => Box::new(StarknetSettlementClient::with_settings(settings_provider).await),
+        "ethereum" => Box::new(EthereumSettlementClient::with_env_settings(settings_provider)),
+        "starknet" => Box::new(StarknetSettlementClient::with_env_settings(settings_provider).await),
         _ => panic!("Unsupported Settlement layer"),
     }
 }
 
 pub async fn build_storage_client(settings_provider: &impl SettingsProvider) -> Box<dyn DataStorage + Send + Sync> {
     match get_env_var_or_panic("DATA_STORAGE").as_str() {
-        "s3" => Box::new(AWSS3::with_settings(settings_provider).await),
+        "s3" => Box::new(AWSS3::with_env_settings(settings_provider).await),
         _ => panic!("Unsupported Storage Client"),
     }
 }
 
 pub async fn build_alert_client(settings_provider: &impl SettingsProvider) -> Box<dyn Alerts + Send + Sync> {
     match get_env_var_or_panic("ALERTS").as_str() {
-        "sns" => Box::new(AWSSNS::with_settings(settings_provider).await),
+        "sns" => Box::new(AWSSNS::with_env_settings(settings_provider).await),
         _ => panic!("Unsupported Alert Client"),
     }
 }
@@ -220,7 +220,7 @@ pub fn build_queue_client(_aws_config: &SdkConfig) -> Box<dyn QueueProvider + Se
 
 pub async fn build_database_client(settings_provider: &impl SettingsProvider) -> Box<dyn Database + Send + Sync> {
     match get_env_var_or_panic("DATABASE").as_str() {
-        "mongodb" => Box::new(MongoDb::with_settings(settings_provider).await),
+        "mongodb" => Box::new(MongoDb::with_env_settings(settings_provider).await),
         _ => panic!("Unsupported Database Client"),
     }
 }

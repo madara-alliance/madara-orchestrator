@@ -30,6 +30,23 @@ pub struct MongoDb {
 
 impl MongoDb {
     pub async fn with_settings(settings: &impl SettingsProvider) -> Self {
+        let mongo_db_settings: MongoDbConfig = settings.get_default_settings(MONGO_DB_SETTINGS).unwrap();
+        let mut client_options =
+            ClientOptions::parse(mongo_db_settings.url).await.expect("Failed to parse MongoDB Url");
+        // Set the server_api field of the client_options object to set the version of the Stable API on the
+        // client
+        let server_api = ServerApi::builder().version(ServerApiVersion::V1).build();
+        client_options.server_api = Some(server_api);
+        // Get a handle to the cluster
+        let client = Client::with_options(client_options).expect("Failed to create MongoDB client");
+        // Ping the server to see if you can connect to the cluster
+        client.database("admin").run_command(doc! {"ping": 1}, None).await.expect("Failed to ping MongoDB deployment");
+        println!("Pinged your deployment. You successfully connected to MongoDB!");
+
+        Self { client }
+    }
+
+    pub async fn with_env_settings(settings: &impl SettingsProvider) -> Self {
         let mongo_db_settings: MongoDbConfig = settings.get_settings(MONGO_DB_SETTINGS).unwrap();
         let mut client_options =
             ClientOptions::parse(mongo_db_settings.url).await.expect("Failed to parse MongoDB Url");

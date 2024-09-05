@@ -11,6 +11,7 @@ use rstest::*;
 use serde::Deserialize;
 use utils::env_utils::get_env_var_or_panic;
 use utils::settings::default::DefaultSettingsProvider;
+use utils::settings::env::EnvSettingsProvider;
 
 use crate::data_storage::aws_s3::AWSS3;
 use crate::data_storage::DataStorage;
@@ -97,5 +98,5 @@ pub struct MessagePayloadType {
 }
 
 pub async fn get_storage_client() -> Box<dyn DataStorage + Send + Sync> {
-    Box::new(AWSS3::with_settings(&DefaultSettingsProvider {}).await)
+    Box::new(AWSS3::with_env_settings(&EnvSettingsProvider {}).await)
 }

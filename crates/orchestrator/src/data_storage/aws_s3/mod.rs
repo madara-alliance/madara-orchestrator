@@ -23,7 +23,19 @@ pub struct AWSS3 {
 /// - initializing a new AWS S3 client
 impl AWSS3 {
     /// To init the struct with main settings
-    pub async fn with_settings(settings: &impl SettingsProvider) -> Self {
+    pub async fn with_default_settings(settings: &impl SettingsProvider) -> Self {
+        let s3_config: AWSS3Config = settings.get_default_settings(S3_SETTINGS_NAME).unwrap();
+        let aws_config = aws_config::load_from_env().await;
+
+        // Building AWS S3 config
+        let mut s3_config_builder = aws_sdk_s3::config::Builder::from(&aws_config);
+
+        // this is necessary for it to work with localstack in test cases
+        s3_config_builder.set_force_path_style(Some(true));
+        let client = Client::from_conf(s3_config_builder.build());
+        Self { client, bucket: s3_config.bucket_name }
+    }
+    pub async fn with_env_settings(settings: &impl SettingsProvider) -> Self {
         let s3_config: AWSS3Config = settings.get_settings(S3_SETTINGS_NAME).unwrap();
         let aws_config = aws_config::load_from_env().await;
 
