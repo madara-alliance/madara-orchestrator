@@ -17,10 +17,10 @@ pub mod proving_job;
 pub mod state_update_job;
 
 use assert_matches::assert_matches;
+use chrono::{SubsecRound, Utc};
 use std::collections::HashMap;
 use std::sync::Arc;
 use std::time::Duration;
-use chrono::{SubsecRound, Utc};
 
 use mockall::predicate::eq;
 use mongodb::bson::doc;
@@ -507,7 +507,7 @@ fn build_job_item_by_type_and_status(job_type: JobType, job_status: JobStatus, i
         metadata: hashmap,
         version: 0,
         created_at: Utc::now().round_subsecs(0),
-        updated_at: Utc::now().round_subsecs(0)
+        updated_at: Utc::now().round_subsecs(0),
     }
 }
 

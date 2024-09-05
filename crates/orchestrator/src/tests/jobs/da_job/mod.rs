@@ -6,6 +6,7 @@ use crate::tests::common::drop_database;
 use crate::tests::config::TestConfigBuilder;
 use crate::{config::config, jobs::Job};
 use assert_matches::assert_matches;
+use chrono::{SubsecRound, Utc};
 use color_eyre::eyre::eyre;
 use da_client_interface::MockDaClient;
 use mockall::predicate::always;
@@ -13,7 +14,6 @@ use rstest::rstest;
 use serde_json::json;
 use starknet_core::types::{FieldElement, MaybePendingStateUpdate, PendingStateUpdate, StateDiff};
 use std::collections::HashMap;
-use chrono::{SubsecRound, Utc};
 use uuid::Uuid;
 
 /// Tests the DA Job's handling of a blob length exceeding the supported size.
@@ -70,7 +70,7 @@ async fn test_da_job_process_job_failure_on_small_blob_size(
                 metadata: HashMap::default(),
                 version: 0,
                 created_at: Utc::now().round_subsecs(0),
-                updated_at: Utc::now().round_subsecs(0)
+                updated_at: Utc::now().round_subsecs(0),
             },
         )
         .await;
@@ -130,7 +130,7 @@ async fn test_da_job_process_job_failure_on_pending_block() {
                 metadata: HashMap::default(),
                 version: 0,
                 created_at: Utc::now().round_subsecs(0),
-                updated_at: Utc::now().round_subsecs(0)
+                updated_at: Utc::now().round_subsecs(0),
             },
         )
         .await;
@@ -208,7 +208,7 @@ async fn test_da_job_process_job_success(
                 metadata: HashMap::default(),
                 version: 0,
                 created_at: Utc::now().round_subsecs(0),
-                updated_at: Utc::now().round_subsecs(0)
+                updated_at: Utc::now().round_subsecs(0),
             },
         )
         .await;

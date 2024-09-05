@@ -4,12 +4,12 @@ use color_eyre::eyre::eyre;
 use color_eyre::Result;
 use da_client_interface::DaVerificationStatus;
 // TODO: job types shouldn't depend on mongodb
+use chrono::{DateTime, Utc};
 #[cfg(feature = "with_mongodb")]
-use mongodb::bson::serde_helpers::{uuid_1_as_binary, chrono_datetime_as_bson_datetime};
+use mongodb::bson::serde_helpers::{chrono_datetime_as_bson_datetime, uuid_1_as_binary};
 use serde::{Deserialize, Serialize};
 use settlement_client_interface::SettlementVerificationStatus;
 use uuid::Uuid;
-use chrono::{DateTime, Utc};
 
 /// An external id.
 #[derive(Serialize, Deserialize, Debug, Clone, PartialEq)]

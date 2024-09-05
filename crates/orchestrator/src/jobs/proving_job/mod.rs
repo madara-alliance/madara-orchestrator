@@ -48,7 +48,7 @@ impl Job for ProvingJob {
             metadata,
             version: 0,
             created_at: Utc::now().round_subsecs(0),
-            updated_at: Utc::now().round_subsecs(0)
+            updated_at: Utc::now().round_subsecs(0),
         })
     }
 

@@ -27,6 +27,7 @@ bincode = { workspace = true }
 bytes = "1.6.0"
 c-kzg = { workspace = true }
 cairo-vm = { workspace = true }
+chrono = "0.4.0"
 color-eyre = { workspace = true }
 da-client-interface = { workspace = true }
 dotenvy = { workspace = true }
@@ -63,7 +64,6 @@ tracing-subscriber = { workspace = true, features = ["env-filter"] }
 url = { workspace = true }
 utils = { workspace = true }
 uuid = { workspace = true, features = ["v4", "serde"] }
-chrono = "0.4.0"
 
 [features]
 default = ["ethereum", "with_mongodb", "with_sqs"]
