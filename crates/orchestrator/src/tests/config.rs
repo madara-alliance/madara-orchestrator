@@ -1,5 +1,6 @@
 use std::sync::Arc;
 
+use aws_config::SdkConfig;
 use httpmock::MockServer;
 use starknet::providers::jsonrpc::HttpTransport;
 use starknet::providers::{JsonRpcClient, Url};
@@ -128,6 +129,7 @@ impl Default for TestConfigBuilder {
 pub struct TestConfigBuilderReturns {
     pub server: MockServer,
     pub config: Arc<Config>,
+    pub aws_config: SdkConfig,
 }
 impl TestConfigBuilder {
     /// Create a new config
@@ -186,6 +188,9 @@ impl TestConfigBuilder {
 
     pub async fn build(self) -> TestConfigBuilderReturns {
         dotenvy::from_filename("../.env.test").expect("Failed to load the .env file");
+
+        let aws_config = aws_config::load_from_env().await;
+
         use std::sync::Arc;
 
         let TestConfigBuilder {
@@ -203,7 +208,7 @@ impl TestConfigBuilder {
         // Usage in your code
         let port: u16 = server.port();
         let starknet_client = init_starknet_client(starknet_client_option, port).await;
-        let alerts = init_alerts(alerts_option).await;
+        let alerts = init_alerts(alerts_option, &aws_config).await;
         let da_client = init_da_client(da_client_option).await;
 
         let settlement_client = init_settlement_client(settlement_client_option).await;
@@ -219,7 +224,7 @@ impl TestConfigBuilder {
         // Deleting the database
         drop_database().await.expect("Unable to drop the database.");
         // Creating the SNS ARN
-        create_sns_arn().await.expect("Unable to create the sns arn");
+        create_sns_arn(&aws_config).await.expect("Unable to create the sns arn");
 
         let config = Arc::new(Config::new(
             starknet_client,
@@ -232,7 +237,7 @@ impl TestConfigBuilder {
             alerts,
         ));
 
-        TestConfigBuilderReturns { server, config }
+        TestConfigBuilderReturns { server, config, aws_config }
     }
 }
 
@@ -300,7 +305,7 @@ async fn init_prover_client(service: ClientValue) -> Box<dyn ProverClient> {
     }
 }
 
-async fn init_alerts(service: ClientValue) -> Box<dyn Alerts> {
+async fn init_alerts(service: ClientValue, aws_config: &SdkConfig) -> Box<dyn Alerts> {
     match service {
         ClientValue::MockBySelf(client) => {
             if let ClientType::Alerts(alerts) = client {
@@ -309,13 +314,12 @@ async fn init_alerts(service: ClientValue) -> Box<dyn Alerts> {
                 panic!("MockBySelf client is not an Alerts");
             }
         }
-        ClientValue::Actual => build_alert_client().await,
+        ClientValue::Actual => build_alert_client(aws_config).await,
         ClientValue::Dummy => Box::new(MockAlerts::new()),
     }
 }
 
 async fn init_storage_client(service: ClientValue) -> Box<dyn DataStorage> {
-    // let aws_config = aws_config::load_from_env().await;
     match service {
         ClientValue::MockBySelf(client) => {
             if let ClientType::Storage(storage) = client {
@@ -337,7 +341,6 @@ async fn init_storage_client(service: ClientValue) -> Box<dyn DataStorage> {
 }
 
 async fn init_queue_client(service: ClientValue) -> Box<dyn QueueProvider> {
-    let aws_config = aws_config::load_from_env().await;
     match service {
         ClientValue::MockBySelf(client) => {
             if let ClientType::Queue(queue) = client {
@@ -346,7 +349,7 @@ async fn init_queue_client(service: ClientValue) -> Box<dyn QueueProvider> {
                 panic!("MockBySelf client is not a Queue");
             }
         }
-        ClientValue::Actual => build_queue_client(&aws_config),
+        ClientValue::Actual => build_queue_client(),
         ClientValue::Dummy => Box::new(MockQueueProvider::new()),
     }
 }

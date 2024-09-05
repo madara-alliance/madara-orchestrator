@@ -67,7 +67,7 @@ pub async fn init_config() -> Arc<Config> {
     // TODO: we use omniqueue for now which doesn't support loading AWS config
     // from `SdkConfig`. We can later move to using `aws_sdk_sqs`. This would require
     // us stop using the generic omniqueue abstractions for message ack/nack
-    let queue = build_queue_client(&aws_config);
+    let queue = build_queue_client();
 
     let da_client = build_da_client().await;
 
@@ -76,7 +76,7 @@ pub async fn init_config() -> Arc<Config> {
     let prover_client = build_prover_service(&settings_provider);
 
     let storage_client = build_storage_client(&aws_config).await;
-    let alerts_client = build_alert_client().await;
+    let alerts_client = build_alert_client(&aws_config).await;
 
     Arc::new(Config::new(
         Arc::new(provider),
@@ -211,13 +211,13 @@ pub async fn build_storage_client(aws_config: &SdkConfig) -> Box<dyn DataStorage
     }
 }
 
-pub async fn build_alert_client() -> Box<dyn Alerts + Send + Sync> {
+pub async fn build_alert_client(aws_config: &SdkConfig) -> Box<dyn Alerts + Send + Sync> {
     match get_env_var_or_panic("ALERTS").as_str() {
-        "sns" => Box::new(AWSSNS::new().await),
+        "sns" => Box::new(AWSSNS::new(aws_config).await),
         _ => panic!("Unsupported Alert Client"),
     }
 }
-pub fn build_queue_client(_aws_config: &SdkConfig) -> Box<dyn QueueProvider + Send + Sync> {
+pub fn build_queue_client() -> Box<dyn QueueProvider + Send + Sync> {
     match get_env_var_or_panic("QUEUE_PROVIDER").as_str() {
         "sqs" => Box::new(SqsQueue {}),
         _ => panic!("Unsupported Queue Client"),

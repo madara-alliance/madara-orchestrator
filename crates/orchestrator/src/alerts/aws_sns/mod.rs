@@ -1,6 +1,6 @@
 use crate::alerts::Alerts;
 use async_trait::async_trait;
-use aws_sdk_sns::config::Region;
+use aws_config::SdkConfig;
 use aws_sdk_sns::Client;
 use utils::env_utils::get_env_var_or_panic;
 
@@ -10,9 +10,13 @@ pub struct AWSSNS {
 
 impl AWSSNS {
     /// To create a new SNS client
-    pub async fn new() -> Self {
-        let sns_region = get_env_var_or_panic("AWS_SNS_REGION");
-        let config = aws_config::from_env().region(Region::new(sns_region)).load().await;
+    pub async fn new(config: &SdkConfig) -> Self {
+        AWSSNS { client: Client::new(config) }
+    }
+
+    /// To create a new SNS client from the environment variables
+    pub async fn new_from_env() -> Self {
+        let config = aws_config::from_env().load().await;
         AWSSNS { client: Client::new(&config) }
     }
 }
