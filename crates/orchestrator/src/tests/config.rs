@@ -208,15 +208,18 @@ impl TestConfigBuilder {
     }
 }
 
+macro_rules! impl_mock_match {
+    ($client:expr, $mock_type:path, $client_type:ty) => {
+        match $client {
+            $mock_type(client) => client,
+            _ => panic!(concat!("Mock client is not a ", stringify!($client_type))),
+        }
+    };
+}
+
 async fn init_da_client(service: ConfigType) -> Box<dyn DaClient> {
     match service {
-        ConfigType::Mock(client) => {
-            if let MockType::DaClient(da_client) = client {
-                da_client
-            } else {
-                panic!("Mock client is not a DaClient");
-            }
-        }
+        ConfigType::Mock(client) => impl_mock_match!(client, MockType::DaClient, DaClient),
         ConfigType::Actual => build_da_client().await,
         ConfigType::Dummy => Box::new(MockDaClient::new()),
     }
@@ -225,17 +228,61 @@ async fn init_da_client(service: ConfigType) -> Box<dyn DaClient> {
 async fn init_settlement_client(service: ConfigType) -> Box<dyn SettlementClient> {
     let settings_provider = DefaultSettingsProvider {};
     match service {
-        ConfigType::Mock(client) => {
-            if let MockType::SettlementClient(settlement_client) = client {
-                settlement_client
-            } else {
-                panic!("Mock client is not a SettlementClient");
-            }
-        }
+        ConfigType::Mock(client) => impl_mock_match!(client, MockType::SettlementClient, SettlementClient),
         ConfigType::Actual => build_settlement_client(&settings_provider).await,
         ConfigType::Dummy => Box::new(MockSettlementClient::new()),
     }
 }
+
+async fn init_prover_client(service: ConfigType) -> Box<dyn ProverClient> {
+    let settings_provider = DefaultSettingsProvider {};
+    match service {
+        ConfigType::Mock(client) => impl_mock_match!(client, MockType::ProverClient, ProverClient),
+        ConfigType::Actual => build_prover_service(&settings_provider),
+        ConfigType::Dummy => Box::new(MockProverClient::new()),
+    }
+}
+
+async fn init_alerts(service: ConfigType) -> Box<dyn Alerts> {
+    match service {
+        ConfigType::Mock(client) => impl_mock_match!(client, MockType::Alerts, Alerts),
+        ConfigType::Actual => build_alert_client().await,
+        ConfigType::Dummy => Box::new(MockAlerts::new()),
+    }
+}
+
+async fn init_storage_client(service: ConfigType) -> Box<dyn DataStorage> {
+    match service {
+        ConfigType::Mock(client) => impl_mock_match!(client, MockType::Storage, Storage),
+        ConfigType::Actual => {
+            let storage = get_storage_client().await;
+            match get_env_var_or_panic("DATA_STORAGE").as_str() {
+                "s3" => storage.as_ref().build_test_bucket(&get_env_var_or_panic("AWS_S3_BUCKET_NAME")).await.unwrap(),
+                _ => panic!("Unsupported Storage Client"),
+            }
+            storage
+        }
+        ConfigType::Dummy => Box::new(MockDataStorage::new()),
+    }
+}
+
+async fn init_queue_client(service: ConfigType) -> Box<dyn QueueProvider> {
+    let aws_config = aws_config::load_from_env().await;
+    match service {
+        ConfigType::Mock(client) => impl_mock_match!(client, MockType::Queue, Queue),
+        ConfigType::Actual => build_queue_client(&aws_config),
+        ConfigType::Dummy => Box::new(MockQueueProvider::new()),
+    }
+}
+
+async fn init_database(service: ConfigType) -> Box<dyn Database> {
+    match service {
+        ConfigType::Mock(client) => impl_mock_match!(client, MockType::Database, Database),
+        ConfigType::Actual => build_database_client().await,
+        ConfigType::Dummy => Box::new(MockDatabase::new()),
+    }
+}
+
 async fn init_starknet_client(service: ConfigType) -> (Arc<JsonRpcClient<HttpTransport>>, Option<MockServer>) {
     fn get_provider() -> (Arc<JsonRpcClient<HttpTransport>>, Option<MockServer>) {
         let server = MockServer::start();
@@ -255,84 +302,5 @@ async fn init_starknet_client(service: ConfigType) -> (Arc<JsonRpcClient<HttpTra
             }
         }
         ConfigType::Actual | ConfigType::Dummy => get_provider(),
-    }
-}
-async fn init_prover_client(service: ConfigType) -> Box<dyn ProverClient> {
-    let settings_provider = DefaultSettingsProvider {};
-    match service {
-        ConfigType::Mock(client) => {
-            if let MockType::ProverClient(prover_client) = client {
-                prover_client
-            } else {
-                panic!("Mock client is not a ProverClient");
-            }
-        }
-        ConfigType::Actual => build_prover_service(&settings_provider),
-        ConfigType::Dummy => Box::new(MockProverClient::new()),
-    }
-}
-
-async fn init_alerts(service: ConfigType) -> Box<dyn Alerts> {
-    match service {
-        ConfigType::Mock(client) => {
-            if let MockType::Alerts(alerts) = client {
-                alerts
-            } else {
-                panic!("Mock client is not an Alerts");
-            }
-        }
-        ConfigType::Actual => build_alert_client().await,
-        ConfigType::Dummy => Box::new(MockAlerts::new()),
-    }
-}
-
-async fn init_storage_client(service: ConfigType) -> Box<dyn DataStorage> {
-    // let aws_config = aws_config::load_from_env().await;
-    match service {
-        ConfigType::Mock(client) => {
-            if let MockType::Storage(storage) = client {
-                storage
-            } else {
-                panic!("Mock client is not a Storage");
-            }
-        }
-        ConfigType::Actual => {
-            let storage = get_storage_client().await;
-            match get_env_var_or_panic("DATA_STORAGE").as_str() {
-                "s3" => storage.as_ref().build_test_bucket(&get_env_var_or_panic("AWS_S3_BUCKET_NAME")).await.unwrap(),
-                _ => panic!("Unsupported Storage Client"),
-            }
-            storage
-        }
-        ConfigType::Dummy => Box::new(MockDataStorage::new()),
-    }
-}
-
-async fn init_queue_client(service: ConfigType) -> Box<dyn QueueProvider> {
-    let aws_config = aws_config::load_from_env().await;
-    match service {
-        ConfigType::Mock(client) => {
-            if let MockType::Queue(queue) = client {
-                queue
-            } else {
-                panic!("Mock client is not a Queue");
-            }
-        }
-        ConfigType::Actual => build_queue_client(&aws_config),
-        ConfigType::Dummy => Box::new(MockQueueProvider::new()),
-    }
-}
-
-async fn init_database(service: ConfigType) -> Box<dyn Database> {
-    match service {
-        ConfigType::Mock(client) => {
-            if let MockType::Database(database) = client {
-                database
-            } else {
-                panic!("Mock client is not a Database");
-            }
-        }
-        ConfigType::Actual => build_database_client().await,
-        ConfigType::Dummy => Box::new(MockDatabase::new()),
     }
 }
