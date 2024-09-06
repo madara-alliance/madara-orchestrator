@@ -211,52 +211,67 @@ impl TestConfigBuilder {
     }
 }
 
-macro_rules! impl_mock_match {
-    ($client:expr, $mock_type:path, $client_type:ty) => {
-        match $client {
-            $mock_type(client) => client,
-            _ => panic!(concat!("Mock client is not a ", stringify!($client_type))),
+macro_rules! implement_mock_client_conversion {
+    ($client_type:ident, $mock_variant:ident) => {
+        impl From<MockType> for Box<dyn $client_type> {
+            fn from(client: MockType) -> Self {
+                if let MockType::$mock_variant(service_client) = client {
+                    service_client
+                } else {
+                    panic!(concat!("Mock client is not a ", stringify!($client_type)));
+                }
+            }
         }
     };
 }
 
+implement_mock_client_conversion!(DaClient, DaClient);
+
 async fn init_da_client(service: ConfigType) -> Box<dyn DaClient> {
     match service {
-        ConfigType::Mock(client) => impl_mock_match!(client, MockType::DaClient, DaClient),
+        ConfigType::Mock(client) => client.into(),
         ConfigType::Actual => build_da_client().await,
         ConfigType::Dummy => Box::new(MockDaClient::new()),
     }
 }
 
+implement_mock_client_conversion!(SettlementClient, SettlementClient);
+
 async fn init_settlement_client(service: ConfigType) -> Box<dyn SettlementClient> {
     let settings_provider = DefaultSettingsProvider {};
     match service {
-        ConfigType::Mock(client) => impl_mock_match!(client, MockType::SettlementClient, SettlementClient),
+        ConfigType::Mock(client) => client.into(),
         ConfigType::Actual => build_settlement_client(&settings_provider).await,
         ConfigType::Dummy => Box::new(MockSettlementClient::new()),
     }
 }
 
+implement_mock_client_conversion!(ProverClient, ProverClient);
+
 async fn init_prover_client(service: ConfigType) -> Box<dyn ProverClient> {
     let settings_provider = DefaultSettingsProvider {};
     match service {
-        ConfigType::Mock(client) => impl_mock_match!(client, MockType::ProverClient, ProverClient),
+        ConfigType::Mock(client) => client.into(),
         ConfigType::Actual => build_prover_service(&settings_provider),
         ConfigType::Dummy => Box::new(MockProverClient::new()),
     }
 }
 
+implement_mock_client_conversion!(Alerts, Alerts);
+
 async fn init_alerts(service: ConfigType, aws_config: &SdkConfig) -> Box<dyn Alerts> {
     match service {
-        ConfigType::Mock(client) => impl_mock_match!(client, MockType::Alerts, Alerts),
+        ConfigType::Mock(client) => client.into(),
         ConfigType::Actual => build_alert_client(aws_config).await,
         ConfigType::Dummy => Box::new(MockAlerts::new()),
     }
 }
 
+implement_mock_client_conversion!(DataStorage, Storage);
+
 async fn init_storage_client(service: ConfigType) -> Box<dyn DataStorage> {
     match service {
-        ConfigType::Mock(client) => impl_mock_match!(client, MockType::Storage, Storage),
+        ConfigType::Mock(client) => client.into(),
         ConfigType::Actual => {
             let storage = get_storage_client().await;
             match get_env_var_or_panic("DATA_STORAGE").as_str() {
@@ -269,17 +284,21 @@ async fn init_storage_client(service: ConfigType) -> Box<dyn DataStorage> {
     }
 }
 
+implement_mock_client_conversion!(QueueProvider, Queue);
+
 async fn init_queue_client(service: ConfigType) -> Box<dyn QueueProvider> {
     match service {
-        ConfigType::Mock(client) => impl_mock_match!(client, MockType::Queue, Queue),
+        ConfigType::Mock(client) => client.into(),
         ConfigType::Actual => build_queue_client(),
         ConfigType::Dummy => Box::new(MockQueueProvider::new()),
     }
 }
 
+implement_mock_client_conversion!(Database, Database);
+
 async fn init_database(service: ConfigType) -> Box<dyn Database> {
     match service {
-        ConfigType::Mock(client) => impl_mock_match!(client, MockType::Database, Database),
+        ConfigType::Mock(client) => client.into(),
         ConfigType::Actual => build_database_client().await,
         ConfigType::Dummy => Box::new(MockDatabase::new()),
     }
