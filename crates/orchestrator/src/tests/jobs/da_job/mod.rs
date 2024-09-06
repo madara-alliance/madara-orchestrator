@@ -188,6 +188,7 @@ async fn test_da_job_process_job_success(
     da_client.expect_max_bytes_per_blob().with().returning(|| 131072);
 
     let services = TestConfigBuilder::new()
+        .configure_starknet_client(ConfigType::Actual)
         .configure_storage_client(ConfigType::Actual)
         .configure_da_client(da_client.into())
         .build()

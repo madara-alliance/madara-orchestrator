@@ -295,6 +295,15 @@ async fn init_starknet_client(service: ConfigType) -> (Arc<JsonRpcClient<HttpTra
         (service, Some(server))
     }
 
+    fn get_dummy_provider() -> (Arc<JsonRpcClient<HttpTransport>>, Option<MockServer>) {
+        // Assigning a random port number since this mock will be never used.
+        let port: u16 = 3000;
+        let service = Arc::new(JsonRpcClient::new(HttpTransport::new(
+            Url::parse(format!("http://localhost:{}", port).as_str()).expect("Failed to parse URL"),
+        )));
+        (service, None)
+    }
+
     match service {
         ConfigType::Mock(client) => {
             if let MockType::StarknetClient(starknet_client) = client {
@@ -303,6 +312,7 @@ async fn init_starknet_client(service: ConfigType) -> (Arc<JsonRpcClient<HttpTra
                 panic!("Mock client is not a Starknet Client");
             }
         }
-        ConfigType::Actual | ConfigType::Dummy => get_provider(),
+        ConfigType::Actual => get_provider(),
+        ConfigType::Dummy => get_dummy_provider(),
     }
 }
