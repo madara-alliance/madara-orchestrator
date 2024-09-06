@@ -15,8 +15,12 @@ pub mod proving_job;
 #[cfg(test)]
 pub mod state_update_job;
 
+#[cfg(test)]
+pub mod snos_job;
+
 use assert_matches::assert_matches;
 use chrono::{SubsecRound, Utc};
+
 use std::collections::HashMap;
 use std::sync::Arc;
 use std::time::Duration;

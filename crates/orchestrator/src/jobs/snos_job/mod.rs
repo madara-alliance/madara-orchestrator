@@ -81,7 +81,6 @@ impl Job for SnosJob {
         let block_number = self.get_block_number_from_metadata(job)?;
         let rpc_url = get_env_var_or_panic("MADARA_RPC_URL"); // should never panic at this point
 
-        // TODO: Send directly the _config.starknet_client object instead of the rpc_url when snos allows it
         // let (cairo_pie, snos_output) =
         //     prove_block(block_number, &rpc_url, LayoutName::all_cairo).await.map_err(SnosError::from)?;
 
@@ -130,7 +129,7 @@ impl SnosJob {
         Ok(block_number)
     }
 
-    /// Stores the [CairoPie] and the [StarknetOsOutput] in our Data Storage.
+    /// Stores the [CairoPie] and the [StarknetOsOutput] in the Data Storage.
     /// The paths will be:
     ///     - [block_number]/cairo_pie.zip
     ///     - [block_number]/snos_output.json
