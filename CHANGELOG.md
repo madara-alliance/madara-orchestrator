@@ -6,6 +6,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ## Added
 
+- Rust Toolchain Version fixed to 1.81.0 (latest release at the time of adding.)
 - alerts module.
 - Tests for Settlement client.
 - Worker queues to listen for trigger events.
