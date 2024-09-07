@@ -3,25 +3,18 @@ use std::sync::Arc;
 use aws_config::SdkConfig;
 use httpmock::MockServer;
 use starknet::providers::jsonrpc::HttpTransport;
-use starknet::providers::{JsonRpcClient, Url};
+use starknet::providers::JsonRpcClient;
 
 use da_client_interface::{DaClient, MockDaClient};
 use prover_client_interface::{MockProverClient, ProverClient};
 use settlement_client_interface::{MockSettlementClient, SettlementClient};
-use utils::env_utils::get_env_var_or_panic;
-use utils::settings::default::DefaultSettingsProvider;
 
-use crate::alerts::{Alerts, MockAlerts};
-use crate::config::{
-    build_alert_client, build_da_client, build_database_client, build_prover_service, build_queue_client,
-    build_settlement_client, Config,
-};
+use crate::alerts::Alerts;
+use crate::config::Config;
 use crate::data_storage::{DataStorage, MockDataStorage};
 use crate::database::{Database, MockDatabase};
 use crate::queue::{MockQueueProvider, QueueProvider};
 use crate::tests::common::{create_sns_arn, create_sqs_queues, drop_database};
-
-use super::common::get_storage_client;
 
 // Inspiration : https://rust-unofficial.github.io/patterns/patterns/creational/builder.html
 // TestConfigBuilder allows to heavily customise the global configs based on the test's requirement.
@@ -47,7 +40,6 @@ pub enum ConfigType {
     #[default]
     Dummy,
 }
-
 
 impl From<JsonRpcClient<HttpTransport>> for ConfigType {
     fn from(client: JsonRpcClient<HttpTransport>) -> Self {
@@ -180,18 +172,18 @@ impl TestConfigBuilder {
             storage_type,
         } = self;
 
-        let (starknet_client, server) = init_starknet_client(starknet_client_type).await;
-        let alerts = init_alerts(alerts_type, &aws_config).await;
-        let da_client = init_da_client(da_client_type).await;
+        let (starknet_client, server) = implement_client::init_starknet_client(starknet_client_type).await;
+        let alerts = implement_client::init_alerts(alerts_type, &aws_config).await;
+        let da_client = implement_client::init_da_client(da_client_type).await;
 
-        let settlement_client = init_settlement_client(settlement_client_type).await;
+        let settlement_client = implement_client::init_settlement_client(settlement_client_type).await;
 
-        let prover_client = init_prover_client(prover_client_type).await;
+        let prover_client = implement_client::init_prover_client(prover_client_type).await;
 
         // External Dependencies
-        let storage = init_storage_client(storage_type).await;
-        let database = init_database(database_type).await;
-        let queue = init_queue_client(queue_type).await;
+        let storage = implement_client::init_storage_client(storage_type).await;
+        let database = implement_client::init_database(database_type).await;
+        let queue = implement_client::init_queue_client(queue_type).await;
         // Deleting and Creating the queues in sqs.
         create_sqs_queues().await.expect("Not able to delete and create the queues.");
         // Deleting the database
@@ -214,127 +206,151 @@ impl TestConfigBuilder {
     }
 }
 
-macro_rules! implement_mock_client_conversion {
-    ($client_type:ident, $mock_variant:ident) => {
-        impl From<MockType> for Box<dyn $client_type> {
-            fn from(client: MockType) -> Self {
-                if let MockType::$mock_variant(service_client) = client {
-                    service_client
-                } else {
-                    panic!(concat!("Mock client is not a ", stringify!($client_type)));
+pub mod implement_client {
+    use std::sync::Arc;
+
+    use crate::alerts::{Alerts, MockAlerts};
+    use crate::config::{
+        build_alert_client, build_da_client, build_database_client, build_prover_service, build_queue_client,
+        build_settlement_client,
+    };
+    use crate::data_storage::{DataStorage, MockDataStorage};
+    use crate::database::{Database, MockDatabase};
+    use crate::queue::{MockQueueProvider, QueueProvider};
+    use crate::tests::common::get_storage_client;
+    use aws_config::SdkConfig;
+    use da_client_interface::{DaClient, MockDaClient};
+    use httpmock::MockServer;
+    use prover_client_interface::{MockProverClient, ProverClient};
+    use settlement_client_interface::{MockSettlementClient, SettlementClient};
+    use starknet::providers::jsonrpc::HttpTransport;
+    use starknet::providers::{JsonRpcClient, Url};
+    use utils::env_utils::get_env_var_or_panic;
+    use utils::settings::default::DefaultSettingsProvider;
+
+    use super::ConfigType;
+    use super::MockType;
+
+    macro_rules! implement_mock_client_conversion {
+        ($client_type:ident, $mock_variant:ident) => {
+            impl From<MockType> for Box<dyn $client_type> {
+                fn from(client: MockType) -> Self {
+                    if let MockType::$mock_variant(service_client) = client {
+                        service_client
+                    } else {
+                        panic!(concat!("Mock client is not a ", stringify!($client_type)));
+                    }
                 }
             }
+        };
+    }
+
+    implement_mock_client_conversion!(DataStorage, Storage);
+    implement_mock_client_conversion!(QueueProvider, Queue);
+    implement_mock_client_conversion!(Database, Database);
+    implement_mock_client_conversion!(Alerts, Alerts);
+    implement_mock_client_conversion!(ProverClient, ProverClient);
+    implement_mock_client_conversion!(SettlementClient, SettlementClient);
+    implement_mock_client_conversion!(DaClient, DaClient);
+
+    pub(crate) async fn init_da_client(service: ConfigType) -> Box<dyn DaClient> {
+        match service {
+            ConfigType::Mock(client) => client.into(),
+            ConfigType::Actual => build_da_client().await,
+            ConfigType::Dummy => Box::new(MockDaClient::new()),
         }
-    };
-}
-
-implement_mock_client_conversion!(DaClient, DaClient);
-
-async fn init_da_client(service: ConfigType) -> Box<dyn DaClient> {
-    match service {
-        ConfigType::Mock(client) => client.into(),
-        ConfigType::Actual => build_da_client().await,
-        ConfigType::Dummy => Box::new(MockDaClient::new()),
     }
-}
 
-implement_mock_client_conversion!(SettlementClient, SettlementClient);
-
-async fn init_settlement_client(service: ConfigType) -> Box<dyn SettlementClient> {
-    let settings_provider = DefaultSettingsProvider {};
-    match service {
-        ConfigType::Mock(client) => client.into(),
-        ConfigType::Actual => build_settlement_client(&settings_provider).await,
-        ConfigType::Dummy => Box::new(MockSettlementClient::new()),
+    pub(crate) async fn init_settlement_client(service: ConfigType) -> Box<dyn SettlementClient> {
+        let settings_provider = DefaultSettingsProvider {};
+        match service {
+            ConfigType::Mock(client) => client.into(),
+            ConfigType::Actual => build_settlement_client(&settings_provider).await,
+            ConfigType::Dummy => Box::new(MockSettlementClient::new()),
+        }
     }
-}
 
-implement_mock_client_conversion!(ProverClient, ProverClient);
-
-async fn init_prover_client(service: ConfigType) -> Box<dyn ProverClient> {
-    let settings_provider = DefaultSettingsProvider {};
-    match service {
-        ConfigType::Mock(client) => client.into(),
-        ConfigType::Actual => build_prover_service(&settings_provider),
-        ConfigType::Dummy => Box::new(MockProverClient::new()),
+    pub(crate) async fn init_prover_client(service: ConfigType) -> Box<dyn ProverClient> {
+        let settings_provider = DefaultSettingsProvider {};
+        match service {
+            ConfigType::Mock(client) => client.into(),
+            ConfigType::Actual => build_prover_service(&settings_provider),
+            ConfigType::Dummy => Box::new(MockProverClient::new()),
+        }
     }
-}
 
-implement_mock_client_conversion!(Alerts, Alerts);
-
-async fn init_alerts(service: ConfigType, aws_config: &SdkConfig) -> Box<dyn Alerts> {
-    match service {
-        ConfigType::Mock(client) => client.into(),
-        ConfigType::Actual => build_alert_client(aws_config).await,
-        ConfigType::Dummy => Box::new(MockAlerts::new()),
+    pub(crate) async fn init_alerts(service: ConfigType, aws_config: &SdkConfig) -> Box<dyn Alerts> {
+        match service {
+            ConfigType::Mock(client) => client.into(),
+            ConfigType::Actual => build_alert_client(aws_config).await,
+            ConfigType::Dummy => Box::new(MockAlerts::new()),
+        }
     }
-}
 
-implement_mock_client_conversion!(DataStorage, Storage);
-
-async fn init_storage_client(service: ConfigType) -> Box<dyn DataStorage> {
-    match service {
-        ConfigType::Mock(client) => client.into(),
-        ConfigType::Actual => {
-            let storage = get_storage_client().await;
-            match get_env_var_or_panic("DATA_STORAGE").as_str() {
-                "s3" => storage.as_ref().build_test_bucket(&get_env_var_or_panic("AWS_S3_BUCKET_NAME")).await.unwrap(),
-                _ => panic!("Unsupported Storage Client"),
+    pub(crate) async fn init_storage_client(service: ConfigType) -> Box<dyn DataStorage> {
+        match service {
+            ConfigType::Mock(client) => client.into(),
+            ConfigType::Actual => {
+                let storage = get_storage_client().await;
+                match get_env_var_or_panic("DATA_STORAGE").as_str() {
+                    "s3" => {
+                        storage.as_ref().build_test_bucket(&get_env_var_or_panic("AWS_S3_BUCKET_NAME")).await.unwrap()
+                    }
+                    _ => panic!("Unsupported Storage Client"),
+                }
+                storage
             }
-            storage
+            ConfigType::Dummy => Box::new(MockDataStorage::new()),
         }
-        ConfigType::Dummy => Box::new(MockDataStorage::new()),
-    }
-}
-
-implement_mock_client_conversion!(QueueProvider, Queue);
-
-async fn init_queue_client(service: ConfigType) -> Box<dyn QueueProvider> {
-    match service {
-        ConfigType::Mock(client) => client.into(),
-        ConfigType::Actual => build_queue_client(),
-        ConfigType::Dummy => Box::new(MockQueueProvider::new()),
-    }
-}
-
-implement_mock_client_conversion!(Database, Database);
-
-async fn init_database(service: ConfigType) -> Box<dyn Database> {
-    match service {
-        ConfigType::Mock(client) => client.into(),
-        ConfigType::Actual => build_database_client().await,
-        ConfigType::Dummy => Box::new(MockDatabase::new()),
-    }
-}
-
-async fn init_starknet_client(service: ConfigType) -> (Arc<JsonRpcClient<HttpTransport>>, Option<MockServer>) {
-    fn get_provider() -> (Arc<JsonRpcClient<HttpTransport>>, Option<MockServer>) {
-        let server = MockServer::start();
-        let port = server.port();
-        let service = Arc::new(JsonRpcClient::new(HttpTransport::new(
-            Url::parse(format!("http://localhost:{}", port).as_str()).expect("Failed to parse URL"),
-        )));
-        (service, Some(server))
     }
 
-    fn get_dummy_provider() -> (Arc<JsonRpcClient<HttpTransport>>, Option<MockServer>) {
-        // Assigning a random port number since this mock will be never used.
-        let port: u16 = 3000;
-        let service = Arc::new(JsonRpcClient::new(HttpTransport::new(
-            Url::parse(format!("http://localhost:{}", port).as_str()).expect("Failed to parse URL"),
-        )));
-        (service, None)
+    pub(crate) async fn init_queue_client(service: ConfigType) -> Box<dyn QueueProvider> {
+        match service {
+            ConfigType::Mock(client) => client.into(),
+            ConfigType::Actual => build_queue_client(),
+            ConfigType::Dummy => Box::new(MockQueueProvider::new()),
+        }
     }
 
-    match service {
-        ConfigType::Mock(client) => {
-            if let MockType::StarknetClient(starknet_client) = client {
-                (starknet_client, None)
-            } else {
-                panic!("Mock client is not a Starknet Client");
+    pub(crate) async fn init_database(service: ConfigType) -> Box<dyn Database> {
+        match service {
+            ConfigType::Mock(client) => client.into(),
+            ConfigType::Actual => build_database_client().await,
+            ConfigType::Dummy => Box::new(MockDatabase::new()),
+        }
+    }
+
+    pub(crate) async fn init_starknet_client(
+        service: ConfigType,
+    ) -> (Arc<JsonRpcClient<HttpTransport>>, Option<MockServer>) {
+        fn get_provider() -> (Arc<JsonRpcClient<HttpTransport>>, Option<MockServer>) {
+            let server = MockServer::start();
+            let port = server.port();
+            let service = Arc::new(JsonRpcClient::new(HttpTransport::new(
+                Url::parse(format!("http://localhost:{}", port).as_str()).expect("Failed to parse URL"),
+            )));
+            (service, Some(server))
+        }
+
+        fn get_dummy_provider() -> (Arc<JsonRpcClient<HttpTransport>>, Option<MockServer>) {
+            // Assigning a random port number since this mock will be never used.
+            let port: u16 = 3000;
+            let service = Arc::new(JsonRpcClient::new(HttpTransport::new(
+                Url::parse(format!("http://localhost:{}", port).as_str()).expect("Failed to parse URL"),
+            )));
+            (service, None)
+        }
+
+        match service {
+            ConfigType::Mock(client) => {
+                if let MockType::StarknetClient(starknet_client) = client {
+                    (starknet_client, None)
+                } else {
+                    panic!("Mock client is not a Starknet Client");
+                }
             }
+            ConfigType::Actual => get_provider(),
+            ConfigType::Dummy => get_dummy_provider(),
         }
-        ConfigType::Actual => get_provider(),
-        ConfigType::Dummy => get_dummy_provider(),
     }
 }
