@@ -40,11 +40,14 @@ pub enum MockType {
 }
 
 // By default, everything is on Dummy.
+#[derive(Default)]
 pub enum ConfigType {
     Mock(MockType),
     Actual,
+    #[default]
     Dummy,
 }
+
 
 impl From<JsonRpcClient<HttpTransport>> for ConfigType {
     fn from(client: JsonRpcClient<HttpTransport>) -> Self {
@@ -109,14 +112,14 @@ impl TestConfigBuilder {
     /// Create a new config
     pub fn new() -> TestConfigBuilder {
         TestConfigBuilder {
-            starknet_client_type: ConfigType::Dummy,
-            da_client_type: ConfigType::Dummy,
-            prover_client_type: ConfigType::Dummy,
-            settlement_client_type: ConfigType::Dummy,
-            database_type: ConfigType::Dummy,
-            queue_type: ConfigType::Dummy,
-            storage_type: ConfigType::Dummy,
-            alerts_type: ConfigType::Dummy,
+            starknet_client_type: ConfigType::default(),
+            da_client_type: ConfigType::default(),
+            prover_client_type: ConfigType::default(),
+            settlement_client_type: ConfigType::default(),
+            database_type: ConfigType::default(),
+            queue_type: ConfigType::default(),
+            storage_type: ConfigType::default(),
+            alerts_type: ConfigType::default(),
         }
     }
 
