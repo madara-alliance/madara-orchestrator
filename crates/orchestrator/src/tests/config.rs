@@ -145,8 +145,7 @@ impl TestConfigBuilder {
         }
 
         if self.alerts.is_none() {
-            self.alerts =
-                Some(build_alert_client(&settings_provider, ProviderConfig::AWS(Box::new(aws_config.clone()))).await);
+            self.alerts = Some(build_alert_client(&settings_provider, ProviderConfig::AWS(Arc::new(aws_config))).await);
         }
 
         // Deleting and Creating the queues in sqs.

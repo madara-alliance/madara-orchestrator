@@ -1,6 +1,7 @@
 pub mod constants;
 
 use std::collections::HashMap;
+use std::sync::Arc;
 
 use crate::config::{get_aws_config, ProviderConfig};
 use ::uuid::Uuid;
@@ -101,7 +102,7 @@ pub async fn get_storage_client() -> Box<dyn DataStorage + Send + Sync> {
     Box::new(
         AWSS3::new_with_settings(
             &EnvSettingsProvider {},
-            ProviderConfig::AWS(Box::new(get_aws_config(&EnvSettingsProvider {}).await)),
+            ProviderConfig::AWS(Arc::new(get_aws_config(&EnvSettingsProvider {}).await)),
         )
         .await,
     )

@@ -52,7 +52,7 @@ pub struct Config {
 /// `ProviderConfig` is an enum used to represent the global config built
 /// using the settings provider. More providers can be added eg : GCP, AZURE etc.
 pub enum ProviderConfig {
-    AWS(Box<SdkConfig>),
+    AWS(Arc<SdkConfig>),
     INVALID,
 }
 
@@ -84,16 +84,15 @@ pub async fn init_config() -> Config {
     ));
 
     let settings_provider = EnvSettingsProvider {};
-    let aws_config = get_aws_config(&settings_provider).await;
+    let aws_config = Arc::new(get_aws_config(&settings_provider).await);
 
     // init database
     let database = build_database_client(&settings_provider).await;
     let da_client = build_da_client(&settings_provider).await;
     let settlement_client = build_settlement_client(&settings_provider).await;
     let prover_client = build_prover_service(&settings_provider);
-    let storage_client =
-        build_storage_client(&settings_provider, ProviderConfig::AWS(Box::new(aws_config.clone()))).await;
-    let alerts_client = build_alert_client(&settings_provider, ProviderConfig::AWS(Box::new(aws_config))).await;
+    let storage_client = build_storage_client(&settings_provider, ProviderConfig::AWS(Arc::clone(&aws_config))).await;
+    let alerts_client = build_alert_client(&settings_provider, ProviderConfig::AWS(Arc::clone(&aws_config))).await;
 
     // init the queue
     // TODO: we use omniqueue for now which doesn't support loading AWS config
