@@ -2,6 +2,7 @@ pub mod constants;
 
 use std::collections::HashMap;
 
+use crate::config::{get_aws_config, ProviderConfig};
 use ::uuid::Uuid;
 use aws_config::Region;
 use aws_sdk_sns::error::SdkError;
@@ -97,5 +98,11 @@ pub struct MessagePayloadType {
 }
 
 pub async fn get_storage_client() -> Box<dyn DataStorage + Send + Sync> {
-    Box::new(AWSS3::new_with_settings(&EnvSettingsProvider {}).await)
+    Box::new(
+        AWSS3::new_with_settings(
+            &EnvSettingsProvider {},
+            ProviderConfig::AWS(Box::new(get_aws_config(&EnvSettingsProvider {}).await)),
+        )
+        .await,
+    )
 }

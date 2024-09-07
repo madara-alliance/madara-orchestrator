@@ -5,7 +5,9 @@ use crate::alerts::Alerts;
 use crate::data_storage::aws_s3::AWSS3;
 use crate::data_storage::DataStorage;
 use arc_swap::{ArcSwap, Guard};
-use aws_config::SdkConfig;
+use aws_config::meta::region::RegionProviderChain;
+use aws_config::{Region, SdkConfig};
+use aws_credential_types::Credentials;
 use da_client_interface::DaClient;
 use dotenvy::dotenv;
 use ethereum_da_client::EthereumDaClient;
@@ -47,6 +49,31 @@ pub struct Config {
     alerts: Box<dyn Alerts>,
 }
 
+/// `ProviderConfig` is an enum used to represent the global config built
+/// using the settings provider. More providers can be added eg : GCP, AZURE etc.
+pub enum ProviderConfig {
+    AWS(Box<SdkConfig>),
+    INVALID,
+}
+
+/// To build a `SdkConfig` for AWS provider.
+pub async fn get_aws_config(settings_provider: &impl Settings) -> SdkConfig {
+    let region = settings_provider
+        .get_settings("AWS_REGION")
+        .expect("Not able to get AWS_REGION from provided settings provider.");
+    let region_provider = RegionProviderChain::first_try(Region::new(region)).or_default_provider();
+    let credentials = Credentials::from_keys(
+        settings_provider
+            .get_settings("AWS_ACCESS_KEY_ID")
+            .expect("Not able to get AWS_ACCESS_KEY_ID from provided settings provider."),
+        settings_provider
+            .get_settings("AWS_SECRET_ACCESS_KEY")
+            .expect("Not able to get AWS_SECRET_ACCESS_KEY from provided settings provider."),
+        None,
+    );
+    aws_config::from_env().credentials_provider(credentials).region(region_provider).load().await
+}
+
 /// Initializes the app config
 pub async fn init_config() -> Config {
     dotenv().ok();
@@ -56,23 +83,23 @@ pub async fn init_config() -> Config {
         Url::parse(get_env_var_or_panic("MADARA_RPC_URL").as_str()).expect("Failed to parse URL"),
     ));
 
-    // init AWS
-    let aws_config = aws_config::load_from_env().await;
-
-    // init the queue
-    // TODO: we use omniqueue for now which doesn't support loading AWS config
-    // from `SdkConfig`. We can later move to using `aws_sdk_sqs`. This would require
-    // us stop using the generic omniqueue abstractions for message ack/nack
-    let queue = build_queue_client(&aws_config);
-
     let settings_provider = EnvSettingsProvider {};
+    let aws_config = get_aws_config(&settings_provider).await;
+
     // init database
     let database = build_database_client(&settings_provider).await;
     let da_client = build_da_client(&settings_provider).await;
     let settlement_client = build_settlement_client(&settings_provider).await;
     let prover_client = build_prover_service(&settings_provider);
-    let storage_client = build_storage_client(&settings_provider).await;
-    let alerts_client = build_alert_client(&settings_provider).await;
+    let storage_client =
+        build_storage_client(&settings_provider, ProviderConfig::AWS(Box::new(aws_config.clone()))).await;
+    let alerts_client = build_alert_client(&settings_provider, ProviderConfig::AWS(Box::new(aws_config))).await;
+
+    // init the queue
+    // TODO: we use omniqueue for now which doesn't support loading AWS config
+    // from `SdkConfig`. We can later move to using `aws_sdk_sqs`. This would require
+    // us stop using the generic omniqueue abstractions for message ack/nack
+    let queue = build_queue_client();
 
     Config::new(
         Arc::new(provider),
@@ -195,21 +222,27 @@ pub async fn build_settlement_client(settings_provider: &impl Settings) -> Box<d
     }
 }
 
-pub async fn build_storage_client(settings_provider: &impl Settings) -> Box<dyn DataStorage + Send + Sync> {
+pub async fn build_storage_client(
+    settings_provider: &impl Settings,
+    provider_config: ProviderConfig,
+) -> Box<dyn DataStorage + Send + Sync> {
     match get_env_var_or_panic("DATA_STORAGE").as_str() {
-        "s3" => Box::new(AWSS3::new_with_settings(settings_provider).await),
+        "s3" => Box::new(AWSS3::new_with_settings(settings_provider, provider_config).await),
         _ => panic!("Unsupported Storage Client"),
     }
 }
 
-pub async fn build_alert_client(settings_provider: &impl Settings) -> Box<dyn Alerts + Send + Sync> {
+pub async fn build_alert_client(
+    settings_provider: &impl Settings,
+    provider_config: ProviderConfig,
+) -> Box<dyn Alerts + Send + Sync> {
     match get_env_var_or_panic("ALERTS").as_str() {
-        "sns" => Box::new(AWSSNS::new_with_settings(settings_provider).await),
+        "sns" => Box::new(AWSSNS::new_with_settings(settings_provider, provider_config).await),
         _ => panic!("Unsupported Alert Client"),
     }
 }
 
-pub fn build_queue_client(_aws_config: &SdkConfig) -> Box<dyn QueueProvider + Send + Sync> {
+pub fn build_queue_client() -> Box<dyn QueueProvider + Send + Sync> {
     match get_env_var_or_panic("QUEUE_PROVIDER").as_str() {
         "sqs" => Box::new(SqsQueue {}),
         _ => panic!("Unsupported Queue Client"),

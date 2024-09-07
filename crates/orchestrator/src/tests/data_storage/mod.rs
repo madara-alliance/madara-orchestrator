@@ -1,3 +1,4 @@
+use crate::config::{get_aws_config, ProviderConfig};
 use crate::data_storage::aws_s3::AWSS3;
 use crate::data_storage::DataStorage;
 use bytes::Bytes;
@@ -14,7 +15,11 @@ use utils::settings::env::EnvSettingsProvider;
 #[tokio::test]
 async fn test_put_and_get_data_s3() -> color_eyre::Result<()> {
     dotenvy::from_filename("../.env.test")?;
-    let s3_client = AWSS3::new_with_settings(&EnvSettingsProvider {}).await;
+    let s3_client = AWSS3::new_with_settings(
+        &EnvSettingsProvider {},
+        ProviderConfig::AWS(Box::new(get_aws_config(&EnvSettingsProvider {}).await)),
+    )
+    .await;
     s3_client.build_test_bucket(&get_env_var_or_panic("AWS_S3_BUCKET_NAME")).await.unwrap();
 
     let mock_data = json!(

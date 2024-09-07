@@ -2,8 +2,8 @@ mod config;
 
 use crate::alerts::aws_sns::config::AWSSNSConfig;
 use crate::alerts::Alerts;
+use crate::config::ProviderConfig;
 use async_trait::async_trait;
-use aws_sdk_sns::config::Region;
 use aws_sdk_sns::Client;
 use utils::settings::Settings;
 
@@ -15,11 +15,15 @@ pub struct AWSSNS {
 }
 
 impl AWSSNS {
-    pub async fn new_with_settings(settings: &impl Settings) -> Self {
-        let sns_config =
-            AWSSNSConfig::new_with_settings(settings).expect("Not able to get Aws sns config from provided settings");
-        let config = aws_config::from_env().region(Region::new(sns_config.sns_arn_region)).load().await;
-        Self { client: Client::new(&config), topic_arn: sns_config.sns_arn }
+    pub async fn new_with_settings(settings: &impl Settings, provider_config: ProviderConfig) -> Self {
+        match provider_config {
+            ProviderConfig::AWS(aws_config) => {
+                let sns_config = AWSSNSConfig::new_with_settings(settings)
+                    .expect("Not able to get Aws sns config from provided settings");
+                Self { client: Client::new(&aws_config), topic_arn: sns_config.sns_arn }
+            }
+            _ => panic!("Invalid config provided for the service type"),
+        }
     }
 }
 

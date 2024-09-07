@@ -1,7 +1,8 @@
 use std::sync::Arc;
 
 use crate::config::{
-    build_alert_client, build_da_client, build_prover_service, build_settlement_client, config_force_init, Config,
+    build_alert_client, build_da_client, build_prover_service, build_settlement_client, config_force_init,
+    get_aws_config, Config, ProviderConfig,
 };
 use crate::data_storage::DataStorage;
 use da_client_interface::DaClient;
@@ -111,6 +112,7 @@ impl TestConfigBuilder {
 
         let server = MockServer::start();
         let settings_provider = EnvSettingsProvider {};
+        let aws_config = get_aws_config(&settings_provider).await;
 
         // init database
         if self.database.is_none() {
@@ -143,7 +145,8 @@ impl TestConfigBuilder {
         }
 
         if self.alerts.is_none() {
-            self.alerts = Some(build_alert_client(&settings_provider).await);
+            self.alerts =
+                Some(build_alert_client(&settings_provider, ProviderConfig::AWS(Box::new(aws_config.clone()))).await);
         }
 
         // Deleting and Creating the queues in sqs.
