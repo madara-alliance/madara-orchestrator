@@ -227,7 +227,7 @@ pub async fn build_settlement_client(settings_provider: &impl Settings) -> Box<d
         "ethereum" => {
             #[cfg(not(feature = "testing"))]
             {
-                Box::new(EthereumSettlementClient::with_settings(settings_provider))
+                Box::new(EthereumSettlementClient::new_with_settings(settings_provider))
             }
             #[cfg(feature = "testing")]
             {
@@ -239,7 +239,7 @@ pub async fn build_settlement_client(settings_provider: &impl Settings) -> Box<d
                 ))
             }
         }
-        "starknet" => Box::new(StarknetSettlementClient::with_settings(settings_provider).await),
+        "starknet" => Box::new(StarknetSettlementClient::new_with_settings(settings_provider).await),
         _ => panic!("Unsupported Settlement layer"),
     }
 }

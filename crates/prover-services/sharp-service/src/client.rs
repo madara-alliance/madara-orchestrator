@@ -94,7 +94,7 @@ impl SharpClient {
         // Adding params to the url
         add_params_to_url(&mut base_url, params);
 
-        let res = self.client.post(base_url.clone()).send().await.map_err(SharpError::GetJobStatusFailure)?;
+        let res = self.client.post(base_url).send().await.map_err(SharpError::GetJobStatusFailure)?;
 
         match res.status() {
             reqwest::StatusCode::OK => res.json().await.map_err(SharpError::GetJobStatusFailure),

@@ -3280,7 +3280,7 @@ dependencies = [
  "num-traits 0.2.19",
  "serde",
  "wasm-bindgen",
- "windows-targets 0.52.5",
+ "windows-targets 0.52.6",
 ]
 
 [[package]]
@@ -3974,6 +3974,7 @@ dependencies = [
  "aws-sdk-s3",
  "aws-sdk-sqs",
  "bytes",
+ "chrono",
  "color-eyre",
  "dotenvy",
  "ethereum-settlement-client",
@@ -3981,7 +3982,7 @@ dependencies = [
  "log",
  "mongodb",
  "orchestrator",
- "reqwest 0.11.27",
+ "reqwest 0.12.7",
  "rstest 0.18.2",
  "serde",
  "serde_json",
@@ -4215,8 +4216,8 @@ dependencies = [
  "dotenvy",
  "lazy_static",
  "log",
- "mockall 0.12.1",
- "reqwest 0.12.5",
+ "mockall",
+ "reqwest 0.12.7",
  "rstest 0.18.2",
  "serde",
  "settlement-client-interface",

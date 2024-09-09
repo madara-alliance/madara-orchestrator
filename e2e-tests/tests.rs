@@ -1,4 +1,5 @@
 use bytes::Bytes;
+use chrono::{SubsecRound, Utc};
 use e2e_tests::localstack::LocalStack;
 use e2e_tests::sharp::SharpClient;
 use e2e_tests::starknet_client::StarknetClient;
@@ -263,6 +264,8 @@ pub async fn put_job_data_in_db_snos(mongo_db: &MongoDbServer, l2_block_number: 
         external_id: ExternalId::Number(0),
         metadata: HashMap::new(),
         version: 0,
+        created_at: Utc::now().round_subsecs(0),
+        updated_at: Utc::now().round_subsecs(0),
     };
 
     let mongo_db_client = get_mongo_db_client(mongo_db).await;
@@ -300,6 +303,8 @@ pub async fn put_job_data_in_db_da(mongo_db: &MongoDbServer, l2_block_number: St
         external_id: ExternalId::Number(0),
         metadata: HashMap::new(),
         version: 0,
+        created_at: Utc::now().round_subsecs(0),
+        updated_at: Utc::now().round_subsecs(0),
     };
 
     let mongo_db_client = get_mongo_db_client(mongo_db).await;
@@ -357,6 +362,8 @@ pub async fn put_job_data_in_db_update_state(mongo_db: &MongoDbServer, l2_block_
         external_id: ExternalId::Number(0),
         metadata: HashMap::new(),
         version: 0,
+        created_at: Utc::now().round_subsecs(0),
+        updated_at: Utc::now().round_subsecs(0),
     };
 
     let mongo_db_client = get_mongo_db_client(mongo_db).await;

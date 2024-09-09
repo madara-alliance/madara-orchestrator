@@ -27,10 +27,11 @@ use mockall::{automock, predicate::*};
 
 use alloy::providers::ProviderBuilder;
 use conversion::{get_input_data_for_eip_4844, prepare_sidecar};
-use settlement_client_interface::{SettlementClient, SettlementVerificationStatus, SETTLEMENT_SETTINGS_NAME};
 #[cfg(feature = "testing")]
 use settlement_client_interface::{SettlementClient, SettlementConfig, SettlementVerificationStatus};
-#[cfg(test)]
+#[cfg(not(feature = "testing"))]
+use settlement_client_interface::{SettlementClient, SettlementConfig, SettlementVerificationStatus};
+#[cfg(feature = "testing")]
 use url::Url;
 use utils::env_utils::get_env_var_or_panic;
 
@@ -229,11 +230,8 @@ impl SettlementClient for EthereumSettlementClient {
         };
 
         #[cfg(feature = "testing")]
-        let txn_request = {
-            let txn_request =
-                test_config::configure_transaction(self.provider.clone(), tx_envelope, self.impersonate_account).await;
-            txn_request
-        };
+        let txn_request =
+            { test_config::configure_transaction(self.provider.clone(), tx_envelope, self.impersonate_account).await };
 
         let pending_transaction = self.provider.send_transaction(txn_request).await?;
         return Ok(pending_transaction.tx_hash().to_string());
