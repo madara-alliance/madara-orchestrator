@@ -1,7 +1,7 @@
 use alloy::primitives::Address;
 use serde::{Deserialize, Serialize};
 use url::Url;
-use utils::env_utils::get_env_var_or_panic;
+use utils::settings::Settings;
 
 /// SHARP proving service configuration
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -14,13 +14,12 @@ pub struct SharpConfig {
     pub verifier_address: Address,
 }
 
-impl Default for SharpConfig {
-    /// Default config for Sepolia testnet
-    fn default() -> Self {
-        Self {
-            service_url: get_env_var_or_panic("SHARP_URL").parse().unwrap(),
-            rpc_node_url: get_env_var_or_panic("SETTLEMENT_RPC_URL").parse().unwrap(),
-            verifier_address: get_env_var_or_panic("MEMORY_PAGES_CONTRACT_ADDRESS").parse().unwrap(),
-        }
+impl SharpConfig {
+    pub fn new_with_settings(settings: &impl Settings) -> color_eyre::Result<Self> {
+        Ok(Self {
+            service_url: settings.get_settings("SETTLEMENT_RPC_URL")?.parse().unwrap(),
+            rpc_node_url: settings.get_settings("SETTLEMENT_RPC_URL")?.parse().unwrap(),
+            verifier_address: settings.get_settings("MEMORY_PAGES_CONTRACT_ADDRESS")?.parse().unwrap(),
+        })
     }
 }
