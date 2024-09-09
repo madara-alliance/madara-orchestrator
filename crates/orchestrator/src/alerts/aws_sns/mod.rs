@@ -22,7 +22,6 @@ impl AWSSNS {
                     .expect("Not able to get Aws sns config from provided settings");
                 Self { client: Client::new(&aws_config), topic_arn: sns_config.sns_arn }
             }
-            _ => panic!("Invalid config provided for the service type"),
         }
     }
 }

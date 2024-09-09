@@ -35,7 +35,6 @@ impl AWSS3 {
                 let client = Client::from_conf(s3_config_builder.build());
                 Self { client, bucket: s3_config.bucket_name }
             }
-            _ => panic!("Invalid config provided for the service type"),
         }
     }
 }

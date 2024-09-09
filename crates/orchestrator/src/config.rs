@@ -51,9 +51,11 @@ pub struct Config {
 
 /// `ProviderConfig` is an enum used to represent the global config built
 /// using the settings provider. More providers can be added eg : GCP, AZURE etc.
+///
+/// We are using Arc<SdkConfig> because the config size is large and keeping it
+/// a pointer is a better way to pass it through.
 pub enum ProviderConfig {
     AWS(Arc<SdkConfig>),
-    INVALID,
 }
 
 /// To build a `SdkConfig` for AWS provider.
