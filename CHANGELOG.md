@@ -7,6 +7,8 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 ## Added
 
 - moved rust build and tests to self-hosted runner
+- e2e flow test
+- database timestamps
 - alerts module.
 - Tests for Settlement client.
 - Worker queues to listen for trigger events.
@@ -32,6 +34,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ## Changed
 
+- settings provider
 - refactor AWS config usage and clean .env files
 - GitHub's coverage CI yml file for localstack and db testing.
 - Orchestrator :Moved TestConfigBuilder to `config.rs` in tests folder.
@@ -46,6 +49,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ## Fixed
 
+- Calculate root hash logic and added a simple test for it.
 - Cargo.toml dependency reorg.
 - Get Fact Info logic.
 - Fixed state update worker logic as per the new implementation.
