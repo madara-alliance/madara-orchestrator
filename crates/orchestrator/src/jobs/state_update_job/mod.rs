@@ -287,10 +287,12 @@ impl StateUpdateJob {
             unimplemented!("update_state_for_block not implemented as of now for calldata DA.")
         } else if snos.use_kzg_da == Felt252::ONE {
             let blob_data = fetch_blob_data_for_block(block_no, config.clone())
-            .await
-            .map_err(|e| JobError::Other(OtherError(e)))?;
-            let program_output =
-                fetch_program_data_for_block(block_no, config.clone()).await.map_err(|e| JobError::Other(OtherError(e)))?;
+                .await
+                .map_err(|e| JobError::Other(OtherError(e)))?;
+
+            let program_output = fetch_program_data_for_block(block_no, config.clone())
+                .await
+                .map_err(|e| JobError::Other(OtherError(e)))?;
             // TODO :
             // Fetching nonce before the transaction is run
             // Sending update_state transaction from the settlement client

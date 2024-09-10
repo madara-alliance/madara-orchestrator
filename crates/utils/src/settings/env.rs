@@ -5,6 +5,10 @@ use crate::settings::{Settings, SettingsProviderError};
 pub struct EnvSettingsProvider {}
 
 impl Settings for EnvSettingsProvider {
+    fn get_settings_or_panic(&self, name: &'static str) -> String {
+        get_env_var_or_panic(name)
+    }
+
     fn get_settings(&self, name: &'static str) -> Result<String, SettingsProviderError> {
         Ok(get_env_var_or_panic(name))
     }

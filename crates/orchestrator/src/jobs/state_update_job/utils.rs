@@ -19,7 +19,7 @@ pub async fn fetch_blob_data_for_block(block_number: u64, config: Arc<Config>) -
 }
 
 /// Fetching the blob data (stored in remote storage during DA job) for a particular block
-pub async fn fetch_program_data_for_block(block_number: u64, config : Arc<Config>) -> color_eyre::Result<Vec<[u8; 32]>> {
+pub async fn fetch_program_data_for_block(block_number: u64, config: Arc<Config>) -> color_eyre::Result<Vec<[u8; 32]>> {
     let storage_client = config.storage();
     let key = block_number.to_string() + "/" + PROGRAM_OUTPUT_FILE_NAME;
     let blob_data = storage_client.get_data(&key).await?;

@@ -4,7 +4,6 @@ use std::collections::HashMap;
 use std::sync::Arc;
 
 use crate::config::{get_aws_config, ProviderConfig};
-use utils::settings::Settings;
 use ::uuid::Uuid;
 use aws_config::{Region, SdkConfig};
 use aws_sdk_sns::error::SdkError;
@@ -47,13 +46,13 @@ pub fn custom_job_item(default_job_item: JobItem, #[default(String::from("0"))] 
     job_item
 }
 
-pub async fn create_sns_arn(provider_config: &impl Settings) -> Result<(), SdkError<CreateTopicError>> {
-    let sns_client = get_sns_client(provider_config).await;
+pub async fn create_sns_arn(provider_config: ProviderConfig) -> Result<(), SdkError<CreateTopicError>> {
+    let sns_client = get_sns_client(provider_config.get_aws_client_or_panic()).await;
     sns_client.create_topic().name(get_env_var_or_panic("AWS_SNS_ARN_NAME")).send().await?;
     Ok(())
 }
 
-pub async fn get_sns_client(provider_config: &impl Settings) -> aws_sdk_sns::client::Client {
+pub async fn get_sns_client(aws_config: &SdkConfig) -> aws_sdk_sns::client::Client {
     aws_sdk_sns::Client::new(aws_config)
 }
 

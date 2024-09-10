@@ -373,7 +373,6 @@ pub mod test {
 
     use da_client_interface::MockDaClient;
 
-    use crate::data_storage::MockDataStorage;
     use crate::jobs::da_job::da_word;
 
     /// Tests `da_word` function with various inputs for class flag, new nonce, and number of changes.
@@ -440,14 +439,13 @@ pub mod test {
 
         let server = MockServer::start();
         let mut da_client = MockDaClient::new();
-        let mut storage_client = MockDataStorage::new();
 
         // Mocking DA client calls
         da_client.expect_max_blob_per_txn().with().returning(|| 6);
         da_client.expect_max_bytes_per_blob().with().returning(|| 131072);
 
         // Mocking storage client
-        storage_client.expect_put_data().returning(|_, _| Result::Ok(())).times(1);
+        // storage_client.expect_put_data().returning(|_, _| Result::Ok(())).times(1);
 
         let provider = JsonRpcClient::new(HttpTransport::new(
             Url::parse(format!("http://localhost:{}", server.port()).as_str()).expect("Failed to parse URL"),
@@ -457,7 +455,6 @@ pub mod test {
         let services = TestConfigBuilder::new()
             .configure_starknet_client(provider.into())
             .configure_da_client(da_client.into())
-            .configure_storage_client(storage_client.into())
             .build()
             .await;
 

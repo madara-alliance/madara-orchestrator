@@ -19,16 +19,14 @@ use settlement_client_interface::SettlementClient;
 use sharp_service::SharpProverService;
 use starknet_settlement_client::StarknetSettlementClient;
 use utils::env_utils::get_env_var_or_panic;
-use utils::settings::default::DefaultSettingsProvider;
-use utils::settings::SettingsProvider;
 
 use crate::alerts::aws_sns::AWSSNS;
 use crate::alerts::Alerts;
 use crate::data_storage::aws_s3::AWSS3;
 use crate::data_storage::DataStorage;
 use aws_config::meta::region::RegionProviderChain;
-use aws_credential_types::Credentials;
 use aws_config::Region;
+use aws_credential_types::Credentials;
 use ethereum_da_client::EthereumDaClient;
 use utils::settings::env::EnvSettingsProvider;
 use utils::settings::Settings;
@@ -64,8 +62,19 @@ pub struct Config {
 ///
 /// We are using Arc<SdkConfig> because the config size is large and keeping it
 /// a pointer is a better way to pass it through.
+#[derive(Clone)]
 pub enum ProviderConfig {
     AWS(Arc<SdkConfig>),
+}
+
+impl ProviderConfig {
+    pub fn get_aws_client_or_panic(&self) -> &SdkConfig {
+        match self {
+            ProviderConfig::AWS(config) => config.as_ref(),
+            // If more variants are added in the future, they'll cause a panic
+            // _ => panic!("ProviderConfig is not AWS"),
+        }
+    }
 }
 
 /// To build a `SdkConfig` for AWS provider.
@@ -90,36 +99,27 @@ pub async fn get_aws_config(settings_provider: &impl Settings) -> SdkConfig {
 pub async fn init_config() -> Arc<Config> {
     dotenv().ok();
 
+    let settings_provider = EnvSettingsProvider {};
+    let provider_config = ProviderConfig::AWS(Arc::new(get_aws_config(&settings_provider).await));
+
     // init starknet client
     let provider = JsonRpcClient::new(HttpTransport::new(
-        Url::parse(get_env_var_or_panic("MADARA_RPC_URL").as_str()).expect("Failed to parse URL"),
+        Url::parse(settings_provider.get_settings_or_panic("MADARA_RPC_URL").as_str()).expect("Failed to parse URL"),
     ));
-
-    let settings_provider = EnvSettingsProvider {};
-    let aws_config = Arc::new(get_aws_config(&settings_provider).await);
 
     // init database
     let database = build_database_client(&settings_provider).await;
     let da_client = build_da_client(&settings_provider).await;
     let settlement_client = build_settlement_client(&settings_provider).await;
     let prover_client = build_prover_service(&settings_provider);
-    let storage_client = build_storage_client(&settings_provider, ProviderConfig::AWS(Arc::clone(&aws_config))).await;
-    let alerts_client = build_alert_client(&settings_provider, ProviderConfig::AWS(Arc::clone(&aws_config))).await;
+    let storage_client = build_storage_client(&settings_provider, provider_config.clone()).await;
+    let alerts_client = build_alert_client(&settings_provider, provider_config.clone()).await;
 
     // init the queue
     // TODO: we use omniqueue for now which doesn't support loading AWS config
     // from `SdkConfig`. We can later move to using `aws_sdk_sqs`. This would require
     // us stop using the generic omniqueue abstractions for message ack/nack
     let queue = build_queue_client();
-
-    let da_client = build_da_client(&settings_provider).await;
-
-    let settings_provider = DefaultSettingsProvider {};
-    let settlement_client = build_settlement_client(&settings_provider).await;
-    let prover_client = build_prover_service(&settings_provider);
-
-    let storage_client = build_storage_client(&settings_provider, ProviderConfig::AWS(Arc::clone(&aws_config))).await;
-    let alerts_client = build_alert_client(&settings_provider, ProviderConfig::AWS(Arc::clone(&aws_config))).await;
 
     Arc::new(Config::new(
         Arc::new(provider),

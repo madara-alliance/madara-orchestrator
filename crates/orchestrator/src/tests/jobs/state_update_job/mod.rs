@@ -79,12 +79,24 @@ async fn test_process_job_works(
         )
         .unwrap();
 
-        let blob_data = vec![hex_string_to_u8_vec(&blob_data).unwrap()];
-        let program_data = bytes_to_vec_u8(blob_data);
-        
+        let blob_data_vec = vec![hex_string_to_u8_vec(&blob_data).unwrap()];
+        // Getting the program output data from file.
+        let program_output_data = fs::read_to_string(
+            CURRENT_PATH
+                .join(format!("src/tests/jobs/state_update_job/test_data/{}/{}", block, PROGRAM_OUTPUT_FILE_NAME)),
+        )
+        .unwrap();
+
+        let program_output_bytes = Bytes::from(program_output_data);
+        let program_output_bytes_ref = program_output_bytes.as_ref();
+
+        let program_output_data_vec = bytes_to_vec_u8(program_output_bytes_ref);
+
+        println!("Mine {:?}", program_output_data_vec);
+
         settlement_client
             .expect_update_state_with_blobs()
-            .with(eq(program_data), eq(blob_data), always())
+            .with(eq(program_output_data_vec), eq(blob_data_vec), always())
             .times(1)
             .returning(|_, _, _| Ok("0xbeef".to_string()));
     }
@@ -109,8 +121,7 @@ async fn test_process_job_works(
             CURRENT_PATH.join(format!("src/tests/jobs/state_update_job/test_data/{}/{}", block, BLOB_DATA_FILE_NAME)),
         )
         .unwrap();
-        let blob_data_vec = vec![hex_string_to_u8_vec(&blob_data).unwrap()];
-        let blob_serialized = bincode::serialize(&blob_data_vec).unwrap();
+        let blob_data_vec = hex_string_to_u8_vec(&blob_data).unwrap();
 
         // Getting the snos data from file.
         let snos_output_key = block.to_owned().to_string() + "/" + SNOS_OUTPUT_FILE_NAME;
@@ -119,8 +130,17 @@ async fn test_process_job_works(
         )
         .unwrap();
 
+        // Getting the program output data from file.
+        let program_output_key = block.to_owned().to_string() + "/" + PROGRAM_OUTPUT_FILE_NAME;
+        let program_output_data = fs::read_to_string(
+            CURRENT_PATH
+                .join(format!("src/tests/jobs/state_update_job/test_data/{}/{}", block, PROGRAM_OUTPUT_FILE_NAME)),
+        )
+        .unwrap();
+
         storage_client.put_data(Bytes::from(snos_output_data), &snos_output_key).await.unwrap();
-        storage_client.put_data(Bytes::from(blob_serialized), &blob_data_key).await.unwrap();
+        storage_client.put_data(Bytes::from(blob_data_vec), &blob_data_key).await.unwrap();
+        storage_client.put_data(Bytes::from(program_output_data), &program_output_key).await.unwrap();
     }
 
     // setting last failed block number as 651053.

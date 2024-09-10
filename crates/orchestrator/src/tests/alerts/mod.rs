@@ -20,7 +20,7 @@ async fn sns_alert_subscribe_to_topic_receive_alert_works() {
     let queue = sqs_client.create_queue().queue_name(SNS_ALERT_TEST_QUEUE).send().await.unwrap();
     let queue_url = queue.queue_url().unwrap();
 
-    let sns_client = get_sns_client(&services.aws_config).await;
+    let sns_client = get_sns_client(services.provider_config.get_aws_client_or_panic()).await;
 
     let queue_attributes =
         sqs_client.get_queue_attributes().queue_url(queue_url).attribute_names(QueueArn).send().await.unwrap();
