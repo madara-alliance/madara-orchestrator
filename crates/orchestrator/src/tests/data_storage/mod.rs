@@ -1,8 +1,8 @@
 use bytes::Bytes;
-use rstest::rstest;
 use serde_json::json;
 
 use crate::tests::config::{ConfigType, TestConfigBuilder};
+use rstest::rstest;
 
 /// This test checks the ability to put and get data from AWS S3 using `AWSS3`.
 /// It puts JSON data into a test bucket and retrieves it, verifying the data

@@ -2,7 +2,6 @@ use std::collections::HashMap;
 use std::sync::Arc;
 use std::time::Duration;
 
-use assert_matches::assert_matches;
 use mockall::predicate::eq;
 use mongodb::bson::doc;
 use omniqueue::QueueError;
@@ -31,6 +30,9 @@ pub mod proving_job;
 
 #[cfg(test)]
 pub mod state_update_job;
+
+use assert_matches::assert_matches;
+use chrono::{SubsecRound, Utc};
 
 /// Tests `create_job` function when job is not existing in the db.
 #[rstest]
@@ -548,6 +550,8 @@ fn build_job_item_by_type_and_status(job_type: JobType, job_status: JobStatus, i
         external_id: ExternalId::Number(0),
         metadata: hashmap,
         version: 0,
+        created_at: Utc::now().round_subsecs(0),
+        updated_at: Utc::now().round_subsecs(0),
     }
 }
 

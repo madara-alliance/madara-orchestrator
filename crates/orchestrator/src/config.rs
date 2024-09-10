@@ -1,3 +1,10 @@
+#[cfg(feature = "testing")]
+use alloy::primitives::Address;
+#[cfg(feature = "testing")]
+use alloy::providers::RootProvider;
+#[cfg(feature = "testing")]
+use std::str::FromStr;
+
 use std::sync::Arc;
 
 use aws_config::SdkConfig;
@@ -5,8 +12,7 @@ use dotenvy::dotenv;
 use starknet::providers::jsonrpc::HttpTransport;
 use starknet::providers::{JsonRpcClient, Url};
 
-use da_client_interface::{DaClient, DaConfig};
-use ethereum_da_client::config::EthereumDaConfig;
+use da_client_interface::DaClient;
 use ethereum_settlement_client::EthereumSettlementClient;
 use prover_client_interface::ProverClient;
 use settlement_client_interface::SettlementClient;
@@ -18,12 +24,17 @@ use utils::settings::SettingsProvider;
 
 use crate::alerts::aws_sns::AWSSNS;
 use crate::alerts::Alerts;
-use crate::data_storage::aws_s3::config::AWSS3Config;
 use crate::data_storage::aws_s3::AWSS3;
-use crate::data_storage::{DataStorage, DataStorageConfig};
-use crate::database::mongodb::config::MongoDbConfig;
+use crate::data_storage::DataStorage;
+use aws_config::meta::region::RegionProviderChain;
+use aws_credential_types::Credentials;
+use aws_config::Region;
+use ethereum_da_client::EthereumDaClient;
+use utils::settings::env::EnvSettingsProvider;
+use utils::settings::Settings;
+
 use crate::database::mongodb::MongoDb;
-use crate::database::{Database, DatabaseConfig};
+use crate::database::Database;
 use crate::queue::sqs::SqsQueue;
 use crate::queue::QueueProvider;
 
@@ -48,6 +59,33 @@ pub struct Config {
     alerts: Box<dyn Alerts>,
 }
 
+/// `ProviderConfig` is an enum used to represent the global config built
+/// using the settings provider. More providers can be added eg : GCP, AZURE etc.
+///
+/// We are using Arc<SdkConfig> because the config size is large and keeping it
+/// a pointer is a better way to pass it through.
+pub enum ProviderConfig {
+    AWS(Arc<SdkConfig>),
+}
+
+/// To build a `SdkConfig` for AWS provider.
+pub async fn get_aws_config(settings_provider: &impl Settings) -> SdkConfig {
+    let region = settings_provider
+        .get_settings("AWS_REGION")
+        .expect("Not able to get AWS_REGION from provided settings provider.");
+    let region_provider = RegionProviderChain::first_try(Region::new(region)).or_default_provider();
+    let credentials = Credentials::from_keys(
+        settings_provider
+            .get_settings("AWS_ACCESS_KEY_ID")
+            .expect("Not able to get AWS_ACCESS_KEY_ID from provided settings provider."),
+        settings_provider
+            .get_settings("AWS_SECRET_ACCESS_KEY")
+            .expect("Not able to get AWS_SECRET_ACCESS_KEY from provided settings provider."),
+        None,
+    );
+    aws_config::from_env().credentials_provider(credentials).region(region_provider).load().await
+}
+
 /// Initializes the app config
 pub async fn init_config() -> Arc<Config> {
     dotenv().ok();
@@ -57,11 +95,16 @@ pub async fn init_config() -> Arc<Config> {
         Url::parse(get_env_var_or_panic("MADARA_RPC_URL").as_str()).expect("Failed to parse URL"),
     ));
 
-    // init database
-    let database = build_database_client().await;
+    let settings_provider = EnvSettingsProvider {};
+    let aws_config = Arc::new(get_aws_config(&settings_provider).await);
 
-    // init AWS
-    let aws_config = aws_config::load_from_env().await;
+    // init database
+    let database = build_database_client(&settings_provider).await;
+    let da_client = build_da_client(&settings_provider).await;
+    let settlement_client = build_settlement_client(&settings_provider).await;
+    let prover_client = build_prover_service(&settings_provider);
+    let storage_client = build_storage_client(&settings_provider, ProviderConfig::AWS(Arc::clone(&aws_config))).await;
+    let alerts_client = build_alert_client(&settings_provider, ProviderConfig::AWS(Arc::clone(&aws_config))).await;
 
     // init the queue
     // TODO: we use omniqueue for now which doesn't support loading AWS config
@@ -69,14 +112,14 @@ pub async fn init_config() -> Arc<Config> {
     // us stop using the generic omniqueue abstractions for message ack/nack
     let queue = build_queue_client();
 
-    let da_client = build_da_client().await;
+    let da_client = build_da_client(&settings_provider).await;
 
     let settings_provider = DefaultSettingsProvider {};
     let settlement_client = build_settlement_client(&settings_provider).await;
     let prover_client = build_prover_service(&settings_provider);
 
-    let storage_client = build_storage_client(&aws_config).await;
-    let alerts_client = build_alert_client(&aws_config).await;
+    let storage_client = build_storage_client(&settings_provider, ProviderConfig::AWS(Arc::clone(&aws_config))).await;
+    let alerts_client = build_alert_client(&settings_provider, ProviderConfig::AWS(Arc::clone(&aws_config))).await;
 
     Arc::new(Config::new(
         Arc::new(provider),
@@ -148,48 +191,64 @@ impl Config {
 }
 
 /// Builds the DA client based on the environment variable DA_LAYER
-pub async fn build_da_client() -> Box<dyn DaClient + Send + Sync> {
+pub async fn build_da_client(settings_provider: &impl Settings) -> Box<dyn DaClient + Send + Sync> {
     match get_env_var_or_panic("DA_LAYER").as_str() {
-        "ethereum" => {
-            let config = EthereumDaConfig::new_from_env();
-            Box::new(config.build_client().await)
-        }
+        "ethereum" => Box::new(EthereumDaClient::new_with_settings(settings_provider)),
         _ => panic!("Unsupported DA layer"),
     }
 }
 
 /// Builds the prover service based on the environment variable PROVER_SERVICE
-pub fn build_prover_service(settings_provider: &impl SettingsProvider) -> Box<dyn ProverClient> {
+pub fn build_prover_service(settings_provider: &impl Settings) -> Box<dyn ProverClient> {
     match get_env_var_or_panic("PROVER_SERVICE").as_str() {
-        "sharp" => Box::new(SharpProverService::with_settings(settings_provider)),
+        "sharp" => Box::new(SharpProverService::new_with_settings(settings_provider)),
         _ => panic!("Unsupported prover service"),
     }
 }
 
 /// Builds the settlement client depending on the env variable SETTLEMENT_LAYER
-pub async fn build_settlement_client(
-    settings_provider: &impl SettingsProvider,
-) -> Box<dyn SettlementClient + Send + Sync> {
+pub async fn build_settlement_client(settings_provider: &impl Settings) -> Box<dyn SettlementClient + Send + Sync> {
     match get_env_var_or_panic("SETTLEMENT_LAYER").as_str() {
-        "ethereum" => Box::new(EthereumSettlementClient::with_settings(settings_provider)),
-        "starknet" => Box::new(StarknetSettlementClient::with_settings(settings_provider).await),
+        "ethereum" => {
+            #[cfg(not(feature = "testing"))]
+            {
+                Box::new(EthereumSettlementClient::new_with_settings(settings_provider))
+            }
+            #[cfg(feature = "testing")]
+            {
+                Box::new(EthereumSettlementClient::with_test_settings(
+                    RootProvider::new_http(get_env_var_or_panic("SETTLEMENT_RPC_URL").as_str().parse().unwrap()),
+                    Address::from_str(&get_env_var_or_panic("DEFAULT_L1_CORE_CONTRACT_ADDRESS")).unwrap(),
+                    Url::from_str(get_env_var_or_panic("SETTLEMENT_RPC_URL").as_str()).unwrap(),
+                    Some(Address::from_str(get_env_var_or_panic("STARKNET_OPERATOR_ADDRESS").as_str()).unwrap()),
+                ))
+            }
+        }
+        "starknet" => Box::new(StarknetSettlementClient::new_with_settings(settings_provider).await),
         _ => panic!("Unsupported Settlement layer"),
     }
 }
 
-pub async fn build_storage_client(aws_config: &SdkConfig) -> Box<dyn DataStorage + Send + Sync> {
+pub async fn build_storage_client(
+    settings_provider: &impl Settings,
+    provider_config: ProviderConfig,
+) -> Box<dyn DataStorage + Send + Sync> {
     match get_env_var_or_panic("DATA_STORAGE").as_str() {
-        "s3" => Box::new(AWSS3::new(AWSS3Config::new_from_env(), aws_config)),
+        "s3" => Box::new(AWSS3::new_with_settings(settings_provider, provider_config).await),
         _ => panic!("Unsupported Storage Client"),
     }
 }
 
-pub async fn build_alert_client(aws_config: &SdkConfig) -> Box<dyn Alerts + Send + Sync> {
+pub async fn build_alert_client(
+    settings_provider: &impl Settings,
+    provider_config: ProviderConfig,
+) -> Box<dyn Alerts + Send + Sync> {
     match get_env_var_or_panic("ALERTS").as_str() {
-        "sns" => Box::new(AWSSNS::new(aws_config).await),
+        "sns" => Box::new(AWSSNS::new_with_settings(settings_provider, provider_config).await),
         _ => panic!("Unsupported Alert Client"),
     }
 }
+
 pub fn build_queue_client() -> Box<dyn QueueProvider + Send + Sync> {
     match get_env_var_or_panic("QUEUE_PROVIDER").as_str() {
         "sqs" => Box::new(SqsQueue {}),
@@ -197,9 +256,9 @@ pub fn build_queue_client() -> Box<dyn QueueProvider + Send + Sync> {
     }
 }
 
-pub async fn build_database_client() -> Box<dyn Database + Send + Sync> {
+pub async fn build_database_client(settings_provider: &impl Settings) -> Box<dyn Database + Send + Sync> {
     match get_env_var_or_panic("DATABASE").as_str() {
-        "mongodb" => Box::new(MongoDb::new(MongoDbConfig::new_from_env()).await),
+        "mongodb" => Box::new(MongoDb::new_with_settings(settings_provider).await),
         _ => panic!("Unsupported Database Client"),
     }
 }

@@ -3,6 +3,7 @@ use futures::TryStreamExt;
 use std::collections::HashMap;
 
 use async_trait::async_trait;
+use chrono::{SubsecRound, Utc};
 use color_eyre::eyre::eyre;
 use color_eyre::Result;
 use mongodb::bson::{Bson, Document};
@@ -13,21 +14,26 @@ use mongodb::{
     options::{ClientOptions, ServerApi, ServerApiVersion},
     Client, Collection,
 };
+use utils::settings::Settings;
 use uuid::Uuid;
 
 use crate::database::mongodb::config::MongoDbConfig;
-use crate::database::Database;
+use crate::database::{Database, DatabaseConfig};
 use crate::jobs::types::{JobItem, JobStatus, JobType};
 
 pub mod config;
+
+pub const MONGO_DB_SETTINGS: &str = "mongodb";
 
 pub struct MongoDb {
     client: Client,
 }
 
 impl MongoDb {
-    pub async fn new(config: MongoDbConfig) -> Self {
-        let mut client_options = ClientOptions::parse(config.url).await.expect("Failed to parse MongoDB Url");
+    pub async fn new_with_settings(settings: &impl Settings) -> Self {
+        let mongo_db_settings = MongoDbConfig::new_with_settings(settings);
+        let mut client_options =
+            ClientOptions::parse(mongo_db_settings.url).await.expect("Failed to parse MongoDB Url");
         // Set the server_api field of the client_options object to set the version of the Stable API on the
         // client
         let server_api = ServerApi::builder().version(ServerApiVersion::V1).build();
@@ -36,9 +42,9 @@ impl MongoDb {
         let client = Client::with_options(client_options).expect("Failed to create MongoDB client");
         // Ping the server to see if you can connect to the cluster
         client.database("admin").run_command(doc! {"ping": 1}, None).await.expect("Failed to ping MongoDB deployment");
-        println!("Pinged your deployment. You successfully connected to MongoDB!");
+        log::debug!("Pinged your deployment. You successfully connected to MongoDB!");
 
-        MongoDb { client }
+        Self { client }
     }
 
     /// Mongodb client uses Arc internally, reducing the cost of clone.
@@ -64,17 +70,22 @@ impl MongoDb {
         if result.modified_count == 0 {
             return Err(eyre!("Failed to update job. Job version is likely outdated"));
         }
-        self.update_job_version(current_job).await?;
+        self.post_job_update(current_job).await?;
         Ok(())
     }
 
+    // TODO : remove this function
+    // Do this process in single db transaction.
     /// To update the document version
-    async fn update_job_version(&self, current_job: &JobItem) -> Result<()> {
+    async fn post_job_update(&self, current_job: &JobItem) -> Result<()> {
         let filter = doc! {
             "id": current_job.id,
         };
         let combined_update = doc! {
-            "$inc": { "version": 1 }
+            "$inc": { "version": 1 },
+            "$set" : {
+                "updated_at": Utc::now().round_subsecs(0)
+            }
         };
         let options = UpdateOptions::builder().upsert(false).build();
         let result = self.get_job_collection().update_one(filter, combined_update, options).await?;

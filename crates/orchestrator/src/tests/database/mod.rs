@@ -1,7 +1,8 @@
+use crate::jobs::types::{ExternalId, JobItem, JobStatus, JobType};
+use chrono::{SubsecRound, Utc};
 use rstest::*;
 use uuid::Uuid;
 
-use crate::jobs::types::{ExternalId, JobItem, JobStatus, JobType};
 use crate::tests::config::{ConfigType, TestConfigBuilder};
 
 #[rstest]
@@ -215,5 +216,7 @@ pub fn build_job_item(job_type: JobType, job_status: JobStatus, internal_id: u64
         external_id: ExternalId::Number(0),
         metadata: Default::default(),
         version: 0,
+        created_at: Utc::now().round_subsecs(0),
+        updated_at: Utc::now().round_subsecs(0),
     }
 }

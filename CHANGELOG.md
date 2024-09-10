@@ -6,6 +6,8 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ## Added
 
+- e2e flow test
+- database timestamps
 - alerts module.
 - Tests for Settlement client.
 - Worker queues to listen for trigger events.
@@ -34,6 +36,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 - AWS config built from TestConfigBuilder.
 - Better TestConfigBuilder, with sync config clients.
 - Drilled Config, removing dirty global reads.
+- settings provider
 - refactor AWS config usage and clean .env files
 - GitHub's coverage CI yml file for localstack and db testing.
 - Orchestrator :Moved TestConfigBuilder to `config.rs` in tests folder.

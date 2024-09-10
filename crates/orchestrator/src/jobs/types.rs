@@ -4,14 +4,15 @@ use color_eyre::eyre::eyre;
 use color_eyre::Result;
 use da_client_interface::DaVerificationStatus;
 // TODO: job types shouldn't depend on mongodb
+use chrono::{DateTime, Utc};
 #[cfg(feature = "with_mongodb")]
-use mongodb::bson::serde_helpers::uuid_1_as_binary;
+use mongodb::bson::serde_helpers::{chrono_datetime_as_bson_datetime, uuid_1_as_binary};
 use serde::{Deserialize, Serialize};
 use settlement_client_interface::SettlementVerificationStatus;
 use uuid::Uuid;
 
 /// An external id.
-#[derive(Serialize, Deserialize, Debug, Clone, PartialEq)]
+#[derive(Serialize, Deserialize, Debug, Clone, PartialEq, Eq)]
 #[serde(untagged)]
 pub enum ExternalId {
     /// A string.
@@ -70,7 +71,7 @@ fn unwrap_external_id_failed(expected: &str, got: &ExternalId) -> color_eyre::ey
     eyre!("wrong ExternalId type: expected {}, got {:?}", expected, got)
 }
 
-#[derive(Serialize, Deserialize, Debug, Clone, PartialEq)]
+#[derive(Serialize, Deserialize, Debug, Clone, PartialEq, Eq)]
 pub enum JobType {
     /// Running SNOS for a block
     SnosRun,
@@ -84,7 +85,7 @@ pub enum JobType {
     StateTransition,
 }
 
-#[derive(Serialize, Deserialize, Debug, Clone, PartialEq, PartialOrd, strum_macros::Display)]
+#[derive(Serialize, Deserialize, Debug, Clone, PartialEq, PartialOrd, strum_macros::Display, Eq)]
 pub enum JobStatus {
     /// An acknowledgement that the job has been received by the
     /// orchestrator and is waiting to be processed
@@ -115,7 +116,7 @@ pub enum JobStatus {
     Failed,
 }
 
-#[derive(Serialize, Deserialize, Debug, Clone, PartialEq)]
+#[derive(Serialize, Deserialize, Debug, Clone, PartialEq, Eq)]
 pub struct JobItem {
     /// an uuid to identify a job
     #[cfg_attr(feature = "with_mongodb", serde(with = "uuid_1_as_binary"))]
@@ -133,6 +134,12 @@ pub struct JobItem {
     pub metadata: HashMap<String, String>,
     /// helps to keep track of the version of the item for optimistic locking
     pub version: i32,
+    /// timestamp when the job was created
+    #[cfg_attr(feature = "with_mongodb", serde(with = "chrono_datetime_as_bson_datetime"))]
+    pub created_at: DateTime<Utc>,
+    /// timestamp when the job was last updated
+    #[cfg_attr(feature = "with_mongodb", serde(with = "chrono_datetime_as_bson_datetime"))]
+    pub updated_at: DateTime<Utc>,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]

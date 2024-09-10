@@ -1,20 +1,24 @@
 use std::sync::Arc;
 
 use aws_config::SdkConfig;
+use crate::config::{Config, ProviderConfig,};
+use crate::data_storage::DataStorage;
+use da_client_interface::DaClient;
 use httpmock::MockServer;
 use starknet::providers::jsonrpc::HttpTransport;
 use starknet::providers::JsonRpcClient;
 
-use da_client_interface::{DaClient, MockDaClient};
+use da_client_interface::MockDaClient;
 use prover_client_interface::{MockProverClient, ProverClient};
 use settlement_client_interface::{MockSettlementClient, SettlementClient};
 
 use crate::alerts::Alerts;
-use crate::config::Config;
-use crate::data_storage::{DataStorage, MockDataStorage};
+use crate::data_storage::MockDataStorage;
 use crate::database::{Database, MockDatabase};
 use crate::queue::{MockQueueProvider, QueueProvider};
 use crate::tests::common::{create_sns_arn, create_sqs_queues, drop_database};
+use utils::settings::env::EnvSettingsProvider;
+
 
 // Inspiration : https://rust-unofficial.github.io/patterns/patterns/creational/builder.html
 // TestConfigBuilder allows to heavily customise the global configs based on the test's requirement.
@@ -157,7 +161,8 @@ impl TestConfigBuilder {
     pub async fn build(self) -> TestConfigBuilderReturns {
         dotenvy::from_filename("../.env.test").expect("Failed to load the .env file");
 
-        let aws_config = aws_config::load_from_env().await;
+        let aws_config = ProviderConfig::AWS(Arc::new(aws_config::load_from_env().await));
+        let settings_provider = EnvSettingsProvider {};
 
         use std::sync::Arc;
 
@@ -173,8 +178,8 @@ impl TestConfigBuilder {
         } = self;
 
         let (starknet_client, server) = implement_client::init_starknet_client(starknet_client_type).await;
-        let alerts = implement_client::init_alerts(alerts_type, &aws_config).await;
-        let da_client = implement_client::init_da_client(da_client_type).await;
+        let alerts = implement_client::init_alerts(alerts_type, &settings_provider, &aws_config).await;
+        let da_client = implement_client::init_da_client(da_client_type, &settings_provider).await;
 
         let settlement_client = implement_client::init_settlement_client(settlement_client_type).await;
 
@@ -182,7 +187,7 @@ impl TestConfigBuilder {
 
         // External Dependencies
         let storage = implement_client::init_storage_client(storage_type).await;
-        let database = implement_client::init_database(database_type).await;
+        let database = implement_client::init_database(database_type, settings_provider).await;
         let queue = implement_client::init_queue_client(queue_type).await;
         // Deleting and Creating the queues in sqs.
         create_sqs_queues().await.expect("Not able to delete and create the queues.");
@@ -212,13 +217,12 @@ pub mod implement_client {
     use crate::alerts::{Alerts, MockAlerts};
     use crate::config::{
         build_alert_client, build_da_client, build_database_client, build_prover_service, build_queue_client,
-        build_settlement_client,
+        build_settlement_client, ProviderConfig,
     };
     use crate::data_storage::{DataStorage, MockDataStorage};
     use crate::database::{Database, MockDatabase};
     use crate::queue::{MockQueueProvider, QueueProvider};
     use crate::tests::common::get_storage_client;
-    use aws_config::SdkConfig;
     use da_client_interface::{DaClient, MockDaClient};
     use httpmock::MockServer;
     use prover_client_interface::{MockProverClient, ProverClient};
@@ -227,6 +231,8 @@ pub mod implement_client {
     use starknet::providers::{JsonRpcClient, Url};
     use utils::env_utils::get_env_var_or_panic;
     use utils::settings::default::DefaultSettingsProvider;
+    use utils::settings::env::EnvSettingsProvider;
+    use utils::settings::Settings;
 
     use super::ConfigType;
     use super::MockType;
@@ -253,10 +259,10 @@ pub mod implement_client {
     implement_mock_client_conversion!(SettlementClient, SettlementClient);
     implement_mock_client_conversion!(DaClient, DaClient);
 
-    pub(crate) async fn init_da_client(service: ConfigType) -> Box<dyn DaClient> {
+    pub(crate) async fn init_da_client(service: ConfigType, settings_provider : &impl Settings ) -> Box<dyn DaClient> {
         match service {
             ConfigType::Mock(client) => client.into(),
-            ConfigType::Actual => build_da_client().await,
+            ConfigType::Actual => build_da_client(&settings_provider).await,
             ConfigType::Dummy => Box::new(MockDaClient::new()),
         }
     }
@@ -279,10 +285,10 @@ pub mod implement_client {
         }
     }
 
-    pub(crate) async fn init_alerts(service: ConfigType, aws_config: &SdkConfig) -> Box<dyn Alerts> {
+    pub(crate) async fn init_alerts(service: ConfigType, settings_provider : &impl Settings, provider_config: &ProviderConfig) -> Box<dyn Alerts> {
         match service {
             ConfigType::Mock(client) => client.into(),
-            ConfigType::Actual => build_alert_client(aws_config).await,
+            ConfigType::Actual => build_alert_client(settings_provider, provider_config).await,
             ConfigType::Dummy => Box::new(MockAlerts::new()),
         }
     }
@@ -312,10 +318,10 @@ pub mod implement_client {
         }
     }
 
-    pub(crate) async fn init_database(service: ConfigType) -> Box<dyn Database> {
+    pub(crate) async fn init_database(service: ConfigType, settings_provider : EnvSettingsProvider) -> Box<dyn Database> {
         match service {
             ConfigType::Mock(client) => client.into(),
-            ConfigType::Actual => build_database_client().await,
+            ConfigType::Actual => build_database_client(&settings_provider).await,
             ConfigType::Dummy => Box::new(MockDatabase::new()),
         }
     }

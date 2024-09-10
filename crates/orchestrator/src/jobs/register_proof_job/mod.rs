@@ -2,6 +2,7 @@ use std::collections::HashMap;
 use std::sync::Arc;
 
 use async_trait::async_trait;
+use chrono::{SubsecRound, Utc};
 use color_eyre::Result;
 use uuid::Uuid;
 
@@ -31,6 +32,8 @@ impl Job for RegisterProofJob {
             // this will allow state update jobs to be created for each block
             metadata,
             version: 0,
+            created_at: Utc::now().round_subsecs(0),
+            updated_at: Utc::now().round_subsecs(0),
         })
     }
 
