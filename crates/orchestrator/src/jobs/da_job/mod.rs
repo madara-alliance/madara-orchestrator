@@ -445,8 +445,6 @@ pub mod test {
         da_client.expect_max_bytes_per_blob().with().returning(|| 131072);
 
         // Mocking storage client
-        // storage_client.expect_put_data().returning(|_, _| Result::Ok(())).times(1);
-
         let provider = JsonRpcClient::new(HttpTransport::new(
             Url::parse(format!("http://localhost:{}", server.port()).as_str()).expect("Failed to parse URL"),
         ));

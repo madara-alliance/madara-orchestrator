@@ -8,5 +8,4 @@ pub enum SettingsProviderError {
 
 pub trait Settings {
     fn get_settings_or_panic(&self, name: &'static str) -> String;
-    fn get_settings(&self, name: &'static str) -> Result<String, SettingsProviderError>;
 }
