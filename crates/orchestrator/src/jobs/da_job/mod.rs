@@ -380,7 +380,6 @@ pub mod test {
     use url::Url;
 
     use crate::config::config;
-    use crate::data_storage::MockDataStorage;
     use crate::jobs::da_job::da_word;
     use crate::tests::config::TestConfigBuilder;
 
