@@ -38,7 +38,13 @@ impl Worker for UpdateStateWorker {
                 );
 
                 // Creating a single job for all the pending blocks.
-                create_job(JobType::StateTransition, job.internal_id, metadata, config).await?;
+                create_job(
+                    JobType::StateTransition,
+                    successful_da_jobs_without_successor[0].internal_id.clone(),
+                    metadata,
+                    config,
+                )
+                .await?;
 
                 Ok(())
             }
