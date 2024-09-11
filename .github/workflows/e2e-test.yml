@@ -34,7 +34,7 @@ jobs:
       - name: Install necessary deps
         run: |
           sudo apt update
-          sudo apt install -y build-essential libssl-dev pkg-config
+          sudo apt install -y gcc g++ build-essential libssl-dev pkg-config
 
       - name: Rust Cache
         uses: Swatinem/rust-cache@v2
