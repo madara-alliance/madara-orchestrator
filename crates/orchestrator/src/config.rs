@@ -28,7 +28,6 @@ use crate::data_storage::DataStorage;
 use aws_config::meta::region::RegionProviderChain;
 use aws_config::Region;
 use aws_credential_types::Credentials;
-use ethereum_da_client::EthereumDaClient;
 use utils::settings::env::EnvSettingsProvider;
 use utils::settings::Settings;
 
