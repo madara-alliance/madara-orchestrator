@@ -100,7 +100,7 @@ impl Default for TestConfigBuilder {
 pub struct TestConfigBuilderReturns {
     pub server: Option<MockServer>,
     pub config: Arc<Config>,
-    pub provider_config: ProviderConfig,
+    pub provider_config: Arc<ProviderConfig>,
 }
 impl TestConfigBuilder {
     /// Create a new config
@@ -160,7 +160,7 @@ impl TestConfigBuilder {
         dotenvy::from_filename("../.env.test").expect("Failed to load the .env.test file");
 
         let settings_provider = EnvSettingsProvider {};
-        let provider_config = ProviderConfig::AWS(Arc::new(get_aws_config(&settings_provider).await));
+        let provider_config = Arc::new(ProviderConfig::AWS(Box::new(get_aws_config(&settings_provider).await)));
 
         use std::sync::Arc;
 
@@ -185,11 +185,11 @@ impl TestConfigBuilder {
         let prover_client = implement_client::init_prover_client(prover_client_type, &settings_provider).await;
 
         // External Dependencies
-        let storage = implement_client::init_storage_client(storage_type).await;
+        let storage = implement_client::init_storage_client(storage_type, provider_config.clone()).await;
         let database = implement_client::init_database(database_type, settings_provider).await;
         let queue = implement_client::init_queue_client(queue_type).await;
         // Deleting and Creating the queues in sqs.
-        create_sqs_queues().await.expect("Not able to delete and create the queues.");
+        create_sqs_queues(provider_config.clone()).await.expect("Not able to delete and create the queues.");
         // Deleting the database
         drop_database().await.expect("Unable to drop the database.");
         // Creating the SNS ARN
@@ -290,7 +290,7 @@ pub mod implement_client {
     pub(crate) async fn init_alerts(
         service: ConfigType,
         settings_provider: &impl Settings,
-        provider_config: ProviderConfig,
+        provider_config: Arc<ProviderConfig>,
     ) -> Box<dyn Alerts> {
         match service {
             ConfigType::Mock(client) => client.into(),
@@ -299,11 +299,14 @@ pub mod implement_client {
         }
     }
 
-    pub(crate) async fn init_storage_client(service: ConfigType) -> Box<dyn DataStorage> {
+    pub(crate) async fn init_storage_client(
+        service: ConfigType,
+        provider_config: Arc<ProviderConfig>,
+    ) -> Box<dyn DataStorage> {
         match service {
             ConfigType::Mock(client) => client.into(),
             ConfigType::Actual => {
-                let storage = get_storage_client().await;
+                let storage = get_storage_client(provider_config).await;
                 match get_env_var_or_panic("DATA_STORAGE").as_str() {
                     "s3" => {
                         storage.as_ref().build_test_bucket(&get_env_var_or_panic("AWS_S3_BUCKET_NAME")).await.unwrap()

@@ -64,32 +64,24 @@ pub struct Config {
 /// a pointer is a better way to pass it through.
 #[derive(Clone)]
 pub enum ProviderConfig {
-    AWS(Arc<SdkConfig>),
+    AWS(Box<SdkConfig>),
 }
 
 impl ProviderConfig {
     pub fn get_aws_client_or_panic(&self) -> &SdkConfig {
         match self {
             ProviderConfig::AWS(config) => config.as_ref(),
-            // If more variants are added in the future, they'll cause a panic
-            // _ => panic!("ProviderConfig is not AWS"),
         }
     }
 }
 
 /// To build a `SdkConfig` for AWS provider.
 pub async fn get_aws_config(settings_provider: &impl Settings) -> SdkConfig {
-    let region = settings_provider
-        .get_settings("AWS_REGION")
-        .expect("Not able to get AWS_REGION from provided settings provider.");
+    let region = settings_provider.get_settings_or_panic("AWS_REGION");
     let region_provider = RegionProviderChain::first_try(Region::new(region)).or_default_provider();
     let credentials = Credentials::from_keys(
-        settings_provider
-            .get_settings("AWS_ACCESS_KEY_ID")
-            .expect("Not able to get AWS_ACCESS_KEY_ID from provided settings provider."),
-        settings_provider
-            .get_settings("AWS_SECRET_ACCESS_KEY")
-            .expect("Not able to get AWS_SECRET_ACCESS_KEY from provided settings provider."),
+        settings_provider.get_settings_or_panic("AWS_ACCESS_KEY_ID"),
+        settings_provider.get_settings_or_panic("AWS_SECRET_ACCESS_KEY"),
         None,
     );
     aws_config::from_env().credentials_provider(credentials).region(region_provider).load().await
@@ -100,7 +92,7 @@ pub async fn init_config() -> Arc<Config> {
     dotenv().ok();
 
     let settings_provider = EnvSettingsProvider {};
-    let provider_config = ProviderConfig::AWS(Arc::new(get_aws_config(&settings_provider).await));
+    let provider_config = Arc::new(ProviderConfig::AWS(Box::new(get_aws_config(&settings_provider).await)));
 
     // init starknet client
     let provider = JsonRpcClient::new(HttpTransport::new(
@@ -231,7 +223,7 @@ pub async fn build_settlement_client(settings_provider: &impl Settings) -> Box<d
 
 pub async fn build_storage_client(
     settings_provider: &impl Settings,
-    provider_config: ProviderConfig,
+    provider_config: Arc<ProviderConfig>,
 ) -> Box<dyn DataStorage + Send + Sync> {
     match get_env_var_or_panic("DATA_STORAGE").as_str() {
         "s3" => Box::new(AWSS3::new_with_settings(settings_provider, provider_config).await),
@@ -241,7 +233,7 @@ pub async fn build_storage_client(
 
 pub async fn build_alert_client(
     settings_provider: &impl Settings,
-    provider_config: ProviderConfig,
+    provider_config: Arc<ProviderConfig>,
 ) -> Box<dyn Alerts + Send + Sync> {
     match get_env_var_or_panic("ALERTS").as_str() {
         "sns" => Box::new(AWSSNS::new_with_settings(settings_provider, provider_config).await),

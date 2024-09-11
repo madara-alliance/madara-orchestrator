@@ -16,7 +16,7 @@ pub const SNS_ALERT_TEST_QUEUE: &str = "orchestrator_sns_alert_testing_queue";
 async fn sns_alert_subscribe_to_topic_receive_alert_works() {
     let services = TestConfigBuilder::new().configure_alerts(ConfigType::Actual).build().await;
 
-    let sqs_client = get_sqs_client().await;
+    let sqs_client = get_sqs_client(services.provider_config.clone()).await;
     let queue = sqs_client.create_queue().queue_name(SNS_ALERT_TEST_QUEUE).send().await.unwrap();
     let queue_url = queue.queue_url().unwrap();
 
