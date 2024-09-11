@@ -17,7 +17,7 @@ use aws_config::{Region, SdkConfig};
 use aws_credential_types::Credentials;
 use da_client_interface::DaClient;
 use dotenvy::dotenv;
-use ethereum_da_client::EthereumDaClient;
+use ethereum_da_client::config::EthereumDaConfig;
 use ethereum_settlement_client::EthereumSettlementClient;
 use prover_client_interface::ProverClient;
 use settlement_client_interface::SettlementClient;
@@ -208,7 +208,11 @@ pub async fn config_force_init(config: Config) {
 /// Builds the DA client based on the environment variable DA_LAYER
 pub async fn build_da_client(settings_provider: &impl Settings) -> Box<dyn DaClient + Send + Sync> {
     match get_env_var_or_panic("DA_LAYER").as_str() {
-        "ethereum" => Box::new(EthereumDaClient::new_with_settings(settings_provider)),
+        "ethereum" => {
+            let config = EthereumDaConfig::new_with_settings(settings_provider)
+                .expect("Not able to build config from the given settings provider.");
+            Box::new(config.build_client().await)
+        }
         _ => panic!("Unsupported DA layer"),
     }
 }
