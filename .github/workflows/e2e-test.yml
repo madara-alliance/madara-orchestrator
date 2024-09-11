@@ -5,7 +5,7 @@ on:
 
 jobs:
   coverage:
-    runs-on: ubuntu-latest
+    runs-on: self-hosted
 
     services:
       localstack:
@@ -24,16 +24,17 @@ jobs:
     steps:
       - uses: actions/checkout@v3
 
-      # selecting a toolchain either by action or manual `rustup` calls should happen
-      # before the plugin, as the cache uses the current rustc version as its cache key
-      - run: rustup show
-
       - name: Install Rust toolchain
         uses: actions-rs/toolchain@v1
         with:
           profile: minimal
           toolchain: stable
           override: true
+
+      - name: Install necessary deps
+        run: |
+          sudo apt update
+          sudo apt install -y build-essential libssl-dev pkg-config
 
       - name: Rust Cache
         uses: Swatinem/rust-cache@v2
