@@ -1,6 +1,7 @@
-use crate::mock_server::MockServerGlobal;
 use httpmock::MockServer;
 use serde_json::Value;
+
+use crate::mock_server::MockServerGlobal;
 
 /// Starknet Client struct (has mock server inside)
 pub struct StarknetClient {

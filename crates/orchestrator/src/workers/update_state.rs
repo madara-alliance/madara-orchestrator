@@ -83,8 +83,6 @@ impl UpdateStateWorker {
 
 #[cfg(test)]
 mod test_update_state_worker_utils {
-    use crate::jobs::types::{ExternalId, JobItem, JobStatus, JobType};
-    use crate::workers::update_state::UpdateStateWorker;
     use chrono::{SubsecRound, Utc};
     use rstest::rstest;
     use uuid::Uuid;

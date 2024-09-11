@@ -18,14 +18,12 @@ pub mod state_update_job;
 #[cfg(test)]
 pub mod snos_job;
 
-use assert_matches::assert_matches;
-use chrono::{SubsecRound, Utc};
-
 use std::collections::HashMap;
 use std::sync::Arc;
 use std::time::Duration;
 
 use assert_matches::assert_matches;
+use chrono::{SubsecRound, Utc};
 use mockall::predicate::eq;
 use mongodb::bson::doc;
 use omniqueue::QueueError;

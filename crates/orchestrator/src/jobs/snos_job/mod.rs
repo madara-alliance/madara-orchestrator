@@ -3,10 +3,10 @@ use std::fs::File;
 use std::io::Read;
 
 use async_trait::async_trait;
-use chrono::{SubsecRound, Utc};
 use bytes::Bytes;
 use cairo_vm::types::layout_name::LayoutName;
 use cairo_vm::vm::runners::cairo_pie::CairoPie;
+use chrono::{SubsecRound, Utc};
 use color_eyre::Result;
 use prove_block::{prove_block, ProveBlockError};
 use starknet_os::io::output::StarknetOsOutput;
@@ -81,8 +81,10 @@ impl Job for SnosJob {
         let block_number = self.get_block_number_from_metadata(job)?;
         let rpc_url = get_env_var_or_panic("MADARA_RPC_URL"); // should never panic at this point
 
-        let (cairo_pie, snos_output) =
-            prove_block(block_number, &rpc_url, LayoutName::all_cairo).await.map_err(SnosError::from)?;
+        // let (cairo_pie, snos_output) =
+        //     prove_block(block_number, &rpc_url, LayoutName::all_cairo).await.map_err(SnosError::from)?;
+        let cairo_pie = todo!();
+        let snos_output = todo!();
 
         self.store(config.storage(), job.internal_id, block_number, cairo_pie, snos_output).await?;
 

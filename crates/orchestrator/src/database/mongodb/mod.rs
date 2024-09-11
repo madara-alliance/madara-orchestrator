@@ -5,14 +5,10 @@ use async_trait::async_trait;
 use chrono::{SubsecRound, Utc};
 use color_eyre::eyre::eyre;
 use color_eyre::Result;
-use mongodb::bson::{Bson, Document};
-use mongodb::options::{FindOneOptions, FindOptions, UpdateOptions};
-use mongodb::{
-    bson,
-    bson::doc,
-    options::{ClientOptions, ServerApi, ServerApiVersion},
-    Client, Collection,
-};
+use futures::TryStreamExt;
+use mongodb::bson::{doc, Bson, Document};
+use mongodb::options::{ClientOptions, FindOneOptions, FindOptions, ServerApi, ServerApiVersion, UpdateOptions};
+use mongodb::{bson, Client, Collection};
 use utils::settings::Settings;
 use uuid::Uuid;
 

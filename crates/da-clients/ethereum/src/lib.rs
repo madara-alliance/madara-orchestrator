@@ -1,7 +1,8 @@
 #![allow(missing_docs)]
 #![allow(clippy::missing_docs_in_private_items)]
 
-use crate::config::EthereumDaConfig;
+use std::str::FromStr;
+
 use alloy::network::Ethereum;
 use alloy::providers::{ProviderBuilder, RootProvider};
 use alloy::rpc::client::RpcClient;
@@ -12,9 +13,10 @@ use da_client_interface::{DaClient, DaVerificationStatus};
 use mockall::automock;
 use mockall::predicate::*;
 use reqwest::Client;
-use std::str::FromStr;
 use url::Url;
 use utils::settings::Settings;
+
+use crate::config::EthereumDaConfig;
 
 pub const DA_SETTINGS_NAME: &str = "ethereum";
 

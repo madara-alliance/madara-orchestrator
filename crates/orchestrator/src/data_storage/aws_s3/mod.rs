@@ -1,6 +1,3 @@
-use crate::config::ProviderConfig;
-use crate::data_storage::aws_s3::config::AWSS3Config;
-use crate::data_storage::{DataStorage, DataStorageConfig};
 use async_trait::async_trait;
 use aws_sdk_s3::primitives::ByteStream;
 use aws_sdk_s3::Client;
@@ -8,10 +5,11 @@ use bytes::Bytes;
 use color_eyre::Result;
 use utils::settings::Settings;
 
-pub const S3_SETTINGS_NAME: &str = "s3";
-
+use crate::config::ProviderConfig;
 use crate::data_storage::aws_s3::config::AWSS3Config;
-use crate::data_storage::DataStorage;
+use crate::data_storage::{DataStorage, DataStorageConfig};
+
+pub const S3_SETTINGS_NAME: &str = "s3";
 
 /// Module for AWS S3 config structs and implementations
 pub mod config;

@@ -18,11 +18,10 @@ use async_trait::async_trait;
 use c_kzg::{Blob, Bytes32, KzgCommitment, KzgProof, KzgSettings};
 use color_eyre::eyre::{eyre, Ok};
 use color_eyre::Result;
-use lazy_static::lazy_static;
-use mockall::{automock, predicate::*};
-
-use alloy::providers::ProviderBuilder;
 use conversion::{get_input_data_for_eip_4844, prepare_sidecar};
+use lazy_static::lazy_static;
+use mockall::automock;
+use mockall::predicate::*;
 #[cfg(feature = "testing")]
 use settlement_client_interface::{SettlementClient, SettlementConfig, SettlementVerificationStatus};
 #[cfg(not(feature = "testing"))]
@@ -41,8 +40,10 @@ pub mod conversion;
 pub mod tests;
 pub mod types;
 
+use alloy::providers::RootProvider;
+use alloy::transports::http::Http;
+use reqwest::Client;
 use utils::settings::Settings;
-use {alloy::providers::RootProvider, alloy::transports::http::Http, reqwest::Client};
 
 pub const ENV_PRIVATE_KEY: &str = "ETHEREUM_PRIVATE_KEY";
 

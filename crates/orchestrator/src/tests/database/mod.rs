@@ -1,17 +1,13 @@
 use std::sync::Arc;
 
 use arc_swap::Guard;
+use chrono::{SubsecRound, Utc};
 use rstest::*;
 use uuid::Uuid;
 
 use crate::config::{config, Config};
 use crate::jobs::types::{ExternalId, JobItem, JobStatus, JobType};
 use crate::tests::config::TestConfigBuilder;
-use arc_swap::Guard;
-use chrono::{SubsecRound, Utc};
-use rstest::*;
-use std::sync::Arc;
-use uuid::Uuid;
 
 #[rstest]
 #[tokio::test]

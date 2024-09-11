@@ -10,7 +10,7 @@ use async_trait::async_trait;
 use gps_fact_checker::fact_info::get_fact_info;
 use gps_fact_checker::FactChecker;
 use prover_client_interface::{ProverClient, ProverClientError, Task, TaskId, TaskStatus};
-use snos::sharp::CairoJobStatus;
+use starknet_os::sharp::CairoJobStatus;
 use utils::settings::Settings;
 use uuid::Uuid;
 

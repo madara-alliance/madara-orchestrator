@@ -1,15 +1,14 @@
 mod config;
 
-use crate::alerts::aws_sns::config::AWSSNSConfig;
-use crate::alerts::Alerts;
-use crate::config::ProviderConfig;
 use async_trait::async_trait;
 use aws_sdk_sns::Client;
 use utils::settings::Settings;
 
-pub const AWS_SNS_SETTINGS_NAME: &str = "sns";
-
+use crate::alerts::aws_sns::config::AWSSNSConfig;
 use crate::alerts::Alerts;
+use crate::config::ProviderConfig;
+
+pub const AWS_SNS_SETTINGS_NAME: &str = "sns";
 
 pub struct AWSSNS {
     client: Client,

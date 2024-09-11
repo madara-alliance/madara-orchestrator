@@ -1,7 +1,7 @@
 use std::error::Error;
-use thiserror::Error;
 
 use async_trait::async_trait;
+use thiserror::Error;
 
 use crate::config::config;
 use crate::jobs::types::JobStatus;

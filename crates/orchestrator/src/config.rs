@@ -1,16 +1,11 @@
 #[cfg(feature = "testing")]
+use std::str::FromStr;
+use std::sync::Arc;
+
+#[cfg(feature = "testing")]
 use alloy::primitives::Address;
 #[cfg(feature = "testing")]
 use alloy::providers::RootProvider;
-#[cfg(feature = "testing")]
-use std::str::FromStr;
-
-use std::sync::Arc;
-
-use crate::alerts::aws_sns::AWSSNS;
-use crate::alerts::Alerts;
-use crate::data_storage::aws_s3::AWSS3;
-use crate::data_storage::DataStorage;
 use arc_swap::{ArcSwap, Guard};
 use aws_config::meta::region::RegionProviderChain;
 use aws_config::{Region, SdkConfig};
@@ -30,6 +25,10 @@ use utils::env_utils::get_env_var_or_panic;
 use utils::settings::env::EnvSettingsProvider;
 use utils::settings::Settings;
 
+use crate::alerts::aws_sns::AWSSNS;
+use crate::alerts::Alerts;
+use crate::data_storage::aws_s3::AWSS3;
+use crate::data_storage::DataStorage;
 use crate::database::mongodb::MongoDb;
 use crate::database::Database;
 use crate::queue::sqs::SqsQueue;

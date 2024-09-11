@@ -202,7 +202,8 @@ async fn process_job_works_unit_test() {
             .with(eq(program_output_key))
             .returning(move |_| Ok(Bytes::from(program_output.clone())));
 
-        // let nonce = settlement_client.get_nonce().await.expect("Unable to fetch nonce for settlement client.");
+        // let nonce = settlement_client.get_nonce().await.expect("Unable to fetch nonce for settlement
+        // client.");
         settlement_client.expect_get_nonce().returning(|| Ok(1));
 
         settlement_client

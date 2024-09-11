@@ -366,8 +366,6 @@ pub mod test {
     use std::io::Read;
     use std::sync::Arc;
 
-    use crate::config::config;
-    use crate::tests::config::TestConfigBuilder;
     use ::serde::{Deserialize, Serialize};
     use color_eyre::Result;
     use da_client_interface::MockDaClient;

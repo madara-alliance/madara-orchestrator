@@ -1,3 +1,9 @@
+use std::collections::HashMap;
+use std::fs::{read, File};
+use std::io::Read;
+use std::str::FromStr;
+use std::time::{Duration, Instant};
+
 use bytes::Bytes;
 use chrono::{SubsecRound, Utc};
 use e2e_tests::localstack::LocalStack;
@@ -14,11 +20,6 @@ use rstest::rstest;
 use serde::{Deserialize, Serialize};
 use serde_json::json;
 use starknet::core::types::{FieldElement, MaybePendingStateUpdate};
-use std::collections::HashMap;
-use std::fs::{read, File};
-use std::io::Read;
-use std::str::FromStr;
-use std::time::{Duration, Instant};
 use utils::env_utils::get_env_var_or_panic;
 use uuid::Uuid;
 

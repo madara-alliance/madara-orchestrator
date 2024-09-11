@@ -21,11 +21,12 @@
 //!
 //! Port of https://github.com/starkware-libs/cairo-lang/blob/master/src/starkware/cairo/bootloaders/compute_fact.py
 
+use std::ops::Add;
+
 use alloy::primitives::{keccak256, B256};
 use cairo_vm::Felt252;
 use itertools::Itertools;
 use num_bigint::BigUint;
-use std::ops::Add;
 use utils::ensure;
 
 use super::error::FactCheckerError;
@@ -131,11 +132,13 @@ fn calculate_node_hash(node_data: &[u8]) -> B256 {
 
 #[cfg(test)]
 mod test {
-    use crate::fact_node::generate_merkle_root;
-    use crate::fact_topology::FactTopology;
+    use std::str::FromStr;
+
     use alloy::primitives::B256;
     use cairo_vm::Felt252;
-    use std::str::FromStr;
+
+    use crate::fact_node::generate_merkle_root;
+    use crate::fact_topology::FactTopology;
 
     /// Here we are comparing our output with the same function run in the
     /// `generate_output_root` function in cairo-lang repo.

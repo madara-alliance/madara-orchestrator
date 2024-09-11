@@ -1,11 +1,12 @@
-use alloy::node_bindings::AnvilInstance;
-use alloy::providers::{ext::AnvilApi, ProviderBuilder};
-use alloy::{node_bindings::Anvil, sol};
-use alloy_primitives::Address;
 use std::env;
 use std::path::PathBuf;
 use std::str::FromStr;
 
+use alloy::node_bindings::{Anvil, AnvilInstance};
+use alloy::providers::ext::AnvilApi;
+use alloy::providers::ProviderBuilder;
+use alloy::sol;
+use alloy_primitives::Address;
 use utils::env_utils::get_env_var_or_panic;
 
 // Using the Pipe trait to write chained operations easier
@@ -112,12 +113,12 @@ impl EthereumTestBuilder {
 #[cfg(test)]
 #[cfg(feature = "testing")]
 mod settlement_client_tests {
-    use crate::conversion::to_padded_hex;
-    use crate::tests::{
-        DummyCoreContract, EthereumTestBuilder, Pipe, CURRENT_PATH, STARKNET_CORE_CONTRACT,
-        STARKNET_CORE_CONTRACT_ADDRESS, STARKNET_OPERATOR_ADDRESS,
-    };
-    use crate::EthereumSettlementClient;
+    use std::fs;
+    use std::fs::File;
+    use std::io::{BufRead, BufReader};
+    use std::str::FromStr;
+    use std::time::Duration;
+
     use alloy::eips::eip4844::BYTES_PER_BLOB;
     use alloy::providers::Provider;
     use alloy::sol_types::private::U256;
@@ -125,20 +126,23 @@ mod settlement_client_tests {
     use color_eyre::eyre::eyre;
     use rstest::rstest;
     use settlement_client_interface::{SettlementClient, SettlementVerificationStatus};
-    use std::fs;
-    use std::fs::File;
-    use std::io::{BufRead, BufReader};
-    use std::str::FromStr;
-    use std::time::Duration;
     use tokio::time::sleep;
+
+    use crate::conversion::to_padded_hex;
+    use crate::tests::{
+        DummyCoreContract, EthereumTestBuilder, Pipe, CURRENT_PATH, STARKNET_CORE_CONTRACT,
+        STARKNET_CORE_CONTRACT_ADDRESS, STARKNET_OPERATOR_ADDRESS,
+    };
+    use crate::EthereumSettlementClient;
 
     #[rstest]
     #[tokio::test]
-    /// Tests if the method is able to do a transaction with same function selector on a dummy contract.
-    /// If we impersonate starknet operator then we loose out on testing for validity of signature in the transaction.
-    /// Starknet core contract has a modifier `onlyOperator` that restricts anyone but the operator to send transaction to `updateStateKzgDa` method
-    /// And hence to test the signature and transaction via a dummy contract that has same function selector as `updateStateKzgDa`.
-    /// and anvil is for testing on fork Eth.
+    /// Tests if the method is able to do a transaction with same function selector on a dummy
+    /// contract. If we impersonate starknet operator then we loose out on testing for validity
+    /// of signature in the transaction. Starknet core contract has a modifier `onlyOperator`
+    /// that restricts anyone but the operator to send transaction to `updateStateKzgDa` method
+    /// And hence to test the signature and transaction via a dummy contract that has same function
+    /// selector as `updateStateKzgDa`. and anvil is for testing on fork Eth.
     async fn update_state_blob_with_dummy_contract_works() {
         let setup = EthereumTestBuilder::new().build().await;
 
@@ -195,9 +199,9 @@ mod settlement_client_tests {
     #[rstest]
     #[tokio::test]
     #[case::basic(20468827)]
-    /// tests if the method is able to impersonate the`Starknet Operator` and do an `update_state` transaction.
-    /// We impersonate the Starknet Operator to send a transaction to the Core contract
-    /// Here signature checks are bypassed and anvil is for testing on fork Eth.
+    /// tests if the method is able to impersonate the`Starknet Operator` and do an `update_state`
+    /// transaction. We impersonate the Starknet Operator to send a transaction to the Core
+    /// contract Here signature checks are bypassed and anvil is for testing on fork Eth.
     async fn update_state_blob_with_impersonation_works(#[case] fork_block_no: u64) {
         let setup = EthereumTestBuilder::new()
             .with_fork_block(fork_block_no)
