@@ -81,12 +81,8 @@ impl Job for SnosJob {
         let block_number = self.get_block_number_from_metadata(job)?;
         let rpc_url = get_env_var_or_panic("MADARA_RPC_URL"); // should never panic at this point
 
-        // let (cairo_pie, snos_output) =
-        //     prove_block(block_number, &rpc_url, LayoutName::all_cairo).await.map_err(SnosError::from)?;
-
-        // TODO: Remove this once snos problems are fixed
-        let cairo_pie = todo!();
-        let snos_output = todo!();
+        let (cairo_pie, snos_output) =
+            prove_block(block_number, &rpc_url, LayoutName::all_cairo).await.map_err(SnosError::from)?;
 
         self.store(config.storage(), job.internal_id, block_number, cairo_pie, snos_output).await?;
 
