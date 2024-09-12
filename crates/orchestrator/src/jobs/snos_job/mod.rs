@@ -43,7 +43,8 @@ pub enum SnosError {
     SnosOutputUnstorable { internal_id: String, message: String },
 
     // ProveBlockError from Snos is not usable with #[from] since it does not implement PartialEq.
-    #[error("Error while proving block with SNOS (state update job #{internal_id:?}): {message}")]
+    // Instead, we convert it to string & pass it into the [SnosExecutionError] error.
+    #[error("Error while running SNOS (state update job #{internal_id:?}): {message}")]
     SnosExecutionError { internal_id: String, message: String },
 
     #[error("Other error: {0}")]
