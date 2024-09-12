@@ -44,7 +44,7 @@ bincode = "1.3.3"
 bytes = "1.6.0"
 color-eyre = "0.6.2"
 chrono = "0.4.0"
-c-kzg = "1.0.0"
+c-kzg = "1.0.3"
 dotenvy = "0.15.7"
 futures = "0.3.30"
 log = "0.4.21"
@@ -86,8 +86,8 @@ cairo-vm = { git = "https://github.com/Moonsong-Labs/cairo-vm", rev = "40ebe36e6
 ] }
 
 # Snos & Sharp (Starkware)
-starknet-os = { git = "https://github.com/keep-starknet-strange/snos" }
-prove_block = { git = "https://github.com/keep-starknet-strange/snos" }
+starknet-os = { git = "https://github.com/keep-starknet-strange/snos", branch = "notlesh/include-compiled-snos" }
+prove_block = { git = "https://github.com/keep-starknet-strange/snos", branch = "notlesh/include-compiled-snos" }
 
 # Madara prover API
 madara-prover-common = { git = "https://github.com/Moonsong-Labs/madara-prover-api", branch = "od/use-latest-cairo-vm" }

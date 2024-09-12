@@ -1,5 +1,4 @@
 use std::collections::HashMap;
-use std::fs::File;
 use std::io::Read;
 
 use async_trait::async_trait;
@@ -8,7 +7,7 @@ use cairo_vm::types::layout_name::LayoutName;
 use cairo_vm::vm::runners::cairo_pie::CairoPie;
 use chrono::{SubsecRound, Utc};
 use color_eyre::Result;
-use prove_block::{prove_block, ProveBlockError};
+use prove_block::prove_block;
 use starknet_os::io::output::StarknetOsOutput;
 use tempfile::NamedTempFile;
 use thiserror::Error;
@@ -42,16 +41,12 @@ pub enum SnosError {
     #[error("Could not store the Snos output (state update job #{internal_id:?}): {message}")]
     SnosOutputUnstorable { internal_id: String, message: String },
 
+    // ProveBlockError is not usable with #[from] since it does not implement PartialEq.
+    #[error("Error while proving block with SNOS (state update job #{internal_id:?}): {message}")]
+    SnosExecutionError { internal_id: String, message: String },
+
     #[error("Other error: {0}")]
     Other(#[from] OtherError),
-}
-
-// ProveBlockError does not implement PartialEq - can't use #[from]
-impl From<ProveBlockError> for SnosError {
-    // TODO(akhercha): error conversion
-    fn from(_v: ProveBlockError) -> Self {
-        Self::UnspecifiedBlockNumber { internal_id: String::from("XD") }
-    }
 }
 
 pub struct SnosJob;
@@ -82,11 +77,13 @@ impl Job for SnosJob {
         let rpc_url = get_env_var_or_panic("MADARA_RPC_URL"); // should never panic at this point
 
         let (cairo_pie, snos_output) =
-            prove_block(block_number, &rpc_url, LayoutName::all_cairo).await.map_err(SnosError::from)?;
+            prove_block(block_number, &rpc_url, LayoutName::all_cairo).await.map_err(|e| {
+                SnosError::SnosExecutionError { internal_id: job.internal_id.clone(), message: e.to_string() }
+            })?;
 
-        self.store(config.storage(), job.internal_id, block_number, cairo_pie, snos_output).await?;
+        self.store(config.storage(), &job.internal_id, block_number, cairo_pie, snos_output).await?;
 
-        Ok(String::from("TODO: ID"))
+        Ok(block_number.to_string())
     }
 
     async fn verify_job(&self, _config: &Config, _job: &mut JobItem) -> Result<JobVerificationStatus, JobError> {
@@ -132,27 +129,26 @@ impl SnosJob {
     async fn store(
         &self,
         data_storage: &dyn DataStorage,
-        internal_id: String,
+        internal_id: &str,
         block_number: u64,
         cairo_pie: CairoPie,
         snos_output: StarknetOsOutput,
     ) -> Result<(), SnosError> {
         let cairo_pie_key = format!("{block_number}/{CAIRO_PIE_FILE_NAME}");
         let cairo_pie_zip_bytes = self.cairo_pie_to_zip_bytes(cairo_pie).await.map_err(|e| {
-            SnosError::CairoPieUnserializable { internal_id: internal_id.clone(), message: e.to_string() }
+            SnosError::CairoPieUnserializable { internal_id: internal_id.to_string(), message: e.to_string() }
         })?;
-        data_storage
-            .put_data(cairo_pie_zip_bytes, &cairo_pie_key)
-            .await
-            .map_err(|e| SnosError::CairoPieUnstorable { internal_id: internal_id.clone(), message: e.to_string() })?;
+        data_storage.put_data(cairo_pie_zip_bytes, &cairo_pie_key).await.map_err(|e| {
+            SnosError::CairoPieUnstorable { internal_id: internal_id.to_string(), message: e.to_string() }
+        })?;
 
         let snos_output_key = format!("{block_number}/{SNOS_OUTPUT_FILE_NAME}");
         let snos_output_json = serde_json::to_vec(&snos_output).map_err(|e| SnosError::SnosOutputUnserializable {
-            internal_id: internal_id.clone(),
+            internal_id: internal_id.to_string(),
             message: e.to_string(),
         })?;
         data_storage.put_data(snos_output_json.into(), &snos_output_key).await.map_err(|e| {
-            SnosError::SnosOutputUnstorable { internal_id: internal_id.clone(), message: e.to_string() }
+            SnosError::SnosOutputUnstorable { internal_id: internal_id.to_string(), message: e.to_string() }
         })?;
         Ok(())
     }

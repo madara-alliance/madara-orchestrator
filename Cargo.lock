@@ -2450,8 +2450,8 @@ dependencies = [
 
 [[package]]
 name = "blockifier"
-version = "0.8.0-rc.2"
-source = "git+https://github.com/Moonsong-Labs/sequencer?rev=01b97d9354faefa5f0cd520b5efbe73178213f7e#01b97d9354faefa5f0cd520b5efbe73178213f7e"
+version = "0.8.0-rc.3"
+source = "git+https://github.com/Moonsong-Labs/sequencer?rev=6624e910c57db9a16f1607c1ed26f7d8f1114e73#6624e910c57db9a16f1607c1ed26f7d8f1114e73"
 dependencies = [
  "anyhow",
  "ark-ec",
@@ -2656,15 +2656,16 @@ dependencies = [
 
 [[package]]
 name = "c-kzg"
-version = "1.0.2"
+version = "1.0.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "cdf100c4cea8f207e883ff91ca886d621d8a166cb04971dfaa9bb8fd99ed95df"
+checksum = "f0307f72feab3300336fb803a57134159f6e20139af1357f36c54cb90d8e8928"
 dependencies = [
  "blst",
  "cc",
  "glob",
  "hex",
  "libc",
+ "once_cell",
  "serde",
 ]
 
@@ -3203,7 +3204,7 @@ dependencies = [
 [[package]]
 name = "cairo-type-derive"
 version = "0.1.0"
-source = "git+https://github.com/keep-starknet-strange/snos#0bc8055e01036bfde12084866f43bd21688fac7b"
+source = "git+https://github.com/keep-starknet-strange/snos?branch=notlesh/include-compiled-snos#db898dc45a8e36c900a3aa80c3d1dd1857d220cd"
 dependencies = [
  "proc-macro2",
  "quote",
@@ -7318,7 +7319,7 @@ dependencies = [
 [[package]]
 name = "prove_block"
 version = "0.1.0"
-source = "git+https://github.com/keep-starknet-strange/snos#0bc8055e01036bfde12084866f43bd21688fac7b"
+source = "git+https://github.com/keep-starknet-strange/snos?branch=notlesh/include-compiled-snos#db898dc45a8e36c900a3aa80c3d1dd1857d220cd"
 dependencies = [
  "anyhow",
  "blockifier",
@@ -7334,6 +7335,7 @@ dependencies = [
  "pathfinder-crypto",
  "pathfinder-serde",
  "reqwest 0.11.27",
+ "rpc-client",
  "rpc-replay",
  "serde",
  "serde_json",
@@ -7762,17 +7764,34 @@ dependencies = [
 ]
 
 [[package]]
+name = "rpc-client"
+version = "0.1.0"
+source = "git+https://github.com/keep-starknet-strange/snos?branch=notlesh/include-compiled-snos#db898dc45a8e36c900a3aa80c3d1dd1857d220cd"
+dependencies = [
+ "log",
+ "reqwest 0.11.27",
+ "serde",
+ "serde_json",
+ "starknet 0.11.0",
+ "starknet-os",
+ "starknet-types-core",
+ "thiserror",
+]
+
+[[package]]
 name = "rpc-replay"
 version = "0.1.0"
-source = "git+https://github.com/keep-starknet-strange/snos#0bc8055e01036bfde12084866f43bd21688fac7b"
+source = "git+https://github.com/keep-starknet-strange/snos?branch=notlesh/include-compiled-snos#db898dc45a8e36c900a3aa80c3d1dd1857d220cd"
 dependencies = [
  "blockifier",
  "cairo-lang-starknet-classes",
+ "rpc-client",
  "serde",
  "serde_json",
  "starknet 0.11.0",
  "starknet-os-types",
  "starknet_api",
+ "thiserror",
  "tokio",
 ]
 
@@ -9160,7 +9179,7 @@ dependencies = [
 [[package]]
 name = "starknet-os"
 version = "0.1.0"
-source = "git+https://github.com/keep-starknet-strange/snos#0bc8055e01036bfde12084866f43bd21688fac7b"
+source = "git+https://github.com/keep-starknet-strange/snos?branch=notlesh/include-compiled-snos#db898dc45a8e36c900a3aa80c3d1dd1857d220cd"
 dependencies = [
  "anyhow",
  "ark-ec",
@@ -9170,6 +9189,7 @@ dependencies = [
  "base64 0.21.7",
  "bitvec",
  "blockifier",
+ "c-kzg",
  "cairo-lang-casm",
  "cairo-lang-starknet",
  "cairo-lang-starknet-classes",
@@ -9207,7 +9227,7 @@ dependencies = [
 [[package]]
 name = "starknet-os-types"
 version = "0.1.0"
-source = "git+https://github.com/keep-starknet-strange/snos#0bc8055e01036bfde12084866f43bd21688fac7b"
+source = "git+https://github.com/keep-starknet-strange/snos?branch=notlesh/include-compiled-snos#db898dc45a8e36c900a3aa80c3d1dd1857d220cd"
 dependencies = [
  "blockifier",
  "cairo-lang-starknet-classes",
@@ -9337,7 +9357,7 @@ dependencies = [
 [[package]]
 name = "starknet_api"
 version = "0.13.0-rc.1"
-source = "git+https://github.com/Moonsong-Labs/sequencer?rev=01b97d9354faefa5f0cd520b5efbe73178213f7e#01b97d9354faefa5f0cd520b5efbe73178213f7e"
+source = "git+https://github.com/Moonsong-Labs/sequencer?rev=6624e910c57db9a16f1607c1ed26f7d8f1114e73#6624e910c57db9a16f1607c1ed26f7d8f1114e73"
 dependencies = [
  "bitvec",
  "cairo-lang-starknet-classes",

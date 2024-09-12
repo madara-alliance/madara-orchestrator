@@ -347,7 +347,7 @@ pub async fn mock_starknet_get_state_update(starknet_client: &mut StarknetClient
         .expect("issue while reading");
 
     let state_update = MaybePendingStateUpdate::Update(state_update);
-    let state_update = serde_json::to_value(&state_update).unwrap();
+    let state_update = serde_json::to_value(state_update).unwrap();
     let response = json!({ "id": 640641,"jsonrpc":"2.0","result": state_update });
 
     starknet_client.add_mock_on_endpoint("/", vec!["starknet_getStateUpdate".to_string()], Some(200), &response);
