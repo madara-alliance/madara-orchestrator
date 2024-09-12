@@ -1,5 +1,7 @@
 mod config;
 
+use std::sync::Arc;
+
 use async_trait::async_trait;
 use aws_sdk_sns::Client;
 use utils::settings::Settings;
@@ -16,14 +18,11 @@ pub struct AWSSNS {
 }
 
 impl AWSSNS {
-    pub async fn new_with_settings(settings: &impl Settings, provider_config: ProviderConfig) -> Self {
-        match provider_config {
-            ProviderConfig::AWS(aws_config) => {
-                let sns_config = AWSSNSConfig::new_with_settings(settings)
-                    .expect("Not able to get Aws sns config from provided settings");
-                Self { client: Client::new(&aws_config), topic_arn: sns_config.sns_arn }
-            }
-        }
+    pub async fn new_with_settings(settings: &impl Settings, provider_config: Arc<ProviderConfig>) -> Self {
+        let sns_config =
+            AWSSNSConfig::new_with_settings(settings).expect("Not able to get Aws sns config from provided settings");
+        let config = provider_config.get_aws_client_or_panic();
+        Self { client: Client::new(config), topic_arn: sns_config.sns_arn }
     }
 }
 

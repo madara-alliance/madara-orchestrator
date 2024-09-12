@@ -1,6 +1,7 @@
 use std::collections::HashMap;
 use std::ops::{Add, Mul, Rem};
 use std::str::FromStr;
+use std::sync::Arc;
 
 use async_trait::async_trait;
 use chrono::{SubsecRound, Utc};
@@ -65,7 +66,7 @@ pub struct DaJob;
 impl Job for DaJob {
     async fn create_job(
         &self,
-        _config: &Config,
+        _config: Arc<Config>,
         internal_id: String,
         metadata: HashMap<String, String>,
     ) -> Result<JobItem, JobError> {
@@ -82,7 +83,7 @@ impl Job for DaJob {
         })
     }
 
-    async fn process_job(&self, config: &Config, job: &mut JobItem) -> Result<String, JobError> {
+    async fn process_job(&self, config: Arc<Config>, job: &mut JobItem) -> Result<String, JobError> {
         let block_no = job
             .internal_id
             .parse::<u64>()
@@ -103,7 +104,7 @@ impl Job for DaJob {
             MaybePendingStateUpdate::Update(state_update) => state_update,
         };
         // constructing the data from the rpc
-        let blob_data = state_update_to_blob_data(block_no, state_update, config)
+        let blob_data = state_update_to_blob_data(block_no, state_update, config.clone())
             .await
             .map_err(|e| JobError::Other(OtherError(e)))?;
         // transforming the data so that we can apply FFT on this.
@@ -113,7 +114,7 @@ impl Job for DaJob {
         // data transformation on the data
         let transformed_data = fft_transformation(blob_data_biguint);
 
-        store_blob_data(transformed_data.clone(), block_no, config).await?;
+        store_blob_data(transformed_data.clone(), block_no, config.clone()).await?;
 
         let max_bytes_per_blob = config.da_client().max_bytes_per_blob().await;
         let max_blob_per_txn = config.da_client().max_blob_per_txn().await;
@@ -146,7 +147,7 @@ impl Job for DaJob {
         Ok(external_id)
     }
 
-    async fn verify_job(&self, config: &Config, job: &mut JobItem) -> Result<JobVerificationStatus, JobError> {
+    async fn verify_job(&self, config: Arc<Config>, job: &mut JobItem) -> Result<JobVerificationStatus, JobError> {
         Ok(config
             .da_client()
             .verify_inclusion(job.external_id.unwrap_string().map_err(|e| JobError::Other(OtherError(e)))?)
@@ -239,7 +240,7 @@ fn data_to_blobs(blob_size: u64, block_data: Vec<BigUint>) -> Result<Vec<Vec<u8>
 pub async fn state_update_to_blob_data(
     block_no: u64,
     state_update: StateUpdate,
-    config: &Config,
+    config: Arc<Config>,
 ) -> color_eyre::Result<Vec<FieldElement>> {
     let mut state_diff = state_update.state_diff;
 
@@ -302,7 +303,7 @@ pub async fn state_update_to_blob_data(
 }
 
 /// To store the blob data using the storage client with path <block_number>/blob_data.txt
-async fn store_blob_data(blob_data: Vec<BigUint>, block_number: u64, config: &Config) -> Result<(), JobError> {
+async fn store_blob_data(blob_data: Vec<BigUint>, block_number: u64, config: Arc<Config>) -> Result<(), JobError> {
     let storage_client = config.storage();
     let key = block_number.to_string() + "/" + BLOB_DATA_FILE_NAME;
 
@@ -364,7 +365,6 @@ pub mod test {
     use std::fs;
     use std::fs::File;
     use std::io::Read;
-    use std::sync::Arc;
 
     use ::serde::{Deserialize, Serialize};
     use color_eyre::Result;
@@ -379,9 +379,7 @@ pub mod test {
     use starknet_core::types::{FieldElement, StateUpdate};
     use url::Url;
 
-    use crate::config::config;
     use crate::jobs::da_job::da_word;
-    use crate::tests::config::TestConfigBuilder;
 
     /// Tests `da_word` function with various inputs for class flag, new nonce, and number of
     /// changes. Verifies that `da_word` produces the correct FieldElement based on the provided
@@ -443,6 +441,7 @@ pub mod test {
         #[case] nonce_file_path: &str,
     ) {
         use crate::jobs::da_job::{convert_to_biguint, state_update_to_blob_data};
+        use crate::tests::config::TestConfigBuilder;
 
         let server = MockServer::start();
         let mut da_client = MockDaClient::new();
@@ -452,24 +451,21 @@ pub mod test {
         da_client.expect_max_bytes_per_blob().with().returning(|| 131072);
 
         // Mocking storage client
-
         let provider = JsonRpcClient::new(HttpTransport::new(
             Url::parse(format!("http://localhost:{}", server.port()).as_str()).expect("Failed to parse URL"),
         ));
 
         // mock block number (madara) : 5
-        TestConfigBuilder::new()
-            .mock_starknet_client(Arc::new(provider))
-            .mock_da_client(Box::new(da_client))
+        let services = TestConfigBuilder::new()
+            .configure_starknet_client(provider.into())
+            .configure_da_client(da_client.into())
             .build()
             .await;
-
-        let config = config().await;
 
         get_nonce_attached(&server, nonce_file_path);
 
         let state_update = read_state_update_from_file(state_update_file_path).expect("issue while reading");
-        let blob_data = state_update_to_blob_data(block_no, state_update, &config)
+        let blob_data = state_update_to_blob_data(block_no, state_update, services.config)
             .await
             .expect("issue while converting state update to blob data");
         let blob_data_biguint = convert_to_biguint(blob_data);
