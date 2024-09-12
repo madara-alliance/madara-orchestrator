@@ -1,7 +1,5 @@
 #[cfg(feature = "testing")]
 use std::str::FromStr;
-#[cfg(feature = "testing")]
-use std::str::FromStr;
 use std::sync::Arc;
 
 #[cfg(feature = "testing")]

@@ -42,7 +42,7 @@ pub enum SnosError {
     #[error("Could not store the Snos output (state update job #{internal_id:?}): {message}")]
     SnosOutputUnstorable { internal_id: String, message: String },
 
-    // ProveBlockError is not usable with #[from] since it does not implement PartialEq.
+    // ProveBlockError from Snos is not usable with #[from] since it does not implement PartialEq.
     #[error("Error while proving block with SNOS (state update job #{internal_id:?}): {message}")]
     SnosExecutionError { internal_id: String, message: String },
 
