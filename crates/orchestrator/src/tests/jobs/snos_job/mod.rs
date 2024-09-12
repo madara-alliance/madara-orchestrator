@@ -47,9 +47,8 @@ async fn test_verify_job(#[from(default_job_item)] mut job_item: JobItem) {
 #[tokio::test]
 async fn test_process_job() -> color_eyre::Result<()> {
     dotenvy::from_filename("../.env.test")?;
-
-    // Set up environment variables
-    std::env::set_var("MADARA_RPC_URL", "http://81.16.176.130:9545");
+    // TODO: Hide this IP... private env variable of the repo?
+    std::env::set_var("MADARA_RPC_URL", "http://81.16.176.130:9545"); // pathfinder node
 
     let services = TestConfigBuilder::new().configure_storage_client(ConfigType::Actual).build().await;
 
