@@ -43,18 +43,28 @@ async fn test_verify_job(#[from(default_job_item)] mut job_item: JobItem) {
     assert_eq!(job_status, Ok(JobVerificationStatus::Verified));
 }
 
+/// We have a private pathfinder node used to run the Snos [prove_block] function.
+/// It must be set or the test below will be ignored, since the Snos cannot run
+/// without a Pathinder node for the moment.
+const SNOS_PATHFINDER_RPC_URL_ENV: &str = "SNOS_PATHFINDER_RPC_URL";
+
 #[rstest]
 #[tokio::test]
 async fn test_process_job() -> color_eyre::Result<()> {
-    dotenvy::from_filename("../.env.test")?;
-    // TODO: Hide this IP... private env variable of the repo?
-    std::env::set_var("MADARA_RPC_URL", "http://81.16.176.130:9545"); // pathfinder node
+    let pathfinder_url = match std::env::var(SNOS_PATHFINDER_RPC_URL_ENV) {
+        Ok(url) => url,
+        Err(_) => {
+            println!("Ignoring test: {} environment variable is not set", SNOS_PATHFINDER_RPC_URL_ENV);
+            return Ok(());
+        }
+    };
+
+    // Set MADARA_RPC_URL to the value of SNOS_PATHFINDER_RPC_URL
+    std::env::set_var("MADARA_RPC_URL", pathfinder_url);
 
     let services = TestConfigBuilder::new().configure_storage_client(ConfigType::Actual).build().await;
-
     let storage_client = services.config.storage();
 
-    // Create job item
     let mut job_item = JobItem {
         id: Uuid::new_v4(),
         internal_id: "1".into(),
@@ -77,6 +87,7 @@ async fn test_process_job() -> color_eyre::Result<()> {
     let cairo_pie_data = storage_client.get_data(&cairo_pie_key).await?;
     let snos_output_data = storage_client.get_data(&snos_output_key).await?;
 
+    // assert that we can build back the Pie & the Snos output
     let _ = CairoPie::from_bytes(&cairo_pie_data)?;
     let _: StarknetOsOutput = serde_json::from_slice(&snos_output_data)?;
 

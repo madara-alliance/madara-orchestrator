@@ -25,26 +25,26 @@ use crate::jobs::Job;
 
 #[derive(Error, Debug, PartialEq)]
 pub enum SnosError {
-    #[error("Block numbers to settle must be specified (state update job #{internal_id:?})")]
+    #[error("Block numbers to run must be specified (snos job #{internal_id:?})")]
     UnspecifiedBlockNumber { internal_id: String },
-    #[error("No block numbers found (state update job #{internal_id:?})")]
+    #[error("No block numbers found (snos job #{internal_id:?})")]
     BlockNumberNotFound { internal_id: String },
-    #[error("Invalid specified block number \"{block_number:?}\" (state update job #{internal_id:?})")]
+    #[error("Invalid specified block number \"{block_number:?}\" (snos job #{internal_id:?})")]
     InvalidBlockNumber { internal_id: String, block_number: String },
 
-    #[error("Could not serialize the Cairo Pie (state update job #{internal_id:?}): {message}")]
+    #[error("Could not serialize the Cairo Pie (snos job #{internal_id:?}): {message}")]
     CairoPieUnserializable { internal_id: String, message: String },
-    #[error("Could not store the Cairo Pie (state update job #{internal_id:?}): {message}")]
+    #[error("Could not store the Cairo Pie (snos job #{internal_id:?}): {message}")]
     CairoPieUnstorable { internal_id: String, message: String },
 
-    #[error("Could not serialize the Snos Output (state update job #{internal_id:?}): {message}")]
+    #[error("Could not serialize the Snos Output (snos job #{internal_id:?}): {message}")]
     SnosOutputUnserializable { internal_id: String, message: String },
-    #[error("Could not store the Snos output (state update job #{internal_id:?}): {message}")]
+    #[error("Could not store the Snos output (snos job #{internal_id:?}): {message}")]
     SnosOutputUnstorable { internal_id: String, message: String },
 
     // ProveBlockError from Snos is not usable with #[from] since it does not implement PartialEq.
     // Instead, we convert it to string & pass it into the [SnosExecutionError] error.
-    #[error("Error while running SNOS (state update job #{internal_id:?}): {message}")]
+    #[error("Error while running SNOS (snos job #{internal_id:?}): {message}")]
     SnosExecutionError { internal_id: String, message: String },
 
     #[error("Other error: {0}")]
@@ -157,14 +157,15 @@ impl SnosJob {
 
     /// Converts the [CairoPie] input as a zip file and returns it as [Bytes].
     async fn cairo_pie_to_zip_bytes(&self, cairo_pie: CairoPie) -> Result<Bytes> {
-        let cairo_pie_zipfile = NamedTempFile::new()?;
+        let mut cairo_pie_zipfile = NamedTempFile::new()?;
         cairo_pie.write_zip_file(cairo_pie_zipfile.path())?;
-        let cairo_pie_zip_bytes = self.tempfile_to_bytes(cairo_pie_zipfile).unwrap();
+        let cairo_pie_zip_bytes = self.tempfile_to_bytes(&mut cairo_pie_zipfile).unwrap();
+        cairo_pie_zipfile.close()?;
         Ok(cairo_pie_zip_bytes)
     }
 
     /// Converts a [NamedTempFile] to [Bytes].
-    fn tempfile_to_bytes(&self, mut tmp_file: NamedTempFile) -> Result<Bytes> {
+    fn tempfile_to_bytes(&self, tmp_file: &mut NamedTempFile) -> Result<Bytes> {
         let mut buffer = Vec::new();
         tmp_file.as_file_mut().read_to_end(&mut buffer)?;
         Ok(Bytes::from(buffer))
