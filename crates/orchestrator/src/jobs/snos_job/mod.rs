@@ -159,7 +159,7 @@ impl SnosJob {
     async fn cairo_pie_to_zip_bytes(&self, cairo_pie: CairoPie) -> Result<Bytes> {
         let mut cairo_pie_zipfile = NamedTempFile::new()?;
         cairo_pie.write_zip_file(cairo_pie_zipfile.path())?;
-        let cairo_pie_zip_bytes = self.tempfile_to_bytes(&mut cairo_pie_zipfile).unwrap();
+        let cairo_pie_zip_bytes = self.tempfile_to_bytes(&mut cairo_pie_zipfile)?;
         cairo_pie_zipfile.close()?;
         Ok(cairo_pie_zip_bytes)
     }
