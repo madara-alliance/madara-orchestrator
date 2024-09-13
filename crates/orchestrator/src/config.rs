@@ -35,6 +35,8 @@ use crate::queue::QueueProvider;
 /// The app config. It can be accessed from anywhere inside the service
 /// by calling `config` function.
 pub struct Config {
+    /// The RPC url used by the [starknet_client]
+    starknet_rpc_url: Url,
     /// The starknet client to get data from the node
     starknet_client: Arc<JsonRpcClient<HttpTransport>>,
     /// The DA client to interact with the DA layer
@@ -91,9 +93,8 @@ pub async fn init_config() -> Arc<Config> {
     let provider_config = Arc::new(ProviderConfig::AWS(Box::new(get_aws_config(&settings_provider).await)));
 
     // init starknet client
-    let provider = JsonRpcClient::new(HttpTransport::new(
-        Url::parse(settings_provider.get_settings_or_panic("MADARA_RPC_URL").as_str()).expect("Failed to parse URL"),
-    ));
+    let rpc_url = Url::parse(&settings_provider.get_settings_or_panic("MADARA_RPC_URL")).expect("Failed to parse URL");
+    let provider = JsonRpcClient::new(HttpTransport::new(rpc_url.clone()));
 
     // init database
     let database = build_database_client(&settings_provider).await;
@@ -110,6 +111,7 @@ pub async fn init_config() -> Arc<Config> {
     let queue = build_queue_client();
 
     Arc::new(Config::new(
+        rpc_url,
         Arc::new(provider),
         da_client,
         prover_client,
@@ -125,6 +127,7 @@ impl Config {
     /// Create a new config
     #[allow(clippy::too_many_arguments)]
     pub fn new(
+        starknet_rpc_url: Url,
         starknet_client: Arc<JsonRpcClient<HttpTransport>>,
         da_client: Box<dyn DaClient>,
         prover_client: Box<dyn ProverClient>,
@@ -134,7 +137,22 @@ impl Config {
         storage: Box<dyn DataStorage>,
         alerts: Box<dyn Alerts>,
     ) -> Self {
-        Self { starknet_client, da_client, prover_client, settlement_client, database, queue, storage, alerts }
+        Self {
+            starknet_rpc_url,
+            starknet_client,
+            da_client,
+            prover_client,
+            settlement_client,
+            database,
+            queue,
+            storage,
+            alerts,
+        }
+    }
+
+    /// Returns the starknet rpc url
+    pub fn starknet_rpc_url(&self) -> &Url {
+        &self.starknet_rpc_url
     }
 
     /// Returns the starknet client

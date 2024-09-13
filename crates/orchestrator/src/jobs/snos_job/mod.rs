@@ -12,7 +12,6 @@ use prove_block::prove_block;
 use starknet_os::io::output::StarknetOsOutput;
 use tempfile::NamedTempFile;
 use thiserror::Error;
-use utils::env_utils::get_env_var_or_panic;
 use uuid::Uuid;
 
 use super::constants::JOB_METADATA_SNOS_BLOCK;
@@ -76,10 +75,10 @@ impl Job for SnosJob {
 
     async fn process_job(&self, config: Arc<Config>, job: &mut JobItem) -> Result<String, JobError> {
         let block_number = self.get_block_number_from_metadata(job)?;
-        let rpc_url = get_env_var_or_panic("MADARA_RPC_URL"); // should never panic at this point
+        let rpc_url = config.starknet_rpc_url();
 
         let (cairo_pie, snos_output) =
-            prove_block(block_number, &rpc_url, LayoutName::all_cairo).await.map_err(|e| {
+            prove_block(block_number, rpc_url.as_str(), LayoutName::all_cairo).await.map_err(|e| {
                 SnosError::SnosExecutionError { internal_id: job.internal_id.clone(), message: e.to_string() }
             })?;
 

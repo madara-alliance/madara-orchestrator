@@ -5,6 +5,7 @@ use cairo_vm::vm::runners::cairo_pie::CairoPie;
 use chrono::{SubsecRound, Utc};
 use rstest::*;
 use starknet_os::io::output::StarknetOsOutput;
+use url::Url;
 use uuid::Uuid;
 
 use crate::constants::{CAIRO_PIE_FILE_NAME, SNOS_OUTPUT_FILE_NAME};
@@ -12,7 +13,7 @@ use crate::jobs::snos_job::SnosJob;
 use crate::jobs::types::{JobItem, JobStatus, JobType, JobVerificationStatus};
 use crate::jobs::Job;
 use crate::tests::common::default_job_item;
-use crate::tests::config::TestConfigBuilder;
+use crate::tests::config::{MockType, TestConfigBuilder};
 use crate::tests::jobs::ConfigType;
 
 #[rstest]
@@ -51,18 +52,20 @@ const SNOS_PATHFINDER_RPC_URL_ENV: &str = "SNOS_PATHFINDER_RPC_URL";
 #[rstest]
 #[tokio::test]
 async fn test_process_job() -> color_eyre::Result<()> {
-    let pathfinder_url = match std::env::var(SNOS_PATHFINDER_RPC_URL_ENV) {
-        Ok(url) => url,
+    let pathfinder_url: Url = match std::env::var(SNOS_PATHFINDER_RPC_URL_ENV) {
+        Ok(url) => url.parse()?,
         Err(_) => {
             println!("Ignoring test: {} environment variable is not set", SNOS_PATHFINDER_RPC_URL_ENV);
             return Ok(());
         }
     };
 
-    // Set MADARA_RPC_URL to the value of SNOS_PATHFINDER_RPC_URL
-    std::env::set_var("MADARA_RPC_URL", pathfinder_url);
+    let services = TestConfigBuilder::new()
+        .configure_rpc_url(ConfigType::Mock(MockType::RpcUrl(pathfinder_url)))
+        .configure_storage_client(ConfigType::Actual)
+        .build()
+        .await;
 
-    let services = TestConfigBuilder::new().configure_storage_client(ConfigType::Actual).build().await;
     let storage_client = services.config.storage();
 
     let mut job_item = JobItem {
