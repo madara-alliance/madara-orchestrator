@@ -5,7 +5,7 @@ on:
 
 jobs:
   coverage:
-    runs-on: self-hosted
+    runs-on: karnot-arc-runner-set
 
     services:
       localstack:
