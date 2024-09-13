@@ -358,13 +358,6 @@ pub mod implement_client {
             (rpc_url, Some(server))
         }
 
-        fn get_dummy_rpc_url() -> (Url, Option<MockServer>) {
-            // Random port since it will never be used anyway
-            let port = 3124;
-            let rpc_url = Url::parse(format!("http://localhost:{}", port).as_str()).expect("Failed to parse URL");
-            (rpc_url, None)
-        }
-
         fn get_provider(rpc_url: &Url) -> Arc<JsonRpcClient<HttpTransport>> {
             Arc::new(JsonRpcClient::new(HttpTransport::new(rpc_url.clone())))
         }
@@ -377,8 +370,7 @@ pub mod implement_client {
                     panic!("Mock Rpc URL is not an URL");
                 }
             }
-            ConfigType::Actual => get_rpc_url(),
-            ConfigType::Dummy => get_dummy_rpc_url(),
+            ConfigType::Actual | ConfigType::Dummy => get_rpc_url(),
         };
 
         let starknet_client = match service {
