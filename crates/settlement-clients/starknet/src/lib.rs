@@ -9,12 +9,12 @@ use color_eyre::Result;
 use lazy_static::lazy_static;
 use mockall::{automock, predicate::*};
 use starknet::accounts::ConnectedAccount;
-use starknet::core::types::{ExecutionResult, MaybePendingTransactionReceipt};
+use starknet::core::types::TransactionExecutionStatus;
 use starknet::providers::Provider;
 use starknet::{
     accounts::{Account, Call, ExecutionEncoding, SingleOwnerAccount},
     core::{
-        types::{BlockId, BlockTag, FieldElement, FunctionCall},
+        types::{BlockId, BlockTag, Felt, FunctionCall},
         utils::get_selector_from_name,
     },
     providers::{jsonrpc::HttpTransport, JsonRpcClient},
@@ -30,7 +30,7 @@ use crate::conversion::{slice_slice_u8_to_vec_field, slice_u8_to_field};
 
 pub struct StarknetSettlementClient {
     pub account: SingleOwnerAccount<Arc<JsonRpcClient<HttpTransport>>, LocalWallet>,
-    pub core_contract_address: FieldElement,
+    pub core_contract_address: Felt,
     pub tx_finality_retry_delay_in_seconds: u64,
 }
 
@@ -48,15 +48,15 @@ impl StarknetSettlementClient {
         let provider = Arc::new(JsonRpcClient::new(HttpTransport::new(settlement_cfg.rpc_url)));
 
         let public_key = settings.get_settings_or_panic(ENV_PUBLIC_KEY);
-        let signer_address = FieldElement::from_hex_be(&public_key).expect("invalid signer address");
+        let signer_address = Felt::from_hex(&public_key).expect("invalid signer address");
 
         // TODO: Very insecure way of building the signer. Needs to be adjusted.
         let private_key = settings.get_settings_or_panic(ENV_PRIVATE_KEY);
-        let signer = FieldElement::from_hex_be(&private_key).expect("Invalid private key");
+        let signer = Felt::from_hex(&private_key).expect("Invalid private key");
         let signer = LocalWallet::from(SigningKey::from_secret_scalar(signer));
 
         let core_contract_address =
-            FieldElement::from_hex_be(&settlement_cfg.core_contract_address).expect("Invalid core contract address");
+            Felt::from_hex(&settlement_cfg.core_contract_address).expect("Invalid core contract address");
 
         let account = SingleOwnerAccount::new(
             provider.clone(),
@@ -75,18 +75,18 @@ impl StarknetSettlementClient {
 }
 
 lazy_static! {
-    pub static ref CONTRACT_WRITE_UPDATE_STATE_SELECTOR: FieldElement =
+    pub static ref CONTRACT_WRITE_UPDATE_STATE_SELECTOR: Felt =
         get_selector_from_name("update_state").expect("Invalid update state selector");
     // TODO: `stateBlockNumber` does not exists yet in our implementation:
     // https://github.com/keep-starknet-strange/piltover
     // It should get added to match the solidity implementation of the core contract.
-    pub static ref CONTRACT_READ_STATE_BLOCK_NUMBER: FieldElement =
+    pub static ref CONTRACT_READ_STATE_BLOCK_NUMBER: Felt =
         get_selector_from_name("stateBlockNumber").expect("Invalid update state selector");
 }
 
 // TODO: Note that we already have an implementation of the appchain core contract client available here:
 // https://github.com/keep-starknet-strange/zaun/tree/main/crates/l3/appchain-core-contract-client
-// However, this implementation uses different FieldElement types, and incorporating all of them
+// However, this implementation uses different Felt types, and incorporating all of them
 // into this repository would introduce unnecessary complexity.
 // Therefore, we will wait for the update of starknet_rs in the Zaun repository before adapting
 // the StarknetSettlementClient implementation.
@@ -110,13 +110,13 @@ impl SettlementClient for StarknetSettlementClient {
     ) -> Result<String> {
         let program_output = slice_slice_u8_to_vec_field(program_output.as_slice());
         let onchain_data_hash = slice_u8_to_field(&onchain_data_hash);
-        let mut calldata: Vec<FieldElement> = Vec::with_capacity(program_output.len() + 2);
+        let mut calldata: Vec<Felt> = Vec::with_capacity(program_output.len() + 2);
         calldata.extend(program_output);
         calldata.push(onchain_data_hash);
-        calldata.push(FieldElement::from(onchain_data_size));
+        calldata.push(Felt::from(onchain_data_size));
         let invoke_result = self
             .account
-            .execute(vec![Call {
+            .execute_v1(vec![Call {
                 to: self.core_contract_address,
                 selector: *CONTRACT_WRITE_UPDATE_STATE_SELECTOR,
                 calldata,
@@ -128,20 +128,26 @@ impl SettlementClient for StarknetSettlementClient {
 
     /// Should verify the inclusion of a tx in the settlement layer
     async fn verify_tx_inclusion(&self, tx_hash: &str) -> Result<SettlementVerificationStatus> {
-        let tx_hash = FieldElement::from_hex_be(tx_hash)?;
+        let tx_hash = Felt::from_hex(tx_hash)?;
         let tx_receipt = self.account.provider().get_transaction_receipt(tx_hash).await?;
-        match tx_receipt {
-            MaybePendingTransactionReceipt::Receipt(tx) => match tx.execution_result() {
-                ExecutionResult::Succeeded => Ok(SettlementVerificationStatus::Verified),
-                ExecutionResult::Reverted { reason } => {
-                    Ok(SettlementVerificationStatus::Rejected(format!("Tx {} has been reverted: {}", tx_hash, reason)))
-                }
-            },
-            MaybePendingTransactionReceipt::PendingReceipt(tx) => match tx.execution_result() {
-                ExecutionResult::Succeeded => Ok(SettlementVerificationStatus::Pending),
-                ExecutionResult::Reverted { reason } => Ok(SettlementVerificationStatus::Rejected(format!(
+        let execution_result = tx_receipt.receipt.execution_result();
+        let status = execution_result.status();
+
+        match tx_receipt.block.is_pending() {
+            true => match status {
+                TransactionExecutionStatus::Succeeded => Ok(SettlementVerificationStatus::Pending),
+                TransactionExecutionStatus::Reverted => Ok(SettlementVerificationStatus::Rejected(format!(
                     "Pending tx {} has been reverted: {}",
-                    tx_hash, reason
+                    tx_hash,
+                    execution_result.revert_reason().unwrap()
+                ))),
+            },
+            false => match status {
+                TransactionExecutionStatus::Succeeded => Ok(SettlementVerificationStatus::Verified),
+                TransactionExecutionStatus::Reverted => Ok(SettlementVerificationStatus::Rejected(format!(
+                    "Tx {} has been reverted: {}",
+                    tx_hash,
+                    execution_result.revert_reason().unwrap()
                 ))),
             },
         }
@@ -164,10 +170,10 @@ impl SettlementClient for StarknetSettlementClient {
         let duration_to_wait_between_polling = Duration::from_secs(self.tx_finality_retry_delay_in_seconds);
         sleep(duration_to_wait_between_polling).await;
 
-        let tx_hash = FieldElement::from_hex_be(tx_hash)?;
+        let tx_hash = Felt::from_hex(tx_hash)?;
         loop {
             let tx_receipt = self.account.provider().get_transaction_receipt(tx_hash).await?;
-            if let MaybePendingTransactionReceipt::PendingReceipt(_) = tx_receipt {
+            if tx_receipt.block.is_pending() {
                 retries += 1;
                 if retries > MAX_RETRIES_VERIFY_TX_FINALITY {
                     return Err(eyre!("Max retries exceeeded while waiting for tx {tx_hash} finality."));
@@ -197,7 +203,8 @@ impl SettlementClient for StarknetSettlementClient {
         if block_number.is_empty() {
             return Err(eyre!("Could not fetch last block number from core contract."));
         }
-        Ok(block_number[0].try_into()?)
+
+        Ok(u64::from_le_bytes(block_number[0].to_bytes_le()[0..8].try_into().unwrap()))
     }
 
     /// Returns the nonce for the wallet in use.
