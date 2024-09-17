@@ -4,7 +4,7 @@ on:
   workflow_call:
 
 jobs:
-  coverage:
+  e2e-Testing:
     runs-on: karnot-arc-runner-set
 
     services:
