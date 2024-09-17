@@ -27,12 +27,14 @@ pub struct EthereumDaClient {
 #[automock]
 #[async_trait]
 impl DaClient for EthereumDaClient {
+    #[tracing::instrument(skip(self))]
     async fn publish_state_diff(&self, _state_diff: Vec<Vec<u8>>, _to: &[u8; 32]) -> Result<String> {
         // Here in case of ethereum we are not publishing the state diff because we are doing it all together in update_state job.
         // So we don't need to send the blob here.
         Ok("NA".to_string())
     }
 
+    #[tracing::instrument(skip(self))]
     async fn verify_inclusion(&self, _external_id: &str) -> Result<DaVerificationStatus> {
         Ok(DaVerificationStatus::Verified)
     }

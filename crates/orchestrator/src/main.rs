@@ -4,11 +4,50 @@ use orchestrator::queue::init_consumers;
 use orchestrator::routes::app_router;
 use utils::env_utils::get_env_var_or_default;
 
+// Instrumentation
+use opentelemetry::global;
+use opentelemetry::trace::TracerProvider;
+use opentelemetry::KeyValue;
+
+use opentelemetry_otlp::WithExportConfig;
+use opentelemetry_sdk::trace::Config;
+use opentelemetry_sdk::trace::Tracer;
+use opentelemetry_sdk::{runtime, Resource};
+use tracing::Level;
+use tracing_opentelemetry::OpenTelemetryLayer;
+use tracing_subscriber::prelude::*;
+
+static TEST_NAME: &str = "madara-orchestrator";
+static ENDPOINT: &str = "http://localhost:4317";
+
+fn init_tracer_provider() -> Tracer {
+    let provider = opentelemetry_otlp::new_pipeline()
+        .tracing()
+        .with_exporter(opentelemetry_otlp::new_exporter().tonic().with_endpoint(ENDPOINT))
+        .with_trace_config(Config::default().with_resource(Resource::new(vec![KeyValue::new(
+            opentelemetry_semantic_conventions::resource::SERVICE_NAME,
+            format!("{}{}", TEST_NAME, "_service"),
+        )])))
+        .install_batch(runtime::Tokio)
+        .unwrap();
+
+    global::set_tracer_provider(provider.clone());
+
+    provider.tracer(format!("{}{}", TEST_NAME, "_subscriber"))
+}
+
 /// Start the server
 #[tokio::main]
 async fn main() {
     dotenv().ok();
-    tracing_subscriber::fmt().with_max_level(tracing::Level::INFO).with_target(false).init();
+
+    let tracer = init_tracer_provider();
+
+    tracing_subscriber::registry()
+        .with(tracing_subscriber::filter::LevelFilter::from_level(Level::TRACE))
+        .with(tracing_subscriber::fmt::layer())
+        .with(OpenTelemetryLayer::new(tracer))
+        .init();
 
     // initial config setup
     let config = init_config().await;

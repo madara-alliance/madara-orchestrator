@@ -17,6 +17,7 @@ pub trait ProverClient: Send + Sync {
     async fn get_task_status(&self, task_id: &TaskId) -> Result<TaskStatus, ProverClientError>;
 }
 
+#[derive(Debug)]
 pub enum Task {
     CairoPie(CairoPie),
 }

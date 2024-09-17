@@ -103,16 +103,19 @@ enum DeliveryReturnType {
     NoMessage,
 }
 
+#[tracing::instrument(skip(config))]
 pub async fn add_job_to_process_queue(id: Uuid, config: Arc<Config>) -> EyreResult<()> {
     log::info!("Adding job with id {:?} to processing queue", id);
     add_job_to_queue(id, JOB_PROCESSING_QUEUE.to_string(), None, config).await
 }
 
+#[tracing::instrument(skip(config))]
 pub async fn add_job_to_verification_queue(id: Uuid, delay: Duration, config: Arc<Config>) -> EyreResult<()> {
     log::info!("Adding job with id {:?} to verification queue", id);
     add_job_to_queue(id, JOB_VERIFICATION_QUEUE.to_string(), Some(delay), config).await
 }
 
+#[tracing::instrument(skip(handler, config))]
 pub async fn consume_job_from_queue<F, Fut>(
     queue: String,
     handler: F,
@@ -142,6 +145,7 @@ where
 
 /// Function to consume the message from the worker trigger queues and spawn the worker
 /// for respective message received.
+#[tracing::instrument(skip(handler, config))]
 pub async fn consume_worker_trigger_messages_from_queue<F, Fut>(
     queue: String,
     handler: F,
@@ -168,6 +172,7 @@ where
     Ok(())
 }
 
+#[tracing::instrument]
 fn parse_job_message(message: &Delivery) -> Result<Option<JobQueueMessage>, ConsumptionError> {
     message
         .payload_serde_json()
@@ -175,6 +180,7 @@ fn parse_job_message(message: &Delivery) -> Result<Option<JobQueueMessage>, Cons
         .map_err(|e| ConsumptionError::Other(OtherError::from(e)))
 }
 
+#[tracing::instrument]
 fn parse_worker_message(message: &Delivery) -> Result<Option<WorkerTriggerMessage>, ConsumptionError> {
     message
         .payload_serde_json()
@@ -182,6 +188,7 @@ fn parse_worker_message(message: &Delivery) -> Result<Option<WorkerTriggerMessag
         .map_err(|e| ConsumptionError::Other(OtherError::from(e)))
 }
 
+#[tracing::instrument(skip(handler, config))]
 async fn handle_job_message<F, Fut>(
     job_message: JobQueueMessage,
     message: Delivery,
@@ -226,6 +233,7 @@ where
     }
 }
 
+#[tracing::instrument(skip(handler, config))]
 async fn handle_worker_message<F, Fut>(
     job_message: WorkerTriggerMessage,
     message: Delivery,
@@ -267,6 +275,7 @@ where
 }
 
 /// To get Box<dyn Worker> handler from `WorkerTriggerType`.
+#[tracing::instrument]
 fn get_worker_handler_from_worker_trigger_type(worker_trigger_type: WorkerTriggerType) -> Box<dyn Worker> {
     match worker_trigger_type {
         WorkerTriggerType::Snos => Box::new(SnosWorker),
@@ -278,6 +287,7 @@ fn get_worker_handler_from_worker_trigger_type(worker_trigger_type: WorkerTrigge
 }
 
 /// To get the delivery from the message queue using the queue name
+#[tracing::instrument(skip(config))]
 async fn get_delivery_from_queue(queue: &str, config: Arc<Config>) -> Result<DeliveryReturnType, ConsumptionError> {
     match config.queue().consume_message_from_queue(queue.to_string()).await {
         Ok(d) => Ok(DeliveryReturnType::Message(d)),
@@ -301,6 +311,7 @@ macro_rules! spawn_consumer {
     };
 }
 
+#[tracing::instrument(skip(config))]
 pub async fn init_consumers(config: Arc<Config>) -> Result<(), JobError> {
     spawn_consumer!(JOB_PROCESSING_QUEUE.to_string(), process_job, consume_job_from_queue, config.clone());
     spawn_consumer!(JOB_VERIFICATION_QUEUE.to_string(), verify_job, consume_job_from_queue, config.clone());
@@ -310,11 +321,12 @@ pub async fn init_consumers(config: Arc<Config>) -> Result<(), JobError> {
 }
 
 /// To spawn the worker by passing the worker struct
+#[tracing::instrument(skip(worker, config))]
 async fn spawn_worker(worker: Box<dyn Worker>, config: Arc<Config>) -> color_eyre::Result<()> {
     worker.run_worker_if_enabled(config).await.expect("Error in running the worker.");
     Ok(())
 }
-
+#[tracing::instrument(skip(config))]
 async fn add_job_to_queue(id: Uuid, queue: String, delay: Option<Duration>, config: Arc<Config>) -> EyreResult<()> {
     let message = JobQueueMessage { id };
     config.queue().send_message_to_queue(queue, serde_json::to_string(&message)?, delay).await?;

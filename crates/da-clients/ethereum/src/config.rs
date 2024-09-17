@@ -23,6 +23,7 @@ impl EthereumDaConfig {
         })
     }
 
+    #[tracing::instrument(skip(self))]
     pub async fn build_client(&self) -> EthereumDaClient {
         let client =
             RpcClient::new_http(Url::from_str(self.rpc_url.as_str()).expect("Failed to parse SETTLEMENT_RPC_URL"));

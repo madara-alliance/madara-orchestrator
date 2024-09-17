@@ -62,6 +62,7 @@ pub struct DaJob;
 
 #[async_trait]
 impl Job for DaJob {
+    #[tracing::instrument(skip(self, _config))]
     async fn create_job(
         &self,
         _config: Arc<Config>,
@@ -81,6 +82,7 @@ impl Job for DaJob {
         })
     }
 
+    #[tracing::instrument(skip(self, config))]
     async fn process_job(&self, config: Arc<Config>, job: &mut JobItem) -> Result<String, JobError> {
         let block_no = job
             .internal_id
@@ -145,6 +147,7 @@ impl Job for DaJob {
         Ok(external_id)
     }
 
+    #[tracing::instrument(skip(self, config))]
     async fn verify_job(&self, config: Arc<Config>, job: &mut JobItem) -> Result<JobVerificationStatus, JobError> {
         Ok(config
             .da_client()
@@ -167,6 +170,7 @@ impl Job for DaJob {
     }
 }
 
+#[tracing::instrument]
 pub fn fft_transformation(elements: Vec<BigUint>) -> Vec<BigUint> {
     let xs: Vec<BigUint> = (0..*BLOB_LEN)
         .map(|i| {
@@ -189,6 +193,7 @@ pub fn fft_transformation(elements: Vec<BigUint>) -> Vec<BigUint> {
     transform
 }
 
+#[tracing::instrument]
 pub fn convert_to_biguint(elements: Vec<FieldElement>) -> Vec<BigUint> {
     // Initialize the vector with 4096 BigUint zeros
     let mut biguint_vec = vec![BigUint::zero(); 4096];
@@ -208,6 +213,7 @@ pub fn convert_to_biguint(elements: Vec<FieldElement>) -> Vec<BigUint> {
     biguint_vec
 }
 
+#[tracing::instrument]
 fn data_to_blobs(blob_size: u64, block_data: Vec<BigUint>) -> Result<Vec<Vec<u8>>, JobError> {
     // Validate blob size
     if blob_size < 32 {
@@ -235,6 +241,7 @@ fn data_to_blobs(blob_size: u64, block_data: Vec<BigUint>) -> Result<Vec<Vec<u8>
     Ok(blobs)
 }
 
+#[tracing::instrument(skip(config))]
 pub async fn state_update_to_blob_data(
     block_no: u64,
     state_update: StateUpdate,
@@ -301,6 +308,7 @@ pub async fn state_update_to_blob_data(
 }
 
 /// To store the blob data using the storage client with path <block_number>/blob_data.txt
+#[tracing::instrument(skip(config))]
 async fn store_blob_data(blob_data: Vec<BigUint>, block_number: u64, config: Arc<Config>) -> Result<(), JobError> {
     let storage_client = config.storage();
     let key = block_number.to_string() + "/" + BLOB_DATA_FILE_NAME;

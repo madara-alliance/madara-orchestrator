@@ -18,5 +18,21 @@ tokio = { workspace = true }
 url = { workspace = true }
 utils = { workspace = true }
 
+#Instrumentation
+tracing = { workspace = true }
+tracing-subscriber = { workspace = true, features = ["env-filter"] }
+opentelemetry = { workspace = true, features = ["metrics", "logs"] }
+opentelemetry_sdk = { workspace = true, features = ["rt-tokio", "logs"] }
+opentelemetry-otlp = { workspace = true, features = [
+  "tonic",
+  "metrics",
+  "logs",
+] }
+opentelemetry-semantic-conventions = { workspace = true }
+opentelemetry-appender-tracing = { workspace = true, default-features = false }
+tracing-core = { workspace = true, default-features = false }
+tracing-opentelemetry = "0.26.0"
+
+
 [dev-dependencies]
 tokio-test = "*"

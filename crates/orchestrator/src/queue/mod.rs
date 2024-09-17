@@ -20,6 +20,7 @@ pub trait QueueProvider: Send + Sync {
     async fn consume_message_from_queue(&self, queue: String) -> std::result::Result<Delivery, QueueError>;
 }
 
+#[tracing::instrument(skip(config))]
 pub async fn init_consumers(config: Arc<Config>) -> Result<(), JobError> {
     job_queue::init_consumers(config).await
 }

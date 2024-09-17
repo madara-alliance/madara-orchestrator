@@ -16,6 +16,7 @@ impl Worker for UpdateStateWorker {
     /// 1. Fetch the last successful state update job
     /// 2. Fetch all successful proving jobs covering blocks after the last state update
     /// 3. Create state updates for all the blocks that don't have a state update job
+    #[tracing::instrument(skip(self, config))]
     async fn run_worker(&self, config: Arc<Config>) -> Result<(), Box<dyn Error>> {
         let latest_successful_job =
             config.database().get_latest_job_by_type_and_status(JobType::StateTransition, JobStatus::Completed).await?;
@@ -77,6 +78,7 @@ impl Worker for UpdateStateWorker {
 
 impl UpdateStateWorker {
     /// To parse the block numbers from the vector of jobs.
+    #[tracing::instrument]
     pub fn parse_job_items_into_block_number_list(job_items: Vec<JobItem>) -> String {
         job_items.iter().map(|j| j.internal_id.clone()).collect::<Vec<String>>().join(",")
     }

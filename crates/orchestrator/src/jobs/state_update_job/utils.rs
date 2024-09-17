@@ -11,6 +11,7 @@ use color_eyre::eyre::eyre;
 use num_bigint::BigUint;
 
 /// Fetching the blob data (stored in remote storage during DA job) for a particular block
+#[tracing::instrument(skip(config))]
 pub async fn fetch_blob_data_for_block(block_number: u64, config: Arc<Config>) -> color_eyre::Result<Vec<Vec<u8>>> {
     let storage_client = config.storage();
     let key = block_number.to_string() + "/" + BLOB_DATA_FILE_NAME;
@@ -19,6 +20,7 @@ pub async fn fetch_blob_data_for_block(block_number: u64, config: Arc<Config>) -
 }
 
 /// Fetching the blob data (stored in remote storage during DA job) for a particular block
+#[tracing::instrument(skip(config))]
 pub async fn fetch_program_data_for_block(block_number: u64, config: Arc<Config>) -> color_eyre::Result<Vec<[u8; 32]>> {
     let storage_client = config.storage();
     let key = block_number.to_string() + "/" + PROGRAM_OUTPUT_FILE_NAME;

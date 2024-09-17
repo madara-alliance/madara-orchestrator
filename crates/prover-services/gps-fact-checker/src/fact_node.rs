@@ -48,6 +48,7 @@ pub struct FactNode {
 ///
 /// Basically it transforms the flat fact topology into a non-binary Merkle tree and then computes
 /// its root, enriching the nodes with metadata such as page sizes and hashes.
+#[tracing::instrument]
 pub fn generate_merkle_root(
     program_output: &[Felt252],
     fact_topology: &FactTopology,
@@ -119,6 +120,7 @@ pub fn generate_merkle_root(
 }
 
 /// Calculates the keccak hash and adds 1 to it.
+#[tracing::instrument]
 fn calculate_node_hash(node_data: &[u8]) -> B256 {
     let hash = keccak256(node_data);
     let hash_biguint = BigUint::from_bytes_be(hash.as_slice());

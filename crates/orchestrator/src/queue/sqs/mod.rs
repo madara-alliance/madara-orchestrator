@@ -26,6 +26,7 @@ lazy_static! {
 
 #[async_trait]
 impl QueueProvider for SqsQueue {
+    #[tracing::instrument(skip(self))]
     async fn send_message_to_queue(&self, queue: String, payload: String, delay: Option<Duration>) -> Result<()> {
         let queue_url = get_queue_url(queue);
         let producer = get_producer(queue_url).await?;
@@ -38,6 +39,7 @@ impl QueueProvider for SqsQueue {
         Ok(())
     }
 
+    #[tracing::instrument(skip(self))]
     async fn consume_message_from_queue(&self, queue: String) -> std::result::Result<Delivery, QueueError> {
         let queue_url = get_queue_url(queue);
         let mut consumer = get_consumer(queue_url).await?;

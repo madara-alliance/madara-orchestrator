@@ -124,6 +124,7 @@ pub trait Job: Send + Sync {
 }
 
 /// Creates the job in the DB in the created state and adds it to the process queue
+#[tracing::instrument(skip(config))]
 pub async fn create_job(
     job_type: JobType,
     internal_id: String,
@@ -149,6 +150,7 @@ pub async fn create_job(
 
 /// Processes the job, increments the process attempt count and updates the status of the job in the
 /// DB. It then adds the job to the verification queue.
+#[tracing::instrument(skip(config))]
 pub async fn process_job(id: Uuid, config: Arc<Config>) -> Result<(), JobError> {
     let mut job = get_job(id, config.clone()).await?;
 
@@ -199,6 +201,7 @@ pub async fn process_job(id: Uuid, config: Arc<Config>) -> Result<(), JobError> 
 /// retries processing the job if the max attempts have not been exceeded. If the max attempts have
 /// been exceeded, it marks the job as timed out. If the verification is still pending, it pushes the
 /// job back to the queue.
+#[tracing::instrument(skip(config))]
 pub async fn verify_job(id: Uuid, config: Arc<Config>) -> Result<(), JobError> {
     let mut job = get_job(id, config.clone()).await?;
 
@@ -274,6 +277,7 @@ pub async fn verify_job(id: Uuid, config: Arc<Config>) -> Result<(), JobError> {
 
 /// Terminates the job and updates the status of the job in the DB.
 /// Logs error if the job status `Completed` is existing on DL queue.
+#[tracing::instrument(skip(config))]
 pub async fn handle_job_failure(id: Uuid, config: Arc<Config>) -> Result<(), JobError> {
     let mut job = get_job(id, config.clone()).await?.clone();
     let mut metadata = job.metadata.clone();
@@ -297,6 +301,7 @@ pub async fn handle_job_failure(id: Uuid, config: Arc<Config>) -> Result<(), Job
     Ok(())
 }
 
+#[tracing::instrument(skip(config))]
 async fn get_job(id: Uuid, config: Arc<Config>) -> Result<JobItem, JobError> {
     let job = config.database().get_job_by_id(id).await.map_err(|e| JobError::Other(OtherError(e)))?;
     match job {
@@ -305,6 +310,7 @@ async fn get_job(id: Uuid, config: Arc<Config>) -> Result<JobItem, JobError> {
     }
 }
 
+#[tracing::instrument]
 pub fn increment_key_in_metadata(
     metadata: &HashMap<String, String>,
     key: &str,
@@ -317,6 +323,7 @@ pub fn increment_key_in_metadata(
     Ok(new_metadata)
 }
 
+#[tracing::instrument]
 fn get_u64_from_metadata(metadata: &HashMap<String, String>, key: &str) -> color_eyre::Result<u64> {
     metadata
         .get(key)

@@ -47,6 +47,7 @@ impl SharpClient {
         }
     }
 
+    #[tracing::instrument(skip(self))]
     pub async fn add_job(&self, encoded_pie: &str) -> Result<(SharpAddJobResponse, Uuid), SharpError> {
         let mut base_url = self.base_url.clone();
 
@@ -80,6 +81,7 @@ impl SharpClient {
         }
     }
 
+    #[tracing::instrument(skip(self))]
     pub async fn get_job_status(&self, job_key: &Uuid) -> Result<SharpGetStatusResponse, SharpError> {
         let mut base_url = self.base_url.clone();
 

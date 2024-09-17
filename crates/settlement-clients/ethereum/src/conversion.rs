@@ -99,6 +99,7 @@ pub(crate) fn u8_48_to_hex_string(data: [u8; 48]) -> String {
 }
 
 /// To prepare the sidecar for EIP 4844 transaction
+#[tracing::instrument]
 pub(crate) async fn prepare_sidecar(
     state_diff: &[Vec<u8>],
     trusted_setup: &KzgSettings,
