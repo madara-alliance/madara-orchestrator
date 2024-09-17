@@ -1,52 +1,32 @@
+use std::time::Duration;
+
 use dotenvy::dotenv;
+
+use opentelemetry::global;
 use orchestrator::config::init_config;
 use orchestrator::queue::init_consumers;
 use orchestrator::routes::app_router;
-use utils::env_utils::get_env_var_or_default;
-
-// Instrumentation
-use opentelemetry::global;
-use opentelemetry::trace::TracerProvider;
-use opentelemetry::KeyValue;
-
-use opentelemetry_otlp::WithExportConfig;
-use opentelemetry_sdk::trace::Config;
-use opentelemetry_sdk::trace::Tracer;
-use opentelemetry_sdk::{runtime, Resource};
 use tracing::Level;
 use tracing_opentelemetry::OpenTelemetryLayer;
-use tracing_subscriber::prelude::*;
+use tracing_subscriber::layer::SubscriberExt as _;
+use tracing_subscriber::util::SubscriberInitExt as _;
+use utils::env_utils::get_env_var_or_default;
 
-static TEST_NAME: &str = "madara-orchestrator";
-static ENDPOINT: &str = "http://localhost:4317";
-
-fn init_tracer_provider() -> Tracer {
-    let provider = opentelemetry_otlp::new_pipeline()
-        .tracing()
-        .with_exporter(opentelemetry_otlp::new_exporter().tonic().with_endpoint(ENDPOINT))
-        .with_trace_config(Config::default().with_resource(Resource::new(vec![KeyValue::new(
-            opentelemetry_semantic_conventions::resource::SERVICE_NAME,
-            format!("{}{}", TEST_NAME, "_service"),
-        )])))
-        .install_batch(runtime::Tokio)
-        .unwrap();
-
-    global::set_tracer_provider(provider.clone());
-
-    provider.tracer(format!("{}{}", TEST_NAME, "_subscriber"))
-}
+mod telemetry;
 
 /// Start the server
 #[tokio::main]
 async fn main() {
     dotenv().ok();
 
-    let tracer = init_tracer_provider();
+    telemetry::init();
+
+    let global_tracer = telemetry::global_tracer().clone();
 
     tracing_subscriber::registry()
         .with(tracing_subscriber::filter::LevelFilter::from_level(Level::TRACE))
         .with(tracing_subscriber::fmt::layer())
-        .with(OpenTelemetryLayer::new(tracer))
+        .with(OpenTelemetryLayer::new(global_tracer))
         .init();
 
     // initial config setup
@@ -63,4 +43,8 @@ async fn main() {
 
     tracing::info!("Listening on http://{}", address);
     axum::serve(listener, app).await.expect("Failed to start axum server");
+
+    global::shutdown_tracer_provider();
+    // TODO: remove this unwrap
+    telemetry::global_meter_provider().shutdown().unwrap();
 }

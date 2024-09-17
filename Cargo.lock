@@ -6575,6 +6575,7 @@ dependencies = [
  "num-bigint",
  "num-traits 0.2.19",
  "omniqueue",
+ "once_cell",
  "opentelemetry",
  "opentelemetry-appender-tracing",
  "opentelemetry-otlp",

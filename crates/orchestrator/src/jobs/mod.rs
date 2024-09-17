@@ -12,6 +12,7 @@ use color_eyre::eyre::{eyre, Context};
 use da_job::DaError;
 use mockall::automock;
 use mockall_double::double;
+use opentelemetry::global;
 use proving_job::ProvingError;
 use state_update_job::StateUpdateError;
 use tracing::log;

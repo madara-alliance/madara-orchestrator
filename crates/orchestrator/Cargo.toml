@@ -12,6 +12,7 @@ name = "orchestrator"
 path = "src/main.rs"
 
 [dependencies]
+once_cell = "1.8"
 alloy = { workspace = true }
 assert_matches = "1.5.0"
 async-std = "1.12.0"
