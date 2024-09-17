@@ -216,7 +216,6 @@ impl SettlementClient for StarknetSettlementClient {
 
 #[cfg(test)]
 mod tests {
-    use std::u64;
 
     use starknet::core::types::Felt;
     #[test]
