@@ -9,6 +9,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 - moved rust build and tests to self-hosted runner
 - e2e flow test
 - database timestamps
+- moved rust build and tests to self-hosted runner
 - alerts module.
 - Tests for Settlement client.
 - Worker queues to listen for trigger events.
@@ -34,6 +35,10 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ## Changed
 
+- ethereum DA client builder
+- AWS config built from TestConfigBuilder.
+- Better TestConfigBuilder, with sync config clients.
+- Drilled Config, removing dirty global reads.
 - settings provider
 - refactor AWS config usage and clean .env files
 - GitHub's coverage CI yml file for localstack and db testing.
