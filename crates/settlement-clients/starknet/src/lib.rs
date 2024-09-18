@@ -133,23 +133,24 @@ impl SettlementClient for StarknetSettlementClient {
         let execution_result = tx_receipt.receipt.execution_result();
         let status = execution_result.status();
 
-        match tx_receipt.block.is_pending() {
-            true => match status {
+        if tx_receipt.block.is_pending() {
+            match status {
                 TransactionExecutionStatus::Succeeded => Ok(SettlementVerificationStatus::Pending),
                 TransactionExecutionStatus::Reverted => Ok(SettlementVerificationStatus::Rejected(format!(
                     "Pending tx {} has been reverted: {}",
                     tx_hash,
                     execution_result.revert_reason().unwrap()
                 ))),
-            },
-            false => match status {
+            }
+        } else {
+            match status {
                 TransactionExecutionStatus::Succeeded => Ok(SettlementVerificationStatus::Verified),
                 TransactionExecutionStatus::Reverted => Ok(SettlementVerificationStatus::Rejected(format!(
                     "Tx {} has been reverted: {}",
                     tx_hash,
                     execution_result.revert_reason().unwrap()
                 ))),
-            },
+            }
         }
     }
 
@@ -210,5 +211,19 @@ impl SettlementClient for StarknetSettlementClient {
     /// Returns the nonce for the wallet in use.
     async fn get_nonce(&self) -> Result<u64> {
         todo!("Yet to impl nonce call for Starknet.")
+    }
+}
+
+#[cfg(test)]
+mod tests {
+
+    use starknet::core::types::Felt;
+    #[test]
+    fn test_felt_conversion() {
+        let number_in_felt = Felt::from_hex("0x8").unwrap();
+        let number_final = u64::from_le_bytes(number_in_felt.to_bytes_le()[0..8].try_into().unwrap());
+        println!("{number_in_felt} {number_final}");
+
+        assert!(number_final == 8, "Should be 8");
     }
 }
