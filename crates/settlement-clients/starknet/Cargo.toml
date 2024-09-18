@@ -17,6 +17,7 @@ starknet = { workspace = true }
 tokio = { workspace = true }
 url = { workspace = true }
 utils = { workspace = true }
+appchain-core-contract-client = { workspace = true }
 
 [dev-dependencies]
 tokio-test = "*"

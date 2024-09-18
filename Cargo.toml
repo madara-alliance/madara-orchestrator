@@ -77,6 +77,7 @@ hex = "0.4"
 itertools = "0.13.0"
 mockall = "0.13.0"
 testcontainers = "0.18.0"
+appchain-core-contract-client = { git = "https://github.com/byteZorvin/zaun", branch = "type-update" }
 
 # Cairo VM
 cairo-vm = { git = "https://github.com/lambdaclass/cairo-vm", features = [
@@ -89,6 +90,7 @@ cairo-vm = { git = "https://github.com/lambdaclass/cairo-vm", features = [
 # TODO: update back to the main repo once it's merged
 # Sharp (Starkware)
 snos = { git = "https://github.com/keep-starknet-strange/snos" }
+starknet-os = { git = "https://github.com/keep-starknet-strange/snos" }
 
 # Madara prover API
 madara-prover-common = { git = "https://github.com/Moonsong-Labs/madara-prover-api", branch = "od/use-latest-cairo-vm" }

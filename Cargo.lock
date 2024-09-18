@@ -1091,6 +1091,48 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "b3d1d046238990b9cf5bcde22a3fb3584ee5cf65fb2765f454ed428c7a0063da"
 
 [[package]]
+name = "appchain-core-contract-client"
+version = "0.1.0"
+source = "git+https://github.com/byteZorvin/zaun?branch=type-update#fdfc6d4376f680a000fb0bd4b17a85207ad5fefd"
+dependencies = [
+ "appchain-utils",
+ "async-trait",
+ "color-eyre",
+ "dirs",
+ "hex",
+ "log",
+ "num-traits 0.2.19",
+ "serde_json",
+ "starknet",
+ "starknet-accounts",
+ "starknet-core 0.11.1",
+ "starknet-ff",
+ "starknet-providers",
+]
+
+[[package]]
+name = "appchain-utils"
+version = "0.1.0"
+source = "git+https://github.com/byteZorvin/zaun?branch=type-update#fdfc6d4376f680a000fb0bd4b17a85207ad5fefd"
+dependencies = [
+ "async-trait",
+ "color-eyre",
+ "hex",
+ "log",
+ "num-traits 0.2.19",
+ "serde_json",
+ "starknet",
+ "starknet-accounts",
+ "starknet-contract",
+ "starknet-core 0.11.1",
+ "starknet-ff",
+ "starknet-providers",
+ "starknet-signers",
+ "thiserror",
+ "url",
+]
+
+[[package]]
 name = "ark-ec"
 version = "0.4.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -8969,6 +9011,7 @@ dependencies = [
 name = "starknet-settlement-client"
 version = "0.1.0"
 dependencies = [
+ "appchain-core-contract-client",
  "async-trait",
  "c-kzg",
  "color-eyre",

@@ -3,6 +3,7 @@ pub mod conversion;
 
 use std::sync::Arc;
 
+use appchain_core_contract_client::interfaces::core_contract::CoreContract;
 use async_trait::async_trait;
 use color_eyre::eyre::{eyre, Ok};
 use color_eyre::Result;
@@ -12,7 +13,7 @@ use starknet::accounts::ConnectedAccount;
 use starknet::core::types::TransactionExecutionStatus;
 use starknet::providers::Provider;
 use starknet::{
-    accounts::{Account, Call, ExecutionEncoding, SingleOwnerAccount},
+    accounts::{ExecutionEncoding, SingleOwnerAccount},
     core::{
         types::{BlockId, BlockTag, Felt, FunctionCall},
         utils::get_selector_from_name,
@@ -22,6 +23,7 @@ use starknet::{
 };
 use tokio::time::{sleep, Duration};
 
+use appchain_core_contract_client::clients::StarknetCoreContractClient;
 use settlement_client_interface::{SettlementClient, SettlementConfig, SettlementVerificationStatus};
 use utils::settings::Settings;
 
@@ -29,7 +31,8 @@ use crate::config::StarknetSettlementConfig;
 use crate::conversion::{slice_slice_u8_to_vec_field, slice_u8_to_field};
 
 pub struct StarknetSettlementClient {
-    pub account: SingleOwnerAccount<Arc<JsonRpcClient<HttpTransport>>, LocalWallet>,
+    pub account: Arc<SingleOwnerAccount<Arc<JsonRpcClient<HttpTransport>>, LocalWallet>>,
+    pub starknet_core_contract_client: StarknetCoreContractClient,
     pub core_contract_address: Felt,
     pub tx_finality_retry_delay_in_seconds: u64,
 }
@@ -45,7 +48,8 @@ const MAX_RETRIES_VERIFY_TX_FINALITY: usize = 10;
 impl StarknetSettlementClient {
     pub async fn new_with_settings(settings: &impl Settings) -> Self {
         let settlement_cfg = StarknetSettlementConfig::new_with_settings(settings);
-        let provider = Arc::new(JsonRpcClient::new(HttpTransport::new(settlement_cfg.rpc_url)));
+        let provider: Arc<JsonRpcClient<HttpTransport>> =
+            Arc::new(JsonRpcClient::new(HttpTransport::new(settlement_cfg.rpc_url.clone())));
 
         let public_key = settings.get_settings_or_panic(ENV_PUBLIC_KEY);
         let signer_address = Felt::from_hex(&public_key).expect("invalid signer address");
@@ -58,17 +62,22 @@ impl StarknetSettlementClient {
         let core_contract_address =
             Felt::from_hex(&settlement_cfg.core_contract_address).expect("Invalid core contract address");
 
-        let account = SingleOwnerAccount::new(
-            provider.clone(),
-            signer,
-            signer_address,
-            provider.chain_id().await.unwrap(),
-            ExecutionEncoding::Legacy,
-        );
+        let account: Arc<SingleOwnerAccount<Arc<JsonRpcClient<HttpTransport>>, LocalWallet>> =
+            Arc::new(SingleOwnerAccount::new(
+                provider.clone(),
+                signer.clone(),
+                signer_address,
+                provider.chain_id().await.unwrap(),
+                ExecutionEncoding::Legacy,
+            ));
+
+        let starknet_core_contract_client: StarknetCoreContractClient =
+            StarknetCoreContractClient::new(core_contract_address, account.clone());
 
         StarknetSettlementClient {
             account,
             core_contract_address,
+            starknet_core_contract_client,
             tx_finality_retry_delay_in_seconds: settlement_cfg.tx_finality_retry_delay_in_seconds,
         }
     }
@@ -110,19 +119,10 @@ impl SettlementClient for StarknetSettlementClient {
     ) -> Result<String> {
         let program_output = slice_slice_u8_to_vec_field(program_output.as_slice());
         let onchain_data_hash = slice_u8_to_field(&onchain_data_hash);
-        let mut calldata: Vec<Felt> = Vec::with_capacity(program_output.len() + 2);
-        calldata.extend(program_output);
-        calldata.push(onchain_data_hash);
-        calldata.push(Felt::from(onchain_data_size));
-        let invoke_result = self
-            .account
-            .execute_v1(vec![Call {
-                to: self.core_contract_address,
-                selector: *CONTRACT_WRITE_UPDATE_STATE_SELECTOR,
-                calldata,
-            }])
-            .send()
-            .await?;
+        let onchain_data_size = Felt::from(onchain_data_size);
+        let core_contract: &CoreContract = self.starknet_core_contract_client.as_ref();
+        let invoke_result = core_contract.update_state(program_output, onchain_data_hash, onchain_data_size).await?;
+
         Ok(format!("0x{:x}", invoke_result.transaction_hash))
     }
 
