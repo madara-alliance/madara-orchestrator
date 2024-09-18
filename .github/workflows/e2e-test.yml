@@ -57,4 +57,4 @@ jobs:
         env:
           ETHEREUM_BLAST_RPC_URL: ${{ secrets.ETHEREUM_BLAST_RPC_URL }}
         run: |
-          RUST_LOG=trace cargo test --features testing test_orchestrator_workflow -- --nocapture --verbose
+          RUST_LOG=trace cargo test --features testing test_orchestrator_workflow -- --nocapture
