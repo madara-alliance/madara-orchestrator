@@ -20,6 +20,9 @@ impl Worker for SnosWorker {
     async fn run_worker(&self, config: Arc<Config>) -> Result<(), Box<dyn Error>> {
         let provider = config.starknet_client();
         let latest_block_number = provider.block_number().await?;
+
+        println!(">>> block number : {:?}", latest_block_number);
+
         let latest_block_processed_data = config
             .database()
             .get_latest_job_by_type_and_status(JobType::SnosRun, JobStatus::Completed)
@@ -27,6 +30,17 @@ impl Worker for SnosWorker {
             .unwrap()
             .map(|item| item.internal_id)
             .unwrap_or("0".to_string());
+
+        // Check if job does not exist
+        let job_in_db = config
+            .database()
+            .get_job_by_internal_id_and_type(&latest_block_number.to_string(), &JobType::SnosRun)
+            .await
+            .unwrap();
+
+        if job_in_db.is_some() {
+            return Ok(());
+        }
 
         let latest_block_processed: u64 = latest_block_processed_data.parse()?;
 

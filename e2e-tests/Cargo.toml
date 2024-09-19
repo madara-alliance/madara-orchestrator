@@ -15,7 +15,7 @@ chrono = { workspace = true }
 color-eyre.workspace = true
 dotenvy.workspace = true
 ethereum-settlement-client.workspace = true
-httpmock.workspace = true
+httpmock = { version = "0.8.0-alpha.1", features = ["proxy"] }
 log.workspace = true
 mongodb.workspace = true
 orchestrator.workspace = true

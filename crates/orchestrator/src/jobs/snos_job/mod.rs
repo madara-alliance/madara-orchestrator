@@ -12,6 +12,7 @@ use prove_block::prove_block;
 use starknet_os::io::output::StarknetOsOutput;
 use tempfile::NamedTempFile;
 use thiserror::Error;
+use utils::env_utils::get_env_var_or_panic;
 use uuid::Uuid;
 
 use super::constants::JOB_METADATA_SNOS_BLOCK;
@@ -58,15 +59,15 @@ impl Job for SnosJob {
         &self,
         _config: Arc<Config>,
         internal_id: String,
-        metadata: HashMap<String, String>,
+        _metadata: HashMap<String, String>,
     ) -> Result<JobItem, JobError> {
         Ok(JobItem {
             id: Uuid::new_v4(),
-            internal_id,
+            internal_id: internal_id.clone(),
             job_type: JobType::SnosRun,
             status: JobStatus::Created,
             external_id: String::new().into(),
-            metadata,
+            metadata: HashMap::from([(JOB_METADATA_SNOS_BLOCK.to_string(), internal_id)]),
             version: 0,
             created_at: Utc::now().round_subsecs(0),
             updated_at: Utc::now().round_subsecs(0),
@@ -75,12 +76,12 @@ impl Job for SnosJob {
 
     async fn process_job(&self, config: Arc<Config>, job: &mut JobItem) -> Result<String, JobError> {
         let block_number = self.get_block_number_from_metadata(job)?;
-        let rpc_url = config.starknet_rpc_url();
+        // let rpc_url = config.starknet_rpc_url();
 
         let (cairo_pie, snos_output) =
-            prove_block(block_number, rpc_url.as_str(), LayoutName::all_cairo).await.map_err(|e| {
-                SnosError::SnosExecutionError { internal_id: job.internal_id.clone(), message: e.to_string() }
-            })?;
+            prove_block(block_number, &get_env_var_or_panic("RPC_FOR_SNOS"), LayoutName::all_cairo).await.map_err(
+                |e| SnosError::SnosExecutionError { internal_id: job.internal_id.clone(), message: e.to_string() },
+            )?;
 
         self.store(config.storage(), &job.internal_id, block_number, cairo_pie, snos_output).await?;
 

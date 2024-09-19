@@ -46,7 +46,7 @@ pub enum ConsumptionError {
 
 #[derive(Debug, Serialize, Deserialize)]
 pub struct JobQueueMessage {
-    pub(crate) id: Uuid,
+    pub id: Uuid,
 }
 
 #[derive(Debug, Serialize, Deserialize, PartialEq, Clone)]
