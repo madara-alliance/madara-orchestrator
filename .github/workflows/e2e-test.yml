@@ -4,8 +4,8 @@ on:
   workflow_call:
 
 jobs:
-  coverage:
-    runs-on: ubuntu-latest
+  e2e-Testing:
+    runs-on: karnot-arc-runner-set
 
     services:
       localstack:
@@ -24,9 +24,10 @@ jobs:
     steps:
       - uses: actions/checkout@v3
 
-      # selecting a toolchain either by action or manual `rustup` calls should happen
-      # before the plugin, as the cache uses the current rustc version as its cache key
-      - run: rustup show
+      - name: Install necessary deps
+        run: |
+          sudo apt update
+          sudo apt install -y gcc g++ build-essential libssl-dev pkg-config curl wget git
 
       - name: Install Rust toolchain
         uses: actions-rs/toolchain@v1

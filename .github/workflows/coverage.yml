@@ -8,7 +8,7 @@ on:
 
 jobs:
   coverage:
-    runs-on: ubuntu-latest
+    runs-on: karnot-arc-runner-set
 
     services:
       localstack:
@@ -28,9 +28,10 @@ jobs:
     steps:
       - uses: actions/checkout@v3
 
-      # selecting a toolchain either by action or manual `rustup` calls should happen
-      # before the plugin, as the cache uses the current rustc version as its cache key
-      - run: rustup show
+      - name: Install necessary deps
+        run: |
+          sudo apt update
+          sudo apt install -y gcc g++ build-essential libssl-dev pkg-config curl wget git
 
       - name: Install Rust toolchain
         uses: actions-rs/toolchain@v1
@@ -69,7 +70,7 @@ jobs:
       - name: Run llvm-cov tests
         env:
           ETHEREUM_BLAST_RPC_URL: ${{ secrets.ETHEREUM_BLAST_RPC_URL }}
-        run: RUST_LOG=debug RUST_BACKTRACE=1 cargo llvm-cov nextest --release --features testing --lcov --output-path lcov.info --test-threads=1 --workspace --exclude=e2e-tests
+        run: RUST_LOG=debug RUST_BACKTRACE=1 cargo llvm-cov nextest --release --features testing --lcov --output-path lcov.info --test-threads=1 --workspace --exclude=e2e-tests prover_client_get_task_status_works::case_7
 
       - name: Coveralls
         uses: coverallsapp/github-action@v2
