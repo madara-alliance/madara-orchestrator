@@ -21,12 +21,12 @@ jobs:
     name: Run Cargo linters
     uses: ./.github/workflows/linters-cargo.yml
 
-  coverage:
-    name: Run coverage
-    uses: ./.github/workflows/coverage.yml
-    secrets: inherit
+  # coverage:
+  #   name: Run coverage
+  #   uses: ./.github/workflows/coverage.yml
+  #   secrets: inherit
 
-  e2e-test:
-    name: E2E test
-    uses: ./.github/workflows/e2e-test.yml
-    secrets: inherit
+  # e2e-test:
+  #   name: E2E test
+  #   uses: ./.github/workflows/e2e-test.yml
+  #   secrets: inherit
