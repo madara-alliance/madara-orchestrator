@@ -35,7 +35,7 @@ jobs:
             target/
           key: ${{ runner.os }}-cargo-${{ hashFiles('**/Cargo.lock') }}
           aws-s3-bucket: ${{secrets.AWS_S3_BUCKET_NAME}}
-          aws-region: us-east-1
+          aws-region: ${{secrets.AWS_REGION}}
 
       - name: Build the project
         run: |
