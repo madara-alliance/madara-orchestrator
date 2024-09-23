@@ -37,8 +37,8 @@ jobs:
             ~/.cargo/git/db/
             target/
           key: ${{ runner.os }}-cargo-${{ hashFiles('**/Cargo.lock') }}
-          aws-s3-bucket: ${{secrets.AWS_S3_BUCKET_NAME}}
-          aws-region: ${{secrets.AWS_REGION}}
+          aws-s3-bucket: karnot-github-ci-cache
+          aws-region: us-west-1
 
       - name: Build the project
         run: |
