@@ -24,7 +24,7 @@ jobs:
           override: true
 
       # - uses: Swatinem/rust-cache@v2
-      - uses: aws-actions/configure-aws-credentials@v4
+      - uses: aws-actions/configure-aws-credentials@main
         with:
           aws-region: us-west-1
 
