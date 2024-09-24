@@ -22,3 +22,6 @@ pub mod routes;
 pub mod tests;
 /// Contains workers which act like cron jobs
 pub mod workers;
+
+/// Contains telemetry collection services. (Metrics/Logs/Traces)
+pub mod telemetry;

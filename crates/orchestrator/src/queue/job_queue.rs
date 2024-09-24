@@ -136,6 +136,8 @@ where
 
     let job_message = parse_job_message(&message)?;
 
+    log::info!("Consuming from queue {:?} with job message {:?}", queue, job_message );
+
     if let Some(job_message) = job_message {
         handle_job_message(job_message, message, handler, config).await?;
     }
@@ -145,7 +147,6 @@ where
 
 /// Function to consume the message from the worker trigger queues and spawn the worker
 /// for respective message received.
-#[tracing::instrument(skip(handler, config))]
 pub async fn consume_worker_trigger_messages_from_queue<F, Fut>(
     queue: String,
     handler: F,
@@ -244,7 +245,7 @@ where
     F: FnOnce(Box<dyn Worker>, Arc<Config>) -> Fut,
     Fut: Future<Output = color_eyre::Result<()>>,
 {
-    log::info!("Handling worker trigger for worker type : {:?}", job_message.worker);
+    log::debug!("Handling worker trigger for worker type : {:?}", job_message.worker);
     let worker_handler = get_worker_handler_from_worker_trigger_type(job_message.worker.clone());
 
     match handler(worker_handler, config.clone()).await {

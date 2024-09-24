@@ -7,12 +7,13 @@ use crate::config::Config;
 use crate::jobs::constants::{JOB_PROCESS_ATTEMPT_METADATA_KEY, JOB_VERIFICATION_ATTEMPT_METADATA_KEY};
 use crate::jobs::types::{JobItem, JobStatus, JobType, JobVerificationStatus};
 use crate::queue::job_queue::{add_job_to_process_queue, add_job_to_verification_queue, ConsumptionError};
+use crate::telemetry::{self, SERVICE_NAME};
 use async_trait::async_trait;
 use color_eyre::eyre::{eyre, Context};
 use da_job::DaError;
 use mockall::automock;
 use mockall_double::double;
-use opentelemetry::global;
+use opentelemetry::KeyValue;
 use proving_job::ProvingError;
 use state_update_job::StateUpdateError;
 use tracing::log;
@@ -132,6 +133,16 @@ pub async fn create_job(
     metadata: HashMap<String, String>,
     config: Arc<Config>,
 ) -> Result<(), JobError> {
+    let response_time = telemetry::global_meter()
+    .f64_histogram(format!("{}{}", SERVICE_NAME, "_response_time_create_job_histogram"))
+    .with_description("Response time of Create Job")
+    .with_unit("ms")
+    .init();
+
+    tracing::info!("Create Job Called with {:?}", job_type);
+
+    let start = std::time::Instant::now();
+
     let existing_job = config
         .database()
         .get_job_by_internal_id_and_type(internal_id.as_str(), &job_type)
@@ -146,6 +157,14 @@ pub async fn create_job(
     config.database().create_job(job_item.clone()).await.map_err(|e| JobError::Other(OtherError(e)))?;
 
     add_job_to_process_queue(job_item.id, config.clone()).await.map_err(|e| JobError::Other(OtherError(e)))?;
+
+    let attributes = [
+        KeyValue::new("job_type", stringify!(job_type)),
+        KeyValue::new("job",  stringify!(job_item)),
+    ];
+    let duration = start.elapsed();
+    response_time.record(duration.as_millis() as f64, &attributes);
+
     Ok(())
 }
 
@@ -153,7 +172,18 @@ pub async fn create_job(
 /// DB. It then adds the job to the verification queue.
 #[tracing::instrument(skip(config))]
 pub async fn process_job(id: Uuid, config: Arc<Config>) -> Result<(), JobError> {
+    let response_time = telemetry::global_meter()
+    .f64_histogram( format!("{}{}", SERVICE_NAME, "_response_time_process_job_histogram"))
+    .with_description("Response time of Process Job")
+    .with_unit("ms")
+    .init();
+
+    let start = std::time::Instant::now();
+
     let mut job = get_job(id, config.clone()).await?;
+
+    tracing::info!("Process Job Called with {:?} and  {:?}", job.job_type, id);
+
 
     match job.status {
         // we only want to process jobs that are in the created or verification failed state.
@@ -195,6 +225,16 @@ pub async fn process_job(id: Uuid, config: Arc<Config>) -> Result<(), JobError> 
     .await
     .map_err(|e| JobError::Other(OtherError(e)))?;
 
+    let attributes = [
+        KeyValue::new("job_type", stringify!(job.job_type)),
+        KeyValue::new("job",  stringify!(job)),
+    ];
+    let duration = start.elapsed();
+    response_time.record(duration.as_millis() as f64, &attributes);
+
+    tracing::info!("Process Job Finished with {:?} and  {:?}", job.job_type, id);
+
+
     Ok(())
 }
 
@@ -204,6 +244,15 @@ pub async fn process_job(id: Uuid, config: Arc<Config>) -> Result<(), JobError> 
 /// job back to the queue.
 #[tracing::instrument(skip(config))]
 pub async fn verify_job(id: Uuid, config: Arc<Config>) -> Result<(), JobError> {
+
+    let response_time = telemetry::global_meter()
+    .f64_histogram( format!("{}{}", SERVICE_NAME, "_response_time_verify_job_histogram"))
+    .with_description("Response time of Verify Job")
+    .with_unit("ms")
+    .init();
+
+    let start = std::time::Instant::now();
+
     let mut job = get_job(id, config.clone()).await?;
 
     match job.status {
@@ -272,6 +321,13 @@ pub async fn verify_job(id: Uuid, config: Arc<Config>) -> Result<(), JobError> {
             .map_err(|e| JobError::Other(OtherError(e)))?;
         }
     };
+
+    let attributes = [
+        KeyValue::new("job_type", stringify!(job.job_type)),
+        KeyValue::new("job",  stringify!(job)),
+    ];
+    let duration = start.elapsed();
+    response_time.record(duration.as_millis() as f64, &attributes);
 
     Ok(())
 }

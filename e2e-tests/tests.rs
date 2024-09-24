@@ -17,6 +17,7 @@ use starknet::core::types::{FieldElement, MaybePendingStateUpdate};
 use std::collections::HashMap;
 use std::fs::{read, File};
 use std::io::Read;
+use std::path::PathBuf;
 use std::str::FromStr;
 use std::time::{Duration, Instant};
 use utils::env_utils::get_env_var_or_panic;
@@ -394,14 +395,21 @@ pub async fn setup_s3(
     println!("✅ program output file uploaded to localstack s3.");
 
     // getting the PIE file from s3 bucket using URL provided
-    let file =
-        reqwest::get(format!("https://madara-orchestrator-sharp-pie.s3.amazonaws.com/{}-SN.zip", l2_block_number))
-            .await?;
-    let file_bytes = file.bytes().await?;
+    // let file =
+    //     reqwest::get(format!("https://madara-orchestrator-sharp-pie.s3.amazonaws.com/{}-SN.zip", l2_block_number))
+    //         .await?;
+    // let file_bytes = file.bytes().await?;
+
+    let mut file = File::open(
+        PathBuf::from_str("/Users/dexterhv/Work/Karnot/madara-alliance/madara-orchestrator/e2e-tests/artifacts/671070-SN.zip").unwrap(),
+    )?;
+    let mut file_bytes = Vec::new();
+    file.read_to_end(&mut file_bytes).unwrap();
+    // let file_bytes = file.bytes();
 
     // putting the pie file into localstack s3
     let s3_file_key = l2_block_number + "/pie.zip";
-    s3_client.put_data(file_bytes, &s3_file_key).await?;
+    s3_client.put_data(file_bytes.into(), &s3_file_key).await?;
     println!("✅ PIE file uploaded to localstack s3");
 
     Ok(())

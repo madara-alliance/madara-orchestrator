@@ -1,18 +1,15 @@
-use std::time::Duration;
-
 use dotenvy::dotenv;
 
 use opentelemetry::global;
 use orchestrator::config::init_config;
 use orchestrator::queue::init_consumers;
 use orchestrator::routes::app_router;
+use orchestrator::telemetry;
 use tracing::Level;
 use tracing_opentelemetry::OpenTelemetryLayer;
 use tracing_subscriber::layer::SubscriberExt as _;
 use tracing_subscriber::util::SubscriberInitExt as _;
 use utils::env_utils::get_env_var_or_default;
-
-mod telemetry;
 
 /// Start the server
 #[tokio::main]
@@ -21,14 +18,13 @@ async fn main() {
 
     telemetry::init();
 
-    let global_tracer = telemetry::global_tracer().clone();
+    let tracer = telemetry::global_tracer().clone();
 
     tracing_subscriber::registry()
-        .with(tracing_subscriber::filter::LevelFilter::from_level(Level::TRACE))
+        .with(tracing_subscriber::filter::LevelFilter::from_level(Level::INFO))
         .with(tracing_subscriber::fmt::layer())
-        .with(OpenTelemetryLayer::new(global_tracer))
+        .with(OpenTelemetryLayer::new(tracer))
         .init();
-
     // initial config setup
     let config = init_config().await;
 
