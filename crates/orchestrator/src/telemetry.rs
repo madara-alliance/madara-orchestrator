@@ -18,7 +18,7 @@ use opentelemetry_sdk::{runtime, Resource};
 use std::sync::Arc;
 use std::time::Duration;
 
-pub static SERVICE_NAME: &str = "service_1";
+pub static SERVICE_NAME: &str = "2_jobs";
 pub static ENDPOINT: &str = "http://localhost:4317";
 
 static METER_PROVIDER: Lazy<Arc<SdkMeterProvider>> = Lazy::new(|| {

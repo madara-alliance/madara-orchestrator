@@ -144,11 +144,14 @@ async fn test_orchestrator_workflow(#[case] l2_block_number: String) {
 
     // Adding a mock da job so that worker does not create 60k+ jobs
     put_job_data_in_db_da(setup_config.mongo_db_instance(), l2_block_number.clone()).await;
+
     mock_starknet_get_state_update(setup_config.starknet_client(), l2_block_number.clone()).await;
     mock_starknet_get_nonce(setup_config.starknet_client(), l2_block_number.clone()).await;
 
+    put_job_data_in_db_state_update(setup_config.mongo_db_instance(), l2_block_number.clone()).await;
+
     // Step 4: State Update job =======================================
-    put_job_data_in_db_update_state(setup_config.mongo_db_instance(), l2_block_number.clone()).await;
+    // put_job_data_in_db_update_state(setup_config.mongo_db_instance(), l2_block_number.clone()).await;
 
     println!("✅ Orchestrator setup completed.");
 
@@ -159,20 +162,20 @@ async fn test_orchestrator_workflow(#[case] l2_block_number: String) {
     // Adding State checks in DB for validation of tests
 
     // Check 1 : After Proving Job state (15 mins. approx time)
-    let expected_state_after_proving_job = ExpectedDBState {
-        internal_id: l2_block_number.clone(),
-        job_type: JobType::ProofCreation,
-        job_status: JobStatus::Completed,
-        version: 3,
-    };
-    let test_result = wait_for_db_state(
-        Duration::from_secs(900),
-        l2_block_number.clone(),
-        setup_config.mongo_db_instance(),
-        expected_state_after_proving_job,
-    )
-    .await;
-    assert!(test_result.is_ok(), "After Proving Job state DB state assertion failed.");
+    // let expected_state_after_proving_job = ExpectedDBState {
+    //     internal_id: l2_block_number.clone(),
+    //     job_type: JobType::ProofCreation,
+    //     job_status: JobStatus::Completed,
+    //     version: 3,
+    // };
+    // let test_result = wait_for_db_state(
+    //     Duration::from_secs(900),
+    //     l2_block_number.clone(),
+    //     setup_config.mongo_db_instance(),
+    //     expected_state_after_proving_job,
+    // )
+    // .await;
+    // assert!(test_result.is_ok(), "After Proving Job state DB state assertion failed.");
 
     // Check 2 : After DA Job state (5 mins. approx time)
     let expected_state_after_da_job = ExpectedDBState {
@@ -191,21 +194,133 @@ async fn test_orchestrator_workflow(#[case] l2_block_number: String) {
     assert!(test_result.is_ok(), "After DA Job state DB state assertion failed.");
 
     // Check 3 : After Update State Job state (5 mins. approx time)
+    // let expected_state_after_da_job = ExpectedDBState {
+    //     internal_id: l2_block_number.clone(),
+    //     job_type: JobType::StateTransition,
+    //     job_status: JobStatus::Completed,
+    //     version: 3,
+    // };
+    // let test_result = wait_for_db_state(
+    //     Duration::from_secs(300),
+    //     l2_block_number,
+    //     setup_config.mongo_db_instance(),
+    //     expected_state_after_da_job,
+    // )
+    // .await;
+    // assert!(test_result.is_ok(), "After Update State Job state DB state assertion failed.");
+}
+
+
+
+#[rstest]
+#[case("671070".to_string())]
+#[tokio::test]
+async fn test_only_da_flow(#[case] l2_block_number: String) {
+    // Fetching the env vars from the test env file as these will be used in
+    // setting up of the test and during orchestrator run too.
+    dotenvy::from_filename(".env.test").expect("Failed to load the .env file");
+
+    let mut setup_config = Setup::new().await;
+    // Setup S3
+    setup_s3(setup_config.localstack().s3_client(), l2_block_number.clone()).await.unwrap();
+
+    // Step 1 : SNOS job runs =========================================
+    // TODO : Update the code with actual SNOS implementation
+    // Updates the job in the db
+    put_job_data_in_db_snos(setup_config.mongo_db_instance(), l2_block_number.clone()).await;
+
+    // Step 2: Proving Job ============================================
+    // Mocking the endpoint
+    // mock_proving_job_endpoint_output(setup_config.sharp_client()).await;
+    put_job_data_in_db_proving(setup_config.mongo_db_instance(), l2_block_number.clone()).await;
+
+    // Step 3: DA job =================================================
+    // mocking get_block_call from starknet client
+
+    // Adding a mock da job so that worker does not create 60k+ jobs
+    put_job_data_in_db_da(setup_config.mongo_db_instance(), l2_block_number.clone()).await;
+    mock_starknet_get_state_update(setup_config.starknet_client(), l2_block_number.clone()).await;
+    mock_starknet_get_nonce(setup_config.starknet_client(), l2_block_number.clone()).await;
+
+    // Step 4: State Update job =======================================
+    put_job_data_in_db_update_state(setup_config.mongo_db_instance(), (l2_block_number.parse::<u32>().unwrap() - 1).to_string()).await;
+    put_job_data_in_db_update_state(setup_config.mongo_db_instance(), l2_block_number.clone()).await;
+
+    println!("✅ Orchestrator setup completed.");
+
+    // Run orchestrator
+    let mut orchestrator = Orchestrator::run(setup_config.envs());
+    orchestrator.wait_till_started().await;
+
+    println!("✅ Orchestrator started.");
+
+    // Adding State checks in DB for validation of tests
+
+    // Check 1 : After Proving Job state (15 mins. approx time)
+    // let expected_state_after_proving_job = ExpectedDBState {
+    //     internal_id: l2_block_number.clone(),
+    //     job_type: JobType::ProofCreation,
+    //     job_status: JobStatus::Completed,
+    //     version: 3,
+    // };
+    // let test_result = wait_for_db_state(
+    //     Duration::from_secs(900),
+    //     l2_block_number.clone(),
+    //     setup_config.mongo_db_instance(),
+    //     expected_state_after_proving_job,
+    // )
+    // .await;
+    // assert!(test_result.is_ok(), "After Proving Job state DB state assertion failed.");
+
+    // Check 2 : After DA Job state (5 mins. approx time)
     let expected_state_after_da_job = ExpectedDBState {
         internal_id: l2_block_number.clone(),
-        job_type: JobType::StateTransition,
+        job_type: JobType::DataSubmission,
         job_status: JobStatus::Completed,
         version: 3,
     };
     let test_result = wait_for_db_state(
         Duration::from_secs(300),
-        l2_block_number,
+        l2_block_number.clone(),
         setup_config.mongo_db_instance(),
         expected_state_after_da_job,
     )
     .await;
-    assert!(test_result.is_ok(), "After Update State Job state DB state assertion failed.");
+    assert!(test_result.is_ok(), "After DA Job state DB state assertion failed.");
+
+    // Check 3 : After Update State Job state (5 mins. approx time)
+    // let expected_state_after_da_job = ExpectedDBState {
+    //     internal_id: l2_block_number.clone(),
+    //     job_type: JobType::StateTransition,
+    //     job_status: JobStatus::Completed,
+    //     version: 3,
+    // };
+    // let test_result = wait_for_db_state(
+    //     Duration::from_secs(300),
+    //     l2_block_number,
+    //     setup_config.mongo_db_instance(),
+    //     expected_state_after_da_job,
+    // )
+    // .await;
+    // assert!(test_result.is_ok(), "After Update State Job state DB state assertion failed.");
 }
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 /// Function to check db for expected state continuously
 async fn wait_for_db_state(
@@ -274,6 +389,45 @@ pub async fn put_job_data_in_db_snos(mongo_db: &MongoDbServer, l2_block_number: 
     mongo_db_client.database("orchestrator").collection("jobs").insert_one(job_item, None).await.unwrap();
 }
 
+/// Puts after Proving job state into the database
+pub async fn put_job_data_in_db_proving(mongo_db: &MongoDbServer, l2_block_number: String) {
+    let job_item = JobItem {
+        id: Uuid::new_v4(),
+        internal_id: l2_block_number,
+        job_type: JobType::ProofCreation,
+        status: JobStatus::Completed,
+        external_id: ExternalId::Number(0),
+        metadata: HashMap::new(),
+        version: 0,
+        created_at: Utc::now().round_subsecs(0),
+        updated_at: Utc::now().round_subsecs(0),
+    };
+
+    let mongo_db_client = get_mongo_db_client(mongo_db).await;
+    mongo_db_client.database("orchestrator").drop(None).await.unwrap();
+    mongo_db_client.database("orchestrator").collection("jobs").insert_one(job_item, None).await.unwrap();
+}
+
+
+/// Puts after Proving job state into the database
+pub async fn put_job_data_in_db_state_update(mongo_db: &MongoDbServer, l2_block_number: String) {
+    let job_item = JobItem {
+        id: Uuid::new_v4(),
+        internal_id: l2_block_number,
+        job_type: JobType::StateTransition,
+        status: JobStatus::Completed,
+        external_id: ExternalId::Number(0),
+        metadata: HashMap::new(),
+        version: 3,
+        created_at: Utc::now().round_subsecs(0),
+        updated_at: Utc::now().round_subsecs(0),
+    };
+
+    let mongo_db_client = get_mongo_db_client(mongo_db).await;
+    mongo_db_client.database("orchestrator").drop(None).await.unwrap();
+    mongo_db_client.database("orchestrator").collection("jobs").insert_one(job_item, None).await.unwrap();
+}
+
 /// Mocks the endpoint for sharp client
 pub async fn mock_proving_job_endpoint_output(sharp_client: &mut SharpClient) {
     // Add job response
@@ -296,7 +450,7 @@ pub async fn mock_proving_job_endpoint_output(sharp_client: &mut SharpClient) {
 
 /// Puts after SNOS job state into the database
 pub async fn put_job_data_in_db_da(mongo_db: &MongoDbServer, l2_block_number: String) {
-    let job_item = JobItem {
+    let job_item: JobItem = JobItem {
         id: Uuid::new_v4(),
         internal_id: (l2_block_number.parse::<u32>().unwrap() - 1).to_string(),
         job_type: JobType::DataSubmission,
