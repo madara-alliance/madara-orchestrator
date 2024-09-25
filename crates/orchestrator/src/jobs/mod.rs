@@ -134,12 +134,12 @@ pub async fn create_job(
     config: Arc<Config>,
 ) -> Result<(), JobError> {
     let response_time = telemetry::global_meter()
-    .f64_histogram(format!("{}{}", SERVICE_NAME, "_response_time_create_job_histogram"))
+    .f64_histogram(format!("{}{}", SERVICE_NAME, "_RT_create_histogram"))
     .with_description("Response time of Create Job")
     .with_unit("ms")
     .init();
 
-    tracing::info!("Create Job Called with {:?}", job_type);
+    tracing::info!("JOB CREATE CALLED: {:?} & {:?}", job_type, internal_id);
 
     let start = std::time::Instant::now();
 
@@ -149,11 +149,12 @@ pub async fn create_job(
         .await
         .map_err(|e| JobError::Other(OtherError(e)))?;
     if existing_job.is_some() {
+        tracing::info!("JOB CREATE SKIPPED: {:?} & {:?}", job_type, internal_id);
         return Err(JobError::JobAlreadyExists { internal_id, job_type });
     }
 
     let job_handler = factory::get_job_handler(&job_type).await;
-    let job_item = job_handler.create_job(config.clone(), internal_id, metadata).await?;
+    let job_item = job_handler.create_job(config.clone(), internal_id.clone(), metadata).await?;
     config.database().create_job(job_item.clone()).await.map_err(|e| JobError::Other(OtherError(e)))?;
 
     add_job_to_process_queue(job_item.id, config.clone()).await.map_err(|e| JobError::Other(OtherError(e)))?;
@@ -165,6 +166,8 @@ pub async fn create_job(
     let duration = start.elapsed();
     response_time.record(duration.as_millis() as f64, &attributes);
 
+    tracing::info!("JOB CREATED: {:?} & {:?} & {:?}", job_type, internal_id, job_item.id);
+
     Ok(())
 }
 
@@ -173,7 +176,7 @@ pub async fn create_job(
 #[tracing::instrument(skip(config))]
 pub async fn process_job(id: Uuid, config: Arc<Config>) -> Result<(), JobError> {
     let response_time = telemetry::global_meter()
-    .f64_histogram( format!("{}{}", SERVICE_NAME, "_response_time_process_job_histogram"))
+    .f64_histogram( format!("{}{}", SERVICE_NAME, "_RT_process_histogram"))
     .with_description("Response time of Process Job")
     .with_unit("ms")
     .init();
@@ -182,7 +185,7 @@ pub async fn process_job(id: Uuid, config: Arc<Config>) -> Result<(), JobError> 
 
     let mut job = get_job(id, config.clone()).await?;
 
-    tracing::info!("Process Job Called with {:?} and  {:?}", job.job_type, id);
+    tracing::info!("JOB PROCESS CALLED: {:?} & {:?} & {:?}", job.job_type, job.internal_id, job.id);
 
 
     match job.status {
@@ -232,8 +235,7 @@ pub async fn process_job(id: Uuid, config: Arc<Config>) -> Result<(), JobError> 
     let duration = start.elapsed();
     response_time.record(duration.as_millis() as f64, &attributes);
 
-    tracing::info!("Process Job Finished with {:?} and  {:?}", job.job_type, id);
-
+    tracing::info!("JOB PROCESSED: {:?} & {:?} & {:?}", job.job_type, job.internal_id, job.id);
 
     Ok(())
 }
@@ -246,7 +248,7 @@ pub async fn process_job(id: Uuid, config: Arc<Config>) -> Result<(), JobError> 
 pub async fn verify_job(id: Uuid, config: Arc<Config>) -> Result<(), JobError> {
 
     let response_time = telemetry::global_meter()
-    .f64_histogram( format!("{}{}", SERVICE_NAME, "_response_time_verify_job_histogram"))
+    .f64_histogram( format!("{}{}", SERVICE_NAME, "_RT_verify_histogram"))
     .with_description("Response time of Verify Job")
     .with_unit("ms")
     .init();
@@ -254,6 +256,9 @@ pub async fn verify_job(id: Uuid, config: Arc<Config>) -> Result<(), JobError> {
     let start = std::time::Instant::now();
 
     let mut job = get_job(id, config.clone()).await?;
+
+    tracing::info!("JOB VERIFY CALLED: {:?} & {:?} & {:?}", job.job_type, job.internal_id, job.id);
+
 
     match job.status {
         JobStatus::PendingVerification => {
@@ -328,6 +333,9 @@ pub async fn verify_job(id: Uuid, config: Arc<Config>) -> Result<(), JobError> {
     ];
     let duration = start.elapsed();
     response_time.record(duration.as_millis() as f64, &attributes);
+
+    tracing::info!("JOB VERIFIED: {:?} & {:?} & {:?}", job.job_type, job.internal_id, job.id);
+
 
     Ok(())
 }
