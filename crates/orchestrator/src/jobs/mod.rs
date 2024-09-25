@@ -139,6 +139,12 @@ pub async fn create_job(
     .with_unit("ms")
     .init();
 
+    let block_gauge = telemetry::global_meter()
+    .f64_gauge(format!("{}{}", SERVICE_NAME, "_create_job_block"))
+    .with_description("A gauge for create")
+    .with_unit("block")
+    .init();
+
     tracing::info!("JOB CREATE CALLED: {:?} & {:?}", job_type, internal_id);
 
     let start = std::time::Instant::now();
@@ -168,6 +174,13 @@ pub async fn create_job(
 
     tracing::info!("JOB CREATED: {:?} & {:?} & {:?}", job_type, internal_id, job_item.id);
 
+    block_gauge.record(
+        internal_id.parse::<f64>().unwrap(),
+        &[
+            KeyValue::new("type", "create"),
+        ],
+    );
+
     Ok(())
 }
 
@@ -180,6 +193,13 @@ pub async fn process_job(id: Uuid, config: Arc<Config>) -> Result<(), JobError> 
     .with_description("Response time of Process Job")
     .with_unit("ms")
     .init();
+
+    let block_gauge = telemetry::global_meter()
+    .f64_gauge(format!("{}{}", SERVICE_NAME, "_process_job_block"))
+    .with_description("A gauge for process")
+    .with_unit("block")
+    .init();
+
 
     let start = std::time::Instant::now();
 
@@ -237,6 +257,13 @@ pub async fn process_job(id: Uuid, config: Arc<Config>) -> Result<(), JobError> 
 
     tracing::info!("JOB PROCESSED: {:?} & {:?} & {:?}", job.job_type, job.internal_id, job.id);
 
+    block_gauge.record(
+        job.internal_id.parse::<f64>().unwrap(),
+        &[
+            KeyValue::new("type", "process"),
+        ],
+    );
+
     Ok(())
 }
 
@@ -252,6 +279,13 @@ pub async fn verify_job(id: Uuid, config: Arc<Config>) -> Result<(), JobError> {
     .with_description("Response time of Verify Job")
     .with_unit("ms")
     .init();
+
+    let block_gauge = telemetry::global_meter()
+    .f64_gauge(format!("{}{}", SERVICE_NAME, "_verify_job_block"))
+    .with_description("A gauge for verify")
+    .with_unit("block")
+    .init();
+
 
     let start = std::time::Instant::now();
 
@@ -336,6 +370,12 @@ pub async fn verify_job(id: Uuid, config: Arc<Config>) -> Result<(), JobError> {
 
     tracing::info!("JOB VERIFIED: {:?} & {:?} & {:?}", job.job_type, job.internal_id, job.id);
 
+    block_gauge.record(
+        job.internal_id.parse::<f64>().unwrap(),
+        &[
+            KeyValue::new("type", "verify"),
+        ],
+    );
 
     Ok(())
 }

@@ -18,7 +18,7 @@ use opentelemetry_sdk::{runtime, Resource};
 use std::sync::Arc;
 use std::time::Duration;
 
-pub static SERVICE_NAME: &str = "skip";
+pub static SERVICE_NAME: &str = "open";
 pub static ENDPOINT: &str = "http://localhost:4317";
 
 static METER_PROVIDER: Lazy<Arc<SdkMeterProvider>> = Lazy::new(|| {
@@ -104,15 +104,6 @@ pub fn init_metrics() -> SdkMeterProvider {
           opentelemetry_semantic_conventions::resource::SERVICE_NAME,
           format!("{}{}", SERVICE_NAME, "_service"),
       )]))
-      .with_view(metrics::new_view(
-          metrics::Instrument::new().name(format!("{}{}", SERVICE_NAME, "_response_time_create_job_histogram")),
-          metrics::Stream::new().aggregation(
-              metrics::Aggregation::ExplicitBucketHistogram {
-                  boundaries: vec![100.0, 200.0, 500.0, 1000.0, 2000.0, 10000.0],
-                  record_min_max: true,
-              },
-          ),
-      ).unwrap())
       .build();
     global::set_meter_provider(provider.clone());
 
