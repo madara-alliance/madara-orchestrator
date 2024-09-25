@@ -20,6 +20,7 @@ impl Worker for ProvingWorker {
             .await?;
 
         for job in successful_snos_jobs {
+            println!("bhai hua toh call for {:?}", job);
             create_job(JobType::ProofCreation, job.internal_id.to_string(), job.metadata, config.clone()).await?
         }
 

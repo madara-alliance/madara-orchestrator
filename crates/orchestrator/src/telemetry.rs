@@ -1,13 +1,11 @@
 use opentelemetry::global;
 use opentelemetry::trace::TracerProvider;
-
 use once_cell::sync::Lazy;
 use opentelemetry::metrics::Meter;
 use opentelemetry::KeyValue;
 use opentelemetry_otlp::ExportConfig;
 use opentelemetry_otlp::WithExportConfig;
 use opentelemetry_sdk::trace::BatchConfigBuilder;
-use opentelemetry_sdk::metrics;
 use opentelemetry_sdk::metrics::reader::DefaultAggregationSelector;
 use opentelemetry_sdk::metrics::reader::DefaultTemporalitySelector;
 use opentelemetry_sdk::metrics::PeriodicReader;
@@ -18,7 +16,7 @@ use opentelemetry_sdk::{runtime, Resource};
 use std::sync::Arc;
 use std::time::Duration;
 
-pub static SERVICE_NAME: &str = "open";
+pub static SERVICE_NAME: &str = "wwww";
 pub static ENDPOINT: &str = "http://localhost:4317";
 
 static METER_PROVIDER: Lazy<Arc<SdkMeterProvider>> = Lazy::new(|| {
@@ -63,10 +61,11 @@ pub fn global_tracer() -> &'static Tracer {
 }
 
 pub fn init_tracer_provider() -> Tracer {
-   let batch_config = BatchConfigBuilder::default()
-   .with_max_queue_size(10000) // Increase from the default (2048)
-   .with_scheduled_delay(Duration::from_secs(5))
-   .with_max_export_batch_size(512).build();
+    let batch_config = BatchConfigBuilder::default()
+    .with_max_queue_size(10000) // Increase from the default (2048)
+    .with_max_export_batch_size(5000)
+    .with_scheduled_delay(Duration::from_secs(5))
+    .build();
 
     let provider = opentelemetry_otlp::new_pipeline()
         .tracing()
@@ -83,6 +82,25 @@ pub fn init_tracer_provider() -> Tracer {
 
     provider.tracer(format!("{}{}", SERVICE_NAME, "_subscriber"))
 }
+
+/// FOR STDOUT
+// use opentelemetry_otlp::SpanExporter;
+// use opentelemetry_stdout as stdout;
+// use opentelemetry_sdk::metrics;
+
+// pub fn init_tracer_provider() -> Tracer {
+//      let exporter = opentelemetry_stdout::SpanExporter::default();
+//     let provider = opentelemetry_sdk::trace::TracerProvider::builder()
+//         .with_simple_exporter(exporter)
+//         .with_config(Config::default()
+//         .with_resource(Resource::new(vec![KeyValue::new(
+//                         opentelemetry_semantic_conventions::resource::SERVICE_NAME,
+//                         format!("{}{}", SERVICE_NAME, "_service"),
+//                     )])))
+//         .build();
+//     global::set_tracer_provider(provider.clone());
+//     provider.tracer(format!("{}{}", SERVICE_NAME, "_subscriber"))
+// }
 
 pub fn init_metrics() -> SdkMeterProvider {
     let export_config = ExportConfig { endpoint: ENDPOINT.to_string(), ..ExportConfig::default() };

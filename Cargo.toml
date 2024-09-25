@@ -80,6 +80,7 @@ testcontainers = "0.18.0"
 # Instrumentation
 opentelemetry = { version = "0.25.0", features = ["metrics", "logs"] }
 opentelemetry_sdk = { version = "0.25.0", features = ["rt-tokio", "logs"] }
+opentelemetry-stdout = { version = "0.25.0" }
 opentelemetry-otlp = { version = "0.25.0", features = [
   "tonic",
   "metrics",
