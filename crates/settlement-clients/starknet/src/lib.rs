@@ -70,7 +70,7 @@ impl StarknetSettlementClient {
                 signer.clone(),
                 signer_address,
                 provider.chain_id().await.unwrap(),
-                ExecutionEncoding::Legacy,
+                ExecutionEncoding::New
             ));
 
         let starknet_core_contract_client: StarknetCoreContractClient =

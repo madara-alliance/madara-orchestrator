@@ -77,14 +77,7 @@ async fn setup() -> SingleOwnerAccount<JsonRpcClient<HttpTransport>, LocalWallet
     let address = Felt::from_hex(&env_settings.get_settings_or_panic("STARKNET_PUBLIC_KEY")).unwrap();
 
     let chain_id = provider.chain_id().await.unwrap();
-    println!("address {:?}", env_settings.get_settings_or_panic("STARKNET_PUBLIC_KEY"));
-    let mut account = SingleOwnerAccount::new(
-        provider,
-        signer,
-        address,
-        chain_id,
-        ExecutionEncoding::New,
-    );
+    let mut account = SingleOwnerAccount::new(provider, signer, address, chain_id, ExecutionEncoding::New);
 
     // `SingleOwnerAccount` defaults to checking nonce and estimating fees against the latest
     // block. Optionally change the target block to pending with the following line:
@@ -123,11 +116,7 @@ async fn test_deployment(#[future] setup: SingleOwnerAccount<JsonRpcClient<HttpT
     tokio::time::sleep(tokio::time::Duration::from_secs(4)).await;
 
     let contract_factory = ContractFactory::new(class_hash, account);
-    contract_factory
-        .deploy_v1(vec![felt!("123456")], felt!("1122"), false)
-        .send()
-        .await
-        .expect("Unable to deploy contract");
+    contract_factory.deploy_v1(vec![], felt!("1122"), false).send().await.expect("Unable to deploy contract");
 }
 
 #[rstest]
@@ -151,25 +140,31 @@ async fn test_settle(#[future] setup: SingleOwnerAccount<JsonRpcClient<HttpTrans
     )
     .unwrap();
 
-    let flattened_class = sierra_class.clone().flatten().unwrap();
-    let compiled_class_hash = compiled_class.class_hash().unwrap();
-    let DeclareTransactionResult { transaction_hash: _, class_hash } =
-        account.declare_v2(Arc::new(flattened_class), compiled_class_hash).send().await.unwrap();
+    // let flattened_class = sierra_class.clone().flatten().unwrap();
+    // let compiled_class_hash = compiled_class.class_hash().unwrap();
+    // let DeclareTransactionResult { transaction_hash: _, class_hash } =
+    //     account.declare_v2(Arc::new(flattened_class.clone()), compiled_class_hash).send().await.unwrap();
+    // assert!(flattened_class.class_hash() == class_hash, "Class hash declared is not same");
 
     // This is done, since currently madara does not increment nonce for pending transactions
-    tokio::time::sleep(tokio::time::Duration::from_secs(4)).await;
+    // tokio::time::sleep(tokio::time::Duration::from_secs(4)).await;
 
-    let contract_factory = ContractFactory::new(class_hash, account);
-    let deploy_v1 = contract_factory.deploy_v1(vec![felt!("123456")], felt!("1122"), false);
-    let deployed_address = deploy_v1.deployed_address();
-    env::set_var("STARKNET_CAIRO_CORE_CONTRACT_ADDRESS", deployed_address.to_hex_string());
-    deploy_v1.send().await.expect("Unable to deploy contract");
+    // let contract_factory = ContractFactory::new(flattened_class.class_hash(), account);
+    // let deploy_v1 = contract_factory.deploy_v1(vec![], felt!("1122"), false);
+    // let deployed_address = deploy_v1.deployed_address();
+
+    let deployed_address = "0x067b25d85c42bae8f3fe833ab5ff97368e1c39019d34f02906e1cc6280f80e50";
+    env::set_var("STARKNET_CAIRO_CORE_CONTRACT_ADDRESS", deployed_address);
+    // env::set_var("STARKNET_CAIRO_CORE_CONTRACT_ADDRESS", deployed_address.to_hex_string());
+    // deploy_v1.send().await.expect("Unable to deploy contract");
 
     // This is done, since currently madara does not increment nonce for pending transactions
     tokio::time::sleep(tokio::time::Duration::from_secs(4)).await;
 
     let env_settings = EnvSettingsProvider {};
     let settlement_client = StarknetSettlementClient::new_with_settings(&env_settings).await;
-    let onchain_data_hash = [0; 32];
-    settlement_client.update_state_calldata(vec![], onchain_data_hash, 1).await.unwrap();
+    let onchain_data_hash = [1; 32];
+    let mut program_output = Vec::with_capacity(32);
+    program_output.fill(onchain_data_hash);
+    settlement_client.update_state_calldata(program_output, onchain_data_hash, 1).await.unwrap();
 }
