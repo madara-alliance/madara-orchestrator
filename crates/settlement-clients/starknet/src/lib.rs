@@ -1,5 +1,7 @@
 pub mod config;
 pub mod conversion;
+#[cfg(test)]
+pub mod tests;
 
 use std::sync::Arc;
 
@@ -215,7 +217,7 @@ impl SettlementClient for StarknetSettlementClient {
 }
 
 #[cfg(test)]
-mod tests {
+mod test {
 
     use starknet::core::types::Felt;
     #[test]
