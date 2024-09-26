@@ -26,7 +26,7 @@ use starknet::{
 use tokio::time::{sleep, Duration};
 
 use appchain_core_contract_client::clients::StarknetCoreContractClient;
-use settlement_client_interface::{SettlementClient, SettlementConfig, SettlementVerificationStatus};
+use settlement_client_interface::{SettlementClient, SettlementVerificationStatus};
 use utils::settings::Settings;
 
 use crate::config::StarknetSettlementConfig;

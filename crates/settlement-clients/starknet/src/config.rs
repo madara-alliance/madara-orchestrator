@@ -1,7 +1,6 @@
 use std::str::FromStr;
 
 use serde::{Deserialize, Serialize};
-use settlement_client_interface::SettlementConfig;
 use url::Url;
 use utils::env_utils::get_env_var_or_default;
 use utils::settings::Settings;

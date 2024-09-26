@@ -27,10 +27,10 @@ use mockall::{automock, predicate::*};
 
 use alloy::providers::ProviderBuilder;
 use conversion::{get_input_data_for_eip_4844, prepare_sidecar};
-#[cfg(feature = "testing")]
-use settlement_client_interface::{SettlementClient, SettlementConfig, SettlementVerificationStatus};
 #[cfg(not(feature = "testing"))]
 use settlement_client_interface::{SettlementClient, SettlementConfig, SettlementVerificationStatus};
+#[cfg(feature = "testing")]
+use settlement_client_interface::{SettlementClient, SettlementVerificationStatus};
 #[cfg(feature = "testing")]
 use url::Url;
 use utils::env_utils::get_env_var_or_panic;

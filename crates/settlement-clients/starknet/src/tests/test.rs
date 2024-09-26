@@ -7,13 +7,10 @@ use starknet::{
     contract::ContractFactory,
     core::types::{
         contract::{CompiledClass, SierraClass},
-        BlockId, BlockTag, Felt,
+        BlockId, BlockTag, DeclareTransactionResult, Felt,
     },
     macros::felt,
-    providers::{
-        jsonrpc::{HttpTransport, JsonRpcClient},
-        Url,
-    },
+    providers::{jsonrpc::HttpTransport, JsonRpcClient, Provider, Url},
     signers::{LocalWallet, SigningKey},
 };
 use std::env;
@@ -22,6 +19,7 @@ use std::sync::Arc;
 use utils::settings::env::EnvSettingsProvider;
 use utils::settings::Settings;
 
+#[allow(unused)]
 pub async fn spin_up_madara() -> MadaraCmd {
     env::set_current_dir(PathBuf::from("/Users/bytezorvin/work/karnot/madara/"))
         .expect("Failed to set working directory");
@@ -61,22 +59,30 @@ pub async fn spin_up_madara() -> MadaraCmd {
 async fn setup() -> SingleOwnerAccount<JsonRpcClient<HttpTransport>, LocalWallet> {
     // let madara_process = spin_up_madara().await;
     // println!("RPC url {:?}", madara_process.rpc_url);
+    dotenvy::from_filename_override(".env").expect("Failed to load the .env file");
 
     let env_settings = EnvSettingsProvider::default();
     let rpc_url = Url::parse(&env_settings.get_settings_or_panic("STARKNET_RPC_URL")).unwrap();
+    println!("RPC url {:?}", rpc_url);
+    // let endpoint = madara_process.rpc_url.join("/health").unwrap();
+    // let endpoint = rpc_url.join("/health").unwrap();
+    // let response = reqwest::get(endpoint.clone()).await.expect("Failed to connect to Provider");
+    // assert!(response.status().is_success(), "Failed to connect to Provider");
 
     // let provider = JsonRpcClient::new(HttpTransport::new(Url::parse("http://localhost:9944").unwrap()));
-    let provider = JsonRpcClient::new(HttpTransport::new(rpc_url));
+    let provider: JsonRpcClient<HttpTransport> = JsonRpcClient::new(HttpTransport::new(rpc_url));
     let signer = LocalWallet::from(SigningKey::from_secret_scalar(
-        Felt::from_hex(&env_settings.get_settings_or_panic("STARKNET_PRIVATE_KEY")).unwrap(),
+        Felt::from_hex(&env_settings.get_settings_or_panic("STARKNET_PRIVATE_KEY")).expect("Invalid private key"),
     ));
-    let address = Felt::from_hex(&env_settings.get_settings_or_panic("ACCOUNT_CONTRACT_ADDRESS")).unwrap();
+    let address = Felt::from_hex(&env_settings.get_settings_or_panic("STARKNET_PUBLIC_KEY")).unwrap();
 
+    let chain_id = provider.chain_id().await.unwrap();
+    println!("address {:?}", env_settings.get_settings_or_panic("STARKNET_PUBLIC_KEY"));
     let mut account = SingleOwnerAccount::new(
         provider,
         signer,
         address,
-        Felt::from_hex("0x4d41444152415f54455354").unwrap(), // chain id = MADARA_TEST
+        chain_id,
         ExecutionEncoding::New,
     );
 
@@ -91,14 +97,8 @@ async fn setup() -> SingleOwnerAccount<JsonRpcClient<HttpTransport>, LocalWallet
 #[tokio::test]
 // async fn test_deployment(#[future] setup: (SingleOwnerAccount<JsonRpcClient<HttpTransport>, LocalWallet>, MadaraCmd)) {
 async fn test_deployment(#[future] setup: SingleOwnerAccount<JsonRpcClient<HttpTransport>, LocalWallet>) {
-    dotenvy::from_filename(".env.test").expect("Failed to load the .env file");
     // let (account, madara_process) = setup.await;
     let account = setup.await;
-
-    // let endpoint = madara_process.rpc_url.join("/health").unwrap();
-    let endpoint = Url::parse("http://localhost:9944").unwrap().join("/health").unwrap();
-    let response = reqwest::get(endpoint.clone()).await.unwrap();
-    println!("Response from health: {:?}", response);
 
     // println!("the db being used is {:?}", madara_process.tempdir);
     let account = Arc::new(account);
@@ -137,39 +137,36 @@ async fn test_settle(#[future] setup: SingleOwnerAccount<JsonRpcClient<HttpTrans
     // let (account, madara_process) = setup.await;
     let account = setup.await;
 
-    // let endpoint = madara_process.rpc_url.join("/health").unwrap();
-    let endpoint = Url::parse("http://localhost:9944").unwrap().join("/health").unwrap();
-    let response = reqwest::get(endpoint.clone()).await.unwrap();
-    println!("Response from health: {:?}", response);
-
     // println!("the db being used is {:?}", madara_process.tempdir);
     let account = Arc::new(account);
 
     // NOTE: you will need to declare this class first
     let sierra_class: SierraClass = serde_json::from_reader(
-        std::fs::File::open("/Users/bytezorvin/work/karnot/madara-orchestrator/crates/settlement-clients/starknet/src/tests/mock_contracts/target/dev/mock_contracts_Piltover.contract_class.json").unwrap(),
+        std::fs::File::open("/Users/bytezorvin/work/karnot/orchestrator/crates/settlement-clients/starknet/src/tests/mock_contracts/target/dev/mock_contracts_Piltover.contract_class.json").unwrap(),
     )
     .unwrap();
 
     let compiled_class: CompiledClass = serde_json::from_reader(
-        std::fs::File::open("/Users/bytezorvin/work/karnot/madara-orchestrator/crates/settlement-clients/starknet/src/tests/mock_contracts/target/dev/mock_contracts_Piltover.compiled_contract_class.json").unwrap(),
+        std::fs::File::open("/Users/bytezorvin/work/karnot/orchestrator/crates/settlement-clients/starknet/src/tests/mock_contracts/target/dev/mock_contracts_Piltover.compiled_contract_class.json").unwrap(),
     )
     .unwrap();
 
     let flattened_class = sierra_class.clone().flatten().unwrap();
     let compiled_class_hash = compiled_class.class_hash().unwrap();
-    let class_hash = flattened_class.class_hash();
-    account.declare_v2(Arc::new(flattened_class), compiled_class_hash).send().await.unwrap();
+    let DeclareTransactionResult { transaction_hash: _, class_hash } =
+        account.declare_v2(Arc::new(flattened_class), compiled_class_hash).send().await.unwrap();
 
-    // This done since madara currently does not increment nonce for pending transactions
+    // This is done, since currently madara does not increment nonce for pending transactions
     tokio::time::sleep(tokio::time::Duration::from_secs(4)).await;
 
     let contract_factory = ContractFactory::new(class_hash, account);
-    contract_factory
-        .deploy_v1(vec![felt!("123456")], felt!("1122"), false)
-        .send()
-        .await
-        .expect("Unable to deploy contract");
+    let deploy_v1 = contract_factory.deploy_v1(vec![felt!("123456")], felt!("1122"), false);
+    let deployed_address = deploy_v1.deployed_address();
+    env::set_var("STARKNET_CAIRO_CORE_CONTRACT_ADDRESS", deployed_address.to_hex_string());
+    deploy_v1.send().await.expect("Unable to deploy contract");
+
+    // This is done, since currently madara does not increment nonce for pending transactions
+    tokio::time::sleep(tokio::time::Duration::from_secs(4)).await;
 
     let env_settings = EnvSettingsProvider {};
     let settlement_client = StarknetSettlementClient::new_with_settings(&env_settings).await;
