@@ -15,6 +15,7 @@ use starknet::{
     signers::{LocalWallet, SigningKey},
 };
 use std::env;
+use std::path::Path;
 use std::path::PathBuf;
 use std::sync::Arc;
 use std::time::Duration;
@@ -52,9 +53,7 @@ pub async fn spin_up_madara() -> MadaraCmd {
             "all",
         ])
         .run();
-    println!("check here");
     node.wait_for_ready().await;
-    println!("check here 2");
     node
 }
 
@@ -109,10 +108,6 @@ async fn setup() -> (SingleOwnerAccount<JsonRpcClient<HttpTransport>, LocalWalle
 
     let env_settings = EnvSettingsProvider::default();
     let rpc_url = Url::parse(&env_settings.get_settings_or_panic("STARKNET_RPC_URL")).unwrap();
-    println!("RPC url {:?}", rpc_url);
-    // let endpoint = madara_process.rpc_url.join("/health").unwrap();
-    // let response = reqwest::get(endpoint.clone()).await.expect("Failed to connect to Provider");
-    // assert!(response.status().is_success(), "Failed to connect to Provider");
 
     // let provider = JsonRpcClient::new(HttpTransport::new(Url::parse("http://localhost:9944").unwrap()));
     let provider: JsonRpcClient<HttpTransport> = JsonRpcClient::new(HttpTransport::new(rpc_url));
@@ -137,17 +132,14 @@ async fn test_deployment(#[future] setup: (SingleOwnerAccount<JsonRpcClient<Http
     let (account, _) = setup.await;
     // let account = setup.await;
 
-    // println!("the db being used is {:?}", madara_process.tempdir);
-    // let account = Arc::new(account);
-
     // NOTE: you will need to declare this class first
     let sierra_class: SierraClass = serde_json::from_reader(
-        std::fs::File::open("/Users/bytezorvin/work/karnot/madara-orchestrator/crates/settlement-clients/starknet/src/tests/mock_contracts/target/dev/mock_contracts_Piltover.contract_class.json").unwrap(),
+        std::fs::File::open("./crates/settlement-clients/starknet/src/tests/mock_contracts/target/dev/mock_contracts_Piltover.contract_class.json").unwrap(),
     )
     .unwrap();
 
     let compiled_class: CompiledClass = serde_json::from_reader(
-        std::fs::File::open("/Users/bytezorvin/work/karnot/madara-orchestrator/crates/settlement-clients/starknet/src/tests/mock_contracts/target/dev/mock_contracts_Piltover.compiled_contract_class.json").unwrap(),
+        std::fs::File::open("./crates/settlement-clients/starknet/src/tests/mock_contracts/target/dev/mock_contracts_Piltover.compiled_contract_class.json").unwrap(),
     )
     .unwrap();
 
@@ -169,14 +161,15 @@ async fn test_settle(#[future] setup: (SingleOwnerAccount<JsonRpcClient<HttpTran
     let (account, _madara_process) = setup.await;
     let account = Arc::new(account);
 
-    // NOTE: you will need to declare this class first
+    let project_root = Path::new(env!("CARGO_MANIFEST_DIR")).ancestors().nth(3).unwrap();
+    let contract_path = project_root.join("crates/settlement-clients/starknet/src/tests/mock_contracts/target/dev");
     let sierra_class: SierraClass = serde_json::from_reader(
-        std::fs::File::open("/Users/bytezorvin/work/karnot/orchestrator/crates/settlement-clients/starknet/src/tests/mock_contracts/target/dev/mock_contracts_Piltover.contract_class.json").unwrap(),
+        std::fs::File::open(contract_path.join("mock_contracts_Piltover.contract_class.json")).expect("Could not open sierra class file")
     )
     .expect("Failed to parse SierraClass");
 
     let compiled_class: CompiledClass = serde_json::from_reader(
-        std::fs::File::open("/Users/bytezorvin/work/karnot/orchestrator/crates/settlement-clients/starknet/src/tests/mock_contracts/target/dev/mock_contracts_Piltover.compiled_contract_class.json").unwrap(),
+        std::fs::File::open(contract_path.join("mock_contracts_Piltover.compiled_contract_class.json")).expect("Could not open compiled class file")
     )
     .expect("Failed to parse CompiledClass");
 
@@ -210,6 +203,8 @@ async fn test_settle(#[future] setup: (SingleOwnerAccount<JsonRpcClient<HttpTran
         .update_state_calldata(program_output, onchain_data_hash, [1, 1])
         .await
         .expect("Sending Update state");
+
+    println!("update state tx hash {:?}", update_state_tx_hash);
 
     let is_success = wait_for_tx_success(
         &account,
