@@ -9,7 +9,7 @@ use std::{
     collections::HashMap,
     future::Future,
     path::{Path, PathBuf},
-    process::{Child, Command, Output, Stdio},
+    process::{Child, Command, Output},
     str::FromStr,
     time::Duration,
 };
@@ -183,7 +183,6 @@ impl MadaraCmdBuilder {
                 "--rpc-port".into(),
                 format!("{}", self.port.0),
             ]))
-            .stdout(Stdio::piped())
             .spawn()
             .unwrap();
 

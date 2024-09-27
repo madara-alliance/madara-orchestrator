@@ -6,13 +6,16 @@ pub trait IPiltover<TContractState> {
         onchain_data_hash: felt252,
         onchain_data_size: u256
     );
+
+    fn get_is_updated(self: @TContractState, onchain_data_hash: felt252) -> bool;
 }
 
 #[starknet::contract]
 mod Piltover {
+    use starknet::storage::Map;
     #[storage]
     struct Storage {
-        balance: felt252,
+        is_updated: Map<felt252, bool>,
     }
 
     #[abi(embed_v0)]
@@ -22,6 +25,12 @@ mod Piltover {
             program_output: Span<felt252>,
             onchain_data_hash: felt252,
             onchain_data_size: u256
-        ) {}
+        ) {
+            self.is_updated.write(onchain_data_hash, true);
+        }
+
+        fn get_is_updated(self: @ContractState, onchain_data_hash: felt252) -> bool {
+            self.is_updated.read(onchain_data_hash)
+        }
     }
 }

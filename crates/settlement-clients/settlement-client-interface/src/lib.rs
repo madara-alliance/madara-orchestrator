@@ -25,7 +25,7 @@ pub trait SettlementClient: Send + Sync {
         &self,
         program_output: Vec<[u8; 32]>,
         onchain_data_hash: [u8; 32],
-        onchain_data_size: usize,
+        onchain_data_size: [u128; 2],
     ) -> Result<String>;
 
     /// Should be used to update state on contract and publish the blob on ethereum.
