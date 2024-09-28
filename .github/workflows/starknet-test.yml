@@ -31,14 +31,14 @@ jobs:
         toolchain: stable
         override: true
 
-    - name: Setup Scarb
-      run: |
-        cd madara/cairo
-        ls -la
-        cat .tool-versions
-
-    - uses: asdf-vm/actions/install@v3
-    - run: cd -
+    - name: Install asdf and dependencies
+      uses: asdf-vm/actions/install@v3
+      with: 
+        before_install: |
+          cd madara/cairo
+          pwd
+          ls -la
+          cat .tool-versions
 
     - name: Build Madara
       run: |
@@ -55,11 +55,9 @@ jobs:
     - name: Build Mock Contracts using Scarb
       run: |
         cd madara-orchestrator/crates/settlement-clients/starknet/src/tests/mock_contracts
-        uses: asdf-vm/actions/install@v3
         scarb fmt --check
         scarb build 
         cd -
-
 
     - name: Run Starknet tests
       run: |
