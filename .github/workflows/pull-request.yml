@@ -30,3 +30,8 @@ jobs:
     name: E2E test
     uses: ./.github/workflows/e2e-test.yml
     secrets: inherit
+
+  starknet-test:
+    name: Starknet test
+    uses: ./.github/workflows/starknet-test.yml
+    secrets: inherit

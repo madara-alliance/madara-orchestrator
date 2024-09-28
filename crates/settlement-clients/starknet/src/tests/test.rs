@@ -24,19 +24,19 @@ use utils::settings::Settings;
 
 #[allow(unused)]
 pub async fn spin_up_madara() -> MadaraCmd {
-    env::set_current_dir(PathBuf::from("/Users/bytezorvin/work/karnot/madara/"))
-        .expect("Failed to set working directory");
-    let output = std::process::Command::new("cargo")
-        .arg("locate-project")
-        .arg("--workspace")
-        .arg("--message-format=plain")
-        .output()
-        .expect("Failed to execute command");
+    env::set_current_dir(env::var("MADARA_BINARY_PATH").unwrap()).expect("Failed to set working directory");
 
-    let cargo_toml_path = String::from_utf8(output.stdout).expect("Invalid UTF-8");
-    let project_root = PathBuf::from(cargo_toml_path.trim()).parent().unwrap().to_path_buf();
+    // let output = std::process::Command::new("cargo")
+    //     .arg("locate-project")
+    //     .arg("--workspace")
+    //     .arg("--message-format=plain")
+    //     .output()
+    //     .expect("Failed to execute command");
 
-    env::set_current_dir(&project_root).expect("Failed to set working directory");
+    // let cargo_toml_path = String::from_utf8(output.stdout).expect("Invalid UTF-8");
+    // let project_root = PathBuf::from(cargo_toml_path.trim()).parent().unwrap().to_path_buf();
+
+    // env::set_current_dir(&project_root).expect("Failed to set working directory");
 
     let mut node = MadaraCmdBuilder::new()
         .args([
@@ -51,6 +51,9 @@ pub async fn spin_up_madara() -> MadaraCmd {
             "--no-l1-sync",
             "--rpc-cors",
             "all",
+            "--chain-config-override",
+            "--block-time",
+            "1",
         ])
         .run();
     node.wait_for_ready().await;
@@ -132,16 +135,19 @@ async fn test_deployment(#[future] setup: (SingleOwnerAccount<JsonRpcClient<Http
     let (account, _) = setup.await;
     // let account = setup.await;
 
-    // NOTE: you will need to declare this class first
+    let project_root = Path::new(env!("CARGO_MANIFEST_DIR")).ancestors().nth(3).unwrap();
+    let contract_path = project_root.join("crates/settlement-clients/starknet/src/tests/mock_contracts/target/dev");
     let sierra_class: SierraClass = serde_json::from_reader(
-        std::fs::File::open("./crates/settlement-clients/starknet/src/tests/mock_contracts/target/dev/mock_contracts_Piltover.contract_class.json").unwrap(),
+        std::fs::File::open(contract_path.join("mock_contracts_Piltover.contract_class.json"))
+            .expect("Could not open sierra class file"),
     )
-    .unwrap();
+    .expect("Failed to parse SierraClass");
 
     let compiled_class: CompiledClass = serde_json::from_reader(
-        std::fs::File::open("./crates/settlement-clients/starknet/src/tests/mock_contracts/target/dev/mock_contracts_Piltover.compiled_contract_class.json").unwrap(),
+        std::fs::File::open(contract_path.join("mock_contracts_Piltover.compiled_contract_class.json"))
+            .expect("Could not open compiled class file"),
     )
-    .unwrap();
+    .expect("Failed to parse CompiledClass");
 
     let flattened_class = sierra_class.clone().flatten().unwrap();
     let compiled_class_hash = compiled_class.class_hash().unwrap();
@@ -164,12 +170,14 @@ async fn test_settle(#[future] setup: (SingleOwnerAccount<JsonRpcClient<HttpTran
     let project_root = Path::new(env!("CARGO_MANIFEST_DIR")).ancestors().nth(3).unwrap();
     let contract_path = project_root.join("crates/settlement-clients/starknet/src/tests/mock_contracts/target/dev");
     let sierra_class: SierraClass = serde_json::from_reader(
-        std::fs::File::open(contract_path.join("mock_contracts_Piltover.contract_class.json")).expect("Could not open sierra class file")
+        std::fs::File::open(contract_path.join("mock_contracts_Piltover.contract_class.json"))
+            .expect("Could not open sierra class file"),
     )
     .expect("Failed to parse SierraClass");
 
     let compiled_class: CompiledClass = serde_json::from_reader(
-        std::fs::File::open(contract_path.join("mock_contracts_Piltover.compiled_contract_class.json")).expect("Could not open compiled class file")
+        std::fs::File::open(contract_path.join("mock_contracts_Piltover.compiled_contract_class.json"))
+            .expect("Could not open compiled class file"),
     )
     .expect("Failed to parse CompiledClass");
 

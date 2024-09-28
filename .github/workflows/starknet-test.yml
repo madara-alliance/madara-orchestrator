@@ -1,0 +1,43 @@
+name: Starknet test
+
+on:
+    workflow_call:
+    workflow_dispatch:
+
+env:
+  CARGO_TERM_COLOR: always
+
+jobs:
+  build-and-test:
+    runs-on: ubuntu-latest
+    
+    steps:
+    - name: Checkout first repository
+      uses: actions/checkout@v3
+      with:
+        repository: madara-alliance/madara  # Replace with your first repository
+        ref: main  # Replace with your branch name
+        path: madara
+
+    - name: Setup Rust
+      uses: actions-rs/toolchain@v1
+      with:
+        profile: minimal
+        toolchain: stable
+        override: true
+
+    - name: Build
+      run: |
+        cd repo1
+        cargo build --release
+
+    - name: Checkout second repository
+      uses: actions/checkout@v3
+      with:
+        repository: madara-alliance/madara-orchestrator  # Replace with your second repository
+        path: orchestrator
+
+    - name: Run Starknet tests
+      run: |
+        cd orchestrator
+        cargo test -p starknet-settlement-client --nocapture
