@@ -2,7 +2,7 @@ name: Starknet test
 
 on:
   pull_request:
-    branches: 
+    branches:
       - main
       - dependency-bump
   workflow_call:
@@ -14,47 +14,45 @@ env:
 jobs:
   build-and-test:
     runs-on: ubuntu-latest
-    
+
     steps:
+      - name: Checkout first repository
+        uses: actions/checkout@v4
+        with:
+          repository: madara-alliance/madara # Replace with your first repository
+          ref: main # Replace with your branch name
+          path: madara
 
-    - name: Checkout first repository
-      uses: actions/checkout@v4
-      with:
-        repository: madara-alliance/madara  # Replace with your first repository
-        ref: main  # Replace with your branch name
-        path: madara
+      - name: Setup Rust
+        uses: actions-rs/toolchain@v1
+        with:
+          profile: minimal
+          toolchain: stable
+          override: true
 
-    - name: Setup Rust
-      uses: actions-rs/toolchain@v1
-      with:
-        profile: minimal
-        toolchain: stable
-        override: true
+      - uses: software-mansion/setup-scarb@v1
+        with:
+          scarb-version: "2.8.2"
 
-    - uses: software-mansion/setup-scarb@v1
-      with:
-        scarb-version: "2.8.2"
+      - name: Build Madara
+        run: |
+          cd madara
+          cargo build
 
-    - name: Build Madara
-      run: |
-        cd madara
-        cargo build
+      - name: Checkout second repository
+        uses: actions/checkout@v4
+        with:
+          repository: madara-alliance/madara-orchestrator # Replace with your second repository
+          path: madara-orchestrator
 
-    - name: Checkout second repository
-      uses: actions/checkout@v4
-      with:
-        repository: madara-alliance/madara-orchestrator  # Replace with your second repository
-        path: madara-orchestrator
+      - name: Build Mock Contracts using Scarb
+        run: |
+          cd madara-orchestrator/crates/settlement-clients/starknet/src/tests/mock_contracts
+          scarb fmt --check
+          scarb build 
+          cd -
 
-
-    - name: Build Mock Contracts using Scarb
-      run: |
-        cd madara-orchestrator/crates/settlement-clients/starknet/src/tests/mock_contracts
-        scarb fmt --check
-        scarb build 
-        cd -
-
-    - name: Run Starknet tests
-      run: |
-        cd madara-orchestrator
-        cargo test -p starknet-settlement-client -- --nocapture --test-threads=1
+      - name: Run Starknet tests
+        run: |
+          cd madara-orchestrator
+          cargo test -p starknet-settlement-client -- --nocapture --test-threads=1
