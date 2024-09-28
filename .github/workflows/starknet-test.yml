@@ -21,7 +21,7 @@ jobs:
         with:
           repository: madara-alliance/madara # Replace with your first repository
           ref: main # Replace with your branch name
-          path: madara_path
+          path: madara
 
       - name: Setup Rust
         uses: actions-rs/toolchain@v1
@@ -36,8 +36,6 @@ jobs:
 
       - name: Build Madara
         run: |
-          pwd
-          tree -L 3
           cd madara
           cargo build
 
@@ -48,8 +46,9 @@ jobs:
 
       - name: Build Mock Contracts using Scarb
         run: |
-          cd madara-orchestrator/crates/settlement-clients/starknet/src/tests/mock_contracts
+          pwd 
           tree -L 3
+          cd madara-orchestrator/crates/settlement-clients/starknet/src/tests/mock_contracts
           scarb fmt --check
           scarb build
 
