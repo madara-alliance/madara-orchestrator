@@ -21,6 +21,7 @@ jobs:
         with:
           repository: madara-alliance/madara # Replace with your first repository
           ref: main # Replace with your branch name
+          path: madara_path
 
       - name: Setup Rust
         uses: actions-rs/toolchain@v1
