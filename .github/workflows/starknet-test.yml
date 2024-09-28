@@ -16,12 +16,11 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
-      - name: Checkout first repository
+      - name: Checkout Madara
         uses: actions/checkout@v4
         with:
           repository: madara-alliance/madara # Replace with your first repository
           ref: main # Replace with your branch name
-          path: madara
 
       - name: Setup Rust
         uses: actions-rs/toolchain@v1
@@ -37,11 +36,11 @@ jobs:
       - name: Build Madara
         run: |
           pwd
-          tree -L 1
+          tree -L 3
           cd madara
           cargo build
 
-      - name: Checkout second repository
+      - name: Checkout Madara Orchestrator
         uses: actions/checkout@v4
         with:
           repository: madara-alliance/madara-orchestrator # Replace with your second repository
@@ -49,12 +48,14 @@ jobs:
       - name: Build Mock Contracts using Scarb
         run: |
           cd madara-orchestrator/crates/settlement-clients/starknet/src/tests/mock_contracts
+          tree -L 3
           scarb fmt --check
           scarb build
 
       - name: Run Starknet tests
+        working-directory: madara-orchestrator
         run: |
           pwd
-          tree -L 1
+          tree -L 3
           cd madara-orchestrator
           cargo test -p starknet-settlement-client -- --nocapture --test-threads=1
