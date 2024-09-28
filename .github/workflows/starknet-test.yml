@@ -35,7 +35,9 @@ jobs:
       run: |
         cd madara/cairo
         ls -la
+        cat .tool-versions
         asdf-vm/actions/install@v3
+        asdf install scarb 2.8.2
         cd -
 
     - name: Build Madara
