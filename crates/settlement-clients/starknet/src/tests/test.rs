@@ -53,6 +53,9 @@ async fn wait_for_tx_success(
     let mut attempt = 0;
     loop {
         attempt += 1;
+        if attempt >= 5 {
+            return false;
+        }
         let reciept = match account.provider().get_transaction_status(transaction_hash).await {
             Ok(reciept) => reciept,
             Err(ProviderError::StarknetError(StarknetError::TransactionHashNotFound)) => {
@@ -74,11 +77,6 @@ async fn wait_for_tx_success(
                 TransactionExecutionStatus::Reverted => return false,
             },
         }
-
-        if attempt >= 5 {
-            return false;
-        }
-
         // This is done, since currently madara does not increment nonce for pending transactions
         tokio::time::sleep(duration).await;
     }
