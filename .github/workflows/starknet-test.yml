@@ -49,7 +49,7 @@ jobs:
         run: |
           cd madara-orchestrator/crates/settlement-clients/starknet/src/tests/mock_contracts
           scarb fmt --check
-          scarb build 
+          scarb build
 
       - name: Run Starknet tests
         run: |
