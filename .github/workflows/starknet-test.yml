@@ -48,7 +48,7 @@ jobs:
         run: |
           pwd 
           tree -L 3
-          cd madara-orchestrator/crates/settlement-clients/starknet/src/tests/mock_contracts
+          cd crates/settlement-clients/starknet/src/tests/mock_contracts
           scarb fmt --check
           scarb build
 
