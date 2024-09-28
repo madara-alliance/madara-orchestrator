@@ -35,8 +35,7 @@ jobs:
       run: |
         git clone https://github.com/asdf-vm/asdf.git ~/.asdf --branch v0.14.1
         echo -e '
-        . $HOME/.asdf/asdf.sh' >> ~/.bashrc && echo -e '
-        . $HOME/.asdf/completions/asdf.bash' >> ~/.bashrc
+        . $HOME/.asdf/asdf.sh' >> ~/.bashrc
         source ~/.bashrc
         asdf install scarb 2.8.2
 
