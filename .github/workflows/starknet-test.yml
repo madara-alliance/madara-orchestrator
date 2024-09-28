@@ -34,7 +34,8 @@ jobs:
     - name: Setup Scarb
       run: |
         cd madara/cairo
-        uses: asdf-vm/actions/install@v3
+        ls -la
+        asdf-vm/actions/install@v3
         cd -
 
     - name: Build Madara
