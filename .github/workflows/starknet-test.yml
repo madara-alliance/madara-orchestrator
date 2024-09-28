@@ -32,13 +32,13 @@ jobs:
         override: true
 
     - name: Install asdf and dependencies
-      uses: asdf-vm/actions/install@v3
-      with: 
-        before_install: |
-          cd madara/cairo
-          pwd
-          ls -la
-          cat .tool-versions
+      run: |
+        git clone https://github.com/asdf-vm/asdf.git ~/.asdf --branch v0.14.1
+        echo -e '
+        . $HOME/.asdf/asdf.sh' >> ~/.bashrc && echo -e '
+        . $HOME/.asdf/completions/asdf.bash' >> ~/.bashrc
+        source ~/.bashrc
+        asdf install scarb 2.8.2
 
     - name: Build Madara
       run: |
