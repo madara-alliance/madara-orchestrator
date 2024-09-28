@@ -1,8 +1,12 @@
 name: Starknet test
 
 on:
-    workflow_call:
-    workflow_dispatch:
+  pull_request:
+    branches: 
+      - main
+      - dependency-bump
+  workflow_call:
+  workflow_dispatch:
 
 env:
   CARGO_TERM_COLOR: always
@@ -12,6 +16,7 @@ jobs:
     runs-on: ubuntu-latest
     
     steps:
+
     - name: Checkout first repository
       uses: actions/checkout@v3
       with:
