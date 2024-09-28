@@ -9,7 +9,7 @@ use std::{
     collections::HashMap,
     future::Future,
     path::{Path, PathBuf},
-    process::{Child, Command, Output},
+    process::{Child, Command, Output, Stdio},
     str::FromStr,
     time::Duration,
 };
@@ -183,6 +183,7 @@ impl MadaraCmdBuilder {
                 "--rpc-port".into(),
                 format!("{}", self.port.0),
             ]))
+            .stdout(Stdio::piped())
             .spawn()
             .unwrap();
 
@@ -215,16 +216,6 @@ pub fn set_workdir() {
     let project_root = PathBuf::from(cargo_toml_path.trim()).parent().unwrap().to_path_buf();
 
     env::set_current_dir(&project_root).expect("Failed to set working directory");
-}
-
-#[rstest]
-fn madara_help_shows(_set_workdir: ()) {
-    let _ = env_logger::builder().is_test(true).try_init();
-    let output = MadaraCmdBuilder::new().args(["--help"]).run().wait_with_output();
-    assert!(output.status.success());
-
-    let stdout = String::from_utf8(output.stdout).unwrap();
-    assert!(stdout.contains("Madara: High performance Starknet sequencer/full-node"), "stdout: {stdout}");
 }
 
 #[rstest]

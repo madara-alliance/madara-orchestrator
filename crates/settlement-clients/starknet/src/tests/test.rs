@@ -16,7 +16,6 @@ use starknet::{
 };
 use std::env;
 use std::path::Path;
-use std::path::PathBuf;
 use std::sync::Arc;
 use std::time::Duration;
 use utils::settings::env::EnvSettingsProvider;
@@ -131,9 +130,8 @@ async fn setup() -> (SingleOwnerAccount<JsonRpcClient<HttpTransport>, LocalWalle
 #[rstest]
 #[tokio::test]
 async fn test_deployment(#[future] setup: (SingleOwnerAccount<JsonRpcClient<HttpTransport>, LocalWallet>, MadaraCmd)) {
-    // async fn test_deployment(#[future] setup: SingleOwnerAccount<JsonRpcClient<HttpTransport>, LocalWallet>) {
-    let (account, _) = setup.await;
-    // let account = setup.await;
+    let (account, _madara_process) = setup.await;
+    let account = Arc::new(account);
 
     let project_root = Path::new(env!("CARGO_MANIFEST_DIR")).ancestors().nth(3).unwrap();
     let contract_path = project_root.join("crates/settlement-clients/starknet/src/tests/mock_contracts/target/dev");
@@ -151,14 +149,24 @@ async fn test_deployment(#[future] setup: (SingleOwnerAccount<JsonRpcClient<Http
 
     let flattened_class = sierra_class.clone().flatten().unwrap();
     let compiled_class_hash = compiled_class.class_hash().unwrap();
-    let class_hash = flattened_class.class_hash();
-    account.declare_v2(Arc::new(flattened_class), compiled_class_hash).send().await.unwrap();
 
-    // This done since madara currently does not increment nonce for pending transactions
-    tokio::time::sleep(tokio::time::Duration::from_secs(4)).await;
+    let DeclareTransactionResult { transaction_hash: declare_tx_hash, class_hash: _ } =
+        account.declare_v2(Arc::new(flattened_class.clone()), compiled_class_hash).send().await.unwrap();
+    println!("declare tx hash {:?}", declare_tx_hash);
 
-    let contract_factory = ContractFactory::new(class_hash, account);
-    contract_factory.deploy_v1(vec![], felt!("1122"), false).send().await.expect("Unable to deploy contract");
+    let is_success = wait_for_tx_success(&account, declare_tx_hash, Duration::from_secs(2)).await;
+    assert!(is_success, "Declare trasactiion failed");
+
+    let contract_factory = ContractFactory::new(flattened_class.class_hash(), account.clone());
+    let deploy_v1 = contract_factory.deploy_v1(vec![], felt!("1122"), false);
+    let deployed_address = deploy_v1.deployed_address();
+
+    env::set_var("STARKNET_CAIRO_CORE_CONTRACT_ADDRESS", deployed_address.to_hex_string());
+    let InvokeTransactionResult { transaction_hash: deploy_tx_hash } =
+        deploy_v1.send().await.expect("Unable to deploy contract");
+
+    let is_success = wait_for_tx_success(&account, deploy_tx_hash, Duration::from_secs(2)).await;
+    assert!(is_success, "Deploy trasaction failed");
 }
 
 #[rstest]

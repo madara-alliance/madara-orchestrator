@@ -18,7 +18,7 @@ jobs:
     steps:
 
     - name: Checkout first repository
-      uses: actions/checkout@v3
+      uses: actions/checkout@v4
       with:
         repository: madara-alliance/madara  # Replace with your first repository
         ref: main  # Replace with your branch name
@@ -31,16 +31,27 @@ jobs:
         toolchain: stable
         override: true
 
-    - name: Build
+    - name: Build Madara
       run: |
         cd madara
-        cargo build --release
+        cargo build
 
     - name: Checkout second repository
-      uses: actions/checkout@v3
+      uses: actions/checkout@v4
       with:
         repository: madara-alliance/madara-orchestrator  # Replace with your second repository
         path: orchestrator
+
+
+
+    - run: 
+        cd crates/settlement-clients/starknet/src/tests/mock_contracts
+    - uses: asdf-vm/actions/install@v3
+    - run:
+        scarb fmt --check
+        scarb build 
+        cd -
+
 
     - name: Run Starknet tests
       run: |
