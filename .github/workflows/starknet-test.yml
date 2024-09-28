@@ -36,6 +36,8 @@ jobs:
 
       - name: Build Madara
         run: |
+          pwd
+          tree -L 1
           cd madara
           cargo build
 
@@ -43,7 +45,6 @@ jobs:
         uses: actions/checkout@v4
         with:
           repository: madara-alliance/madara-orchestrator # Replace with your second repository
-          path: madara-orchestrator
 
       - name: Build Mock Contracts using Scarb
         run: |
