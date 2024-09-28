@@ -37,7 +37,11 @@ jobs:
         echo -e '
         . $HOME/.asdf/asdf.sh' >> ~/.bashrc
         source ~/.bashrc
+
+    - name: Install Scarb
+      run: |
         asdf install scarb 2.8.2
+        asdf global scarb 2.8.2
 
     - name: Build Madara
       run: |
