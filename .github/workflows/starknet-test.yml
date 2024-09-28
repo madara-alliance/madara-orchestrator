@@ -33,7 +33,7 @@ jobs:
 
     - name: Build
       run: |
-        cd repo1
+        cd madara
         cargo build --release
 
     - name: Checkout second repository
