@@ -50,9 +50,10 @@ jobs:
           cd madara-orchestrator/crates/settlement-clients/starknet/src/tests/mock_contracts
           scarb fmt --check
           scarb build 
-          cd -
 
       - name: Run Starknet tests
         run: |
+          pwd
+          tree -L 1
           cd madara-orchestrator
           cargo test -p starknet-settlement-client -- --nocapture --test-threads=1
