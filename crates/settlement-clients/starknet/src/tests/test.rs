@@ -21,29 +21,15 @@ use std::time::Duration;
 use utils::settings::env::EnvSettingsProvider;
 use utils::settings::Settings;
 
-#[allow(unused)]
 pub async fn spin_up_madara() -> MadaraCmd {
+    println!("Spinning up madara");
     env::set_current_dir(env::var("MADARA_BINARY_PATH").unwrap()).expect("Failed to set working directory");
-
-    // let output = std::process::Command::new("cargo")
-    //     .arg("locate-project")
-    //     .arg("--workspace")
-    //     .arg("--message-format=plain")
-    //     .output()
-    //     .expect("Failed to execute command");
-
-    // let cargo_toml_path = String::from_utf8(output.stdout).expect("Invalid UTF-8");
-    // let project_root = PathBuf::from(cargo_toml_path.trim()).parent().unwrap().to_path_buf();
-
-    // env::set_current_dir(&project_root).expect("Failed to set working directory");
-
+    println!("Current working directory: {:?}", env::current_dir().unwrap());
     let mut node = MadaraCmdBuilder::new()
         .args([
             "--network",
             "devnet",
             "--no-sync-polling",
-            "--n-blocks-to-sync",
-            "20",
             "--authority",
             "--devnet",
             "--preset=test",
@@ -59,7 +45,6 @@ pub async fn spin_up_madara() -> MadaraCmd {
     node
 }
 
-#[allow(unused)]
 async fn wait_for_tx_success(
     account: &SingleOwnerAccount<JsonRpcClient<HttpTransport>, LocalWallet>,
     transaction_hash: Felt,
