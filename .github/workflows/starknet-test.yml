@@ -38,7 +38,6 @@ jobs:
         working-directory: madara
         run: |
           pwd
-          cargo build
 
       - name: Checkout Madara Orchestrator
         uses: actions/checkout@v4
@@ -54,7 +53,6 @@ jobs:
           scarb build
 
       - name: Run Starknet tests
-        working-directory: madara-orchestrator
         run: |
           pwd
           cd ../..
