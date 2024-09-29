@@ -36,8 +36,9 @@ jobs:
 
       - name: Build Madara
         run: |
+          pwd
           cd madara
-          cargo build
+          pwd
 
       - name: Checkout Madara Orchestrator
         uses: actions/checkout@v4
