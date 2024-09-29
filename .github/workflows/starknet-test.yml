@@ -1,10 +1,6 @@
 name: Starknet test
 
 on:
-  pull_request:
-    branches:
-      - main
-      - dependency-bump
   workflow_call:
   workflow_dispatch:
 
