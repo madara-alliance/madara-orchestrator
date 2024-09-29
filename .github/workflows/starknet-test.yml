@@ -40,7 +40,7 @@ jobs:
           repository: madara-alliance/madara # Replace with your first repository
           ref: main # Replace with your branch name
           path: madara
-      
+
       - name: Build Madara
         working-directory: madara
         run: |
@@ -48,7 +48,6 @@ jobs:
           current_path=$(pwd)
           echo -e "
           MADARA_BINARY_PATH=\"$current_path\"" >> ../.env.test
-          
 
       - name: Run Starknet tests
         run: |
