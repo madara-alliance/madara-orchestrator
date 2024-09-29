@@ -37,7 +37,7 @@ jobs:
       - name: Build Madara
         working-directory: madara
         run: |
-          pwd
+          cargo build
 
       - name: Checkout Madara Orchestrator
         uses: actions/checkout@v4
@@ -46,16 +46,10 @@ jobs:
 
       - name: Build Mock Contracts using Scarb
         run: |
-          pwd 
-          tree -L 3
           cd crates/settlement-clients/starknet/src/tests/mock_contracts
           scarb fmt --check
           scarb build
 
       - name: Run Starknet tests
         run: |
-          pwd
-          cd ../..
-          tree -L 3
-          cd -
           cargo test -p starknet-settlement-client -- --nocapture --test-threads=1
