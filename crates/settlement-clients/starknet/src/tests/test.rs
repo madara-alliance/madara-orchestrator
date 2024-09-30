@@ -45,7 +45,7 @@ pub async fn spin_up_madara() -> MadaraCmd {
     node
 }
 
-async fn wait_for_tx_success(
+async fn wait_for_tx(
     account: &SingleOwnerAccount<JsonRpcClient<HttpTransport>, LocalWallet>,
     transaction_hash: Felt,
     duration: Duration,
