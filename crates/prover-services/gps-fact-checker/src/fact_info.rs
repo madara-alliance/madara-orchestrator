@@ -25,6 +25,7 @@ pub struct FactInfo {
     pub fact: B256,
 }
 
+// #[tracing::instrument(skip(cairo_pie, program_hash))]
 pub fn get_fact_info(cairo_pie: &CairoPie, program_hash: Option<FieldElement>) -> Result<FactInfo, FactCheckerError> {
     let program_output = get_program_output(cairo_pie)?;
     let fact_topology = get_fact_topology(cairo_pie, program_output.len())?;
@@ -37,6 +38,7 @@ pub fn get_fact_info(cairo_pie: &CairoPie, program_hash: Option<FieldElement>) -
     Ok(FactInfo { program_output, fact_topology, fact })
 }
 
+// #[tracing::instrument(skip(cairo_pie))]
 pub fn get_program_output(cairo_pie: &CairoPie) -> Result<Vec<Felt252>, FactCheckerError> {
     let segment_info = cairo_pie
         .metadata

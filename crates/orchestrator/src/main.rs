@@ -1,14 +1,27 @@
 use dotenvy::dotenv;
+use opentelemetry::global;
 use orchestrator::config::init_config;
 use orchestrator::queue::init_consumers;
 use orchestrator::routes::app_router;
+use orchestrator::telemetry;
+use tracing::Level;
+use tracing_opentelemetry::OpenTelemetryLayer;
+use tracing_subscriber::layer::SubscriberExt as _;
+use tracing_subscriber::util::SubscriberInitExt as _;
 use utils::env_utils::get_env_var_or_default;
 
 /// Start the server
 #[tokio::main]
 async fn main() {
     dotenv().ok();
-    tracing_subscriber::fmt().with_max_level(tracing::Level::INFO).with_target(false).init();
+
+    telemetry::init();
+    let tracer = telemetry::global_tracer().clone();
+    tracing_subscriber::registry()
+        .with(tracing_subscriber::filter::LevelFilter::from_level(Level::INFO))
+        .with(tracing_subscriber::fmt::layer())
+        .with(OpenTelemetryLayer::new(tracer))
+        .init();
 
     // initial config setup
     let config = init_config().await;
@@ -24,4 +37,7 @@ async fn main() {
 
     tracing::info!("Listening on http://{}", address);
     axum::serve(listener, app).await.expect("Failed to start axum server");
+
+    global::shutdown_tracer_provider();
+    let _ = telemetry::global_meter_provider().shutdown();
 }

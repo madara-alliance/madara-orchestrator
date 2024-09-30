@@ -121,6 +121,7 @@ impl EthereumSettlementClient {
     }
 
     /// Build kzg proof for the x_0 point evaluation
+    // #[tracing::instrument(skip(blob_data, x_0_value))]
     pub fn build_proof(blob_data: Vec<Vec<u8>>, x_0_value: Bytes32) -> Result<KzgProof> {
         // Assuming that there is only one blob in the whole Vec<Vec<u8>> array for now.
         // Later we will add the support for multiple blob in single blob_data vec.
@@ -160,6 +161,7 @@ impl SettlementClient for EthereumSettlementClient {
     }
 
     /// Should be used to update state on core contract when DA is done in calldata
+    // #[tracing::instrument(skip(self, program_output, onchain_data_hash, onchain_data_size))]
     async fn update_state_calldata(
         &self,
         program_output: Vec<[u8; 32]>,
@@ -175,6 +177,7 @@ impl SettlementClient for EthereumSettlementClient {
     }
 
     /// Should be used to update state on core contract when DA is in blobs/alt DA
+    // #[tracing::instrument(skip(self, program_output, state_diff))]
     async fn update_state_with_blobs(
         &self,
         program_output: Vec<[u8; 32]>,
@@ -238,6 +241,7 @@ impl SettlementClient for EthereumSettlementClient {
     }
 
     /// Should verify the inclusion of a tx in the settlement layer
+    // #[tracing::instrument(skip(self))]
     async fn verify_tx_inclusion(&self, tx_hash: &str) -> Result<SettlementVerificationStatus> {
         let tx_hash = B256::from_str(tx_hash)?;
         let maybe_tx_status: Option<TransactionReceipt> = self.provider.get_transaction_receipt(tx_hash).await?;
@@ -254,6 +258,7 @@ impl SettlementClient for EthereumSettlementClient {
     }
 
     /// Wait for a pending tx to achieve finality
+    // #[tracing::instrument(skip(self))]
     async fn wait_for_tx_finality(&self, tx_hash: &str) -> Result<()> {
         let tx_hash = B256::from_str(tx_hash)?;
         self.provider.watch_pending_transaction(PendingTransactionConfig::new(tx_hash)).await?;
@@ -261,11 +266,13 @@ impl SettlementClient for EthereumSettlementClient {
     }
 
     /// Get the last block settled through the core contract
+    // #[tracing::instrument(skip(self))]
     async fn get_last_settled_block(&self) -> Result<u64> {
         let block_number = self.core_contract_client.state_block_number().await?;
         Ok(block_number.try_into()?)
     }
 
+    // #[tracing::instrument(skip(self))]
     async fn get_nonce(&self) -> Result<u64> {
         let nonce = self.provider.get_transaction_count(self.wallet_address).await?.to_string().parse()?;
         Ok(nonce)

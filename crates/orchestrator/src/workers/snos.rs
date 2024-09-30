@@ -17,6 +17,7 @@ impl Worker for SnosWorker {
     /// 1. Fetch the latest completed block from the Starknet chain
     /// 2. Fetch the last block that had a SNOS job run.
     /// 3. Create SNOS run jobs for all the remaining blocks
+    // #[tracing::instrument(skip(self, config))]
     async fn run_worker(&self, config: Arc<Config>) -> Result<(), Box<dyn Error>> {
         let provider = config.starknet_client();
         let latest_block_number = provider.block_number().await?;

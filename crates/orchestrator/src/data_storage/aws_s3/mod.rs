@@ -26,6 +26,7 @@ pub struct AWSS3 {
 /// - initializing a new AWS S3 client
 impl AWSS3 {
     /// To init the struct with main settings
+    // #[tracing::instrument(skip(settings, provider_config))]
     pub async fn new_with_settings(settings: &impl Settings, provider_config: Arc<ProviderConfig>) -> Self {
         let s3_config = AWSS3Config::new_with_settings(settings);
         let aws_config = provider_config.get_aws_client_or_panic();
@@ -44,6 +45,7 @@ impl AWSS3 {
 #[async_trait]
 impl DataStorage for AWSS3 {
     /// Function to get the data from S3 bucket by Key.
+    // #[tracing::instrument(skip(self))]
     async fn get_data(&self, key: &str) -> Result<Bytes> {
         let response = self.client.get_object().bucket(&self.bucket).key(key).send().await?;
         let data_stream = response.body.collect().await.expect("Failed to convert body into AggregatedBytes.");
@@ -52,6 +54,7 @@ impl DataStorage for AWSS3 {
     }
 
     /// Function to put the data to S3 bucket by Key.
+    // #[tracing::instrument(skip(self))]
     async fn put_data(&self, data: Bytes, key: &str) -> Result<()> {
         self.client
             .put_object()
