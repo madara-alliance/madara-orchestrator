@@ -52,6 +52,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ## Fixed
 
+- Simplified Update_Job for Database.
 - Added new_with_settings to SharpClient.
 - Calculate root hash logic and added a simple test for it.
 - Cargo.toml dependency reorg.
