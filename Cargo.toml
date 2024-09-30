@@ -78,6 +78,7 @@ itertools = "0.13.0"
 mockall = "0.13.0"
 testcontainers = "0.18.0"
 appchain-core-contract-client = { git = "https://github.com/byteZorvin/zaun", branch = "type-update" }
+crypto-bigint = { version = "0.5.5" }
 
 # Cairo VM
 cairo-vm = { git = "https://github.com/lambdaclass/cairo-vm", features = [

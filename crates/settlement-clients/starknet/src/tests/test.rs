@@ -199,7 +199,7 @@ async fn test_settle(#[future] setup: (SingleOwnerAccount<JsonRpcClient<HttpTran
     let mut program_output = Vec::with_capacity(32);
     program_output.fill(onchain_data_hash);
     let update_state_tx_hash = settlement_client
-        .update_state_calldata(program_output, onchain_data_hash, [1, 1])
+        .update_state_calldata(program_output, onchain_data_hash, [1; 32])
         .await
         .expect("Sending Update state");
 

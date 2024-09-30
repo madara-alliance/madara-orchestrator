@@ -164,16 +164,11 @@ impl SettlementClient for EthereumSettlementClient {
         &self,
         program_output: Vec<[u8; 32]>,
         onchain_data_hash: [u8; 32],
-        onchain_data_size: [u128; 2],
+        onchain_data_size: [u8; 32],
     ) -> Result<String> {
         let program_output: Vec<U256> = vec_u8_32_to_vec_u256(program_output.as_slice())?;
         let onchain_data_hash: U256 = slice_u8_to_u256(&onchain_data_hash)?;
-        let mut bytes = [0u8; 32];
-
-        bytes[0..16].copy_from_slice(&onchain_data_size[0].to_le_bytes());
-        bytes[16..32].copy_from_slice(&onchain_data_size[1].to_le_bytes());
-
-        let onchain_data_size = U256::from_le_bytes(bytes);
+        let onchain_data_size = U256::from_be_bytes(onchain_data_size);
         let tx_receipt =
             self.core_contract_client.update_state(program_output, onchain_data_hash, onchain_data_size).await?;
         Ok(format!("0x{:x}", tx_receipt.transaction_hash))
