@@ -9,6 +9,7 @@ use appchain_core_contract_client::interfaces::core_contract::CoreContract;
 use async_trait::async_trait;
 use color_eyre::eyre::{eyre, Ok};
 use color_eyre::Result;
+use crypto_bigint::Encoding;
 use lazy_static::lazy_static;
 use mockall::{automock, predicate::*};
 use starknet::accounts::ConnectedAccount;
@@ -117,12 +118,12 @@ impl SettlementClient for StarknetSettlementClient {
         &self,
         program_output: Vec<[u8; 32]>,
         onchain_data_hash: [u8; 32],
-        onchain_data_size: [u128; 2],
+        onchain_data_size: [u8; 32],
     ) -> Result<String> {
         let program_output = slice_slice_u8_to_vec_field(program_output.as_slice());
         let onchain_data_hash = slice_u8_to_field(&onchain_data_hash);
         let core_contract: &CoreContract = self.starknet_core_contract_client.as_ref();
-        let onchain_data_size = U256::from_words(onchain_data_size[0], onchain_data_size[1]);
+        let onchain_data_size = crypto_bigint::U256::from_be_bytes(onchain_data_size).into();
         let invoke_result = core_contract.update_state(program_output, onchain_data_hash, onchain_data_size).await?;
 
         Ok(invoke_result.transaction_hash.to_hex_string())

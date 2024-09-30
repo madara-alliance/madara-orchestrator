@@ -9015,6 +9015,7 @@ dependencies = [
  "async-trait",
  "c-kzg",
  "color-eyre",
+ "crypto-bigint 0.5.5",
  "dotenvy",
  "env_logger",
  "lazy_static",
