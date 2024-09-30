@@ -13,7 +13,7 @@ use crypto_bigint::Encoding;
 use lazy_static::lazy_static;
 use mockall::{automock, predicate::*};
 use starknet::accounts::ConnectedAccount;
-use starknet::core::types::{TransactionExecutionStatus, U256};
+use starknet::core::types::TransactionExecutionStatus;
 use starknet::providers::Provider;
 use starknet::{
     accounts::{ExecutionEncoding, SingleOwnerAccount},
