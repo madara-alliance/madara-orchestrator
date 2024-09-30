@@ -61,6 +61,31 @@ jobs:
 
       - name: Install nextest
         uses: taiki-e/install-action@nextest
+      
+      - uses: software-mansion/setup-scarb@v1
+        with:
+          scarb-version: "2.8.2"
+
+      - name: Build Mock Contracts using Scarb
+        run: |
+          cd crates/settlement-clients/starknet/src/tests/mock_contracts
+          scarb fmt --check
+          scarb build
+
+      - name: Checkout Madara
+        uses: actions/checkout@v4
+        with:
+          repository: madara-alliance/madara # Replace with your first repository
+          ref: main # Replace with your branch name
+          path: madara
+
+      - name: Build Madara
+        working-directory: madara
+        run: |
+          cargo build
+          current_path=$(pwd)
+          echo -e "
+          MADARA_BINARY_PATH=\"$current_path\"" >> ../.env.test
 
       - name: Getting neccesary files for testing
         run: |
