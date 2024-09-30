@@ -1,9 +1,9 @@
 use dotenvy::dotenv;
 use opentelemetry::global;
-use orchestrator::config::init_config;
 use orchestrator::queue::init_consumers;
 use orchestrator::routes::app_router;
 use orchestrator::telemetry;
+use orchestrator::{config::init_config, telemetry::OTEL_COLLECTOR_ENDPOINT};
 use tracing::Level;
 use tracing_opentelemetry::OpenTelemetryLayer;
 use tracing_subscriber::layer::SubscriberExt as _;
@@ -15,13 +15,15 @@ use utils::env_utils::get_env_var_or_default;
 async fn main() {
     dotenv().ok();
 
-    telemetry::init();
-    let tracer = telemetry::global_tracer().clone();
-    tracing_subscriber::registry()
-        .with(tracing_subscriber::filter::LevelFilter::from_level(Level::INFO))
-        .with(tracing_subscriber::fmt::layer())
-        .with(OpenTelemetryLayer::new(tracer))
-        .init();
+    if !OTEL_COLLECTOR_ENDPOINT.is_empty() {
+        telemetry::init();
+        let tracer = telemetry::global_tracer().clone();
+        tracing_subscriber::registry()
+            .with(tracing_subscriber::filter::LevelFilter::from_level(Level::INFO))
+            .with(tracing_subscriber::fmt::layer())
+            .with(OpenTelemetryLayer::new(tracer))
+            .init();
+    }
 
     // initial config setup
     let config = init_config().await;
@@ -38,6 +40,8 @@ async fn main() {
     tracing::info!("Listening on http://{}", address);
     axum::serve(listener, app).await.expect("Failed to start axum server");
 
-    global::shutdown_tracer_provider();
-    let _ = telemetry::global_meter_provider().shutdown();
+    if !OTEL_COLLECTOR_ENDPOINT.is_empty() {
+        global::shutdown_tracer_provider();
+        let _ = telemetry::global_meter_provider().shutdown();
+    }
 }
