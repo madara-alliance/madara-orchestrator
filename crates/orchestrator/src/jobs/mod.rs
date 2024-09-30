@@ -7,7 +7,7 @@ use crate::config::Config;
 use crate::jobs::constants::{JOB_PROCESS_ATTEMPT_METADATA_KEY, JOB_VERIFICATION_ATTEMPT_METADATA_KEY};
 use crate::jobs::types::{JobItem, JobStatus, JobType, JobVerificationStatus};
 use crate::queue::job_queue::{add_job_to_process_queue, add_job_to_verification_queue, ConsumptionError};
-use crate::telemetry::{self, SERVICE_NAME};
+use crate::telemetry::{self, OTEL_SERVICE_NAME};
 use async_trait::async_trait;
 use color_eyre::eyre::{eyre, Context};
 use da_job::DaError;
@@ -134,7 +134,7 @@ pub async fn create_job(
     config: Arc<Config>,
 ) -> Result<(), JobError> {
     let block_gauge = telemetry::global_meter()
-        .f64_gauge(format!("{}{}", SERVICE_NAME, "_block_state"))
+        .f64_gauge(format!("{:?}{}", OTEL_SERVICE_NAME, "_block_state"))
         .with_description("A gauge to show block state at given time")
         .with_unit("block")
         .init();
@@ -176,7 +176,7 @@ pub async fn create_job(
 #[tracing::instrument(name = "general_process_job", skip(config), fields(job, job_type, internal_id))]
 pub async fn process_job(id: Uuid, config: Arc<Config>) -> Result<(), JobError> {
     let block_gauge = telemetry::global_meter()
-        .f64_gauge(format!("{}{}", SERVICE_NAME, "_block_state"))
+        .f64_gauge(format!("{:?}{}", OTEL_SERVICE_NAME, "_block_state"))
         .with_description("A gauge to show block state at given time")
         .with_unit("block")
         .init();
@@ -253,7 +253,7 @@ pub async fn process_job(id: Uuid, config: Arc<Config>) -> Result<(), JobError> 
 )]
 pub async fn verify_job(id: Uuid, config: Arc<Config>) -> Result<(), JobError> {
     let block_gauge = telemetry::global_meter()
-        .f64_gauge(format!("{}{}", SERVICE_NAME, "_block_state"))
+        .f64_gauge(format!("{:?}{}", OTEL_SERVICE_NAME, "_block_state"))
         .with_description("A gauge to show block state at given time")
         .with_unit("block")
         .init();
