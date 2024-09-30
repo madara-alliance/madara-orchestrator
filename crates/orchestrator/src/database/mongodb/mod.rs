@@ -1,12 +1,11 @@
 use async_std::stream::StreamExt;
 use futures::TryStreamExt;
-use std::collections::HashMap;
 
 use async_trait::async_trait;
 use chrono::{SubsecRound, Utc};
 use color_eyre::eyre::eyre;
 use color_eyre::Result;
-use mongodb::bson::{Bson, Document};
+use mongodb::bson::Bson;
 use mongodb::options::{FindOneOptions, FindOptions, UpdateOptions};
 use mongodb::{
     bson,
@@ -19,7 +18,7 @@ use uuid::Uuid;
 
 use crate::database::mongodb::config::MongoDbConfig;
 use crate::database::{Database, DatabaseConfig};
-use crate::jobs::types::{JobItem, JobStatus, JobType};
+use crate::jobs::types::{JobItem, JobItemUpdates, JobStatus, JobType};
 
 pub mod config;
 
@@ -56,44 +55,6 @@ impl MongoDb {
     fn get_job_collection(&self) -> Collection<JobItem> {
         self.client.database("orchestrator").collection("jobs")
     }
-
-    /// Updates the job in the database optimistically. This means that the job is updated only if
-    /// the version of the job in the database is the same as the version of the job passed in.
-    /// If the version is different, the update fails.
-    async fn update_job_optimistically(&self, current_job: &JobItem, update: Document) -> Result<()> {
-        let filter = doc! {
-            "id": current_job.id,
-            "version": current_job.version,
-        };
-        let options = UpdateOptions::builder().upsert(false).build();
-        let result = self.get_job_collection().update_one(filter, update, options).await?;
-        if result.modified_count == 0 {
-            return Err(eyre!("Failed to update job. Job version is likely outdated"));
-        }
-        self.post_job_update(current_job).await?;
-        Ok(())
-    }
-
-    // TODO : remove this function
-    // Do this process in single db transaction.
-    /// To update the document version
-    async fn post_job_update(&self, current_job: &JobItem) -> Result<()> {
-        let filter = doc! {
-            "id": current_job.id,
-        };
-        let combined_update = doc! {
-            "$inc": { "version": 1 },
-            "$set" : {
-                "updated_at": Utc::now().round_subsecs(0)
-            }
-        };
-        let options = UpdateOptions::builder().upsert(false).build();
-        let result = self.get_job_collection().update_one(filter, combined_update, options).await?;
-        if result.modified_count == 0 {
-            return Err(eyre!("Failed to update job. version"));
-        }
-        Ok(())
-    }
 }
 
 #[async_trait]
@@ -118,32 +79,51 @@ impl Database for MongoDb {
         Ok(self.get_job_collection().find_one(filter, None).await?)
     }
 
-    async fn update_job(&self, job: &JobItem) -> Result<()> {
-        let job_doc = bson::to_document(job)?;
-        let update = doc! {
-            "$set": job_doc
+    async fn update_job(&self, current_job: &JobItem, updates: JobItemUpdates) -> Result<()> {
+        // Filters to search for the job
+        let filter = doc! {
+            "id": current_job.id,
+            "version": current_job.version,
         };
-        self.update_job_optimistically(job, update).await?;
-        Ok(())
-    }
+        let options = UpdateOptions::builder().upsert(false).build();
 
-    async fn update_job_status(&self, job: &JobItem, new_status: JobStatus) -> Result<()> {
-        let update = doc! {
-            "$set": {
-                "status": mongodb::bson::to_bson(&new_status)?,
-            }
-        };
-        self.update_job_optimistically(job, update).await?;
-        Ok(())
-    }
+        // Creates an update document based on the updates, if the field is None don;t create it's key
+        let mut values = doc! {};
+        if let Some(internal_id) = updates.internal_id {
+            values.insert("internal_id", internal_id);
+        }
+        if let Some(job_type) = updates.job_type {
+            values.insert("job_type", mongodb::bson::to_bson(&job_type)?);
+        }
+        if let Some(status) = updates.status {
+            values.insert("status", mongodb::bson::to_bson(&status)?);
+        }
+        if let Some(external_id) = updates.external_id {
+            values.insert("external_id", mongodb::bson::to_bson(&external_id)?);
+        }
+        if let Some(metadata) = updates.metadata {
+            values.insert("metadata", mongodb::bson::to_bson(&metadata)?);
+        }
 
-    async fn update_metadata(&self, job: &JobItem, metadata: HashMap<String, String>) -> Result<()> {
+        // Version
+        if updates.version.unwrap_or(false) {
+            values.insert("version", current_job.version + 1);
+        }
+
+        // Updated at
+        if updates.updated_at.unwrap_or(false) {
+            values.insert("updated_at", Utc::now().round_subsecs(0));
+        }
+
         let update = doc! {
-            "$set": {
-                "metadata":  mongodb::bson::to_document(&metadata)?
-            }
+            "$set": values
         };
-        self.update_job_optimistically(job, update).await?;
+
+        let result = self.get_job_collection().update_one(filter, update, options).await?;
+        if result.modified_count == 0 {
+            return Err(eyre!("Failed to update job. Job version is likely outdated"));
+        }
+
         Ok(())
     }
 

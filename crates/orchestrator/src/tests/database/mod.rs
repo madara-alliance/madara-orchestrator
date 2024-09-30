@@ -158,52 +158,6 @@ async fn database_get_jobs_after_internal_id_by_job_type_works() {
     assert_eq!(jobs_after_internal_id[1], job_vec[5]);
 }
 
-/// Test for `update_job_status` operation in database trait.
-/// Happy Case : Creating a job with version 0 and updating the job with version 0 update only.
-#[rstest]
-#[tokio::test]
-async fn database_update_job_status_passing_case_works() {
-    let services = TestConfigBuilder::new().configure_database(ConfigType::Actual).build().await;
-    let config = services.config;
-
-    let database_client = config.database();
-
-    let job = build_job_item(JobType::SnosRun, JobStatus::Created, 1);
-
-    database_client.create_job(job.clone()).await.unwrap();
-
-    let updating_job_res = database_client.update_job_status(&job, JobStatus::Completed).await.is_ok();
-
-    assert!(updating_job_res, "Job result assertion failed");
-}
-
-/// Test for `update_job_status` operation in database trait.
-/// Failing Case : Creating a job with version 1 and updating the job with version 0 update only.
-#[rstest]
-#[tokio::test]
-async fn database_update_job_status_failing_case_works() {
-    let services = TestConfigBuilder::new().configure_database(ConfigType::Actual).build().await;
-    let config = services.config;
-    let database_client = config.database();
-
-    // Scenario :
-
-    // Worker 1 :
-    // Job is created
-    let job = build_job_item(JobType::SnosRun, JobStatus::Created, 1);
-    database_client.create_job(job.clone()).await.unwrap();
-
-    // Worker 2 :
-    // Job is updated
-    let updating_job_res = database_client.update_job_status(&job, JobStatus::Completed).await.is_ok();
-    assert!(updating_job_res, "Job result assertion failed");
-
-    // Worker 1 :
-    // Job update try (update should fail)
-    let updating_job_res = database_client.update_job_status(&job, JobStatus::PendingVerification).await.is_err();
-    assert!(updating_job_res, "Job result assertion failed");
-}
-
 // Test Util Functions
 // ==========================================
 

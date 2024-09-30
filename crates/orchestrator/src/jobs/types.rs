@@ -142,6 +142,45 @@ pub struct JobItem {
     pub updated_at: DateTime<Utc>,
 }
 
+/// Defining a structure that contains the changes to be made in the job object,
+/// id and created at are not allowed to be changed
+pub struct JobItemUpdates {
+    pub internal_id: Option<String>,
+    pub job_type: Option<JobType>,
+    pub status: Option<JobStatus>,
+    pub external_id: Option<ExternalId>,
+    pub metadata: Option<HashMap<String, String>>,
+    // version can only be increased, so it's a bool to whether to increase or not, don't take value from parent
+    pub version: Option<bool>,
+    // only update these field if bool is true, don't take value from parent
+    pub updated_at: Option<bool>,
+}
+
+/// implements default selections for JobItemUpdates
+impl Default for JobItemUpdates {
+    fn default() -> Self {
+        JobItemUpdates {
+            internal_id: None,
+            job_type: None,
+            status: None,
+            external_id: None,
+            metadata: None,
+            version: None,
+            updated_at: None,
+        }
+    }
+}
+
+/// implements only needed singular changes
+impl JobItemUpdates {
+    pub fn only_status(status: JobStatus) -> Self {
+        JobItemUpdates { status: Some(status), ..Default::default() }
+    }
+    pub fn only_metadata(metadata: HashMap<String, String>) -> Self {
+        JobItemUpdates { metadata: Some(metadata), ..Default::default() }
+    }
+}
+
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum JobVerificationStatus {
     #[allow(dead_code)]
