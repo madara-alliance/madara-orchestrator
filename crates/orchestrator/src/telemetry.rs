@@ -65,7 +65,7 @@ pub fn global_tracer() -> &'static Tracer {
 pub fn init_tracer_provider() -> Tracer {
     let batch_config = BatchConfigBuilder::default()
     // Increasing the queue size and batch size, only increase in queue size delays full channel error.
-    .with_max_queue_size(10000) 
+    .with_max_queue_size(10000)
     .with_max_export_batch_size(512) // On default
     .with_scheduled_delay(Duration::from_secs(5)) // On default
     .build();
