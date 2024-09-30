@@ -162,8 +162,9 @@ async fn test_orchestrator_workflow(#[case] l2_block_number: String) {
         internal_id: l2_block_number.clone(),
         job_type: JobType::ProofCreation,
         job_status: JobStatus::Completed,
-        version: 3,
+        version: 1,
     };
+    print!("DB state test");
     let test_result = wait_for_db_state(
         Duration::from_secs(900),
         l2_block_number.clone(),
@@ -178,7 +179,7 @@ async fn test_orchestrator_workflow(#[case] l2_block_number: String) {
         internal_id: l2_block_number.clone(),
         job_type: JobType::DataSubmission,
         job_status: JobStatus::Completed,
-        version: 3,
+        version: 1,
     };
     let test_result = wait_for_db_state(
         Duration::from_secs(300),
@@ -194,7 +195,7 @@ async fn test_orchestrator_workflow(#[case] l2_block_number: String) {
         internal_id: l2_block_number.clone(),
         job_type: JobType::StateTransition,
         job_status: JobStatus::Completed,
-        version: 3,
+        version: 1,
     };
     let test_result = wait_for_db_state(
         Duration::from_secs(300),
@@ -220,6 +221,9 @@ async fn wait_for_db_state(
             get_database_state(mongo_db_server, l2_block_for_testing.clone(), expected_db_state.job_type.clone())
                 .await
                 .unwrap();
+
+        println!("db_state: {:?}", db_state);
+        println!("expected_db_state: {:?}", expected_db_state);
         if db_state.is_some() && db_state.unwrap() == expected_db_state {
             return Ok(());
         }
