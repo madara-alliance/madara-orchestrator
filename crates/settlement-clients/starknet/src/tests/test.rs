@@ -1,4 +1,4 @@
-use super::{MadaraCmd, MadaraCmdBuilder};
+use super::setup::{MadaraCmd, MadaraCmdBuilder};
 use crate::StarknetSettlementClient;
 use rstest::{fixture, rstest};
 use settlement_client_interface::SettlementClient;
@@ -22,7 +22,6 @@ use utils::settings::env::EnvSettingsProvider;
 use utils::settings::Settings;
 
 pub async fn spin_up_madara() -> MadaraCmd {
-    println!("Spinning up madara");
     env::set_current_dir(env::var("MADARA_BINARY_PATH").unwrap()).expect("Failed to set working directory");
     println!("Current working directory: {:?}", env::current_dir().unwrap());
     let mut node = MadaraCmdBuilder::new()
@@ -84,7 +83,7 @@ async fn wait_for_tx(
 
 #[fixture]
 async fn setup() -> (SingleOwnerAccount<JsonRpcClient<HttpTransport>, LocalWallet>, MadaraCmd) {
-    let _ = env_logger::builder().is_test(true).try_init();
+    // let _ = env_logger::builder().is_test(true).try_init();
     dotenvy::from_filename_override(".env.test").expect("Failed to load the .env file");
 
     let madara_process = spin_up_madara().await;
@@ -137,7 +136,7 @@ async fn test_deployment(#[future] setup: (SingleOwnerAccount<JsonRpcClient<Http
         account.declare_v2(Arc::new(flattened_class.clone()), compiled_class_hash).send().await.unwrap();
     println!("declare tx hash {:?}", declare_tx_hash);
 
-    let is_success = wait_for_tx_success(&account, declare_tx_hash, Duration::from_secs(2)).await;
+    let is_success = wait_for_tx(&account, declare_tx_hash, Duration::from_secs(2)).await;
     assert!(is_success, "Declare trasactiion failed");
 
     let contract_factory = ContractFactory::new(flattened_class.class_hash(), account.clone());
@@ -148,7 +147,7 @@ async fn test_deployment(#[future] setup: (SingleOwnerAccount<JsonRpcClient<Http
     let InvokeTransactionResult { transaction_hash: deploy_tx_hash } =
         deploy_v1.send().await.expect("Unable to deploy contract");
 
-    let is_success = wait_for_tx_success(&account, deploy_tx_hash, Duration::from_secs(2)).await;
+    let is_success = wait_for_tx(&account, deploy_tx_hash, Duration::from_secs(2)).await;
     assert!(is_success, "Deploy trasaction failed");
 }
 
@@ -179,7 +178,7 @@ async fn test_settle(#[future] setup: (SingleOwnerAccount<JsonRpcClient<HttpTran
         account.declare_v2(Arc::new(flattened_class.clone()), compiled_class_hash).send().await.unwrap();
     println!("declare tx hash {:?}", declare_tx_hash);
 
-    let is_success = wait_for_tx_success(&account, declare_tx_hash, Duration::from_secs(2)).await;
+    let is_success = wait_for_tx(&account, declare_tx_hash, Duration::from_secs(2)).await;
     assert!(is_success, "Declare trasactiion failed");
 
     let contract_factory = ContractFactory::new(flattened_class.class_hash(), account.clone());
@@ -190,7 +189,7 @@ async fn test_settle(#[future] setup: (SingleOwnerAccount<JsonRpcClient<HttpTran
     let InvokeTransactionResult { transaction_hash: deploy_tx_hash } =
         deploy_v1.send().await.expect("Unable to deploy contract");
 
-    let is_success = wait_for_tx_success(&account, deploy_tx_hash, Duration::from_secs(2)).await;
+    let is_success = wait_for_tx(&account, deploy_tx_hash, Duration::from_secs(2)).await;
     assert!(is_success, "Deploy trasaction failed");
 
     let env_settings = EnvSettingsProvider {};
@@ -205,7 +204,7 @@ async fn test_settle(#[future] setup: (SingleOwnerAccount<JsonRpcClient<HttpTran
 
     println!("update state tx hash {:?}", update_state_tx_hash);
 
-    let is_success = wait_for_tx_success(
+    let is_success = wait_for_tx(
         &account,
         Felt::from_hex(&update_state_tx_hash).expect("Incorrect transaction hash"),
         Duration::from_secs(2),

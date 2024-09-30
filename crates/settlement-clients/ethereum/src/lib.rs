@@ -27,9 +27,6 @@ use mockall::{automock, predicate::*};
 
 use alloy::providers::ProviderBuilder;
 use conversion::{get_input_data_for_eip_4844, prepare_sidecar};
-#[cfg(not(feature = "testing"))]
-use settlement_client_interface::{SettlementClient, SettlementVerificationStatus};
-#[cfg(feature = "testing")]
 use settlement_client_interface::{SettlementClient, SettlementVerificationStatus};
 #[cfg(feature = "testing")]
 use url::Url;
