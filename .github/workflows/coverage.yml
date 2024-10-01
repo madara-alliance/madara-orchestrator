@@ -76,7 +76,7 @@ jobs:
         uses: actions/checkout@v4
         with:
           repository: madara-alliance/madara # Replace with your first repository
-          ref: '0be628b9baef536a724c9b1f6cf4e76a4e25e4de'  # Replace with your branch name
+          ref: "0be628b9baef536a724c9b1f6cf4e76a4e25e4de" # Replace with your branch name
           path: madara
 
       - name: Build Madara
