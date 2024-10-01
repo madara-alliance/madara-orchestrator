@@ -132,7 +132,6 @@ where
     };
 
     let job_message = parse_job_message(&message)?;
-    tracing::info!("Consuming from queue {:?} with job message {:?}", queue, job_message);
 
     if let Some(job_message) = job_message {
         handle_job_message(job_message, message, handler, config).await?;
@@ -237,7 +236,6 @@ where
     F: FnOnce(Box<dyn Worker>, Arc<Config>) -> Fut,
     Fut: Future<Output = color_eyre::Result<()>>,
 {
-    tracing::info!("Handling worker trigger for worker type : {:?}", job_message.worker);
     let worker_handler = get_worker_handler_from_worker_trigger_type(job_message.worker.clone());
 
     match handler(worker_handler, config.clone()).await {

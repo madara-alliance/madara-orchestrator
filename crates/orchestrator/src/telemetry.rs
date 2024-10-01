@@ -24,6 +24,8 @@ lazy_static! {
     pub static ref OTEL_SERVICE_NAME: String = get_env_var_or_panic("OTEL_SERVICE_NAME");
     #[derive(Debug)]
     pub static ref OTEL_COLLECTOR_ENDPOINT: String = get_env_var_or_panic("OTEL_COLLECTOR_ENDPOINT");
+    #[derive(Debug)]
+    pub static ref TRACING_LEVEL: String = get_env_var_or_panic("TRACING_LEVEL");
 }
 
 static METER_PROVIDER: Lazy<Arc<SdkMeterProvider>> = Lazy::new(|| {

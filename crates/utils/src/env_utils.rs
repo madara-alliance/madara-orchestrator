@@ -1,4 +1,5 @@
 use std::env::VarError;
+use tracing::Level;
 
 pub fn get_env_var(key: &str) -> Result<String, VarError> {
     std::env::var(key)
@@ -22,4 +23,16 @@ pub fn get_env_var_optional(key: &str) -> Result<Option<String>, VarError> {
 
 pub fn get_env_car_optional_or_panic(key: &str) -> Option<String> {
     get_env_var_optional(key).unwrap_or_else(|e| panic!("Failed to get env var {}: {}", key, e))
+}
+
+// We default to INFO if the tracing level env is not set properly
+pub fn get_tracing_level_from_string(key: &str) -> Level {
+    match key.to_ascii_lowercase().as_str() {
+        "error" => Level::ERROR,
+        "warn" => Level::WARN,
+        "info" => Level::INFO,
+        "debug" => Level::DEBUG,
+        "trace" => Level::TRACE,
+        _ => Level::INFO,
+    }
 }

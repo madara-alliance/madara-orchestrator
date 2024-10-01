@@ -9,3 +9,4 @@ edition.workspace = true
 color-eyre = { workspace = true }
 serde.workspace = true
 thiserror.workspace = true
+tracing = { workspace = true }

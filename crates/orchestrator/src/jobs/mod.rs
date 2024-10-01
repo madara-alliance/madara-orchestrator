@@ -139,8 +139,6 @@ pub async fn create_job(
         .with_unit("block")
         .init();
 
-    tracing::info!("CREATE JOB CALLED for {:?} and type {:?}", internal_id, job_type);
-
     let existing_job = config
         .database()
         .get_job_by_internal_id_and_type(internal_id.as_str(), &job_type)
@@ -148,7 +146,6 @@ pub async fn create_job(
         .map_err(|e| JobError::Other(OtherError(e)))?;
 
     if existing_job.is_some() {
-        tracing::info!("CREATE JOB SKIPPED for {:?} and type {:?}", internal_id, job_type);
         return Err(JobError::JobAlreadyExists { internal_id, job_type });
     }
 
@@ -157,8 +154,6 @@ pub async fn create_job(
     config.database().create_job(job_item.clone()).await.map_err(|e| JobError::Other(OtherError(e)))?;
 
     add_job_to_process_queue(job_item.id, config.clone()).await.map_err(|e| JobError::Other(OtherError(e)))?;
-
-    tracing::info!("JOB CREATED for {:?} and type {:?} with Id {:?}", internal_id, job_type, job_item.id);
 
     let attributes = [
         KeyValue::new("job_type", format!("{:?}", job_type)),
@@ -186,8 +181,6 @@ pub async fn process_job(id: Uuid, config: Arc<Config>) -> Result<(), JobError> 
     tracing::Span::current().record("job", format!("{:?}", job.clone()));
     tracing::Span::current().record("job_type", format!("{:?}", job.job_type.clone()));
     tracing::Span::current().record("internal_id", job.internal_id.clone());
-
-    tracing::info!("PROCESS JOB CALLED for block {:?} with {:?} for id {:?}", job.internal_id, job.job_type, job.id);
 
     match job.status {
         // we only want to process jobs that are in the created or verification failed state.
@@ -229,8 +222,6 @@ pub async fn process_job(id: Uuid, config: Arc<Config>) -> Result<(), JobError> 
     .await
     .map_err(|e| JobError::Other(OtherError(e)))?;
 
-    tracing::info!("JOB PROCESSED: {:?} & {:?} & {:?}", job.job_type, job.internal_id, job.id);
-
     let attributes = [
         KeyValue::new("job_type", format!("{:?}", job.job_type)),
         KeyValue::new("type", "process_job"),
@@ -263,8 +254,6 @@ pub async fn verify_job(id: Uuid, config: Arc<Config>) -> Result<(), JobError> {
     tracing::Span::current().record("job", format!("{:?}", job.clone()));
     tracing::Span::current().record("job_type", format!("{:?}", job.job_type.clone()));
     tracing::Span::current().record("internal_id", job.internal_id.clone());
-
-    tracing::info!("JOB VERIFY CALLED: {:?} & {:?} & {:?}", job.job_type, job.internal_id, job.id);
 
     match job.status {
         JobStatus::PendingVerification => {
@@ -333,7 +322,6 @@ pub async fn verify_job(id: Uuid, config: Arc<Config>) -> Result<(), JobError> {
             .map_err(|e| JobError::Other(OtherError(e)))?;
         }
     };
-    tracing::info!("JOB VERIFIED: {:?} & {:?} & {:?}", job.job_type, job.internal_id, job.id);
 
     let attributes = [
         KeyValue::new("job_type", format!("{:?}", job.job_type)),

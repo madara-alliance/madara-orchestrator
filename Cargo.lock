@@ -10193,6 +10193,7 @@ dependencies = [
  "color-eyre",
  "serde",
  "thiserror",
+ "tracing",
 ]
 
 [[package]]
