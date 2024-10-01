@@ -107,7 +107,6 @@ async fn setup() -> (LocalWalletSignerMiddleware, MadaraCmd) {
 #[tokio::test]
 async fn test_settle(#[future] setup: (LocalWalletSignerMiddleware, MadaraCmd)) {
     let (account, _madara_process) = setup.await;
-    let account = Arc::new(account);
 
     let project_root = Path::new(env!("CARGO_MANIFEST_DIR")).ancestors().nth(3).unwrap();
     let contract_path = project_root.join("crates/settlement-clients/starknet/src/tests/mock_contracts/target/dev");

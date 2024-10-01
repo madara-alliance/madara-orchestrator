@@ -138,23 +138,18 @@ impl SettlementClient for StarknetSettlementClient {
         let execution_result = tx_receipt.receipt.execution_result();
         let status = execution_result.status();
 
-        if tx_receipt.block.is_pending() {
-            match status {
-                TransactionExecutionStatus::Succeeded => Ok(SettlementVerificationStatus::Pending),
-                TransactionExecutionStatus::Reverted => Ok(SettlementVerificationStatus::Rejected(format!(
-                    "Pending tx {} has been reverted: {}",
-                    tx_hash,
-                    execution_result.revert_reason().unwrap()
-                ))),
-            }
-        } else {
-            match status {
-                TransactionExecutionStatus::Succeeded => Ok(SettlementVerificationStatus::Verified),
-                TransactionExecutionStatus::Reverted => Ok(SettlementVerificationStatus::Rejected(format!(
-                    "Tx {} has been reverted: {}",
-                    tx_hash,
-                    execution_result.revert_reason().unwrap()
-                ))),
+        match status {
+            TransactionExecutionStatus::Reverted => Ok(SettlementVerificationStatus::Rejected(format!(
+                "Transaction {} has been reverted: {}",
+                tx_hash,
+                execution_result.revert_reason().unwrap()
+            ))),
+            TransactionExecutionStatus::Succeeded => {
+                if tx_receipt.block.is_pending() {
+                    Ok(SettlementVerificationStatus::Pending)
+                } else {
+                    Ok(SettlementVerificationStatus::Verified)
+                }
             }
         }
     }
@@ -215,7 +210,7 @@ impl SettlementClient for StarknetSettlementClient {
 
     /// Returns the nonce for the wallet in use.
     async fn get_nonce(&self) -> Result<u64> {
-        todo!("Yet to impl nonce call for Starknet.")
+        Ok(u64_from_felt(self.account.get_nonce().await?))
     }
 }
 
