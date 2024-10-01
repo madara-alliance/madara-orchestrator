@@ -326,7 +326,7 @@ pub async fn mock_starknet_get_nonce(starknet_client: &mut StarknetClient, l2_bl
     let vec: Vec<NonceAddress> = serde_json::from_str(&contents).unwrap();
 
     for ele in vec {
-        let address = Felt::from_hex(&ele.address).unwrap();
+        let address = Felt::from_dec_str(&ele.address).expect("Failed to convert to felt");
         let hex_field_element = vec_u8_to_hex_string(&address.to_bytes_be());
 
         let response = json!({ "id": 640641,"jsonrpc":"2.0","result": ele.nonce });

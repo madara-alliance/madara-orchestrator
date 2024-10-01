@@ -22,6 +22,7 @@ use utils::settings::env::EnvSettingsProvider;
 use utils::settings::Settings;
 
 pub async fn spin_up_madara() -> MadaraCmd {
+    log::trace!("Spinning up Madara");
     env::set_current_dir(env::var("MADARA_BINARY_PATH").unwrap()).expect("Failed to set working directory");
     println!("Current working directory: {:?}", env::current_dir().unwrap());
     let mut node = MadaraCmdBuilder::new()
@@ -83,7 +84,6 @@ async fn wait_for_tx(
 
 #[fixture]
 async fn setup() -> (SingleOwnerAccount<JsonRpcClient<HttpTransport>, LocalWallet>, MadaraCmd) {
-    // let _ = env_logger::builder().is_test(true).try_init();
     dotenvy::from_filename_override(".env.test").expect("Failed to load the .env file");
 
     let madara_process = spin_up_madara().await;

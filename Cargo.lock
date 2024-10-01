@@ -9018,6 +9018,7 @@ dependencies = [
  "crypto-bigint 0.5.5",
  "dotenvy",
  "lazy_static",
+ "log",
  "mockall",
  "reqwest 0.12.7",
  "rstest 0.22.0",
