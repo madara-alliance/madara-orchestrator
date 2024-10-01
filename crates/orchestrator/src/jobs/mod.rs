@@ -176,11 +176,14 @@ pub async fn process_job(id: Uuid, config: Arc<Config>) -> Result<(), JobError> 
     let external_id = job_handler.process_job(config.clone(), &mut job).await?;
     let metadata = increment_key_in_metadata(&job.metadata, JOB_PROCESS_ATTEMPT_METADATA_KEY)?;
 
+    let mut job_cloned = job.clone();
+    job_cloned.version = job_cloned.version.clone() + 1;
+
     // Fetching the job again because update status above will update the job version
     config
         .database()
         .update_job(
-            &job,
+            &job_cloned,
             JobItemUpdates {
                 status: Some(JobStatus::PendingVerification),
                 metadata: Some(metadata),
