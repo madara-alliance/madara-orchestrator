@@ -258,7 +258,6 @@ impl StateUpdateJob {
     }
 
     /// Validate that the list of block numbers to process is valid.
-    // #[tracing::instrument(skip(self, config))]
     async fn validate_block_numbers(&self, config: Arc<Config>, block_numbers: &[u64]) -> Result<(), JobError> {
         if block_numbers.is_empty() {
             Err(StateUpdateError::BlockNumberNotFound)?;
@@ -279,7 +278,6 @@ impl StateUpdateJob {
     }
 
     /// Update the state for the corresponding block using the settlement layer.
-    // #[tracing::instrument(skip(self, config))]
     async fn update_state_for_block(
         &self,
         config: Arc<Config>,
@@ -312,7 +310,6 @@ impl StateUpdateJob {
     }
 
     /// Retrieves the SNOS output for the corresponding block.
-    // #[tracing::instrument(skip(self, config))]
     async fn fetch_snos_for_block(&self, block_no: u64, config: Arc<Config>) -> StarknetOsOutput {
         let storage_client = config.storage();
         let key = block_no.to_string() + "/" + SNOS_OUTPUT_FILE_NAME;
@@ -323,7 +320,6 @@ impl StateUpdateJob {
 
     /// Insert the tx hashes into the the metadata for the attempt number - will be used later by
     /// verify_job to make sure that all tx are successful.
-    // #[tracing::instrument(skip(self))]
     fn insert_attempts_into_metadata(&self, job: &mut JobItem, attempt_no: &str, tx_hashes: &[String]) {
         let new_attempt_metadata_key = format!("{}{}", JOB_METADATA_STATE_UPDATE_ATTEMPT_PREFIX, attempt_no);
         job.metadata.insert(new_attempt_metadata_key, tx_hashes.join(","));

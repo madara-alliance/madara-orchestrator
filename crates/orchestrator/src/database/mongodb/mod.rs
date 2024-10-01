@@ -30,7 +30,6 @@ pub struct MongoDb {
 }
 
 impl MongoDb {
-    // #[tracing::instrument(skip(settings))]
     pub async fn new_with_settings(settings: &impl Settings) -> Self {
         let mongo_db_settings = MongoDbConfig::new_with_settings(settings);
         let mut client_options =

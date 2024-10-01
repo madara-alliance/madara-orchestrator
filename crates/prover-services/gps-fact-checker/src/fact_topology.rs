@@ -22,7 +22,6 @@ pub struct FactTopology {
 }
 
 /// Returns the fact topology from the additional data of the output builtin.
-// #[tracing::instrument(skip(cairo_pie, output_size))]
 pub fn get_fact_topology(cairo_pie: &CairoPie, output_size: usize) -> Result<FactTopology, FactCheckerError> {
     if let Some(BuiltinAdditionalData::Output(additional_data)) = cairo_pie.additional_data.0.get(&BuiltinName::output)
     {
@@ -48,7 +47,6 @@ pub fn get_fact_topology(cairo_pie: &CairoPie, output_size: usize) -> Result<Fac
 
 /// Returns the sizes of the program output pages, given the pages dictionary that appears
 /// in the additional attributes of the output builtin.
-// #[tracing::instrument(skip(pages, output_size))]
 pub fn get_page_sizes(
     pages: &HashMap<usize, PublicMemoryPage>,
     output_size: usize,

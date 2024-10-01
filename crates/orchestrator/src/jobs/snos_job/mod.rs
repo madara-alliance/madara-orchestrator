@@ -16,7 +16,6 @@ pub struct SnosJob;
 
 #[async_trait]
 impl Job for SnosJob {
-    // #[tracing::instrument(skip(self, _config))]
     async fn create_job(
         &self,
         _config: Arc<Config>,

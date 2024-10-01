@@ -102,7 +102,6 @@ impl SettlementClient for StarknetSettlementClient {
     }
 
     /// Should be used to update state on core contract when DA is done in calldata
-    // #[tracing::instrument(skip(self, program_output, onchain_data_hash, onchain_data_size))]
     async fn update_state_calldata(
         &self,
         program_output: Vec<[u8; 32]>,
@@ -128,7 +127,6 @@ impl SettlementClient for StarknetSettlementClient {
     }
 
     /// Should verify the inclusion of a tx in the settlement layer
-    // #[tracing::instrument(skip(self))]
     async fn verify_tx_inclusion(&self, tx_hash: &str) -> Result<SettlementVerificationStatus> {
         let tx_hash = FieldElement::from_hex_be(tx_hash)?;
         let tx_receipt = self.account.provider().get_transaction_receipt(tx_hash).await?;
@@ -183,7 +181,6 @@ impl SettlementClient for StarknetSettlementClient {
     }
 
     /// Returns the last block settled from the core contract.
-    // #[tracing::instrument(skip(self))]
     async fn get_last_settled_block(&self) -> Result<u64> {
         let block_number = self
             .account

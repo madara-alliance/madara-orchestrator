@@ -16,7 +16,6 @@ pub struct RegisterProofJob;
 
 #[async_trait]
 impl Job for RegisterProofJob {
-    // #[tracing::instrument(skip(self, _config))]
     async fn create_job(
         &self,
         _config: Arc<Config>,

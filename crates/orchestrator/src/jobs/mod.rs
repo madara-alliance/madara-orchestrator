@@ -375,7 +375,6 @@ pub async fn handle_job_failure(id: Uuid, config: Arc<Config>) -> Result<(), Job
     Ok(())
 }
 
-// #[tracing::instrument(skip(config))]
 async fn get_job(id: Uuid, config: Arc<Config>) -> Result<JobItem, JobError> {
     let job = config.database().get_job_by_id(id).await.map_err(|e| JobError::Other(OtherError(e)))?;
     match job {
@@ -384,7 +383,6 @@ async fn get_job(id: Uuid, config: Arc<Config>) -> Result<JobItem, JobError> {
     }
 }
 
-// #[tracing::instrument]
 pub fn increment_key_in_metadata(
     metadata: &HashMap<String, String>,
     key: &str,
@@ -397,7 +395,6 @@ pub fn increment_key_in_metadata(
     Ok(new_metadata)
 }
 
-// #[tracing::instrument]
 fn get_u64_from_metadata(metadata: &HashMap<String, String>, key: &str) -> color_eyre::Result<u64> {
     metadata
         .get(key)
