@@ -98,7 +98,7 @@ async fn setup() -> (SingleOwnerAccount<JsonRpcClient<HttpTransport>, LocalWalle
     let signer = LocalWallet::from(SigningKey::from_secret_scalar(
         Felt::from_hex(&env_settings.get_settings_or_panic("STARKNET_PRIVATE_KEY")).expect("Invalid private key"),
     ));
-    let address = Felt::from_hex(&env_settings.get_settings_or_panic("STARKNET_PUBLIC_KEY")).unwrap();
+    let address = Felt::from_hex(&env_settings.get_settings_or_panic("STARKNET_ACCOUNT_ADDRESS")).unwrap();
 
     let chain_id = provider.chain_id().await.unwrap();
     let mut account = SingleOwnerAccount::new(provider, signer, address, chain_id, ExecutionEncoding::New);

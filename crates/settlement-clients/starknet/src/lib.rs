@@ -40,7 +40,7 @@ pub struct StarknetSettlementClient {
     pub tx_finality_retry_delay_in_seconds: u64,
 }
 
-pub const ENV_PUBLIC_KEY: &str = "STARKNET_PUBLIC_KEY";
+pub const ENV_ACCOUNT_ADDRESS: &str = "STARKNET_ACCOUNT_ADDRESS";
 pub const ENV_PRIVATE_KEY: &str = "STARKNET_PRIVATE_KEY";
 
 const MAX_RETRIES_VERIFY_TX_FINALITY: usize = 10;
@@ -54,7 +54,7 @@ impl StarknetSettlementClient {
         let provider: Arc<JsonRpcClient<HttpTransport>> =
             Arc::new(JsonRpcClient::new(HttpTransport::new(settlement_cfg.rpc_url.clone())));
 
-        let public_key = settings.get_settings_or_panic(ENV_PUBLIC_KEY);
+        let public_key = settings.get_settings_or_panic(ENV_ACCOUNT_ADDRESS);
         let signer_address = Felt::from_hex(&public_key).expect("invalid signer address");
 
         // TODO: Very insecure way of building the signer. Needs to be adjusted.
