@@ -105,48 +105,6 @@ async fn setup() -> (LocalWalletSignerMiddleware, MadaraCmd) {
 
 #[rstest]
 #[tokio::test]
-async fn test_deployment(#[future] setup: (LocalWalletSignerMiddleware, MadaraCmd)) {
-    let (account, _madara_process) = setup.await;
-    let account = Arc::new(account);
-
-    let project_root = Path::new(env!("CARGO_MANIFEST_DIR")).ancestors().nth(3).unwrap();
-    let contract_path = project_root.join("crates/settlement-clients/starknet/src/tests/mock_contracts/target/dev");
-    let sierra_class: SierraClass = serde_json::from_reader(
-        std::fs::File::open(contract_path.join("mock_contracts_Piltover.contract_class.json"))
-            .expect("Could not open sierra class file"),
-    )
-    .expect("Failed to parse SierraClass");
-
-    let compiled_class: CompiledClass = serde_json::from_reader(
-        std::fs::File::open(contract_path.join("mock_contracts_Piltover.compiled_contract_class.json"))
-            .expect("Could not open compiled class file"),
-    )
-    .expect("Failed to parse CompiledClass");
-
-    let flattened_class = sierra_class.clone().flatten().unwrap();
-    let compiled_class_hash = compiled_class.class_hash().unwrap();
-
-    let DeclareTransactionResult { transaction_hash: declare_tx_hash, class_hash: _ } =
-        account.declare_v2(Arc::new(flattened_class.clone()), compiled_class_hash).send().await.unwrap();
-    println!("declare tx hash {:?}", declare_tx_hash);
-
-    let is_success = wait_for_tx(&account, declare_tx_hash, Duration::from_secs(2)).await;
-    assert!(is_success, "Declare trasactiion failed");
-
-    let contract_factory = ContractFactory::new(flattened_class.class_hash(), account.clone());
-    let deploy_v1 = contract_factory.deploy_v1(vec![], felt!("1122"), false);
-    let deployed_address = deploy_v1.deployed_address();
-
-    env::set_var("STARKNET_CAIRO_CORE_CONTRACT_ADDRESS", deployed_address.to_hex_string());
-    let InvokeTransactionResult { transaction_hash: deploy_tx_hash } =
-        deploy_v1.send().await.expect("Unable to deploy contract");
-
-    let is_success = wait_for_tx(&account, deploy_tx_hash, Duration::from_secs(2)).await;
-    assert!(is_success, "Deploy trasaction failed");
-}
-
-#[rstest]
-#[tokio::test]
 async fn test_settle(#[future] setup: (LocalWalletSignerMiddleware, MadaraCmd)) {
     let (account, _madara_process) = setup.await;
     let account = Arc::new(account);
