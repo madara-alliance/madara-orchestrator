@@ -31,10 +31,12 @@ use settlement_client_interface::{SettlementClient, SettlementVerificationStatus
 use utils::settings::Settings;
 
 use crate::config::StarknetSettlementConfig;
-use crate::conversion::{slice_slice_u8_to_vec_field, slice_u8_to_field};
+use crate::conversion::{slice_slice_u8_to_vec_field, slice_u8_to_field, u64_from_felt};
+
+pub type LocalWalletSignerMiddleware = Arc<SingleOwnerAccount<Arc<JsonRpcClient<HttpTransport>>, LocalWallet>>;
 
 pub struct StarknetSettlementClient {
-    pub account: Arc<SingleOwnerAccount<Arc<JsonRpcClient<HttpTransport>>, LocalWallet>>,
+    pub account: LocalWalletSignerMiddleware,
     pub starknet_core_contract_client: StarknetCoreContractClient,
     pub core_contract_address: Felt,
     pub tx_finality_retry_delay_in_seconds: u64,
@@ -208,7 +210,7 @@ impl SettlementClient for StarknetSettlementClient {
             return Err(eyre!("Could not fetch last block number from core contract."));
         }
 
-        Ok(u64::from_le_bytes(block_number[0].to_bytes_le()[0..8].try_into().unwrap()))
+        Ok(u64_from_felt(block_number[0]))
     }
 
     /// Returns the nonce for the wallet in use.

@@ -1,5 +1,5 @@
 use super::setup::{MadaraCmd, MadaraCmdBuilder};
-use crate::StarknetSettlementClient;
+use crate::{LocalWalletSignerMiddleware, StarknetSettlementClient};
 use rstest::{fixture, rstest};
 use settlement_client_interface::SettlementClient;
 use starknet::{
@@ -45,11 +45,7 @@ pub async fn spin_up_madara() -> MadaraCmd {
     node
 }
 
-async fn wait_for_tx(
-    account: &SingleOwnerAccount<JsonRpcClient<HttpTransport>, LocalWallet>,
-    transaction_hash: Felt,
-    duration: Duration,
-) -> bool {
+async fn wait_for_tx(account: &LocalWalletSignerMiddleware, transaction_hash: Felt, duration: Duration) -> bool {
     let mut attempt = 0;
     loop {
         attempt += 1;
@@ -83,7 +79,7 @@ async fn wait_for_tx(
 }
 
 #[fixture]
-async fn setup() -> (SingleOwnerAccount<JsonRpcClient<HttpTransport>, LocalWallet>, MadaraCmd) {
+async fn setup() -> (LocalWalletSignerMiddleware, MadaraCmd) {
     dotenvy::from_filename_override(".env.test").expect("Failed to load the .env file");
 
     let madara_process = spin_up_madara().await;
@@ -92,8 +88,7 @@ async fn setup() -> (SingleOwnerAccount<JsonRpcClient<HttpTransport>, LocalWalle
     let env_settings = EnvSettingsProvider::default();
     let rpc_url = Url::parse(&env_settings.get_settings_or_panic("STARKNET_RPC_URL")).unwrap();
 
-    // let provider = JsonRpcClient::new(HttpTransport::new(Url::parse("http://localhost:9944").unwrap()));
-    let provider: JsonRpcClient<HttpTransport> = JsonRpcClient::new(HttpTransport::new(rpc_url));
+    let provider = Arc::new(JsonRpcClient::new(HttpTransport::new(rpc_url)));
     let signer = LocalWallet::from(SigningKey::from_secret_scalar(
         Felt::from_hex(&env_settings.get_settings_or_panic("STARKNET_PRIVATE_KEY")).expect("Invalid private key"),
     ));
@@ -105,12 +100,12 @@ async fn setup() -> (SingleOwnerAccount<JsonRpcClient<HttpTransport>, LocalWalle
     // `SingleOwnerAccount` defaults to checking nonce and estimating fees against the latest
     // block. Optionally change the target block to pending with the following line:
     account.set_block_id(BlockId::Tag(BlockTag::Pending));
-    (account, madara_process)
+    (Arc::new(account), madara_process)
 }
 
 #[rstest]
 #[tokio::test]
-async fn test_deployment(#[future] setup: (SingleOwnerAccount<JsonRpcClient<HttpTransport>, LocalWallet>, MadaraCmd)) {
+async fn test_deployment(#[future] setup: (LocalWalletSignerMiddleware, MadaraCmd)) {
     let (account, _madara_process) = setup.await;
     let account = Arc::new(account);
 
@@ -152,7 +147,7 @@ async fn test_deployment(#[future] setup: (SingleOwnerAccount<JsonRpcClient<Http
 
 #[rstest]
 #[tokio::test]
-async fn test_settle(#[future] setup: (SingleOwnerAccount<JsonRpcClient<HttpTransport>, LocalWallet>, MadaraCmd)) {
+async fn test_settle(#[future] setup: (LocalWalletSignerMiddleware, MadaraCmd)) {
     let (account, _madara_process) = setup.await;
     let account = Arc::new(account);
 
