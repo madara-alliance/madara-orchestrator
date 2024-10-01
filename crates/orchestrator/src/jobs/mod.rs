@@ -185,8 +185,6 @@ pub async fn process_job(id: Uuid, config: Arc<Config>) -> Result<(), JobError> 
                 status: Some(JobStatus::PendingVerification),
                 metadata: Some(metadata),
                 external_id: Some(external_id.into()),
-                version: Some(true),
-                updated_at: Some(true),
                 internal_id: None,
                 job_type: None,
             },
@@ -244,8 +242,6 @@ pub async fn verify_job(id: Uuid, config: Arc<Config>) -> Result<(), JobError> {
                     JobItemUpdates {
                         status: Some(JobStatus::VerificationFailed),
                         metadata: Some(new_job.metadata),
-                        version: Some(true),
-                        updated_at: Some(true),
                         internal_id: None,
                         job_type: None,
                         external_id: None,
@@ -327,8 +323,6 @@ pub async fn handle_job_failure(id: Uuid, config: Arc<Config>) -> Result<(), Job
             JobItemUpdates {
                 status: Some(JobStatus::Failed),
                 metadata: Some(metadata),
-                version: Some(true),
-                updated_at: Some(true),
                 internal_id: None,
                 job_type: None,
                 external_id: None,

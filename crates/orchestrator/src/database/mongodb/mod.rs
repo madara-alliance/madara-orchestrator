@@ -87,7 +87,7 @@ impl Database for MongoDb {
         };
         let options = UpdateOptions::builder().upsert(false).build();
 
-        // Creates an update document based on the updates, if the field is None don;t create it's key
+        // Creates an update document based on the updates, if the field is none don't create it's key
         let mut values = doc! {};
         if let Some(internal_id) = updates.internal_id {
             values.insert("internal_id", internal_id);
@@ -105,15 +105,11 @@ impl Database for MongoDb {
             values.insert("metadata", mongodb::bson::to_bson(&metadata)?);
         }
 
-        // Version
-        if updates.version.unwrap_or(false) {
-            values.insert("version", current_job.version + 1);
-        }
+        // Version - will always be updated on any update to the job object
+        values.insert("version", current_job.version + 1);
 
-        // Updated at
-        if updates.updated_at.unwrap_or(false) {
-            values.insert("updated_at", Utc::now().round_subsecs(0));
-        }
+        // Updated At - will always be updated on any update to the job object
+        values.insert("updated_at", Utc::now().round_subsecs(0));
 
         let update = doc! {
             "$set": values
