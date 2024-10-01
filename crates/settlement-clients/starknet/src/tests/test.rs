@@ -88,7 +88,6 @@ async fn setup() -> (SingleOwnerAccount<JsonRpcClient<HttpTransport>, LocalWalle
 
     let madara_process = spin_up_madara().await;
     env::set_var("STARKNET_RPC_URL", madara_process.rpc_url.to_string());
-    println!("RPC url {:?}", madara_process.rpc_url);
 
     let env_settings = EnvSettingsProvider::default();
     let rpc_url = Url::parse(&env_settings.get_settings_or_panic("STARKNET_RPC_URL")).unwrap();
