@@ -73,9 +73,6 @@ pub fn global_tracer() -> &'static Tracer {
 pub fn init_tracer_provider() -> Tracer {
     let batch_config = BatchConfigBuilder::default()
     // Increasing the queue size and batch size, only increase in queue size delays full channel error.
-    .with_max_queue_size(10000)
-    .with_max_export_batch_size(512) // On default
-    .with_scheduled_delay(Duration::from_secs(5)) // On default
     .build();
 
     let provider = opentelemetry_otlp::new_pipeline()
@@ -93,25 +90,6 @@ pub fn init_tracer_provider() -> Tracer {
 
     provider.tracer(format!("{:?}{}", OTEL_SERVICE_NAME, "_subscriber"))
 }
-
-/// FOR STDOUT
-// use opentelemetry_otlp::SpanExporter;
-// use opentelemetry_stdout as stdout;
-// use opentelemetry_sdk::metrics;
-
-// pub fn init_tracer_provider() -> Tracer {
-//      let exporter = opentelemetry_stdout::SpanExporter::default();
-//     let provider = opentelemetry_sdk::trace::TracerProvider::builder()
-//         .with_simple_exporter(exporter)
-//         .with_config(Config::default()
-//         .with_resource(Resource::new(vec![KeyValue::new(
-//                         opentelemetry_semantic_conventions::resource::OTEL_SERVICE_NAME,
-//                         format!("{}{}", OTEL_SERVICE_NAME, "_service"),
-//                     )])))
-//         .build();
-//     global::set_tracer_provider(provider.clone());
-//     provider.tracer(format!("{}{}", OTEL_SERVICE_NAME, "_subscriber"))
-// }
 
 pub fn init_metrics() -> SdkMeterProvider {
     let export_config = ExportConfig { endpoint: OTEL_COLLECTOR_ENDPOINT.to_string(), ..ExportConfig::default() };
