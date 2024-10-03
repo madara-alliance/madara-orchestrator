@@ -33,7 +33,7 @@ jobs:
       - name: Install necessary dependencies
         run: |
           sudo apt update
-          sudo apt install -y gcc g++ build-essential libssl-dev pkg-config curl wget git
+          sudo apt install -y gcc g++ build-essential libssl-dev pkg-config curl wget git libclang-dev
 
       - name: Install Rust toolchain
         uses: actions-rs/toolchain@v1
