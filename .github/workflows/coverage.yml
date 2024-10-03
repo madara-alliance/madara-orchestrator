@@ -30,7 +30,7 @@ jobs:
 
       # selecting a toolchain either by action or manual `rustup` calls should happen
       # before the plugin, as the cache uses the current rustc version as its cache key
-      - name: Install necessary deps
+      - name: Install necessary dependencies
         run: |
           sudo apt update
           sudo apt install -y gcc g++ build-essential libssl-dev pkg-config curl wget git
