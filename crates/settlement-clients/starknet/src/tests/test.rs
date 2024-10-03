@@ -21,24 +21,20 @@ use std::time::Duration;
 use utils::settings::env::EnvSettingsProvider;
 use utils::settings::Settings;
 
+#[fixture]
 pub async fn spin_up_madara() -> MadaraCmd {
+    dotenvy::from_filename_override(".env.test").expect("Failed to load the .env file");
     log::trace!("Spinning up Madara");
-    env::set_current_dir(env::var("MADARA_BINARY_PATH").unwrap()).expect("Failed to set working directory");
-    println!("Current working directory: {:?}", env::current_dir().unwrap());
     let mut node = MadaraCmdBuilder::new()
         .args([
-            "--network",
-            "devnet",
             "--no-sync-polling",
-            "--authority",
             "--devnet",
-            "--preset=test",
+            "--preset=devnet",
             "--no-l1-sync",
             "--rpc-cors",
             "all",
             "--chain-config-override",
-            "--block-time",
-            "1",
+            "block_time=1",
         ])
         .run();
     node.wait_for_ready().await;
@@ -79,10 +75,8 @@ async fn wait_for_tx(account: &LocalWalletSignerMiddleware, transaction_hash: Fe
 }
 
 #[fixture]
-async fn setup() -> (LocalWalletSignerMiddleware, MadaraCmd) {
-    dotenvy::from_filename_override(".env.test").expect("Failed to load the .env file");
-
-    let madara_process = spin_up_madara().await;
+async fn setup(#[future] spin_up_madara: MadaraCmd) -> (LocalWalletSignerMiddleware, MadaraCmd) {
+    let madara_process = spin_up_madara.await;
     env::set_var("STARKNET_RPC_URL", madara_process.rpc_url.to_string());
 
     let env_settings = EnvSettingsProvider::default();

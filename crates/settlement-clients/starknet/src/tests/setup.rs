@@ -1,11 +1,11 @@
+use std::env;
 use std::ops::Range;
 use std::sync::Mutex;
 use std::{
     collections::HashMap,
     future::Future,
     path::{Path, PathBuf},
-    process::{Child, Command, Stdio},
-    str::FromStr,
+    process::{Child, Command},
     time::Duration,
 };
 use tempfile::TempDir;
@@ -136,8 +136,9 @@ impl MadaraCmdBuilder {
     }
 
     pub fn run(self) -> MadaraCmd {
-        let target_bin = option_env!("COVERAGE_BIN").unwrap_or("./target/debug/madara");
-        let target_bin = PathBuf::from_str(target_bin).expect("target bin is not a path");
+        let target_bin = env::var("MADARA_BINARY_PATH").expect("failed to get binary path");
+        let target_bin = PathBuf::from(target_bin);
+
         if !target_bin.exists() {
             panic!("No binary to run: {:?}", target_bin)
         }
