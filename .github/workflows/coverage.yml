@@ -97,10 +97,9 @@ jobs:
           wget -P ./crates/prover-services/sharp-service/tests/artifacts https://madara-orchestrator-sharp-pie.s3.amazonaws.com/238996-SN.zip
 
       - name: Make preset file with yq action
-        working_dir: madara
         uses: mikefarah/yq@master
         with:
-          cmd: export current_path=$(pwd) && yq -i '.versioned_constants |= with_entries(.value = (env(current_path) + "/" + .value))' ../crates/settlement-clients/starknet/src/tests/preset.yml
+          cmd: cd madara && export current_path=$(pwd) && yq -i '.versioned_constants |= with_entries(.value = (env(current_path) + "/" + .value))' ../crates/settlement-clients/starknet/src/tests/preset.yml
 
       - name: Run llvm-cov tests
         env:
