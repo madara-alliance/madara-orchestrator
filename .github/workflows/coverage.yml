@@ -96,7 +96,7 @@ jobs:
         run: |
           wget -P ./crates/prover-services/sharp-service/tests/artifacts https://madara-orchestrator-sharp-pie.s3.amazonaws.com/238996-SN.zip
 
-      - name: Make preset file
+      - name: Make preset file with yq action
         working_dir: madara
         uses: mikefarah/yq@master
         with:
