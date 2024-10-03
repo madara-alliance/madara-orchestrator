@@ -68,7 +68,7 @@ async fn test_process_job() {
 
     let mut storage = MockDataStorage::new();
     let buffer_bytes = Bytes::from(buffer);
-    storage.expect_get_data().with(eq("0/pie.zip")).return_once(move |_| Ok(buffer_bytes));
+    storage.expect_get_data().with(eq("0/cairo_pie.zip")).return_once(move |_| Ok(buffer_bytes));
 
     let services = TestConfigBuilder::new()
         .configure_starknet_client(provider.into())

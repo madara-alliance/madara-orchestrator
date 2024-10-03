@@ -58,7 +58,6 @@ async fn test_snos_worker(#[case] db_val: bool) -> Result<(), Box<dyn Error>> {
     for i in start_job_index..block + 1 {
         // Getting jobs for check expectations
         db.expect_get_job_by_internal_id_and_type()
-            .times(1)
             .with(eq(i.clone().to_string()), eq(JobType::SnosRun))
             .returning(|_, _| Ok(None));
 

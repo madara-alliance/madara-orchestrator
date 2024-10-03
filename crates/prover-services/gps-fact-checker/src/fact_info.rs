@@ -139,6 +139,7 @@ mod tests {
 
     #[tokio::test]
     async fn test_fact_info() {
+        dotenvy::from_filename("../.env.test").expect("Failed to load the .env.test file");
         // Generated using the get_fact.py script
         let expected_fact = "0xca15503f02f8406b599cb220879e842394f5cf2cef753f3ee430647b5981b782";
         let cairo_pie_path: PathBuf =
