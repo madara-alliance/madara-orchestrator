@@ -82,7 +82,6 @@ jobs:
       - name: Build Madara
         working-directory: madara
         run: |
-          cargo build
           current_path=$(pwd)
           echo -e "
           MADARA_BINARY_PATH=\"$current_path\"" >> ../.env.test
@@ -93,10 +92,10 @@ jobs:
 
       - name: Making proper presets
         run: |
-          cd madara/crates/primitives/chain_config/resources/
+          cd madara/
           export current_path=$(pwd)
           cd -
-          yq -i '.versioned_constants |= with_entries(.value = (env(current_path) + .key + ".json"))' crates/settlement-clients/starknet/src/tests/preset.yml
+          yq -i '.versioned_constants |= with_entries(.value = (env(current_path) + .value))' crates/settlement-clients/starknet/src/tests/preset.yml
           yq -i '.versioned_constants[] |= sub("\.", "_") ' crates/settlement-clients/starknet/src/tests/preset.yml
 
       - name: Run llvm-cov tests
