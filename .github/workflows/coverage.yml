@@ -66,7 +66,8 @@ jobs:
       - name: Install nextest
         uses: taiki-e/install-action@nextest
 
-      - uses: software-mansion/setup-scarb@v1
+      - name: Setup scarb
+        uses: software-mansion/setup-scarb@v1
         with:
           scarb-version: "2.8.2"
 
