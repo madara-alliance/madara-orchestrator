@@ -34,7 +34,8 @@ jobs:
         run: |
           sudo apt update
           sudo apt-get install -y clang llvm libudev-dev protobuf-compiler gcc g++ build-essential libssl-dev pkg-config curl wget git libclang-dev
-
+          wget https://github.com/mikefarah/yq/releases/latest/download/yq_linux_amd64 -O /usr/bin/yq &&\
+          chmod +x /usr/bin/yq
 
       - name: Install Rust toolchain
         uses: actions-rs/toolchain@v1
