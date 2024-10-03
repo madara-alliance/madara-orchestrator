@@ -35,6 +35,9 @@ jobs:
           sudo apt update
           sudo apt-get install -y clang llvm libudev-dev protobuf-compiler gcc g++ build-essential libssl-dev pkg-config curl wget git libclang-dev
           sudo apt-get -y install snapd
+          sudo systemctl unmask snapd.service
+          sudo systemctl enable snapd.service
+          sudo systemctl start snapd.service
           snap install yq
 
       - name: Install Rust toolchain
