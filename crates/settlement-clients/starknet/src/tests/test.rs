@@ -29,12 +29,10 @@ pub async fn spin_up_madara() -> MadaraCmd {
         .args([
             "--no-sync-polling",
             "--devnet",
-            "--preset=devnet",
             "--no-l1-sync",
+            "--chain-config-path=/Users/bytezorvin/work/karnot/orchestrator/crates/settlement-clients/starknet/src/tests/preset.yml",
             "--rpc-cors",
             "all",
-            "--chain-config-override",
-            "block_time=1",
         ])
         .run();
     node.wait_for_ready().await;

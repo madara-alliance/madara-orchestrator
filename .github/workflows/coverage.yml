@@ -91,6 +91,14 @@ jobs:
         run: |
           wget -P ./crates/prover-services/sharp-service/tests/artifacts https://madara-orchestrator-sharp-pie.s3.amazonaws.com/238996-SN.zip
 
+      - name: Making proper presets
+        run: |
+          cd madara/crates/primitives/chain_config/resources/
+          export current_path=$(path)
+          cd -
+          yq -i '.versioned_constants |= with_entries(.value = (env(current_path) + .key + ".json"))' crates/settlement-clients/starknet/src/tests/preset.yml
+          yq '.versioned_constants[] |= sub("\.", "_") ' crates/settlement-clients/starknet/src/tests/preset.yml
+
       - name: Run llvm-cov tests
         env:
           ETHEREUM_BLAST_RPC_URL: ${{ secrets.ETHEREUM_BLAST_RPC_URL }}
