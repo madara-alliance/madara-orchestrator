@@ -97,7 +97,7 @@ jobs:
           export current_path=$(pwd)
           cd -
           yq -i '.versioned_constants |= with_entries(.value = (env(current_path) + .key + ".json"))' crates/settlement-clients/starknet/src/tests/preset.yml
-          yq '.versioned_constants[] |= sub("\.", "_") ' crates/settlement-clients/starknet/src/tests/preset.yml
+          yq -i '.versioned_constants[] |= sub("\.", "_") ' crates/settlement-clients/starknet/src/tests/preset.yml
 
       - name: Run llvm-cov tests
         env:
