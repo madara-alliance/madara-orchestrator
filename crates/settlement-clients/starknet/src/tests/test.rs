@@ -121,7 +121,7 @@ async fn test_settle(#[future] setup: (LocalWalletSignerMiddleware, MadaraCmd)) 
 
     let DeclareTransactionResult { transaction_hash: declare_tx_hash, class_hash: _ } =
         account.declare_v2(Arc::new(flattened_class.clone()), compiled_class_hash).send().await.unwrap();
-    println!("declare tx hash {:?}", declare_tx_hash);
+    log::debug!("declare tx hash {:?}", declare_tx_hash);
 
     let is_success = wait_for_tx(&account, declare_tx_hash, Duration::from_secs(2)).await;
     assert!(is_success, "Declare trasactiion failed");
@@ -147,7 +147,7 @@ async fn test_settle(#[future] setup: (LocalWalletSignerMiddleware, MadaraCmd)) 
         .await
         .expect("Sending Update state");
 
-    println!("update state tx hash {:?}", update_state_tx_hash);
+    log::debug!("update state tx hash {:?}", update_state_tx_hash);
 
     let is_success = wait_for_tx(
         &account,

@@ -5,7 +5,7 @@ use std::{
     collections::HashMap,
     future::Future,
     path::{Path, PathBuf},
-    process::{Child, Command},
+    process::{Child, Command, Stdio},
     time::Duration,
 };
 use tempfile::TempDir;
