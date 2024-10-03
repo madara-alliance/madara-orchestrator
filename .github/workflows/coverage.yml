@@ -91,7 +91,7 @@ jobs:
         run: |
           wget -P ./crates/prover-services/sharp-service/tests/artifacts https://madara-orchestrator-sharp-pie.s3.amazonaws.com/238996-SN.zip
 
-      - name: Making proper presets
+      - name: Make preset file
         run: |
           cd madara/
           export current_path=$(pwd)
