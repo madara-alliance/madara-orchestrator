@@ -31,7 +31,7 @@ impl ProverClient for SharpProverService {
     async fn submit_task(&self, task: Task) -> Result<TaskId, ProverClientError> {
         match task {
             Task::CairoPie(cairo_pie) => {
-                let fact_info = get_fact_info(&cairo_pie, None)?;
+                let fact_info = get_fact_info(&cairo_pie, None).await?;
                 let encoded_pie =
                     starknet_os::sharp::pie::encode_pie_mem(cairo_pie).map_err(ProverClientError::PieEncoding)?;
                 let (_, job_key) = self.sharp_client.add_job(&encoded_pie).await?;

@@ -96,6 +96,8 @@ impl From<String> for OtherError {
 }
 // ====================================================
 
+/// Job Trait
+///
 /// The Job trait is used to define the methods that a job
 /// should implement to be used as a job for the orchestrator. The orchestrator automatically
 /// handles queueing and processing of jobs as long as they implement the trait.
@@ -199,6 +201,8 @@ pub async fn process_job(id: Uuid, config: Arc<Config>) -> Result<(), JobError> 
     Ok(())
 }
 
+/// Verify Job Function
+///
 /// Verifies the job and updates the status of the job in the DB. If the verification fails, it
 /// retries processing the job if the max attempts have not been exceeded. If the max attempts have
 /// been exceeded, it marks the job as timed out. If the verification is still pending, it pushes

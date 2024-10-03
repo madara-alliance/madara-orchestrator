@@ -79,15 +79,16 @@ mockall = "0.13.0"
 testcontainers = "0.18.0"
 
 # Cairo VM
-cairo-vm = { git = "https://github.com/Moonsong-Labs/cairo-vm", rev = "40ebe36e64ffa429ff18cba8ef0bd7d2c122ac12", features = [
-  "extensive_hints",
+cairo-vm = { git = "https://github.com/Moonsong-Labs/cairo-vm", branch = "notlesh/segment-arena-relocation-fix", features = [
   "cairo-1-hints",
+  "extensive_hints",
+  "mod_builtin",
 ] }
 
 # Snos & Sharp (Starkware)
 # TODO: Update branch to main once the PR is merged (PR #368 in the snos repository)
-starknet-os = { git = "https://github.com/keep-starknet-strange/snos", branch = "notlesh/include-compiled-snos" }
-prove_block = { git = "https://github.com/keep-starknet-strange/snos", branch = "notlesh/include-compiled-snos" }
+starknet-os = { git = "https://github.com/ocdbytes/snos", branch = "main" }
+prove_block = { git = "https://github.com/ocdbytes/snos", branch = "main" }
 
 # Madara prover API
 madara-prover-common = { git = "https://github.com/Moonsong-Labs/madara-prover-api", branch = "od/use-latest-cairo-vm" }

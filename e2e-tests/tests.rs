@@ -11,18 +11,17 @@ use e2e_tests::sharp::SharpClient;
 use e2e_tests::starknet_client::StarknetClient;
 use e2e_tests::utils::{get_mongo_db_client, read_state_update_from_file, vec_u8_to_hex_string};
 use e2e_tests::{MongoDbServer, Orchestrator};
-use ethereum_settlement_client::tests::{EthereumTest, EthereumTestBuilder, STARKNET_OPERATOR_ADDRESS};
 use mongodb::bson::doc;
 use orchestrator::data_storage::DataStorage;
+use orchestrator::jobs::constants::JOB_METADATA_SNOS_BLOCK;
 use orchestrator::jobs::types::{ExternalId, JobItem, JobStatus, JobType};
 use orchestrator::queue::job_queue::{JobQueueMessage, WorkerTriggerType};
 use rstest::rstest;
 use serde::{Deserialize, Serialize};
-use serde_json::{json};
+use serde_json::json;
 use starknet::core::types::{FieldElement, MaybePendingStateUpdate};
 use utils::env_utils::get_env_var_or_panic;
 use uuid::Uuid;
-use orchestrator::jobs::constants::JOB_METADATA_SNOS_BLOCK;
 
 extern crate e2e_tests;
 
@@ -40,13 +39,10 @@ struct ExpectedDBState {
 struct Setup {
     mongo_db_instance: MongoDbServer,
     starknet_client: StarknetClient,
-    _ethereum_client: EthereumTest,
     sharp_client: SharpClient,
     env_vector: Vec<(String, String)>,
     localstack_instance: LocalStack,
 }
-
-const L1_BLOCK_TO_FORK: u64 = 6709333;
 
 impl Setup {
     /// Initialise a new setup
@@ -56,12 +52,6 @@ impl Setup {
 
         let starknet_client = StarknetClient::new();
         println!("✅ Starknet/Madara client setup completed");
-        let ethereum_client = EthereumTestBuilder::new()
-            .with_fork_block(L1_BLOCK_TO_FORK)
-            .with_impersonator(*STARKNET_OPERATOR_ADDRESS)
-            .build()
-            .await;
-        println!("✅ Ethereum client setup completed");
 
         let sharp_client = SharpClient::new();
         println!("✅ Sharp client setup completed");
@@ -81,7 +71,7 @@ impl Setup {
 
         // Adding other values to the environment variables vector
         env_vec.push(("MADARA_RPC_URL".to_string(), get_env_var_or_panic("RPC_FOR_SNOS")));
-        env_vec.push(("SETTLEMENT_RPC_URL".to_string(), ethereum_client.rpc_url.clone().to_string()));
+        env_vec.push(("SETTLEMENT_RPC_URL".to_string(), "http://localhost:8545".to_string()));
         env_vec.push(("SHARP_URL".to_string(), sharp_client.url()));
 
         // Sharp envs
@@ -90,14 +80,15 @@ impl Setup {
         env_vec.push(("SHARP_USER_KEY".to_string(), get_env_var_or_panic("SHARP_USER_KEY")));
         env_vec.push(("SHARP_SERVER_CRT".to_string(), get_env_var_or_panic("SHARP_SERVER_CRT")));
 
-        Self {
-            mongo_db_instance,
-            starknet_client,
-            _ethereum_client: ethereum_client,
-            sharp_client,
-            env_vector: env_vec,
-            localstack_instance,
-        }
+        // Adding impersonation for operator as our own address here.
+        // As we are using test contracts thus we don't need any impersonation.
+        // But that logic is being used in integration tests so to keep that. We
+        // add this address here.
+        // Anvil.addresses[0]
+        env_vec
+            .push(("STARKNET_OPERATOR_ADDRESS".to_string(), "0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266".to_string()));
+
+        Self { mongo_db_instance, starknet_client, sharp_client, env_vector: env_vec, localstack_instance }
     }
 
     pub fn mongo_db_instance(&self) -> &MongoDbServer {
@@ -123,7 +114,7 @@ impl Setup {
 }
 
 #[rstest]
-#[case("160035".to_string())]
+#[case("66645".to_string())]
 #[tokio::test]
 async fn test_orchestrator_workflow(#[case] l2_block_number: String) {
     // Fetching the env vars from the test env file as these will be used in

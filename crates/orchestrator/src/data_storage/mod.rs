@@ -7,6 +7,8 @@ use color_eyre::Result;
 use mockall::automock;
 use utils::settings::Settings;
 
+/// Data Storage Trait
+///
 /// DataStorage trait contains the functions used to store and get the data from
 /// the cloud provider storage.
 /// The proposed storage format is :

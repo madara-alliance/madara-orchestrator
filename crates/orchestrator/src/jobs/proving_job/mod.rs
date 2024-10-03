@@ -14,6 +14,7 @@ use uuid::Uuid;
 use super::types::{JobItem, JobStatus, JobType, JobVerificationStatus};
 use super::{Job, JobError, OtherError};
 use crate::config::Config;
+use crate::constants::CAIRO_PIE_FILE_NAME;
 
 #[derive(Error, Debug, PartialEq)]
 pub enum ProvingError {
@@ -55,7 +56,7 @@ impl Job for ProvingJob {
 
     async fn process_job(&self, config: Arc<Config>, job: &mut JobItem) -> Result<String, JobError> {
         // Cairo Pie path in s3 storage client
-        let cairo_pie_path = job.internal_id.to_string() + "/pie.zip";
+        let cairo_pie_path = job.internal_id.to_string() + "/" + CAIRO_PIE_FILE_NAME;
         let cairo_pie_file = config
             .storage()
             .get_data(&cairo_pie_path)

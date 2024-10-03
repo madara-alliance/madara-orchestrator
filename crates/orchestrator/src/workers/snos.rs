@@ -21,8 +21,6 @@ impl Worker for SnosWorker {
         let provider = config.starknet_client();
         let latest_block_number = provider.block_number().await?;
 
-        println!(">>> block number : {:?}", latest_block_number);
-
         let latest_block_processed_data = config
             .database()
             .get_latest_job_by_type_and_status(JobType::SnosRun, JobStatus::Completed)

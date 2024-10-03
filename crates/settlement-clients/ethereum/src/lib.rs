@@ -185,10 +185,11 @@ impl SettlementClient for EthereumSettlementClient {
         max_fee_per_blob_gas += 12;
         let max_priority_fee_per_gas: u128 = self.provider.get_max_priority_fee_per_gas().await?.to_string().parse()?;
 
-        // x_0_value : program_output[8]
+        // x_0_value : program_output[10]
+        // Updated with starknet 0.13.2 spec
         let kzg_proof = Self::build_proof(
             state_diff,
-            Bytes32::from_bytes(program_output[8].as_slice()).expect("Not able to get x_0 point params."),
+            Bytes32::from_bytes(program_output[10].as_slice()).expect("Not able to get x_0 point params."),
         )
         .expect("Unable to build KZG proof for given params.")
         .to_owned();

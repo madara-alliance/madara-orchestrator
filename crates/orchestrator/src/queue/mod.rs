@@ -12,6 +12,8 @@ use omniqueue::{Delivery, QueueError};
 use crate::config::Config;
 use crate::jobs::JobError;
 
+/// Queue Provider Trait
+///
 /// The QueueProvider trait is used to define the methods that a queue
 /// should implement to be used as a queue for the orchestrator. The
 /// purpose of this trait is to allow developers to use any queue of their choice.

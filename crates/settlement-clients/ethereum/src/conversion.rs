@@ -37,12 +37,14 @@ pub(crate) fn to_padded_hex(slice: &[u8]) -> String {
     format!("{:0<64}", hex)
 }
 
+/// To get the input data
+///
 /// Function to construct the transaction's `input data` for updating the state in the core
 /// contract. HEX Concatenation: MethodId, Offset, length for program_output, lines count,
 /// program_output, length for kzg_proof, kzg_proof All 64 chars, if lesser padded from left with 0s
 pub fn get_input_data_for_eip_4844(program_output: Vec<[u8; 32]>, kzg_proof: [u8; 48]) -> Result<String, Error> {
-    // bytes4(keccak256(bytes("updateStateKzgDA(uint256[],bytes)")))
-    let method_id_hex = "0xb72d42a1";
+    // bytes4(keccak256(bytes("updateStateKzgDA(uint256[],bytes[])")))
+    let method_id_hex = "0x507ee528";
 
     // offset for updateStateKzgDA is 64
     let offset: u64 = 64;
@@ -63,6 +65,13 @@ pub fn get_input_data_for_eip_4844(program_output: Vec<[u8; 32]>, kzg_proof: [u8
     // length of KZG proof
     let length_kzg_hex = format!("{:0>64x}", kzg_proof.len());
 
+    // length of total kzg inputs in the vec
+    // hardcoded as of now
+    // TODO : need to update this when we are integrating the 0.13.2 updated spec with AR (Applicative
+    // recursion)
+    let length_kzg_output = format!("{:0>64x}", 1);
+    // Offset for 1st KZG proof starts at 32 in our case
+    let kzg_proof_offset = format!("{:0>64x}", 32);
     // KZG proof
     let kzg_proof_hex = u8_48_to_hex_string(kzg_proof);
 
@@ -71,6 +80,8 @@ pub fn get_input_data_for_eip_4844(program_output: Vec<[u8; 32]>, kzg_proof: [u8
         + &length_program_output_hex
         + &lines_count_hex
         + &program_output_hex
+        + &length_kzg_output
+        + &kzg_proof_offset
         + &length_kzg_hex
         + &kzg_proof_hex;
 
