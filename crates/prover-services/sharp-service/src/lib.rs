@@ -38,9 +38,8 @@ impl ProverClient for SharpProverService {
     }
 
     async fn get_task_status(&self, job_key: &str, fact: &str) -> Result<TaskStatus, ProverClientError> {
-        let job_key = Uuid::from_str(job_key).map_err(|e| {
-            ProverClientError::InvalidJobKey(format!("Failed to convert {} to UUID {}", job_key, e))
-        })?;
+        let job_key = Uuid::from_str(job_key)
+            .map_err(|e| ProverClientError::InvalidJobKey(format!("Failed to convert {} to UUID {}", job_key, e)))?;
         let res = self.sharp_client.get_job_status(&job_key).await?;
 
         match res.status {
