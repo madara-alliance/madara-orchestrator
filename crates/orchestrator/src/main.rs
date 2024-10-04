@@ -4,10 +4,12 @@ use orchestrator::queue::init_consumers;
 use orchestrator::routes::app_router;
 use orchestrator::telemetry::{self, TRACING_LEVEL};
 use orchestrator::{config::init_config, telemetry::OTEL_COLLECTOR_ENDPOINT};
+use std::str::FromStr;
+use tracing::Level;
 use tracing_opentelemetry::OpenTelemetryLayer;
 use tracing_subscriber::layer::SubscriberExt as _;
 use tracing_subscriber::util::SubscriberInitExt as _;
-use utils::env_utils::{get_env_var_or_default, get_tracing_level_from_string};
+use utils::env_utils::get_env_var_or_default;
 
 /// Start the server
 #[tokio::main]
@@ -15,7 +17,8 @@ async fn main() {
     dotenv().ok();
 
     let otel_enabled = !OTEL_COLLECTOR_ENDPOINT.is_empty();
-    let tracing_level = get_tracing_level_from_string(TRACING_LEVEL.as_str());
+    let tracing_level =
+        Level::from_str(TRACING_LEVEL.as_str()).expect("Could not obtain tracing level from environment variable.");
 
     if otel_enabled {
         telemetry::init();
