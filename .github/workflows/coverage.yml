@@ -88,18 +88,15 @@ jobs:
         working-directory: madara
         run: |
           cargo build
+          mv target/debug/madara ../madara-binary
+          cd ..
           echo -e "
-          MADARA_BINARY_PATH=\"$(pwd)/target/debug/madara\"" >> ../.env.test
-          cat ../.env.test
+          MADARA_BINARY_PATH=\"$(pwd)/madara-binary\"" >> .env.test
+          cat .env.test
 
       - name: Getting neccesary files for testing
         run: |
           wget -P ./crates/prover-services/sharp-service/tests/artifacts https://madara-orchestrator-sharp-pie.s3.amazonaws.com/238996-SN.zip
-
-      - name: Make preset file with yq action
-        uses: mikefarah/yq@master
-        with:
-          cmd: cd madara && export current_path=$(pwd) && yq -i '.versioned_constants |= with_entries(.value = (env(current_path) + "/" + .value))' ../crates/settlement-clients/starknet/src/tests/preset.yml
 
       - name: Run llvm-cov tests
         env:
