@@ -2,7 +2,7 @@ use std::str::FromStr;
 
 use alloy::dyn_abi::SolType;
 use alloy::network::EthereumWallet;
-use alloy::primitives::{Bytes, I256, U256};
+use alloy::primitives::{Address, Bytes, I256, U256};
 use alloy::providers::ProviderBuilder;
 use alloy::signers::local::PrivateKeySigner;
 use alloy::sol;
@@ -49,7 +49,7 @@ impl AnvilSetup {
         Self { rpc_url }
     }
 
-    pub async fn deploy_contracts(&self) {
+    pub async fn deploy_contracts(&self) -> (Address, Address) {
         let wallet =
             EthereumWallet::from(PrivateKeySigner::from_str(&get_env_var_or_panic("ETHEREUM_PRIVATE_KEY")).unwrap());
         let provider = ProviderBuilder::new().with_recommended_fillers().wallet(wallet).on_http(self.rpc_url.clone());
@@ -88,6 +88,7 @@ impl AnvilSetup {
         let builder = starknet_core_contract_client.initializeContractState(Bytes::from(encoded_data));
         let tx_hash = builder.send().await.unwrap().watch().await.unwrap();
         println!("📦 Contract setup done. Txn Hash : {}", tx_hash);
+        (starknet_core_contract_client.address().clone(), verifier_client.address().clone())
     }
 }
 

@@ -73,8 +73,6 @@ impl MockServerGlobal {
     fn start_proxy_server(_target_url: &str, method_response_hashmap: HashMap<String, Value>) -> (MockServer, Client) {
         let proxy_server = MockServer::start();
 
-        println!("{:?}", method_response_hashmap);
-
         let client = Client::builder().proxy(reqwest::Proxy::all(proxy_server.base_url()).unwrap()).build().unwrap();
 
         for (req_path, return_val) in method_response_hashmap {

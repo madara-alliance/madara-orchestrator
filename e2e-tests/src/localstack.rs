@@ -168,7 +168,7 @@ impl LocalStack {
     }
 
     pub async fn put_message_in_queue(&self, message: JobQueueMessage, queue_url: String) -> color_eyre::Result<()> {
-        let region_provider = RegionProviderChain::default_provider().or_else("us-west-2");
+        let region_provider = RegionProviderChain::default_provider().or_else("us-east-1");
         let config = aws_config::from_env().region(region_provider).load().await;
         let client = aws_sdk_sqs::Client::new(&config);
 

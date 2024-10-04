@@ -58,7 +58,7 @@ impl Setup {
         println!("✅ Sharp client setup completed");
 
         let anvil_setup = AnvilSetup::new();
-        anvil_setup.deploy_contracts().await;
+        let (starknet_core_contract_address, verifier_contract_address) = anvil_setup.deploy_contracts().await;
         println!("✅ Anvil setup completed");
 
         // Setting up LocalStack
@@ -92,10 +92,8 @@ impl Setup {
         // Anvil.addresses[0]
         env_vec
             .push(("STARKNET_OPERATOR_ADDRESS".to_string(), "0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266".to_string()));
-        env_vec.push((
-            "MEMORY_PAGES_CONTRACT_ADDRESS".to_string(),
-            "0xe7f1725E7734CE288F8367e1Bb143E90bb3F0512".to_string(),
-        ));
+        env_vec.push(("MEMORY_PAGES_CONTRACT_ADDRESS".to_string(), verifier_contract_address.to_string()));
+        env_vec.push(("L1_CORE_CONTRACT_ADDRESS".to_string(), starknet_core_contract_address.to_string()));
 
         Self { mongo_db_instance, starknet_client, sharp_client, env_vector: env_vec, localstack_instance }
     }
@@ -132,7 +130,7 @@ async fn test_orchestrator_workflow(#[case] l2_block_number: String) {
 
     let mut setup_config = Setup::new().await;
     // Setup S3
-    setup_s3(setup_config.localstack().s3_client(), l2_block_number.clone()).await.unwrap();
+    setup_s3(setup_config.localstack().s3_client()).await.unwrap();
 
     // Step 1 : SNOS job runs =========================================
     // Updates the job in the db
@@ -433,10 +431,7 @@ pub async fn put_job_data_in_db_proving(mongo_db: &MongoDbServer, l2_block_numbe
 
 /// To set up s3 files needed for e2e test (test_orchestrator_workflow)
 #[allow(clippy::borrowed_box)]
-pub async fn setup_s3(
-    s3_client: &Box<dyn DataStorage + Send + Sync>,
-    _l2_block_number: String,
-) -> color_eyre::Result<()> {
+pub async fn setup_s3(s3_client: &Box<dyn DataStorage + Send + Sync>) -> color_eyre::Result<()> {
     s3_client.build_test_bucket(&get_env_var_or_panic("AWS_S3_BUCKET_NAME")).await.unwrap();
     Ok(())
 }
