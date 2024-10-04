@@ -32,7 +32,7 @@ lazy_static! {
         .to_str()
         .expect("Path contains invalid Unicode")
         .to_string();
-    static ref ETH_RPC: String = get_env_var_or_panic("ETHEREUM_BLAST_RPC_URL");
+    static ref ETH_RPC: String = get_env_var_or_panic("SETTLEMENT_RPC_URL");
     pub static ref STARKNET_OPERATOR_ADDRESS: Address =
         Address::from_str("0x5b98B836969A60FEC50Fa925905Dd1D382a7db43").expect("Unable to parse address");
     static ref STARKNET_CORE_CONTRACT_ADDRESS: Address =

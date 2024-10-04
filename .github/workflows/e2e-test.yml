@@ -91,6 +91,6 @@ jobs:
 
       - name: Run e2e test
         env:
-          ETHEREUM_BLAST_RPC_URL: ${{ secrets.ETHEREUM_BLAST_RPC_URL }}
+          SETTLEMENT_RPC_URL: ${{ secrets.ETHEREUM_BLAST_RPC_URL }}
         run: |
           RUST_LOG=trace cargo test --features testing test_orchestrator_workflow -- --nocapture

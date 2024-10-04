@@ -6768,6 +6768,7 @@ dependencies = [
  "hex",
  "httpmock 0.7.0",
  "hyper 0.14.30",
+ "itertools 0.13.0",
  "lazy_static",
  "log",
  "majin-blob-core",

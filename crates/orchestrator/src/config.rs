@@ -228,7 +228,7 @@ pub async fn build_settlement_client(settings_provider: &impl Settings) -> Box<d
             {
                 Box::new(EthereumSettlementClient::with_test_settings(
                     RootProvider::new_http(get_env_var_or_panic("SETTLEMENT_RPC_URL").as_str().parse().unwrap()),
-                    Address::from_str(&get_env_var_or_panic("DEFAULT_L1_CORE_CONTRACT_ADDRESS")).unwrap(),
+                    Address::from_str(&get_env_var_or_panic("L1_CORE_CONTRACT_ADDRESS")).unwrap(),
                     Url::from_str(get_env_var_or_panic("SETTLEMENT_RPC_URL").as_str()).unwrap(),
                     Some(Address::from_str(get_env_var_or_panic("STARKNET_OPERATOR_ADDRESS").as_str()).unwrap()),
                 ))

@@ -16,6 +16,7 @@ use uuid::Uuid;
 
 use super::super::common::default_job_item;
 use crate::data_storage::MockDataStorage;
+use crate::jobs::constants::JOB_METADATA_SNOS_FACT;
 use crate::jobs::proving_job::ProvingJob;
 use crate::jobs::types::{JobItem, JobStatus, JobType};
 use crate::jobs::Job;
@@ -43,10 +44,11 @@ async fn test_create_job() {
 #[tokio::test]
 async fn test_verify_job(#[from(default_job_item)] mut job_item: JobItem) {
     let mut prover_client = MockProverClient::new();
-    prover_client.expect_get_task_status().times(1).returning(|_| Ok(TaskStatus::Succeeded));
+    prover_client.expect_get_task_status().times(1).returning(|_, _| Ok(TaskStatus::Succeeded));
 
     let services = TestConfigBuilder::new().configure_prover_client(prover_client.into()).build().await;
 
+    job_item.metadata.insert(JOB_METADATA_SNOS_FACT.into(), "fact".to_string());
     assert!(ProvingJob.verify_job(services.config, &mut job_item).await.is_ok());
 }
 

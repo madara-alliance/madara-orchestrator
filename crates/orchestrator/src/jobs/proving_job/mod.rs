@@ -4,7 +4,7 @@ use std::sync::Arc;
 use async_trait::async_trait;
 use cairo_vm::vm::runners::cairo_pie::CairoPie;
 use chrono::{SubsecRound, Utc};
-use color_eyre::eyre::WrapErr;
+use color_eyre::eyre::{eyre, WrapErr};
 use prover_client_interface::{Task, TaskStatus};
 use thiserror::Error;
 use tracing::log::log;
@@ -15,6 +15,7 @@ use super::types::{JobItem, JobStatus, JobType, JobVerificationStatus};
 use super::{Job, JobError, OtherError};
 use crate::config::Config;
 use crate::constants::CAIRO_PIE_FILE_NAME;
+use crate::jobs::constants::JOB_METADATA_SNOS_FACT;
 
 #[derive(Error, Debug, PartialEq)]
 pub enum ProvingError {
@@ -56,7 +57,8 @@ impl Job for ProvingJob {
 
     async fn process_job(&self, config: Arc<Config>, job: &mut JobItem) -> Result<String, JobError> {
         // Cairo Pie path in s3 storage client
-        let cairo_pie_path = job.internal_id.to_string() + "/" + CAIRO_PIE_FILE_NAME;
+        let block_number: String = job.internal_id.to_string();
+        let cairo_pie_path = block_number + "/" + CAIRO_PIE_FILE_NAME;
         let cairo_pie_file = config
             .storage()
             .get_data(&cairo_pie_path)
@@ -77,9 +79,11 @@ impl Job for ProvingJob {
 
     async fn verify_job(&self, config: Arc<Config>, job: &mut JobItem) -> Result<JobVerificationStatus, JobError> {
         let task_id: String = job.external_id.unwrap_string().map_err(|e| JobError::Other(OtherError(e)))?.into();
+
+        let fact = job.metadata.get(JOB_METADATA_SNOS_FACT).ok_or(OtherError(eyre!("Fact not available in job")))?;
         let task_status = config
             .prover_client()
-            .get_task_status(&task_id)
+            .get_task_status(&task_id, fact)
             .await
             .wrap_err("Prover Client Error".to_string())
             .map_err(|e| JobError::Other(OtherError(e)))?;

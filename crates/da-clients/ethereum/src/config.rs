@@ -21,7 +21,7 @@ impl EthereumDaConfig {
         Ok(Self {
             rpc_url: settings.get_settings_or_panic("SETTLEMENT_RPC_URL"),
             memory_pages_contract: settings.get_settings_or_panic("MEMORY_PAGES_CONTRACT_ADDRESS"),
-            private_key: settings.get_settings_or_panic("PRIVATE_KEY"),
+            private_key: settings.get_settings_or_panic("ETHEREUM_PRIVATE_KEY"),
         })
     }
 

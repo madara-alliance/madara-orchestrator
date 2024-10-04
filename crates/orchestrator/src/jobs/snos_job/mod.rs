@@ -6,6 +6,7 @@ use async_trait::async_trait;
 use bytes::Bytes;
 use cairo_vm::types::layout_name::LayoutName;
 use cairo_vm::vm::runners::cairo_pie::CairoPie;
+use cairo_vm::Felt252;
 use chrono::{SubsecRound, Utc};
 use color_eyre::Result;
 use prove_block::prove_block;
@@ -15,13 +16,20 @@ use thiserror::Error;
 use utils::env_utils::get_env_var_or_panic;
 use uuid::Uuid;
 
-use super::constants::JOB_METADATA_SNOS_BLOCK;
+use super::constants::{JOB_METADATA_SNOS_BLOCK, JOB_METADATA_SNOS_FACT};
 use super::{JobError, OtherError};
 use crate::config::Config;
 use crate::constants::{CAIRO_PIE_FILE_NAME, SNOS_OUTPUT_FILE_NAME};
 use crate::data_storage::DataStorage;
+use crate::jobs::snos_job::error::FactError;
+use crate::jobs::snos_job::fact_info::get_fact_info;
 use crate::jobs::types::{JobItem, JobStatus, JobType, JobVerificationStatus};
 use crate::jobs::Job;
+
+pub mod error;
+pub mod fact_info;
+pub mod fact_node;
+pub mod fact_topology;
 
 #[derive(Error, Debug, PartialEq)]
 pub enum SnosError {
@@ -39,13 +47,20 @@ pub enum SnosError {
 
     #[error("Could not serialize the Snos Output (snos job #{internal_id:?}): {message}")]
     SnosOutputUnserializable { internal_id: String, message: String },
+    #[error("Could not serialize the Program Output (snos job #{internal_id:?}): {message}")]
+    ProgramOutputUnserializable { internal_id: String, message: String },
     #[error("Could not store the Snos output (snos job #{internal_id:?}): {message}")]
     SnosOutputUnstorable { internal_id: String, message: String },
+    #[error("Could not store the Program output (snos job #{internal_id:?}): {message}")]
+    ProgramOutputUnstorable { internal_id: String, message: String },
 
     // ProveBlockError from Snos is not usable with #[from] since it does not implement PartialEq.
     // Instead, we convert it to string & pass it into the [SnosExecutionError] error.
     #[error("Error while running SNOS (snos job #{internal_id:?}): {message}")]
     SnosExecutionError { internal_id: String, message: String },
+
+    #[error("Error when calculating fact info: {0}")]
+    FactCalculationError(#[from] FactError),
 
     #[error("Other error: {0}")]
     Other(#[from] OtherError),
@@ -83,7 +98,15 @@ impl Job for SnosJob {
                 |e| SnosError::SnosExecutionError { internal_id: job.internal_id.clone(), message: e.to_string() },
             )?;
 
-        self.store(config.storage(), &job.internal_id, block_number, cairo_pie, snos_output).await?;
+        let fact_info = get_fact_info(&cairo_pie, None).await?;
+        let program_output = fact_info.program_output;
+
+        // snos output = output returned by SNOS
+        // program output = output written on the output segment
+        self.store(config.storage(), &job.internal_id, block_number, cairo_pie, snos_output, program_output).await?;
+
+        // store the fact
+        job.metadata.insert(JOB_METADATA_SNOS_FACT.into(), fact_info.fact.to_string());
 
         Ok(block_number.to_string())
     }
@@ -135,6 +158,7 @@ impl SnosJob {
         block_number: u64,
         cairo_pie: CairoPie,
         snos_output: StarknetOsOutput,
+        program_output: Vec<Felt252>,
     ) -> Result<(), SnosError> {
         let cairo_pie_key = format!("{block_number}/{CAIRO_PIE_FILE_NAME}");
         let cairo_pie_zip_bytes = self.cairo_pie_to_zip_bytes(cairo_pie).await.map_err(|e| {
@@ -152,6 +176,16 @@ impl SnosJob {
         data_storage.put_data(snos_output_json.into(), &snos_output_key).await.map_err(|e| {
             SnosError::SnosOutputUnstorable { internal_id: internal_id.to_string(), message: e.to_string() }
         })?;
+
+        let program_output: Vec<[u8; 32]> = program_output.iter().map(|f| f.to_bytes_be()).collect();
+        let encoded_data = bincode::serialize(&program_output).map_err(|e| SnosError::ProgramOutputUnserializable {
+            internal_id: internal_id.to_string(),
+            message: e.to_string(),
+        })?;
+        data_storage.put_data(encoded_data.into(), &snos_output_key).await.map_err(|e| {
+            SnosError::ProgramOutputUnstorable { internal_id: internal_id.to_string(), message: e.to_string() }
+        })?;
+
         Ok(())
     }
 
