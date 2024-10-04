@@ -1,8 +1,8 @@
-use bytes::Bytes;
-use serde_json::json;
-
 use crate::tests::config::{ConfigType, TestConfigBuilder};
+use bytes::Bytes;
 use rstest::rstest;
+use serde_json::json;
+use std::env;
 
 /// This test checks the ability to put and get data from AWS S3 using `AWSS3`.
 /// It puts JSON data into a test bucket and retrieves it, verifying the data
@@ -13,7 +13,13 @@ use rstest::rstest;
 async fn test_put_and_get_data_s3() -> color_eyre::Result<()> {
     let services = TestConfigBuilder::new().configure_storage_client(ConfigType::Actual).build().await;
 
-    dotenvy::from_filename("../.env.test")?;
+    let aws_region = env::var("AWS_REGION").unwrap();
+    println!("AWS_REGION: {}", aws_region);
+
+    dotenvy::from_filename_override("../.env.test")?;
+
+    let aws_region = env::var("AWS_REGION").unwrap();
+    println!("AWS_REGION: {}", aws_region);
 
     let s3_client = services.config.storage();
 

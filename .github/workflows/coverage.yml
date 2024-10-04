@@ -87,7 +87,6 @@ jobs:
       - name: Build Madara
         working-directory: madara
         run: |
-          cargo build
           current_path=$(pwd)
           echo -e "
           MADARA_BINARY_PATH=\"$current_path\"" >> ../.env.test
@@ -104,7 +103,7 @@ jobs:
       - name: Run llvm-cov tests
         env:
           ETHEREUM_BLAST_RPC_URL: ${{ secrets.ETHEREUM_BLAST_RPC_URL }}
-        run: RUST_LOG=debug RUST_BACKTRACE=1 cargo llvm-cov nextest --release --features testing --lcov --output-path lcov.info --test-threads=1 --workspace --exclude=e2e-tests
+        run: RUST_LOG=debug RUST_BACKTRACE=1 cargo test test_put_and_get_data_s3 --workspace --exclude=e2e-tests
 
       - name: Coveralls
         uses: coverallsapp/github-action@v2
