@@ -8,6 +8,7 @@ use starknet::providers::jsonrpc::HttpTransport;
 use starknet::providers::JsonRpcClient;
 use url::Url;
 use utils::settings::env::EnvSettingsProvider;
+use utils::settings::Settings;
 
 use crate::alerts::Alerts;
 use crate::config::{get_aws_config, Config, ProviderConfig};
@@ -193,6 +194,9 @@ impl TestConfigBuilder {
 
         let prover_client = implement_client::init_prover_client(prover_client_type, &settings_provider).await;
 
+        let snos_url =
+            Url::parse(&settings_provider.get_settings_or_panic("RPC_FOR_SNOS")).expect("Failed to parse URL");
+
         // External Dependencies
         let storage = implement_client::init_storage_client(storage_type, provider_config.clone()).await;
         let database = implement_client::init_database(database_type, settings_provider).await;
@@ -206,6 +210,7 @@ impl TestConfigBuilder {
 
         let config = Arc::new(Config::new(
             starknet_rpc_url,
+            snos_url,
             starknet_client,
             da_client,
             prover_client,

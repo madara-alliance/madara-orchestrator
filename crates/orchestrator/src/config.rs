@@ -37,6 +37,10 @@ use crate::queue::QueueProvider;
 pub struct Config {
     /// The RPC url used by the [starknet_client]
     starknet_rpc_url: Url,
+    /// The RPC url to be used when running SNOS
+    /// When Madara supports getProof, we can re use
+    /// starknet_rpc_url for SNOS as well
+    snos_url: Url,
     /// The starknet client to get data from the node
     starknet_client: Arc<JsonRpcClient<HttpTransport>>,
     /// The DA client to interact with the DA layer
@@ -94,6 +98,7 @@ pub async fn init_config() -> Arc<Config> {
 
     // init starknet client
     let rpc_url = Url::parse(&settings_provider.get_settings_or_panic("MADARA_RPC_URL")).expect("Failed to parse URL");
+    let snos_url = Url::parse(&settings_provider.get_settings_or_panic("RPC_FOR_SNOS")).expect("Failed to parse URL");
     let provider = JsonRpcClient::new(HttpTransport::new(rpc_url.clone()));
 
     // init database
@@ -112,6 +117,7 @@ pub async fn init_config() -> Arc<Config> {
 
     Arc::new(Config::new(
         rpc_url,
+        snos_url,
         Arc::new(provider),
         da_client,
         prover_client,
@@ -128,6 +134,7 @@ impl Config {
     #[allow(clippy::too_many_arguments)]
     pub fn new(
         starknet_rpc_url: Url,
+        snos_url: Url,
         starknet_client: Arc<JsonRpcClient<HttpTransport>>,
         da_client: Box<dyn DaClient>,
         prover_client: Box<dyn ProverClient>,
@@ -139,6 +146,7 @@ impl Config {
     ) -> Self {
         Self {
             starknet_rpc_url,
+            snos_url,
             starknet_client,
             da_client,
             prover_client,
@@ -153,6 +161,11 @@ impl Config {
     /// Returns the starknet rpc url
     pub fn starknet_rpc_url(&self) -> &Url {
         &self.starknet_rpc_url
+    }
+
+    /// Returns the snos rpc url
+    pub fn snos_url(&self) -> &Url {
+        &self.snos_url
     }
 
     /// Returns the starknet client

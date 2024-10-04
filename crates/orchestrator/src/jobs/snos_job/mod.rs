@@ -13,7 +13,6 @@ use prove_block::prove_block;
 use starknet_os::io::output::StarknetOsOutput;
 use tempfile::NamedTempFile;
 use thiserror::Error;
-use utils::env_utils::get_env_var_or_panic;
 use uuid::Uuid;
 
 use super::constants::{JOB_METADATA_SNOS_BLOCK, JOB_METADATA_SNOS_FACT};
@@ -93,10 +92,12 @@ impl Job for SnosJob {
         let block_number = self.get_block_number_from_metadata(job)?;
         // let rpc_url = config.starknet_rpc_url();
 
+        let snos_url = config.snos_url().to_string();
+        let snos_url = snos_url.trim_end_matches('/');
         let (cairo_pie, snos_output) =
-            prove_block(block_number, &get_env_var_or_panic("RPC_FOR_SNOS"), LayoutName::all_cairo).await.map_err(
-                |e| SnosError::SnosExecutionError { internal_id: job.internal_id.clone(), message: e.to_string() },
-            )?;
+            prove_block(block_number, &snos_url, LayoutName::all_cairo).await.map_err(|e| {
+                SnosError::SnosExecutionError { internal_id: job.internal_id.clone(), message: e.to_string() }
+            })?;
 
         let fact_info = get_fact_info(&cairo_pie, None).await?;
         let program_output = fact_info.program_output;

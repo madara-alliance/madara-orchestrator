@@ -30,6 +30,8 @@ impl Worker for SnosWorker {
             .unwrap_or("0".to_string());
 
         // Check if job does not exist
+        // TODO: fetching all SNOS jobs with internal id > latest_block_processed_data
+        // can be done in one DB call
         let job_in_db = config
             .database()
             .get_job_by_internal_id_and_type(&latest_block_number.to_string(), &JobType::SnosRun)

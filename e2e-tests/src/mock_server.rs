@@ -83,11 +83,12 @@ impl MockServerGlobal {
                 then.json_body(return_val);
             });
 
+            let snos_url = get_env_var_or_panic("RPC_FOR_SNOS");
+            let snos_host = snos_url.split("://").last().unwrap().split(":").next().unwrap();
+            let snos_port = snos_url.split("://").last().unwrap().split(":").last().unwrap();
             proxy_server.proxy(|rule| {
                 rule.filter(|when| {
-                    when.host(get_env_var_or_panic("RPC_SNOS_HOST"))
-                        .port(get_env_var_or_panic("RPC_SNOS_PORT").parse::<u16>().unwrap())
-                        .body_excludes(req_path.clone());
+                    when.host(snos_host).port(snos_port.parse::<u16>().unwrap()).body_excludes(req_path.clone());
                 });
             });
         }

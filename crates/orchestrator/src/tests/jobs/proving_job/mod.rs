@@ -15,6 +15,7 @@ use url::Url;
 use uuid::Uuid;
 
 use super::super::common::default_job_item;
+use crate::constants::CAIRO_PIE_FILE_NAME;
 use crate::data_storage::MockDataStorage;
 use crate::jobs::constants::JOB_METADATA_SNOS_FACT;
 use crate::jobs::proving_job::ProvingJob;
@@ -70,7 +71,10 @@ async fn test_process_job() {
 
     let mut storage = MockDataStorage::new();
     let buffer_bytes = Bytes::from(buffer);
-    storage.expect_get_data().with(eq("0/cairo_pie.zip")).return_once(move |_| Ok(buffer_bytes));
+    storage
+        .expect_get_data()
+        .with(eq(format!("{}/{}", "0", CAIRO_PIE_FILE_NAME)))
+        .return_once(move |_| Ok(buffer_bytes));
 
     let services = TestConfigBuilder::new()
         .configure_starknet_client(provider.into())
