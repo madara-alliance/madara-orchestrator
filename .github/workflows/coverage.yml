@@ -101,10 +101,7 @@ jobs:
       - name: Run llvm-cov tests
         env:
           ETHEREUM_BLAST_RPC_URL: ${{ secrets.ETHEREUM_BLAST_RPC_URL }}
-        # run: RUST_LOG=debug RUST_BACKTRACE=1 cargo llvm-cov nextest --release --features testing --lcov --output-path lcov.info --test-threads=1 --workspace --exclude=e2e-tests --no-fail-fast
-        run: |
-          cat crates/settlement-clients/starknet/src/tests/preset.yml
-          RUST_LOG=trace cargo test -p starknet-settlement-client -- --test-threads=1
+        run: RUST_LOG=debug RUST_BACKTRACE=1 cargo llvm-cov nextest --release --features testing --lcov --output-path lcov.info --test-threads=1 --workspace --exclude=e2e-tests --no-fail-fast
 
       - name: Coveralls
         uses: coverallsapp/github-action@v2
