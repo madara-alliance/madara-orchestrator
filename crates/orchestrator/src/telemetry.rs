@@ -58,7 +58,7 @@ pub fn init_tracer_provider() -> Tracer {
         .with_exporter(opentelemetry_otlp::new_exporter().tonic().with_endpoint(OTEL_COLLECTOR_ENDPOINT.to_string()))
         .with_trace_config(Config::default().with_resource(Resource::new(vec![KeyValue::new(
             opentelemetry_semantic_conventions::resource::SERVICE_NAME,
-            format!("{:?}{}", OTEL_SERVICE_NAME, "_trace_service"),
+            format!("{}{}", OTEL_SERVICE_NAME.to_string(), "_trace_service"),
         )])))
         .with_batch_config(batch_config)
         .install_batch(runtime::Tokio)
@@ -66,7 +66,7 @@ pub fn init_tracer_provider() -> Tracer {
 
     global::set_tracer_provider(provider.clone());
 
-    provider.tracer(format!("{:?}{}", OTEL_SERVICE_NAME, "_subscriber"))
+    provider.tracer(format!("{}{}", OTEL_SERVICE_NAME.to_string(), "_subscriber"))
 }
 
 pub fn init_metric_provider() -> SdkMeterProvider {
@@ -88,7 +88,7 @@ pub fn init_metric_provider() -> SdkMeterProvider {
         .with_reader(reader)
         .with_resource(Resource::new(vec![KeyValue::new(
             opentelemetry_semantic_conventions::resource::SERVICE_NAME,
-            format!("{:?}{}", OTEL_SERVICE_NAME, "_meter_service"),
+            format!("{}{}", OTEL_SERVICE_NAME.to_string(), "_meter_service"),
         )]))
         .build();
     global::set_meter_provider(provider.clone());

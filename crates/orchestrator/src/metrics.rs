@@ -27,7 +27,7 @@ impl Metrics for OrchestratorMetrics {
         // Register all instruments
         let block_gauge = register_gauge_metric_instrument(
             &orchestrator_meter,
-            format!("{:?}{}", OTEL_SERVICE_NAME, "_block_state"),
+            format!("{}{}", OTEL_SERVICE_NAME.to_string(), "_block_state"),
             "A gauge to show block state at given time".to_string(),
             "block".to_string(),
         );
