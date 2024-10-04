@@ -16,7 +16,7 @@ use utils::env_utils::get_env_var_or_default;
 async fn main() {
     dotenv().ok();
 
-    let otel_enabled = !OTEL_COLLECTOR_ENDPOINT.to_string().is_empty();
+    let otel_enabled = !(*OTEL_COLLECTOR_ENDPOINT).is_empty();
     let tracing_level =
         Level::from_str(TRACING_LEVEL.as_str()).expect("Could not obtain tracing level from environment variable.");
 

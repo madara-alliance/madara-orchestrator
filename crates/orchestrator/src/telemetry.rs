@@ -55,10 +55,10 @@ pub fn init_tracer_provider() -> Tracer {
 
     let provider = opentelemetry_otlp::new_pipeline()
         .tracing()
-        .with_exporter(opentelemetry_otlp::new_exporter().tonic().with_endpoint(OTEL_COLLECTOR_ENDPOINT.to_string()))
+        .with_exporter(opentelemetry_otlp::new_exporter().tonic().with_endpoint((*OTEL_COLLECTOR_ENDPOINT).clone()))
         .with_trace_config(Config::default().with_resource(Resource::new(vec![KeyValue::new(
             opentelemetry_semantic_conventions::resource::SERVICE_NAME,
-            format!("{}{}", OTEL_SERVICE_NAME.to_string(), "_trace_service"),
+            format!("{}{}", *OTEL_SERVICE_NAME, "_trace_service"),
         )])))
         .with_batch_config(batch_config)
         .install_batch(runtime::Tokio)
@@ -66,11 +66,11 @@ pub fn init_tracer_provider() -> Tracer {
 
     global::set_tracer_provider(provider.clone());
 
-    provider.tracer(format!("{}{}", OTEL_SERVICE_NAME.to_string(), "_subscriber"))
+    provider.tracer(format!("{}{}", *OTEL_SERVICE_NAME, "_subscriber"))
 }
 
 pub fn init_metric_provider() -> SdkMeterProvider {
-    let export_config = ExportConfig { endpoint: OTEL_COLLECTOR_ENDPOINT.to_string(), ..ExportConfig::default() };
+    let export_config = ExportConfig { endpoint: (*OTEL_COLLECTOR_ENDPOINT).clone(), ..ExportConfig::default() };
 
     // Creates and builds the OTLP exporter
     let exporter = opentelemetry_otlp::new_exporter().tonic().with_export_config(export_config).build_metrics_exporter(
@@ -88,7 +88,7 @@ pub fn init_metric_provider() -> SdkMeterProvider {
         .with_reader(reader)
         .with_resource(Resource::new(vec![KeyValue::new(
             opentelemetry_semantic_conventions::resource::SERVICE_NAME,
-            format!("{}{}", OTEL_SERVICE_NAME.to_string(), "_meter_service"),
+            format!("{}{}", *OTEL_SERVICE_NAME, "_meter_service"),
         )]))
         .build();
     global::set_meter_provider(provider.clone());
