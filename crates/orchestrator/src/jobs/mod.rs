@@ -126,7 +126,7 @@ pub trait Job: Send + Sync {
 }
 
 /// Creates the job in the DB in the created state and adds it to the process queue
-#[tracing::instrument(name = "general_create_job", skip(config))]
+#[tracing::instrument(fields(category = "general"), skip(config))]
 pub async fn create_job(
     job_type: JobType,
     internal_id: String,
@@ -168,7 +168,7 @@ pub async fn create_job(
 
 /// Processes the job, increments the process attempt count and updates the status of the job in the
 /// DB. It then adds the job to the verification queue.
-#[tracing::instrument(name = "general_process_job", skip(config), fields(job, job_type, internal_id))]
+#[tracing::instrument(skip(config), fields(category = "general", job, job_type, internal_id))]
 pub async fn process_job(id: Uuid, config: Arc<Config>) -> Result<(), JobError> {
     let block_gauge = telemetry::global_meter()
         .f64_gauge(format!("{:?}{}", OTEL_SERVICE_NAME, "_block_state"))
@@ -237,11 +237,7 @@ pub async fn process_job(id: Uuid, config: Arc<Config>) -> Result<(), JobError> 
 /// retries processing the job if the max attempts have not been exceeded. If the max attempts have
 /// been exceeded, it marks the job as timed out. If the verification is still pending, it pushes the
 /// job back to the queue.
-#[tracing::instrument(
-    name = "general_verify_job",
-    skip(config),
-    fields(job, job_type, internal_id, verification_status)
-)]
+#[tracing::instrument(skip(config), fields(category = "general", job, job_type, internal_id, verification_status))]
 pub async fn verify_job(id: Uuid, config: Arc<Config>) -> Result<(), JobError> {
     let block_gauge = telemetry::global_meter()
         .f64_gauge(format!("{:?}{}", OTEL_SERVICE_NAME, "_block_state"))

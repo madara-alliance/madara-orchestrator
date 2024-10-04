@@ -62,7 +62,7 @@ pub struct DaJob;
 
 #[async_trait]
 impl Job for DaJob {
-    #[tracing::instrument(name = "da_create_job", skip(self, _config, metadata))]
+    #[tracing::instrument(fields(category = "da"), skip(self, _config, metadata))]
     async fn create_job(
         &self,
         _config: Arc<Config>,
@@ -82,7 +82,7 @@ impl Job for DaJob {
         })
     }
 
-    #[tracing::instrument(name = "da_process_job", skip(self, config))]
+    #[tracing::instrument(fields(category = "da"), skip(self, config))]
     async fn process_job(&self, config: Arc<Config>, job: &mut JobItem) -> Result<String, JobError> {
         let block_no = job
             .internal_id
@@ -147,7 +147,7 @@ impl Job for DaJob {
         Ok(external_id)
     }
 
-    #[tracing::instrument(name = "da_verify_job", skip(self, config))]
+    #[tracing::instrument(fields(category = "da"), skip(self, config))]
     async fn verify_job(&self, config: Arc<Config>, job: &mut JobItem) -> Result<JobVerificationStatus, JobError> {
         Ok(config
             .da_client()

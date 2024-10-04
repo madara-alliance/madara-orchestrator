@@ -72,7 +72,7 @@ pub enum StateUpdateError {
 pub struct StateUpdateJob;
 #[async_trait]
 impl Job for StateUpdateJob {
-    #[tracing::instrument(name = "state_update_create_job", skip(self, _config, metadata))]
+    #[tracing::instrument(fields(category = "state_update"), skip(self, _config, metadata))]
     async fn create_job(
         &self,
         _config: Arc<Config>,
@@ -100,7 +100,7 @@ impl Job for StateUpdateJob {
         })
     }
 
-    #[tracing::instrument(name = "state_update_process_job", skip(self, config))]
+    #[tracing::instrument(fields(category = "state_update"), skip(self, config))]
     async fn process_job(&self, config: Arc<Config>, job: &mut JobItem) -> Result<String, JobError> {
         let attempt_no = job
             .metadata
@@ -151,7 +151,7 @@ impl Job for StateUpdateJob {
     /// Status will be verified if:
     /// 1. the last settlement tx hash is successful,
     /// 2. the expected last settled block from our configuration is indeed the one found in the provider.
-    #[tracing::instrument(name = "state_update_verify_job", skip(self, config))]
+    #[tracing::instrument(fields(category = "state_update"), skip(self, config))]
     async fn verify_job(&self, config: Arc<Config>, job: &mut JobItem) -> Result<JobVerificationStatus, JobError> {
         let attempt_no = job
             .metadata
