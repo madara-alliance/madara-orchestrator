@@ -16,7 +16,6 @@ use crate::data_storage::MockDataStorage;
 use crate::database::{Database, MockDatabase};
 use crate::queue::{MockQueueProvider, QueueProvider};
 use crate::tests::common::{create_sns_arn, create_sqs_queues, drop_database};
-use std::env;
 use utils::settings::env::EnvSettingsProvider;
 
 // Inspiration : https://rust-unofficial.github.io/patterns/patterns/creational/builder.html
@@ -158,11 +157,8 @@ impl TestConfigBuilder {
     }
 
     pub async fn build(self) -> TestConfigBuilderReturns {
-        let aws_region = env::var("AWS_REGION").unwrap();
-        println!("AWS_REGION: {}", aws_region);
         dotenvy::from_filename_override("../.env.test").expect("Failed to load the .env.test file");
-        let aws_region = env::var("AWS_REGION").unwrap();
-        println!("AWS_REGION: {}", aws_region);
+
         let settings_provider = EnvSettingsProvider {};
         let provider_config = Arc::new(ProviderConfig::AWS(Box::new(get_aws_config(&settings_provider).await)));
 
