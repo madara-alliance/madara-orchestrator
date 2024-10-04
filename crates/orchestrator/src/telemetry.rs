@@ -97,6 +97,9 @@ pub fn init_metric_provider() -> SdkMeterProvider {
 
 #[cfg(test)]
 mod tests {
+    use crate::metrics::OrchestratorMetrics;
+    use utils::{metrics::lib::Metrics, register_metric};
+
     use super::*;
     use std::env;
 
@@ -128,5 +131,30 @@ mod tests {
         });
 
         assert!(result.is_ok(), "init_tracer_provider() panicked");
+    }
+
+    #[tokio::test]
+    async fn test_init_analytics() {
+        // This test just ensures that the function doesn't panic
+
+        env::set_var("OTEL_COLLECTOR_ENDPOINT", "http://localhost:4317");
+        env::set_var("OTEL_SERVICE_NAME", "test_service");
+
+        init_analytics();
+
+        let tracer = global_tracer();
+        assert!(std::matches!(tracer, &Tracer { .. }));
+    }
+
+    #[tokio::test]
+    async fn test_gauge_setter() {
+        // This test just ensures that the function doesn't panic
+
+        env::set_var("OTEL_COLLECTOR_ENDPOINT", "http://localhost:4317");
+        env::set_var("OTEL_SERVICE_NAME", "test_service");
+
+        init_analytics();
+
+        register_metric!(ORCHESTRATOR_METRICS, OrchestratorMetrics);
     }
 }
