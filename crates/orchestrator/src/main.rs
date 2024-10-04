@@ -21,7 +21,7 @@ async fn main() {
         Level::from_str(TRACING_LEVEL.as_str()).expect("Could not obtain tracing level from environment variable.");
 
     if otel_enabled {
-        telemetry::init();
+        telemetry::init_analytics();
         let tracer = telemetry::global_tracer().clone();
         tracing_subscriber::registry()
             .with(tracing_subscriber::filter::LevelFilter::from_level(tracing_level))
@@ -47,6 +47,7 @@ async fn main() {
 
     if otel_enabled {
         global::shutdown_tracer_provider();
-        let _ = telemetry::global_meter_provider().shutdown();
+        // TODO: how do we shutdown the meter provider, and why do we have to shut it down ?
+        // let _ = global::meter_provider().shutdown();
     }
 }

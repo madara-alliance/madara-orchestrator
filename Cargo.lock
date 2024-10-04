@@ -10191,9 +10191,18 @@ name = "utils"
 version = "0.1.0"
 dependencies = [
  "color-eyre",
+ "opentelemetry",
+ "opentelemetry-appender-tracing",
+ "opentelemetry-otlp",
+ "opentelemetry-semantic-conventions",
+ "opentelemetry-stdout",
+ "opentelemetry_sdk",
  "serde",
  "thiserror",
  "tracing",
+ "tracing-core",
+ "tracing-opentelemetry",
+ "tracing-subscriber",
 ]
 
 [[package]]
