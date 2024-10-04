@@ -23,7 +23,7 @@ use utils::settings::Settings;
 
 #[fixture]
 pub async fn spin_up_madara() -> MadaraCmd {
-    dotenvy::from_filename(".env.test").expect("Failed to load the .env file");
+    dotenvy::from_filename_override(".env.test").expect("Failed to load the .env file");
     log::trace!("Spinning up Madara");
     let mut node = MadaraCmdBuilder::new()
         .args([
