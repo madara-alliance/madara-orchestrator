@@ -105,7 +105,12 @@ pub async fn aws_config(settings_provider: &impl Settings) -> SdkConfig {
         settings_provider.get_settings_or_panic("AWS_SECRET_ACCESS_KEY"),
         None,
     );
-    aws_config::from_env().credentials_provider(credentials).region(region_provider).load().await
+    aws_config::from_env()
+        .credentials_provider(credentials)
+        .region(region_provider)
+        .endpoint_url(settings_provider.get_settings_or_panic("AWS_ENDPOINT_URL"))
+        .load()
+        .await
 }
 
 // TODO : generalise this (or use from config)
