@@ -87,7 +87,6 @@ jobs:
       - name: Build Madara
         working-directory: madara
         run: |
-          cargo build
           current_path=$(pwd)
           echo -e "
           MADARA_BINARY_PATH=\"$current_path\"" >> ../.env.test

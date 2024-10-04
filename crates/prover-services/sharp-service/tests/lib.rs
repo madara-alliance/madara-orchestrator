@@ -16,7 +16,7 @@ mod constants;
 #[rstest]
 #[tokio::test]
 async fn prover_client_submit_task_works() {
-    dotenvy::from_filename_override("../.env.test").expect("Failed to load the .env file");
+    dotenvy::from_filename("../.env.test").expect("Failed to load the .env file");
 
     let server = MockServer::start();
     let sharp_service = SharpProverService::with_test_settings(&EnvSettingsProvider {}, server.port());
@@ -55,7 +55,7 @@ async fn prover_client_submit_task_works() {
 #[case(CairoJobStatus::ONCHAIN)]
 #[tokio::test]
 async fn prover_client_get_task_status_works(#[case] cairo_job_status: CairoJobStatus) {
-    dotenvy::from_filename_override("../.env.test").expect("Failed to load the .env file");
+    dotenvy::from_filename("../.env.test").expect("Failed to load the .env file");
 
     let server = MockServer::start();
     let sharp_service = SharpProverService::with_test_settings(&EnvSettingsProvider {}, server.port());

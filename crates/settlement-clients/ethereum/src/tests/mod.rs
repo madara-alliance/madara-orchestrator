@@ -86,7 +86,7 @@ impl EthereumTestBuilder {
 
     pub async fn build(&self) -> EthereumTest {
         // Load ENV vars
-        dotenvy::from_filename_override(&*ENV_FILE_PATH).expect("Could not load .env.test file.");
+        dotenvy::from_filename(&*ENV_FILE_PATH).expect("Could not load .env.test file.");
 
         // Setup Anvil
         let anvil = match self.fork_block {
