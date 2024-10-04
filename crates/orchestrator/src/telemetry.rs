@@ -94,3 +94,39 @@ pub fn init_metric_provider() -> SdkMeterProvider {
     global::set_meter_provider(provider.clone());
     provider
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use std::env;
+
+    #[tokio::test]
+    async fn test_init_metric_provider() {
+        // Set up necessary environment variables
+        env::set_var("OTEL_COLLECTOR_ENDPOINT", "http://localhost:4317");
+        env::set_var("OTEL_SERVICE_NAME", "test_service");
+
+        // Call the function and check if it doesn't panic
+        let result = std::panic::catch_unwind(|| {
+            let _provider = init_metric_provider();
+        });
+
+        // Check if the global meter provider is set
+        let _global_provider = global::meter_provider();
+        assert!(result.is_ok(), "init_metric_provider() panicked");
+    }
+
+    #[tokio::test]
+    async fn test_init_tracer_provider() {
+        // Set up necessary environment variables
+        env::set_var("OTEL_COLLECTOR_ENDPOINT", "http://localhost:4317");
+        env::set_var("OTEL_SERVICE_NAME", "test_service");
+
+        // Call the function and check if it doesn't panic
+        let result = std::panic::catch_unwind(|| {
+            let _tracer = init_tracer_provider();
+        });
+
+        assert!(result.is_ok(), "init_tracer_provider() panicked");
+    }
+}
