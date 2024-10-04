@@ -41,12 +41,13 @@ jobs:
       - name: Install Foundry
         uses: foundry-rs/foundry-toolchain@v1
 
-      - name: Check Anvil Installation
+      - name: Check Anvil Installation & run Anvil
         run: |
           if command -v anvil &> /dev/null
           then
               echo "Anvil is installed. Version information:"
               anvil --version
+              anvil &
           else
               echo "Anvil is not installed or not in PATH"
               exit 1

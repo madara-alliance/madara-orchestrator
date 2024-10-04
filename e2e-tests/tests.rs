@@ -5,6 +5,7 @@ use std::str::FromStr;
 use std::time::{Duration, Instant};
 
 use chrono::{SubsecRound, Utc};
+use e2e_tests::anvil::AnvilSetup;
 use e2e_tests::localstack::LocalStack;
 use e2e_tests::mock_server::MockResponseBodyType;
 use e2e_tests::sharp::SharpClient;
@@ -12,7 +13,6 @@ use e2e_tests::starknet_client::StarknetClient;
 use e2e_tests::utils::{get_mongo_db_client, read_state_update_from_file, vec_u8_to_hex_string};
 use e2e_tests::{MongoDbServer, Orchestrator};
 use mongodb::bson::doc;
-use orchestrator::data_storage::DataStorage;
 use orchestrator::jobs::constants::JOB_METADATA_SNOS_BLOCK;
 use orchestrator::jobs::types::{ExternalId, JobItem, JobStatus, JobType};
 use orchestrator::queue::job_queue::{JobQueueMessage, WorkerTriggerType};
@@ -56,6 +56,10 @@ impl Setup {
         let sharp_client = SharpClient::new();
         println!("✅ Sharp client setup completed");
 
+        let anvil_setup = AnvilSetup::new();
+        anvil_setup.deploy_contracts().await;
+        println!("✅ Anvil setup completed");
+
         // Setting up LocalStack
         let localstack_instance = LocalStack::new().await;
         localstack_instance.setup_sqs().await.unwrap();
@@ -71,7 +75,7 @@ impl Setup {
 
         // Adding other values to the environment variables vector
         env_vec.push(("MADARA_RPC_URL".to_string(), get_env_var_or_panic("RPC_FOR_SNOS")));
-        env_vec.push(("SETTLEMENT_RPC_URL".to_string(), "http://localhost:8545".to_string()));
+        env_vec.push(("SETTLEMENT_RPC_URL".to_string(), anvil_setup.rpc_url.to_string()));
         env_vec.push(("SHARP_URL".to_string(), sharp_client.url()));
 
         // Sharp envs
@@ -126,8 +130,6 @@ async fn test_orchestrator_workflow(#[case] l2_block_number: String) {
     dotenvy::from_filename(".env.test").expect("Failed to load the .env file");
 
     let mut setup_config = Setup::new().await;
-    // Setup S3
-    setup_s3(setup_config.localstack().s3_client(), l2_block_number.clone()).await.unwrap();
 
     // Step 1 : SNOS job runs =========================================
     // Updates the job in the db
@@ -420,42 +422,4 @@ pub async fn put_job_data_in_db_proving(mongo_db: &MongoDbServer, l2_block_numbe
 
     let mongo_db_client = get_mongo_db_client(mongo_db).await;
     mongo_db_client.database("orchestrator").collection("jobs").insert_one(job_item, None).await.unwrap();
-}
-
-// ======================================
-// Tests specific functions
-// ======================================
-
-/// To set up s3 files needed for e2e test (test_orchestrator_workflow)
-#[allow(clippy::borrowed_box)]
-pub async fn setup_s3(
-    s3_client: &Box<dyn DataStorage + Send + Sync>,
-    _l2_block_number: String,
-) -> color_eyre::Result<()> {
-    s3_client.build_test_bucket(&get_env_var_or_panic("AWS_S3_BUCKET_NAME")).await.unwrap();
-
-    // putting the snos output and program output for the given block into localstack s3
-    // let snos_output_key = l2_block_number.clone() + "/snos_output.json";
-    // let snos_output_json = read("artifacts/snos_output.json").unwrap();
-    // s3_client.put_data(Bytes::from(snos_output_json), &snos_output_key).await?;
-    // println!("✅ snos output file uploaded to localstack s3.");
-    //
-    // let program_output_key = l2_block_number.clone() + "/program_output.txt";
-    // let program_output = read(format!("artifacts/program_output_{}.txt",
-    // l2_block_number.clone())).unwrap(); s3_client.put_data(Bytes::from(program_output),
-    // &program_output_key).await?; println!("✅ program output file uploaded to localstack s3.");
-
-    // No longer needed as we are running snos and generating Pie in the snos job itself
-    // getting the PIE file from s3 bucket using URL provided
-    // let file =
-    //     reqwest::get(format!("https://madara-orchestrator-sharp-pie.s3.amazonaws.com/{}-SN.zip", l2_block_number))
-    //         .await?;
-    // let file_bytes = file.bytes().await?;
-    //
-    // // putting the pie file into localstack s3
-    // let s3_file_key = l2_block_number + "/pie.zip";
-    // s3_client.put_data(file_bytes, &s3_file_key).await?;
-    // println!("✅ PIE file uploaded to localstack s3");
-
-    Ok(())
 }
