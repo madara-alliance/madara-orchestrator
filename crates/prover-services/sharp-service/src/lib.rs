@@ -37,11 +37,11 @@ impl ProverClient for SharpProverService {
         }
     }
 
-    async fn get_task_status(&self, job_key: &String, fact: &String) -> Result<TaskStatus, ProverClientError> {
+    async fn get_task_status(&self, job_key: &str, fact: &str) -> Result<TaskStatus, ProverClientError> {
         let job_key = Uuid::from_str(job_key).map_err(|e| {
-            ProverClientError::InvalidJobKey(format!("Failed to convert {} to UUID {}", job_key, e.to_string()))
+            ProverClientError::InvalidJobKey(format!("Failed to convert {} to UUID {}", job_key, e))
         })?;
-        let res = self.sharp_client.get_job_status(&job_key.into()).await?;
+        let res = self.sharp_client.get_job_status(&job_key).await?;
 
         match res.status {
             // TODO : We would need to remove the FAILED, UNKNOWN, NOT_CREATED status as it is not in the sharp client
@@ -56,7 +56,7 @@ impl ProverClient for SharpProverService {
                 Ok(TaskStatus::Processing)
             }
             CairoJobStatus::ONCHAIN => {
-                let fact = B256::from_str(&fact).map_err(|e| ProverClientError::FailedToConvertFact(e.to_string()))?;
+                let fact = B256::from_str(fact).map_err(|e| ProverClientError::FailedToConvertFact(e.to_string()))?;
                 if self.fact_checker.is_valid(&fact).await? {
                     Ok(TaskStatus::Succeeded)
                 } else {

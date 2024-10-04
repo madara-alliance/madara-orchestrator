@@ -37,6 +37,7 @@ ethereum-da-client = { workspace = true, optional = true }
 ethereum-settlement-client = { workspace = true }
 futures = { workspace = true }
 hex = { workspace = true }
+itertools = { workspace = true }
 lazy_static = { workspace = true }
 log = "0.4.21"
 majin-blob-core = { git = "https://github.com/AbdelStark/majin-blob", branch = "main" }
@@ -68,7 +69,6 @@ tracing-subscriber = { workspace = true, features = ["env-filter"] }
 url = { workspace = true }
 utils = { workspace = true }
 uuid = { workspace = true, features = ["v4", "serde"] }
-itertools = { workspace = true }
 
 [features]
 default = ["ethereum", "with_mongodb", "with_sqs"]

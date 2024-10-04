@@ -60,7 +60,7 @@ async fn prover_client_get_task_status_works(#[case] cairo_job_status: CairoJobS
     });
 
     let task_status =
-        sharp_service.get_task_status(&"c31381bf-4739-4667-b5b8-b08af1c6b1c7".into(), &TEST_FACT.into()).await.unwrap();
+        sharp_service.get_task_status("c31381bf-4739-4667-b5b8-b08af1c6b1c7", TEST_FACT).await.unwrap();
     assert_eq!(task_status, get_task_status_expectation(&cairo_job_status), "Cairo Job Status assertion failed");
 
     sharp_add_job_call.assert();

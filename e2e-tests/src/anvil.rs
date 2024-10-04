@@ -88,7 +88,7 @@ impl AnvilSetup {
         let builder = starknet_core_contract_client.initializeContractState(Bytes::from(encoded_data));
         let tx_hash = builder.send().await.unwrap().watch().await.unwrap();
         println!("📦 Contract setup done. Txn Hash : {}", tx_hash);
-        (starknet_core_contract_client.address().clone(), verifier_client.address().clone())
+        (*starknet_core_contract_client.address(), *verifier_client.address())
     }
 }
 

@@ -15,7 +15,7 @@ use mockall::automock;
 #[async_trait]
 pub trait ProverClient: Send + Sync {
     async fn submit_task(&self, task: Task) -> Result<String, ProverClientError>;
-    async fn get_task_status(&self, task_id: &String, fact: &String) -> Result<TaskStatus, ProverClientError>;
+    async fn get_task_status(&self, task_id: &str, fact: &str) -> Result<TaskStatus, ProverClientError>;
 }
 
 pub enum Task {
