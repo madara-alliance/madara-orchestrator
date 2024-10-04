@@ -18,7 +18,7 @@ use uuid::Uuid;
 use super::constants::{JOB_METADATA_SNOS_BLOCK, JOB_METADATA_SNOS_FACT};
 use super::{JobError, OtherError};
 use crate::config::Config;
-use crate::constants::{CAIRO_PIE_FILE_NAME, SNOS_OUTPUT_FILE_NAME};
+use crate::constants::{CAIRO_PIE_FILE_NAME, PROGRAM_OUTPUT_FILE_NAME, SNOS_OUTPUT_FILE_NAME};
 use crate::data_storage::DataStorage;
 use crate::jobs::snos_job::error::FactError;
 use crate::jobs::snos_job::fact_info::get_fact_info;
@@ -183,7 +183,8 @@ impl SnosJob {
             internal_id: internal_id.to_string(),
             message: e.to_string(),
         })?;
-        data_storage.put_data(encoded_data.into(), &snos_output_key).await.map_err(|e| {
+        let program_output_key = format!("{block_number}/{PROGRAM_OUTPUT_FILE_NAME}");
+        data_storage.put_data(encoded_data.into(), &program_output_key).await.map_err(|e| {
             SnosError::ProgramOutputUnstorable { internal_id: internal_id.to_string(), message: e.to_string() }
         })?;
 
