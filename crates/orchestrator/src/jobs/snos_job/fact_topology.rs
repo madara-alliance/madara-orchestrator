@@ -47,10 +47,7 @@ pub fn get_fact_topology(cairo_pie: &CairoPie, output_size: usize) -> Result<Fac
 
 /// Returns the sizes of the program output pages, given the pages dictionary that appears
 /// in the additional attributes of the output builtin.
-pub fn get_page_sizes(
-    pages: &HashMap<usize, PublicMemoryPage>,
-    output_size: usize,
-) -> Result<Vec<usize>, FactError> {
+pub fn get_page_sizes(pages: &HashMap<usize, PublicMemoryPage>, output_size: usize) -> Result<Vec<usize>, FactError> {
     let mut pages_list: Vec<(usize, usize, usize)> =
         pages.iter().map(|(&id, page)| (id, page.start, page.size)).collect();
     pages_list.sort();
@@ -76,11 +73,7 @@ pub fn get_page_sizes(
         } else {
             ensure!(
                 Some(page_start) == expected_page_start,
-                FactError::OutputPagesUnexpectedStart(
-                    page_id,
-                    page_start,
-                    expected_page_start.unwrap_or_default(),
-                )
+                FactError::OutputPagesUnexpectedStart(page_id, page_start, expected_page_start.unwrap_or_default(),)
             );
         }
 
