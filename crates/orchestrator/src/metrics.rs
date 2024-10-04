@@ -1,19 +1,14 @@
 use crate::telemetry::OTEL_SERVICE_NAME;
 use once_cell::sync::Lazy;
-use opentelemetry::{
-    global,
-    metrics::{Gauge, Meter},
-    KeyValue,
-};
+use opentelemetry::{global, metrics::Gauge, KeyValue};
 use utils::{
     metrics::lib::{register_gauge_metric_instrument, Metrics},
     register_metric,
 };
 
-pub static ORCHESTRATOR_METRICS: Lazy<OrchestratorMetrics> = register_metric!(OrchestratorMetrics);
+register_metric!(ORCHESTRATOR_METRICS, OrchestratorMetrics);
 
 pub struct OrchestratorMetrics {
-    pub meter: Meter,
     pub block_gauge: Gauge<f64>,
 }
 
@@ -37,6 +32,6 @@ impl Metrics for OrchestratorMetrics {
             "block".to_string(),
         );
 
-        Self { meter: orchestrator_meter, block_gauge }
+        Self { block_gauge }
     }
 }

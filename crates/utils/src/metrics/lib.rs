@@ -6,10 +6,11 @@ pub trait Metrics {
 
 #[macro_export]
 macro_rules! register_metric {
-    ($type:ty) => {
-        Lazy::new(|| <$type>::register())
+    ($name:ident, $type:ty) => {
+        pub static $name: Lazy<$type> = Lazy::new(|| <$type>::register());
     };
 }
+
 pub fn register_gauge_metric_instrument(
     crate_meter: &Meter,
     instrument_name: String,
