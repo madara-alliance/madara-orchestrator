@@ -122,7 +122,7 @@ impl Setup {
 async fn test_orchestrator_workflow(#[case] l2_block_number: String) {
     // Fetching the env vars from the test env file as these will be used in
     // setting up of the test and during orchestrator run too.
-    dotenvy::from_filename_override(".env.test").expect("Failed to load the .env file");
+    dotenvy::from_filename(".env.test").expect("Failed to load the .env file");
 
     let mut setup_config = Setup::new().await;
     // Setup S3
