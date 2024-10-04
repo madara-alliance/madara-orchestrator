@@ -3,9 +3,6 @@
 //! Port of https://github.com/starkware-libs/cairo-lang/blob/master/src/starkware/cairo/bootloaders/generate_fact.py
 
 use alloy::primitives::{keccak256, B256};
-use aws_config::meta::region::RegionProviderChain;
-use aws_config::SdkConfig;
-use aws_sdk_s3::config::{Credentials, Region};
 use cairo_vm::program_hash::compute_program_hash_chain;
 use cairo_vm::types::builtin_name::BuiltinName;
 use cairo_vm::types::relocatable::MaybeRelocatable;
@@ -13,7 +10,6 @@ use cairo_vm::vm::runners::cairo_pie::CairoPie;
 use cairo_vm::Felt252;
 use serde::{Deserialize, Serialize};
 use starknet::core::types::FieldElement;
-use utils::settings::Settings;
 
 use super::error::FactError;
 use super::fact_node::generate_merkle_root;
@@ -76,42 +72,22 @@ pub fn get_program_output(cairo_pie: &CairoPie) -> Result<Vec<Felt252>, FactErro
     Ok(output)
 }
 
-/// This is a duplicate code not able to import it from orchestrator
-/// as it will become a cyclic dependency.
-///
-/// To build a `SdkConfig` for AWS provider.
-pub async fn aws_config(settings_provider: &impl Settings) -> SdkConfig {
-    let region = settings_provider.get_settings_or_panic("AWS_REGION");
-    let region_provider = RegionProviderChain::first_try(Region::new(region)).or_default_provider();
-    let credentials = Credentials::from_keys(
-        settings_provider.get_settings_or_panic("AWS_ACCESS_KEY_ID"),
-        settings_provider.get_settings_or_panic("AWS_SECRET_ACCESS_KEY"),
-        None,
-    );
-    aws_config::from_env()
-        .credentials_provider(credentials)
-        .region(region_provider)
-        .endpoint_url(settings_provider.get_settings_or_panic("AWS_ENDPOINT_URL"))
-        .load()
-        .await
-}
-
 #[cfg(test)]
 mod tests {
     use std::path::PathBuf;
 
     use cairo_vm::vm::runners::cairo_pie::CairoPie;
+    use rstest::rstest;
 
     use super::get_fact_info;
 
-    #[tokio::test]
-    async fn test_fact_info() {
+    #[rstest]
+    #[case("fibonacci.zip", "0xca15503f02f8406b599cb220879e842394f5cf2cef753f3ee430647b5981b782")]
+    #[case("238996-SN.zip", "0xec8fa9cdfe069ed59b8f17aeecfd95c6abd616379269d2fa16a80955b6e0f068")]
+    async fn test_fact_info(#[case] cairo_pie_path: &str, #[case] expected_fact: &str) {
         dotenvy::from_filename("../.env.test").expect("Failed to load the .env.test file");
-        // Generated using the get_fact.py script
-        let expected_fact = "0xca15503f02f8406b599cb220879e842394f5cf2cef753f3ee430647b5981b782";
         let cairo_pie_path: PathBuf =
-            [env!("CARGO_MANIFEST_DIR"), "src", "tests", "artifacts", "fibonacci.zip"].iter().collect();
-        println!("this is the cairo path {:?}", cairo_pie_path);
+            [env!("CARGO_MANIFEST_DIR"), "src", "tests", "artifacts", cairo_pie_path].iter().collect();
         let cairo_pie = CairoPie::read_zip_file(&cairo_pie_path).unwrap();
         let fact_info = get_fact_info(&cairo_pie, None).await.unwrap();
         assert_eq!(expected_fact, fact_info.fact.to_string());
