@@ -30,7 +30,7 @@ pub async fn spin_up_madara() -> MadaraCmd {
             "--no-sync-polling",
             "--devnet",
             "--no-l1-sync",
-            "--chain-config-path=/Users/bytezorvin/work/karnot/orchestrator/crates/settlement-clients/starknet/src/tests/preset.yml",
+            "--chain-config-path=./crates/settlement-clients/starknet/src/tests/preset.yml",
             "--rpc-cors",
             "all",
         ])
