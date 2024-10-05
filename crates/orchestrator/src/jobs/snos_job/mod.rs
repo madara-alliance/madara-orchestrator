@@ -103,7 +103,7 @@ impl Job for SnosJob {
                 SnosError::SnosExecutionError { internal_id: job.internal_id.clone(), message: e.to_string() }
             })?;
 
-        let fact_info = get_fact_info(&cairo_pie, None).await?;
+        let fact_info = get_fact_info(&cairo_pie, None)?;
         let program_output = fact_info.program_output;
 
         // snos output = output returned by SNOS
