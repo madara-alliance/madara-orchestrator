@@ -11,9 +11,13 @@ jobs:
     steps:
       - uses: actions/checkout@v3
 
-      - uses: dtolnay/rust-toolchain@master
+      - name: Install Rust toolchain
+        uses: actions-rs/toolchain@v1
         with:
-          toolchain: nightly-2024-10-04
+          profile: minimal
+          toolchain: nightly
+          override: true
+          default: true
 
       - name: Set up Python 3.9
         uses: actions/setup-python@v2
