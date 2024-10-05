@@ -146,7 +146,7 @@ pub struct JobItem {
 /// Defining a structure that contains the changes to be made in the job object,
 /// id and created at are not allowed to be changed
 // version and updated_at will always be updated when this object updates the job
-#[derive(Serialize)]
+#[derive(Serialize, Debug)]
 pub struct JobItemUpdates {
     pub internal_id: Option<String>,
     pub job_type: Option<JobType>,
