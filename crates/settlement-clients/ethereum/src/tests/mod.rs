@@ -205,6 +205,7 @@ mod settlement_client_tests {
     /// transaction. We impersonate the Starknet Operator to send a transaction to the Core
     /// contract Here signature checks are bypassed and anvil is for testing on fork Eth.
     async fn update_state_blob_with_impersonation_works(#[case] fork_block_no: u64) {
+        dotenvy::from_filename(&*ENV_FILE_PATH).expect("Could not load .env.test file.");
         let setup = EthereumTestBuilder::new()
             .with_fork_block(fork_block_no)
             .with_impersonator(*STARKNET_OPERATOR_ADDRESS)
