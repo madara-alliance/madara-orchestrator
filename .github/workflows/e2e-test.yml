@@ -82,9 +82,8 @@ jobs:
           cd /home/runner/.cargo/git/checkouts
           # Navigating to snos
           cd snos-*
-          cd 71bd0a1
           # Navigating to the build
-          cd */
+          cd 71bd0a1
           # Activating the venv
           source ~/cairo_venv/bin/activate
           # Building the cairo lang repo requirements
