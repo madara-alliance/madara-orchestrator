@@ -63,6 +63,7 @@ pub struct DaJob;
 
 #[async_trait]
 impl Job for DaJob {
+    #[tracing::instrument(fields(category = "da"), skip(self, _config, metadata))]
     async fn create_job(
         &self,
         _config: Arc<Config>,
@@ -82,6 +83,7 @@ impl Job for DaJob {
         })
     }
 
+    #[tracing::instrument(fields(category = "da"), skip(self, config))]
     async fn process_job(&self, config: Arc<Config>, job: &mut JobItem) -> Result<String, JobError> {
         let block_no = job
             .internal_id
@@ -146,6 +148,7 @@ impl Job for DaJob {
         Ok(external_id)
     }
 
+    #[tracing::instrument(fields(category = "da"), skip(self, config))]
     async fn verify_job(&self, config: Arc<Config>, job: &mut JobItem) -> Result<JobVerificationStatus, JobError> {
         Ok(config
             .da_client()
@@ -168,6 +171,7 @@ impl Job for DaJob {
     }
 }
 
+#[tracing::instrument(skip(elements))]
 pub fn fft_transformation(elements: Vec<BigUint>) -> Vec<BigUint> {
     let xs: Vec<BigUint> = (0..*BLOB_LEN)
         .map(|i| {
