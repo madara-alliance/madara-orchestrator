@@ -49,8 +49,8 @@ num = { workspace = true }
 num-bigint = { workspace = true }
 num-traits = { workspace = true }
 omniqueue = { workspace = true, optional = true }
-prove_block = { workspace = true }
 once_cell = { workspace = true }
+prove_block = { workspace = true }
 prover-client-interface = { workspace = true }
 rstest = { workspace = true }
 serde = { workspace = true }
