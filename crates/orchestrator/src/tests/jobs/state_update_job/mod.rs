@@ -67,7 +67,7 @@ async fn test_process_job_works(
     let aws_region = env::var("AWS_REGION").unwrap();
     println!("AWS_REGION: {}", aws_region);
 
-    dotenvy::from_filename_override("../.env.test").expect("Failed to load the .env file");
+    dotenvy::from_filename("../.env.test").expect("Failed to load the .env file");
 
     let aws_region = env::var("AWS_REGION").unwrap();
     println!("AWS_REGION: {}", aws_region);

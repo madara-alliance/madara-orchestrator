@@ -10,6 +10,7 @@ use uuid::Uuid;
 
 use crate::constants::{CAIRO_PIE_FILE_NAME, SNOS_OUTPUT_FILE_NAME};
 use crate::jobs::Job;
+use crate::jobs::constants::JOB_METADATA_SNOS_BLOCK;
 use crate::jobs::snos_job::SnosJob;
 use crate::jobs::types::{JobItem, JobStatus, JobType, JobVerificationStatus};
 use crate::tests::common::default_job_item;
@@ -74,7 +75,7 @@ async fn test_process_job() -> color_eyre::Result<()> {
         job_type: JobType::SnosRun,
         status: JobStatus::Created,
         external_id: String::new().into(),
-        metadata: HashMap::from([("block_number".to_string(), "76775".to_string())]),
+        metadata: HashMap::from([(JOB_METADATA_SNOS_BLOCK.to_string(), "76775".to_string())]),
         version: 0,
         created_at: Utc::now().round_subsecs(0),
         updated_at: Utc::now().round_subsecs(0),
