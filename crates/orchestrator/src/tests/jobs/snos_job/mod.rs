@@ -83,10 +83,10 @@ async fn test_process_job() -> color_eyre::Result<()> {
 
     let result = SnosJob.process_job(Arc::clone(&services.config), &mut job_item).await?;
 
-    assert_eq!(result, "76775");
+    assert_eq!(result, "76793");
 
-    let cairo_pie_key = format!("76775/{}", CAIRO_PIE_FILE_NAME);
-    let snos_output_key = format!("76775/{}", SNOS_OUTPUT_FILE_NAME);
+    let cairo_pie_key = format!("76793/{}", CAIRO_PIE_FILE_NAME);
+    let snos_output_key = format!("76793/{}", SNOS_OUTPUT_FILE_NAME);
 
     let cairo_pie_data = storage_client.get_data(&cairo_pie_key).await?;
     let snos_output_data = storage_client.get_data(&snos_output_key).await?;
