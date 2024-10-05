@@ -47,7 +47,6 @@ async fn main() {
 
     if otel_enabled {
         global::shutdown_tracer_provider();
-        // TODO: how do we shutdown the meter provider, and why do we have to shut it down ?
-        // let _ = global::meter_provider().shutdown();
+        let _ = telemetry::global_meter().shutdown();
     }
 }

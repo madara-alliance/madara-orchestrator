@@ -48,6 +48,10 @@ pub fn global_tracer() -> &'static Tracer {
     &TRACER
 }
 
+pub fn global_meter() -> &'static SdkMeterProvider {
+    &METER_PROVIDER
+}
+
 pub fn init_tracer_provider() -> Tracer {
     let batch_config = BatchConfigBuilder::default()
     // Increasing the queue size and batch size, only increase in queue size delays full channel error.
