@@ -74,15 +74,17 @@ impl Job for SnosJob {
         &self,
         _config: Arc<Config>,
         internal_id: String,
-        _metadata: HashMap<String, String>,
+        metadata: HashMap<String, String>,
     ) -> Result<JobItem, JobError> {
+        let mut metadata = metadata;
+        metadata.insert(JOB_METADATA_SNOS_BLOCK.to_string(), internal_id.clone());
         Ok(JobItem {
             id: Uuid::new_v4(),
             internal_id: internal_id.clone(),
             job_type: JobType::SnosRun,
             status: JobStatus::Created,
             external_id: String::new().into(),
-            metadata: HashMap::from([(JOB_METADATA_SNOS_BLOCK.to_string(), internal_id)]),
+            metadata,
             version: 0,
             created_at: Utc::now().round_subsecs(0),
             updated_at: Utc::now().round_subsecs(0),
