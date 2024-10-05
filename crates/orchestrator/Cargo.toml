@@ -50,6 +50,7 @@ num-bigint = { workspace = true }
 num-traits = { workspace = true }
 omniqueue = { workspace = true, optional = true }
 prove_block = { workspace = true }
+once_cell = { workspace = true }
 prover-client-interface = { workspace = true }
 rstest = { workspace = true }
 serde = { workspace = true }
@@ -64,11 +65,27 @@ strum_macros = "0.26.4"
 tempfile = { workspace = true }
 thiserror = { workspace = true }
 tokio = { workspace = true, features = ["sync", "macros", "rt-multi-thread"] }
-tracing = { workspace = true }
-tracing-subscriber = { workspace = true, features = ["env-filter"] }
+
 url = { workspace = true }
 utils = { workspace = true }
 uuid = { workspace = true, features = ["v4", "serde"] }
+
+#Instrumentation
+opentelemetry = { workspace = true, features = ["metrics", "logs"] }
+opentelemetry-appender-tracing = { workspace = true, default-features = false }
+opentelemetry-otlp = { workspace = true, features = [
+  "tonic",
+  "metrics",
+  "logs",
+] }
+opentelemetry-semantic-conventions = { workspace = true }
+opentelemetry-stdout = { workspace = true }
+opentelemetry_sdk = { workspace = true, features = ["rt-tokio", "logs"] }
+tracing = { workspace = true }
+tracing-core = { workspace = true, default-features = false }
+tracing-opentelemetry = "0.26.0"
+tracing-subscriber = { workspace = true, features = ["env-filter"] }
+
 
 [features]
 default = ["ethereum", "with_mongodb", "with_sqs"]

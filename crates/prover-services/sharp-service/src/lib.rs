@@ -26,6 +26,7 @@ pub struct SharpProverService {
 
 #[async_trait]
 impl ProverClient for SharpProverService {
+    #[tracing::instrument(skip(self, task))]
     async fn submit_task(&self, task: Task) -> Result<String, ProverClientError> {
         match task {
             Task::CairoPie(cairo_pie) => {
@@ -37,6 +38,7 @@ impl ProverClient for SharpProverService {
         }
     }
 
+    #[tracing::instrument(skip(self))]
     async fn get_task_status(&self, job_key: &str, fact: &str) -> Result<TaskStatus, ProverClientError> {
         let job_key = Uuid::from_str(job_key)
             .map_err(|e| ProverClientError::InvalidJobKey(format!("Failed to convert {} to UUID {}", job_key, e)))?;
@@ -74,7 +76,7 @@ impl SharpProverService {
     pub fn new_with_settings(settings: &impl Settings) -> Self {
         let sharp_config = SharpConfig::new_with_settings(settings)
             .expect("Not able to create SharpProverService from given settings.");
-        let sharp_client = SharpClient::new(sharp_config.service_url);
+        let sharp_client = SharpClient::new_with_settings(sharp_config.service_url, settings);
         let fact_checker = FactChecker::new(sharp_config.rpc_node_url, sharp_config.verifier_address);
         Self::new(sharp_client, fact_checker)
     }
@@ -82,7 +84,8 @@ impl SharpProverService {
     pub fn with_test_settings(settings: &impl Settings, port: u16) -> Self {
         let sharp_config = SharpConfig::new_with_settings(settings)
             .expect("Not able to create SharpProverService from given settings.");
-        let sharp_client = SharpClient::new(format!("http://127.0.0.1:{}", port).parse().unwrap());
+        let sharp_client =
+            SharpClient::new_with_settings(format!("http://127.0.0.1:{}", port).parse().unwrap(), settings);
         let fact_checker = FactChecker::new(sharp_config.rpc_node_url, sharp_config.verifier_address);
         Self::new(sharp_client, fact_checker)
     }

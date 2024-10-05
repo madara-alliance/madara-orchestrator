@@ -69,6 +69,7 @@ pub struct SnosJob;
 
 #[async_trait]
 impl Job for SnosJob {
+    #[tracing::instrument(fields(category = "snos"), skip(self, _config, metadata))]
     async fn create_job(
         &self,
         _config: Arc<Config>,
@@ -88,6 +89,7 @@ impl Job for SnosJob {
         })
     }
 
+    #[tracing::instrument(fields(category = "snos"), skip(self, config))]
     async fn process_job(&self, config: Arc<Config>, job: &mut JobItem) -> Result<String, JobError> {
         let block_number = self.get_block_number_from_metadata(job)?;
         // let rpc_url = config.starknet_rpc_url();
@@ -112,6 +114,7 @@ impl Job for SnosJob {
         Ok(block_number.to_string())
     }
 
+    #[tracing::instrument(fields(category = "snos"), skip(self, _config))]
     async fn verify_job(&self, _config: Arc<Config>, _job: &mut JobItem) -> Result<JobVerificationStatus, JobError> {
         // No need for verification as of now. If we later on decide to outsource SNOS run
         // to another service, verify_job can be used to poll on the status of the job
