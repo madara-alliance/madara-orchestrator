@@ -123,7 +123,9 @@ mod tests {
     async fn test_init_metric_provider() {
         // Set up necessary environment variables
         env::set_var("OTEL_COLLECTOR_ENDPOINT", "http://localhost:4317");
+        env::set_var("TRACING_LEVEL", "info");
         env::set_var("OTEL_SERVICE_NAME", "test_service");
+
         let otel_endpoint = get_env_var_or_panic("OTEL_COLLECTOR_ENDPOINT");
 
         // Call the function and check if it doesn't panic
@@ -140,6 +142,7 @@ mod tests {
     async fn test_init_tracer_provider() {
         // Set up necessary environment variables
         env::set_var("OTEL_COLLECTOR_ENDPOINT", "http://localhost:4317");
+        env::set_var("TRACING_LEVEL", "info");
         env::set_var("OTEL_SERVICE_NAME", "test_service");
         let otel_endpoint = get_env_var_or_panic("OTEL_COLLECTOR_ENDPOINT");
 
@@ -156,6 +159,7 @@ mod tests {
         // This test just ensures that the function doesn't panic
 
         env::set_var("OTEL_COLLECTOR_ENDPOINT", "http://localhost:4317");
+        env::set_var("TRACING_LEVEL", "info");
         env::set_var("OTEL_SERVICE_NAME", "test_service");
 
         let analytics = setup_analytics();
@@ -168,6 +172,7 @@ mod tests {
         // This test just ensures that the function doesn't panic
 
         env::set_var("OTEL_COLLECTOR_ENDPOINT", "http://localhost:4317");
+        env::set_var("TRACING_LEVEL", "info");
         env::set_var("OTEL_SERVICE_NAME", "test_service");
 
         setup_analytics();
