@@ -17,9 +17,9 @@ jobs:
   #   name: Build Rust project
   #   uses: ./.github/workflows/rust-build.yml
 
-  # linters_cargo:
-  #   name: Run Cargo linters
-  #   uses: ./.github/workflows/linters-cargo.yml
+  linters_cargo:
+    name: Run Cargo linters
+    uses: ./.github/workflows/linters-cargo.yml
 
   # coverage:
   #   name: Run coverage
