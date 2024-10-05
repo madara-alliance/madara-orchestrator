@@ -75,7 +75,7 @@ async fn test_process_job() -> color_eyre::Result<()> {
         job_type: JobType::SnosRun,
         status: JobStatus::Created,
         external_id: String::new().into(),
-        metadata: HashMap::from([(JOB_METADATA_SNOS_BLOCK.to_string(), "76775".to_string())]),
+        metadata: HashMap::from([(JOB_METADATA_SNOS_BLOCK.to_string(), "76793".to_string())]),
         version: 0,
         created_at: Utc::now().round_subsecs(0),
         updated_at: Utc::now().round_subsecs(0),
