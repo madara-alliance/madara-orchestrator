@@ -28,8 +28,6 @@ jobs:
     steps:
       - uses: actions/checkout@v3
 
-      # selecting a toolchain either by action or manual `rustup` calls should happen
-      # before the plugin, as the cache uses the current rustc version as its cache key
       - name: Install necessary dependencies
         run: |
           sudo apt update
@@ -37,11 +35,6 @@ jobs:
 
       - name: Install Rust toolchain
         uses: actions-rs/toolchain@v1
-        with:
-          profile: minimal
-          toolchain: nightly
-          override: true
-          default: true
 
       - name: Rust Cache
         uses: Swatinem/rust-cache@v2
