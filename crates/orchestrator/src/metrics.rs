@@ -1,4 +1,5 @@
 use crate::telemetry::OTEL_SERVICE_NAME;
+use once_cell;
 use once_cell::sync::Lazy;
 use opentelemetry::{global, metrics::Gauge, KeyValue};
 use utils::{

@@ -1,14 +1,9 @@
 use dotenvy::dotenv;
-use opentelemetry::global;
+use orchestrator::config::init_config;
 use orchestrator::queue::init_consumers;
 use orchestrator::routes::app_router;
-use orchestrator::telemetry::{self, TRACING_LEVEL};
-use orchestrator::{config::init_config, telemetry::OTEL_COLLECTOR_ENDPOINT};
-use std::str::FromStr;
-use tracing::Level;
-use tracing_opentelemetry::OpenTelemetryLayer;
-use tracing_subscriber::layer::SubscriberExt as _;
-use tracing_subscriber::util::SubscriberInitExt as _;
+use orchestrator::telemetry::{setup_analytics, shutdown_analytics};
+
 use utils::env_utils::get_env_var_or_default;
 
 /// Start the server
@@ -16,19 +11,9 @@ use utils::env_utils::get_env_var_or_default;
 async fn main() {
     dotenv().ok();
 
-    let otel_enabled = !(*OTEL_COLLECTOR_ENDPOINT).is_empty();
-    let tracing_level =
-        Level::from_str(TRACING_LEVEL.as_str()).expect("Could not obtain tracing level from environment variable.");
+    // Analytics Setup
 
-    if otel_enabled {
-        telemetry::init_analytics();
-        let tracer = telemetry::global_tracer().clone();
-        tracing_subscriber::registry()
-            .with(tracing_subscriber::filter::LevelFilter::from_level(tracing_level))
-            .with(tracing_subscriber::fmt::layer())
-            .with(OpenTelemetryLayer::new(tracer))
-            .init();
-    }
+    let meter_provider = setup_analytics();
 
     // initial config setup
     let config = init_config().await;
@@ -45,8 +30,6 @@ async fn main() {
     tracing::info!("Listening on http://{}", address);
     axum::serve(listener, app).await.expect("Failed to start axum server");
 
-    if otel_enabled {
-        global::shutdown_tracer_provider();
-        let _ = telemetry::global_meter().shutdown();
-    }
+    // Analytics Shutdown
+    shutdown_analytics(meter_provider);
 }
