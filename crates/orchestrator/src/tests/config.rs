@@ -4,14 +4,14 @@ use da_client_interface::{DaClient, MockDaClient};
 use httpmock::MockServer;
 use prover_client_interface::{MockProverClient, ProverClient};
 use settlement_client_interface::{MockSettlementClient, SettlementClient};
-use starknet::providers::jsonrpc::HttpTransport;
 use starknet::providers::JsonRpcClient;
+use starknet::providers::jsonrpc::HttpTransport;
 use url::Url;
-use utils::settings::env::EnvSettingsProvider;
 use utils::settings::Settings;
+use utils::settings::env::EnvSettingsProvider;
 
 use crate::alerts::Alerts;
-use crate::config::{get_aws_config, Config, ProviderConfig};
+use crate::config::{Config, ProviderConfig, get_aws_config};
 use crate::data_storage::{DataStorage, MockDataStorage};
 use crate::database::{Database, MockDatabase};
 use crate::queue::{MockQueueProvider, QueueProvider};
@@ -235,14 +235,14 @@ pub mod implement_client {
     use starknet::providers::jsonrpc::HttpTransport;
     use starknet::providers::{JsonRpcClient, Url};
     use utils::env_utils::get_env_var_or_panic;
-    use utils::settings::env::EnvSettingsProvider;
     use utils::settings::Settings;
+    use utils::settings::env::EnvSettingsProvider;
 
     use super::{ConfigType, MockType};
     use crate::alerts::{Alerts, MockAlerts};
     use crate::config::{
-        build_alert_client, build_da_client, build_database_client, build_prover_service, build_queue_client,
-        build_settlement_client, ProviderConfig,
+        ProviderConfig, build_alert_client, build_da_client, build_database_client, build_prover_service,
+        build_queue_client, build_settlement_client,
     };
     use crate::data_storage::{DataStorage, MockDataStorage};
     use crate::database::{Database, MockDatabase};

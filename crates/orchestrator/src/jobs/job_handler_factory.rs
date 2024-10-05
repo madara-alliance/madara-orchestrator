@@ -8,7 +8,7 @@ pub mod factory {
     use mockall::automock;
 
     use crate::jobs::types::JobType;
-    use crate::jobs::{da_job, proving_job, snos_job, state_update_job, Job};
+    use crate::jobs::{Job, da_job, proving_job, snos_job, state_update_job};
 
     /// To get the job handler
     //         +-------------------+

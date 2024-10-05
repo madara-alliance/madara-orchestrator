@@ -20,17 +20,17 @@ use starknet::providers::jsonrpc::HttpTransport;
 use starknet::providers::{JsonRpcClient, Url};
 use starknet_settlement_client::StarknetSettlementClient;
 use utils::env_utils::get_env_var_or_panic;
-use utils::settings::env::EnvSettingsProvider;
 use utils::settings::Settings;
+use utils::settings::env::EnvSettingsProvider;
 
-use crate::alerts::aws_sns::AWSSNS;
 use crate::alerts::Alerts;
-use crate::data_storage::aws_s3::AWSS3;
+use crate::alerts::aws_sns::AWSSNS;
 use crate::data_storage::DataStorage;
-use crate::database::mongodb::MongoDb;
+use crate::data_storage::aws_s3::AWSS3;
 use crate::database::Database;
-use crate::queue::sqs::SqsQueue;
+use crate::database::mongodb::MongoDb;
 use crate::queue::QueueProvider;
+use crate::queue::sqs::SqsQueue;
 
 /// The app config. It can be accessed from anywhere inside the service
 /// by calling `config` function.

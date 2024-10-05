@@ -4,8 +4,8 @@ pub mod conversion;
 use std::sync::Arc;
 
 use async_trait::async_trait;
-use color_eyre::eyre::{eyre, Ok};
 use color_eyre::Result;
+use color_eyre::eyre::{Ok, eyre};
 use lazy_static::lazy_static;
 use mockall::automock;
 use mockall::predicate::*;
@@ -18,7 +18,7 @@ use starknet::core::utils::get_selector_from_name;
 use starknet::providers::jsonrpc::HttpTransport;
 use starknet::providers::{JsonRpcClient, Provider};
 use starknet::signers::{LocalWallet, SigningKey};
-use tokio::time::{sleep, Duration};
+use tokio::time::{Duration, sleep};
 use utils::settings::Settings;
 
 use crate::config::StarknetSettlementConfig;

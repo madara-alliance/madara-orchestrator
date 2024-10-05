@@ -16,8 +16,8 @@ use alloy::signers::local::PrivateKeySigner;
 use alloy_primitives::Bytes;
 use async_trait::async_trait;
 use c_kzg::{Blob, Bytes32, KzgCommitment, KzgProof, KzgSettings};
-use color_eyre::eyre::{eyre, Ok};
 use color_eyre::Result;
+use color_eyre::eyre::{Ok, eyre};
 use conversion::{get_input_data_for_eip_4844, prepare_sidecar};
 use lazy_static::lazy_static;
 use mockall::automock;
@@ -30,8 +30,8 @@ use settlement_client_interface::{SettlementClient, SettlementConfig, Settlement
 use url::Url;
 use utils::env_utils::get_env_var_or_panic;
 
-use crate::clients::interfaces::validity_interface::StarknetValidityContractTrait;
 use crate::clients::StarknetValidityContractClient;
+use crate::clients::interfaces::validity_interface::StarknetValidityContractTrait;
 use crate::config::EthereumSettlementConfig;
 use crate::conversion::{slice_u8_to_u256, vec_u8_32_to_vec_u256};
 pub mod clients;

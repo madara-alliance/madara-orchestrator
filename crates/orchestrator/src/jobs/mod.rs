@@ -4,13 +4,13 @@ use std::sync::Arc;
 use std::time::Duration;
 
 use async_trait::async_trait;
-use color_eyre::eyre::{eyre, Context};
+use color_eyre::eyre::{Context, eyre};
 use da_job::DaError;
 use mockall::automock;
 use mockall_double::double;
 use proving_job::ProvingError;
-use snos_job::error::FactError;
 use snos_job::SnosError;
+use snos_job::error::FactError;
 use state_update_job::StateUpdateError;
 use tracing::log;
 use uuid::Uuid;
@@ -20,7 +20,7 @@ use crate::jobs::constants::{JOB_PROCESS_ATTEMPT_METADATA_KEY, JOB_VERIFICATION_
 #[double]
 use crate::jobs::job_handler_factory::factory;
 use crate::jobs::types::{JobItem, JobStatus, JobType, JobVerificationStatus};
-use crate::queue::job_queue::{add_job_to_process_queue, add_job_to_verification_queue, ConsumptionError};
+use crate::queue::job_queue::{ConsumptionError, add_job_to_process_queue, add_job_to_verification_queue};
 
 pub mod constants;
 pub mod da_job;

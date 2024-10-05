@@ -374,8 +374,8 @@ pub mod test {
     use majin_blob_types::serde;
     use rstest::rstest;
     use serde_json::json;
-    use starknet::providers::jsonrpc::HttpTransport;
     use starknet::providers::JsonRpcClient;
+    use starknet::providers::jsonrpc::HttpTransport;
     use starknet_core::types::{FieldElement, StateUpdate};
     use url::Url;
 
