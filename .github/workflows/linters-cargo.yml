@@ -11,9 +11,6 @@ jobs:
     steps:
       - uses: actions/checkout@v3
 
-      - name: Setup SNOS
-        uses: ./.github/workflows/setup-snos.yml@${{ github.event.pull_request.head.sha }}
-
       # selecting a toolchain either by action or manual `rustup` calls should happen
       # before the plugin, as the cache uses the current rustc version as its cache key
       - run: rustup show
