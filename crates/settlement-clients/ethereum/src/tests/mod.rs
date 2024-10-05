@@ -32,11 +32,13 @@ lazy_static! {
         .to_str()
         .expect("Path contains invalid Unicode")
         .to_string();
-    static ref ETH_RPC: String = get_env_var_or_panic("ETHEREUM_MAINNET_RPC");
+    static ref ETH_RPC: String = get_env_var_or_panic("SETTLEMENT_RPC_URL");
     pub static ref STARKNET_OPERATOR_ADDRESS: Address =
-        Address::from_str("0x5b98B836969A60FEC50Fa925905Dd1D382a7db43").expect("Unable to parse address");
+        Address::from_str(get_env_var_or_panic("STARKNET_OPERATOR_ADDRESS").as_str())
+            .expect("Could not parse STARKNET_OPERATOR_ADDRESS");
     static ref STARKNET_CORE_CONTRACT_ADDRESS: Address =
-        Address::from_str("0xE2Bb56ee936fd6433DC0F6e7e3b8365C906AA057").expect("Could not impersonate account.");
+        Address::from_str(get_env_var_or_panic("L1_CORE_CONTRACT_ADDRESS").as_str())
+            .expect("Could not parse L1_CORE_CONTRACT_ADDRESS");
     pub static ref TEST_NONCE: u64 = 666068;
 }
 
