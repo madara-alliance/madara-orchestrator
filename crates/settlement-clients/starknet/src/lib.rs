@@ -205,25 +205,12 @@ impl SettlementClient for StarknetSettlementClient {
             return Err(eyre!("Could not fetch last block number from core contract."));
         }
 
-        Ok(u64_from_felt(block_number[0]))
+        Ok(u64_from_felt(block_number[0]).expect("Failed to convert to u64"))
     }
 
     /// Returns the nonce for the wallet in use.
     async fn get_nonce(&self) -> Result<u64> {
-        Ok(u64_from_felt(self.account.get_nonce().await?))
-    }
-}
-
-#[cfg(test)]
-mod test {
-
-    use starknet::core::types::Felt;
-    #[test]
-    fn test_felt_conversion() {
-        let number_in_felt = Felt::from_hex("0x8").unwrap();
-        let number_final = u64::from_le_bytes(number_in_felt.to_bytes_le()[0..8].try_into().unwrap());
-        println!("{number_in_felt} {number_final}");
-
-        assert!(number_final == 8, "Should be 8");
+        let nonce = self.account.get_nonce().await?;
+        Ok(u64_from_felt(nonce).expect("Failed to convert to u64"))
     }
 }

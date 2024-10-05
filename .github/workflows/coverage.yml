@@ -80,8 +80,8 @@ jobs:
       - name: Checkout Madara
         uses: actions/checkout@v4
         with:
-          repository: madara-alliance/madara # Replace with your first repository
-          ref: "0c821aecd1cafc516d00548473fcaddaa4dc0ce4" # Replace with your branch name
+          repository: madara-alliance/madara
+          ref: "0c821aecd1cafc516d00548473fcaddaa4dc0ce4"
           path: madara
 
       - name: Build Madara
