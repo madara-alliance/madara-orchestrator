@@ -116,6 +116,7 @@ mod tests {
     use crate::metrics::OrchestratorMetrics;
 
     #[tokio::test]
+    #[allow(clippy::needless_return)]
     async fn test_init_metric_provider() {
         // Set up necessary environment variables
         env::set_var("OTEL_COLLECTOR_ENDPOINT", "http://localhost:4317");
@@ -131,10 +132,11 @@ mod tests {
 
         // Check if the global meter provider is set
         let _global_provider = global::meter_provider();
-        assert!(result.is_ok(), "init_metric_provider() panicked");
+        assert!(result.is_ok(), "init_metric_provider() panicked")
     }
 
     #[tokio::test]
+    #[allow(clippy::needless_return)]
     async fn test_init_tracer_provider() {
         // Set up necessary environment variables
         env::set_var("OTEL_COLLECTOR_ENDPOINT", "http://localhost:4317");
@@ -151,6 +153,7 @@ mod tests {
     }
 
     #[tokio::test]
+    #[allow(clippy::needless_return)]
     async fn test_init_analytics() {
         // This test just ensures that the function doesn't panic
 
@@ -164,6 +167,7 @@ mod tests {
     }
 
     #[tokio::test]
+    #[allow(clippy::needless_return)]
     async fn test_gauge_setter() {
         // This test just ensures that the function doesn't panic
 
