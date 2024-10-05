@@ -6,13 +6,14 @@ on:
   workflow_call:
 
 jobs:
-  setup-snos:
-    uses: ./.github/workflows/setup-snos.yml
-
   cargo-lint:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v3
+
+      - name: Setup SNOS
+        uses: ./.github/workflows/setup-snos.yml
+
       # selecting a toolchain either by action or manual `rustup` calls should happen
       # before the plugin, as the cache uses the current rustc version as its cache key
       - run: rustup show
