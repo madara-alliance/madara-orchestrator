@@ -162,7 +162,7 @@ async fn test_orchestrator_workflow(#[case] l2_block_number: String) {
         internal_id: l2_block_number.clone(),
         job_type: JobType::ProofCreation,
         job_status: JobStatus::Completed,
-        version: 1,
+        version: 3,
     };
     let test_result = wait_for_db_state(
         Duration::from_secs(900),
@@ -178,7 +178,7 @@ async fn test_orchestrator_workflow(#[case] l2_block_number: String) {
         internal_id: l2_block_number.clone(),
         job_type: JobType::DataSubmission,
         job_status: JobStatus::Completed,
-        version: 1,
+        version: 3,
     };
     let test_result = wait_for_db_state(
         Duration::from_secs(300),
@@ -194,7 +194,7 @@ async fn test_orchestrator_workflow(#[case] l2_block_number: String) {
         internal_id: l2_block_number.clone(),
         job_type: JobType::StateTransition,
         job_status: JobStatus::Completed,
-        version: 1,
+        version: 3,
     };
     let test_result = wait_for_db_state(
         Duration::from_secs(300),

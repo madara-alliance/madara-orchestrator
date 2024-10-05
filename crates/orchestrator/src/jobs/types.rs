@@ -4,9 +4,10 @@ use color_eyre::eyre::eyre;
 use color_eyre::Result;
 use da_client_interface::DaVerificationStatus;
 // TODO: job types shouldn't depend on mongodb
-use chrono::{DateTime, Utc};
+use chrono::{DateTime, SubsecRound as _, Utc};
 #[cfg(feature = "with_mongodb")]
 use mongodb::bson::serde_helpers::{chrono_datetime_as_bson_datetime, uuid_1_as_binary};
+use mongodb::bson::{self, Bson, Document};
 use serde::{Deserialize, Serialize};
 use settlement_client_interface::SettlementVerificationStatus;
 use uuid::Uuid;
@@ -145,6 +146,7 @@ pub struct JobItem {
 /// Defining a structure that contains the changes to be made in the job object,
 /// id and created at are not allowed to be changed
 // version and updated_at will always be updated when this object updates the job
+#[derive(Serialize)]
 pub struct JobItemUpdates {
     pub internal_id: Option<String>,
     pub job_type: Option<JobType>,
@@ -167,6 +169,28 @@ impl JobItemUpdates {
     }
     pub fn only_metadata(metadata: HashMap<String, String>) -> Self {
         JobItemUpdates { metadata: Some(metadata), ..Default::default() }
+    }
+    pub fn to_document(&self, current_job: &JobItem) -> Result<Document> {
+        let mut doc = Document::new();
+
+        // Serialize the struct to BSON
+        let bson = bson::to_bson(&self)?;
+
+        // If serialization was successful and it's a document
+        if let Bson::Document(bson_doc) = bson {
+            // Add non-null fields to our document
+            for (key, value) in bson_doc.iter() {
+                if !matches!(value, Bson::Null) {
+                    doc.insert(key, value.clone());
+                }
+            }
+        }
+
+        // Add additional fields that are always updated
+        doc.insert("version", Bson::Int32(current_job.version + 1));
+        doc.insert("updated_at", Bson::DateTime(Utc::now().round_subsecs(0).into()));
+
+        Ok(doc)
     }
 }
 

@@ -2,7 +2,6 @@ use async_std::stream::StreamExt;
 use futures::TryStreamExt;
 
 use async_trait::async_trait;
-use chrono::{SubsecRound, Utc};
 use color_eyre::eyre::eyre;
 use color_eyre::Result;
 use mongodb::bson::Bson;
@@ -87,29 +86,7 @@ impl Database for MongoDb {
         };
         let options = UpdateOptions::builder().upsert(false).build();
 
-        // Creates an update document based on the updates, if the field is none don't create it's key
-        let mut values = doc! {};
-        if let Some(internal_id) = updates.internal_id {
-            values.insert("internal_id", internal_id);
-        }
-        if let Some(job_type) = updates.job_type {
-            values.insert("job_type", mongodb::bson::to_bson(&job_type)?);
-        }
-        if let Some(status) = updates.status {
-            values.insert("status", mongodb::bson::to_bson(&status)?);
-        }
-        if let Some(external_id) = updates.external_id {
-            values.insert("external_id", mongodb::bson::to_bson(&external_id)?);
-        }
-        if let Some(metadata) = updates.metadata {
-            values.insert("metadata", mongodb::bson::to_bson(&metadata)?);
-        }
-
-        // Version - will always be updated on any update to the job object
-        values.insert("version", current_job.version + 1);
-
-        // Updated At - will always be updated on any update to the job object
-        values.insert("updated_at", Utc::now().round_subsecs(0));
+        let values = updates.to_document(current_job)?;
 
         let update = doc! {
             "$set": values

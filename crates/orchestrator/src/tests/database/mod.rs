@@ -1,4 +1,9 @@
-use crate::jobs::types::{ExternalId, JobItem, JobStatus, JobType};
+use std::collections::HashMap;
+
+use crate::jobs::{
+    increment_key_in_metadata,
+    types::{ExternalId, JobItem, JobItemUpdates, JobStatus, JobType},
+};
 use chrono::{SubsecRound, Utc};
 use rstest::*;
 use uuid::Uuid;
@@ -156,6 +161,47 @@ async fn database_get_jobs_after_internal_id_by_job_type_works() {
     assert_eq!(jobs_after_internal_id.len(), 2, "Number of jobs assertion failed");
     assert_eq!(jobs_after_internal_id[0], job_vec[4]);
     assert_eq!(jobs_after_internal_id[1], job_vec[5]);
+}
+
+#[rstest]
+#[tokio::test]
+async fn database_test_update_job() {
+    let services = TestConfigBuilder::new().configure_database(ConfigType::Actual).build().await;
+    let config = services.config;
+    let database_client = config.database();
+
+    let job = build_job_item(JobType::DataSubmission, JobStatus::Created, 456);
+    database_client.create_job(job.clone()).await.unwrap();
+
+    let job_id = job.id;
+
+    let metadata = HashMap::new();
+    let key = "test_key";
+    let updated_metadata = increment_key_in_metadata(&metadata, key).unwrap();
+
+    let job_cloned = job.clone();
+    let _ = database_client
+        .update_job(
+            &job_cloned,
+            JobItemUpdates {
+                status: Some(JobStatus::LockedForProcessing),
+                metadata: Some(updated_metadata),
+                external_id: None,
+                internal_id: None,
+                job_type: None,
+            },
+        )
+        .await;
+
+    let mut job_after_updates = build_job_item(JobType::DataSubmission, JobStatus::LockedForProcessing, 456);
+    job_after_updates.version += 1;
+
+    if let Some(job_after_updates_db) = database_client.get_job_by_id(job_id).await.unwrap() {
+        assert_eq!(job_after_updates.job_type, job_after_updates_db.job_type);
+        assert_eq!(job_after_updates.status, job_after_updates_db.status);
+        assert_eq!(job_after_updates.version, job_after_updates_db.version);
+        assert_eq!(job_after_updates.internal_id, job_after_updates_db.internal_id);
+    }
 }
 
 // Test Util Functions
