@@ -37,8 +37,8 @@ pub fn setup_analytics() -> Option<SdkMeterProvider> {
         return None;
     }
 
-    let meter_provider = init_metric_provider(&otel_endpoint);
-    let tracer = init_tracer_provider(&otel_endpoint);
+    let meter_provider = init_metric_provider(otel_endpoint.as_str());
+    let tracer = init_tracer_provider(otel_endpoint.as_str());
 
     tracing_subscriber::registry()
         .with(tracing_subscriber::filter::LevelFilter::from_level(tracing_level))
@@ -63,14 +63,14 @@ pub fn shutdown_analytics(meter_provider: Option<SdkMeterProvider>) {
     }
 }
 
-pub fn init_tracer_provider(otel_endpoint: &String) -> Tracer {
+pub fn init_tracer_provider(otel_endpoint: &str) -> Tracer {
     let batch_config = BatchConfigBuilder::default()
     // Increasing the queue size and batch size, only increase in queue size delays full channel error.
     .build();
 
     let provider = opentelemetry_otlp::new_pipeline()
         .tracing()
-        .with_exporter(opentelemetry_otlp::new_exporter().tonic().with_endpoint(otel_endpoint.clone()))
+        .with_exporter(opentelemetry_otlp::new_exporter().tonic().with_endpoint(otel_endpoint.to_string()))
         .with_trace_config(Config::default().with_resource(Resource::new(vec![KeyValue::new(
             opentelemetry_semantic_conventions::resource::SERVICE_NAME,
             format!("{}{}", *OTEL_SERVICE_NAME, "_trace_service"),
@@ -84,8 +84,8 @@ pub fn init_tracer_provider(otel_endpoint: &String) -> Tracer {
     provider.tracer(format!("{}{}", *OTEL_SERVICE_NAME, "_subscriber"))
 }
 
-pub fn init_metric_provider(otel_endpoint: &String) -> SdkMeterProvider {
-    let export_config = ExportConfig { endpoint: otel_endpoint.clone(), ..ExportConfig::default() };
+pub fn init_metric_provider(otel_endpoint: &str) -> SdkMeterProvider {
+    let export_config = ExportConfig { endpoint: otel_endpoint.to_string(), ..ExportConfig::default() };
 
     // Creates and builds the OTLP exporter
     let exporter = opentelemetry_otlp::new_exporter().tonic().with_export_config(export_config).build_metrics_exporter(
@@ -145,7 +145,7 @@ mod tests {
 
         // Call the function and check if it doesn't panic
         let result = std::panic::catch_unwind(|| {
-            let _tracer = init_tracer_provider(&otel_endpoint);
+            let _tracer = init_tracer_provider(otel_endpoint.as_str());
         });
 
         assert!(result.is_ok(), "init_tracer_provider() panicked");
