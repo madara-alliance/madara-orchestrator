@@ -2,6 +2,9 @@ name: E2E test
 
 on:
   workflow_call:
+    secrets:
+      RPC_FOR_SNOS:
+        required: true
 
 jobs:
   coverage:
@@ -94,6 +97,7 @@ jobs:
       - name: Run e2e test
         env:
           SETTLEMENT_RPC_URL: ${{ secrets.ETHEREUM_SEPOLIA_BLAST_RPC }}
+          RPC_FOR_SNOS: ${{ secrets.RPC_FOR_SNOS }}
           # the self hosted runner has a different region so we override it here
           AWS_REGION: us-east-1
         run: |
