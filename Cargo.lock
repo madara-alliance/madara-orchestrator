@@ -3303,7 +3303,7 @@ dependencies = [
 [[package]]
 name = "cairo-type-derive"
 version = "0.1.0"
-source = "git+https://github.com/ocdbytes/snos?branch=main#71bd0a102735f690c503b8e708773a2db843ef59"
+source = "git+https://github.com/ocdbytes/snos?rev=71bd0a102735f690c503b8e708773a2db843ef59#71bd0a102735f690c503b8e708773a2db843ef59"
 dependencies = [
  "proc-macro2",
  "quote",
@@ -7684,7 +7684,7 @@ dependencies = [
 [[package]]
 name = "prove_block"
 version = "0.1.0"
-source = "git+https://github.com/ocdbytes/snos?branch=main#71bd0a102735f690c503b8e708773a2db843ef59"
+source = "git+https://github.com/ocdbytes/snos?rev=71bd0a102735f690c503b8e708773a2db843ef59#71bd0a102735f690c503b8e708773a2db843ef59"
 dependencies = [
  "anyhow",
  "blockifier",
@@ -8143,7 +8143,7 @@ dependencies = [
 [[package]]
 name = "rpc-client"
 version = "0.1.0"
-source = "git+https://github.com/ocdbytes/snos?branch=main#71bd0a102735f690c503b8e708773a2db843ef59"
+source = "git+https://github.com/ocdbytes/snos?rev=71bd0a102735f690c503b8e708773a2db843ef59#71bd0a102735f690c503b8e708773a2db843ef59"
 dependencies = [
  "log",
  "reqwest 0.11.27",
@@ -8158,7 +8158,7 @@ dependencies = [
 [[package]]
 name = "rpc-replay"
 version = "0.1.0"
-source = "git+https://github.com/ocdbytes/snos?branch=main#71bd0a102735f690c503b8e708773a2db843ef59"
+source = "git+https://github.com/ocdbytes/snos?rev=71bd0a102735f690c503b8e708773a2db843ef59#71bd0a102735f690c503b8e708773a2db843ef59"
 dependencies = [
  "blockifier",
  "cairo-lang-starknet-classes",
@@ -9585,7 +9585,7 @@ dependencies = [
 [[package]]
 name = "starknet-os"
 version = "0.1.0"
-source = "git+https://github.com/ocdbytes/snos?branch=main#71bd0a102735f690c503b8e708773a2db843ef59"
+source = "git+https://github.com/ocdbytes/snos?rev=71bd0a102735f690c503b8e708773a2db843ef59#71bd0a102735f690c503b8e708773a2db843ef59"
 dependencies = [
  "anyhow",
  "ark-ec",
@@ -9634,7 +9634,7 @@ dependencies = [
 [[package]]
 name = "starknet-os-types"
 version = "0.1.0"
-source = "git+https://github.com/ocdbytes/snos?branch=main#71bd0a102735f690c503b8e708773a2db843ef59"
+source = "git+https://github.com/ocdbytes/snos?rev=71bd0a102735f690c503b8e708773a2db843ef59#71bd0a102735f690c503b8e708773a2db843ef59"
 dependencies = [
  "blockifier",
  "cairo-lang-starknet-classes",

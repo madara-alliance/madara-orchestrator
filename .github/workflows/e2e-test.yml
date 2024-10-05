@@ -82,6 +82,7 @@ jobs:
           cd /home/runner/.cargo/git/checkouts
           # Navigating to snos
           cd snos-*
+          cd 71bd0a1
           # Navigating to the build
           cd */
           # Activating the venv
