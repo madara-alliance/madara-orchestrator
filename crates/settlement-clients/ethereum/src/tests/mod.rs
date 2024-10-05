@@ -130,6 +130,7 @@ mod settlement_client_tests {
     use settlement_client_interface::{SettlementClient, SettlementVerificationStatus};
     use tokio::time::sleep;
 
+    use super::ENV_FILE_PATH;
     use crate::conversion::to_padded_hex;
     use crate::tests::{
         DummyCoreContract, EthereumTestBuilder, Pipe, CURRENT_PATH, STARKNET_CORE_CONTRACT,
