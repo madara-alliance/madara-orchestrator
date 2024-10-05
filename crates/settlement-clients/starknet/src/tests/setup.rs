@@ -21,11 +21,18 @@ pub struct MadaraCmd {
     pub _port: MadaraPortNum,
 }
 
-async fn wait_for_cond<F: Future<Output = Result<(), anyhow::Error>>>(mut cond: impl FnMut() -> F, duration: Duration) {
+pub async fn wait_for_cond<F: Future<Output = Result<bool, anyhow::Error>>>(
+    mut cond: impl FnMut() -> F,
+    duration: Duration,
+) -> Result<bool, anyhow::Error> {
     let mut attempt = 0;
     loop {
-        let Err(err) = cond().await else {
-            break;
+        let err = match cond().await {
+            Ok(result) => return Ok(result),
+            Err(err) => {
+                // Empty block, no action needed
+                err
+            }
         };
 
         attempt += 1;
@@ -48,11 +55,12 @@ impl MadaraCmd {
             || async {
                 let res = reqwest::get(endpoint.clone()).await?;
                 res.error_for_status()?;
-                anyhow::Ok(())
+                anyhow::Ok(true)
             },
             Duration::from_millis(1000),
         )
-        .await;
+        .await
+        .expect("Could not get health of Madara");
         self.ready = true;
         self
     }

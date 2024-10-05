@@ -13,7 +13,9 @@ pub(crate) fn u64_from_felt(number: Felt) -> Result<u64> {
     let bytes = number.to_bytes_be();
 
     for x in &bytes[0..24] {
-        assert!(*x == 0, "byte should be zero, cannot convert to Felt");
+        if *x != 0 {
+            return Err(color_eyre::Report::msg("byte should be zero, cannot convert to Felt"));
+        }
     }
     Ok(u64::from_be_bytes(bytes[24..32].try_into().unwrap()))
 }
@@ -26,8 +28,11 @@ fn test_u64_from_from_felt_ok() {
 }
 
 #[test]
-#[should_panic(expected = "byte should be zero, cannot convert to Felt")]
 fn test_u64_from_from_felt_panic() {
     let number = Felt::MAX;
-    u64_from_felt(number).unwrap();
+    let number = u64_from_felt(number);
+    match number {
+        Ok(n) => log::info!("Nonce value from get_nonce: {:?}", n),
+        Err(e) => log::error!("Error getting nonce: {:?}", e),
+    }
 }

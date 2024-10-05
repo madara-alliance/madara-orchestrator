@@ -1,4 +1,4 @@
-use super::setup::{MadaraCmd, MadaraCmdBuilder};
+use super::setup::{wait_for_cond, MadaraCmd, MadaraCmdBuilder};
 use crate::{LocalWalletSignerMiddleware, StarknetSettlementClient};
 use rstest::{fixture, rstest};
 use settlement_client_interface::SettlementClient;
@@ -40,35 +40,37 @@ pub async fn spin_up_madara() -> MadaraCmd {
 }
 
 async fn wait_for_tx(account: &LocalWalletSignerMiddleware, transaction_hash: Felt, duration: Duration) -> bool {
-    let mut attempt = 0;
-    loop {
-        attempt += 1;
-        if attempt >= 5 {
-            return false;
-        }
-        let reciept = match account.provider().get_transaction_status(transaction_hash).await {
-            Ok(reciept) => reciept,
-            Err(ProviderError::StarknetError(StarknetError::TransactionHashNotFound)) => {
-                tokio::time::sleep(duration).await;
-                continue;
-            }
-            _ => panic!("Unknown error"),
-        };
+    let result = wait_for_cond(
+        || async {
+            let receipt = match account.provider().get_transaction_status(transaction_hash).await {
+                Ok(receipt) => Ok(receipt),
+                Err(ProviderError::StarknetError(StarknetError::TransactionHashNotFound)) => {
+                    Err(anyhow::anyhow!("Transaction not yet received"))
+                }
+                _ => Err(anyhow::anyhow!("Unknown error")),
+            };
 
-        match reciept {
-            TransactionStatus::Received => (),
-            TransactionStatus::Rejected => return false,
-            TransactionStatus::AcceptedOnL2(status) => match status {
-                TransactionExecutionStatus::Succeeded => return true,
-                TransactionExecutionStatus::Reverted => return false,
-            },
-            TransactionStatus::AcceptedOnL1(status) => match status {
-                TransactionExecutionStatus::Succeeded => return true,
-                TransactionExecutionStatus::Reverted => return false,
-            },
-        }
-        // This is done, since currently madara does not increment nonce for pending transactions
-        tokio::time::sleep(duration).await;
+            match receipt {
+                Ok(TransactionStatus::Received) => Err(anyhow::anyhow!("Transaction not yet received")),
+                Ok(TransactionStatus::Rejected) => Ok(false),
+                Ok(TransactionStatus::AcceptedOnL2(status)) => match status {
+                    TransactionExecutionStatus::Succeeded => Ok(true),
+                    TransactionExecutionStatus::Reverted => Ok(false),
+                },
+                Ok(TransactionStatus::AcceptedOnL1(status)) => match status {
+                    TransactionExecutionStatus::Succeeded => Ok(true),
+                    TransactionExecutionStatus::Reverted => Ok(false),
+                },
+                Err(e) => Err(anyhow::anyhow!("Unknown error: {}", e)),
+            }
+        },
+        duration,
+    )
+    .await;
+    match result {
+        Ok(true) => true,
+        Ok(false) => false,
+        Err(e) => panic!("Error while waiting for transaction: {}", e),
     }
 }
 
@@ -168,4 +170,18 @@ async fn test_settle(#[future] setup: (LocalWalletSignerMiddleware, MadaraCmd)) 
         .await
         .expect("failed to call the contract");
     assert!(call_result[0] == true.into(), "Should be updated");
+}
+
+#[rstest]
+#[tokio::test]
+async fn test_get_nonce_works(#[future] setup: (LocalWalletSignerMiddleware, MadaraCmd)) {
+    let (account, _madara_process) = setup.await;
+    log::info!("Test function started");
+    let nonce = account.get_nonce().await;
+    match &nonce {
+        Ok(n) => log::info!("Nonce value from get_nonce: {:?}", n),
+        Err(e) => log::error!("Error getting nonce: {:?}", e),
+    }
+    assert!(nonce.is_ok(), "Failed to get nonce");
+    log::info!("Test function completed");
 }
