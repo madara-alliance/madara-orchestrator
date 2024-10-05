@@ -3,7 +3,6 @@ use orchestrator::config::init_config;
 use orchestrator::queue::init_consumers;
 use orchestrator::routes::app_router;
 use orchestrator::telemetry::{setup_analytics, shutdown_analytics};
-
 use utils::env_utils::get_env_var_or_default;
 
 /// Start the server
