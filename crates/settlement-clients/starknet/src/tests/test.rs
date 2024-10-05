@@ -176,12 +176,10 @@ async fn test_settle(#[future] setup: (LocalWalletSignerMiddleware, MadaraCmd)) 
 #[tokio::test]
 async fn test_get_nonce_works(#[future] setup: (LocalWalletSignerMiddleware, MadaraCmd)) {
     let (account, _madara_process) = setup.await;
-    log::info!("Test function started");
     let nonce = account.get_nonce().await;
     match &nonce {
         Ok(n) => log::info!("Nonce value from get_nonce: {:?}", n),
         Err(e) => log::error!("Error getting nonce: {:?}", e),
     }
     assert!(nonce.is_ok(), "Failed to get nonce");
-    log::info!("Test function completed");
 }
