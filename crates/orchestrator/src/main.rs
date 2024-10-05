@@ -6,6 +6,9 @@ use utils::env_utils::get_env_var_or_default;
 
 /// Start the server
 #[tokio::main]
+// not sure why clippy gives this error on the latest rust
+// version but have added it for now
+#[allow(clippy::needless_return)]
 async fn main() {
     dotenv().ok();
     tracing_subscriber::fmt().with_max_level(tracing::Level::INFO).with_target(false).init();

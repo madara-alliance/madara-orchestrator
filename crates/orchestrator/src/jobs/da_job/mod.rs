@@ -360,7 +360,6 @@ fn da_word(class_flag: bool, nonce_change: Option<FieldElement>, num_changes: u6
 }
 
 #[cfg(test)]
-
 pub mod test {
     use std::fs;
     use std::fs::File;
