@@ -1,13 +1,11 @@
 use std::collections::HashMap;
 
-use crate::jobs::{
-    increment_key_in_metadata,
-    types::{ExternalId, JobItem, JobItemUpdates, JobStatus, JobType},
-};
 use chrono::{SubsecRound, Utc};
 use rstest::*;
 use uuid::Uuid;
 
+use crate::jobs::increment_key_in_metadata;
+use crate::jobs::types::{ExternalId, JobItem, JobItem, JobItemUpdates, JobStatus, JobStatus, JobType, JobType};
 use crate::tests::config::{ConfigType, TestConfigBuilder};
 
 #[rstest]
@@ -181,16 +179,13 @@ async fn database_test_update_job() {
 
     let job_cloned = job.clone();
     let _ = database_client
-        .update_job(
-            &job_cloned,
-            JobItemUpdates {
-                status: Some(JobStatus::LockedForProcessing),
-                metadata: Some(updated_metadata),
-                external_id: None,
-                internal_id: None,
-                job_type: None,
-            },
-        )
+        .update_job(&job_cloned, JobItemUpdates {
+            status: Some(JobStatus::LockedForProcessing),
+            metadata: Some(updated_metadata),
+            external_id: None,
+            internal_id: None,
+            job_type: None,
+        })
         .await;
 
     let mut job_after_updates = build_job_item(JobType::DataSubmission, JobStatus::LockedForProcessing, 456);

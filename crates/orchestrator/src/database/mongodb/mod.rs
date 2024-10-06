@@ -1,17 +1,17 @@
-use async_std::stream::StreamExt;
-use futures::TryStreamExt;
+use std::collections::HashMap;
 
+use async_std::stream::StreamExt;
 use async_trait::async_trait;
-use color_eyre::eyre::eyre;
+use chrono::{SubsecRound, Utc};
 use color_eyre::Result;
-use mongodb::bson::Bson;
-use mongodb::options::{FindOneOptions, FindOptions, UpdateOptions};
-use mongodb::{
-    bson,
-    bson::doc,
-    options::{ClientOptions, ServerApi, ServerApiVersion},
-    Client, Collection,
+use color_eyre::eyre::eyre;
+use futures::TryStreamExt;
+use mongodb::bson::{Bson, Document, doc, doc};
+use mongodb::options::{
+    ClientOptions, FindOneOptions, FindOneOptions, FindOptions, FindOptions, ServerApi, ServerApi, ServerApiVersion,
+    ServerApiVersion, UpdateOptions, UpdateOptions,
 };
+use mongodb::{Client, Collection, Collection, bson, bson};
 use utils::settings::Settings;
 use uuid::Uuid;
 

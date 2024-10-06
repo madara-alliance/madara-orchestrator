@@ -3,25 +3,27 @@ use std::fmt;
 use std::sync::Arc;
 use std::time::Duration;
 
-use crate::config::Config;
-use crate::jobs::constants::{JOB_PROCESS_ATTEMPT_METADATA_KEY, JOB_VERIFICATION_ATTEMPT_METADATA_KEY};
-use crate::jobs::types::{JobItem, JobStatus, JobType, JobVerificationStatus};
-use crate::metrics::ORCHESTRATOR_METRICS;
-use crate::queue::job_queue::{add_job_to_process_queue, add_job_to_verification_queue, ConsumptionError};
 use async_trait::async_trait;
-use color_eyre::eyre::{eyre, Context};
+use color_eyre::eyre::{Context, eyre};
 use da_job::DaError;
 use mockall::automock;
 use mockall_double::double;
 use opentelemetry::KeyValue;
 use proving_job::ProvingError;
+use snos_job::SnosError;
+use snos_job::error::FactError;
 use state_update_job::StateUpdateError;
 use tracing::log;
 use types::JobItemUpdates;
 use uuid::Uuid;
 
+use crate::config::Config;
+use crate::jobs::constants::{JOB_PROCESS_ATTEMPT_METADATA_KEY, JOB_VERIFICATION_ATTEMPT_METADATA_KEY};
 #[double]
 use crate::jobs::job_handler_factory::factory;
+use crate::jobs::types::{JobItem, JobStatus, JobType, JobVerificationStatus};
+use crate::metrics::ORCHESTRATOR_METRICS;
+use crate::queue::job_queue::{ConsumptionError, add_job_to_process_queue, add_job_to_verification_queue};
 
 pub mod constants;
 pub mod da_job;
@@ -56,8 +58,14 @@ pub enum JobError {
     #[error("Proving Error: {0}")]
     StateUpdateJobError(#[from] StateUpdateError),
 
+    #[error("Snos Error: {0}")]
+    SnosJobError(#[from] SnosError),
+
     #[error("Queue Handling Error: {0}")]
     ConsumptionError(#[from] ConsumptionError),
+
+    #[error("Fact Error: {0}")]
+    FactError(#[from] FactError),
 
     #[error("Other error: {0}")]
     Other(#[from] OtherError),
@@ -95,6 +103,8 @@ impl From<String> for OtherError {
 }
 // ====================================================
 
+/// Job Trait
+///
 /// The Job trait is used to define the methods that a job
 /// should implement to be used as a job for the orchestrator. The orchestrator automatically
 /// handles queueing and processing of jobs as long as they implement the trait.
@@ -199,16 +209,13 @@ pub async fn process_job(id: Uuid, config: Arc<Config>) -> Result<(), JobError> 
     // Fetching the job again because update status above will update the job version
     config
         .database()
-        .update_job(
-            &job_cloned,
-            JobItemUpdates {
-                status: Some(JobStatus::PendingVerification),
-                metadata: Some(metadata),
-                external_id: Some(external_id.into()),
-                internal_id: None,
-                job_type: None,
-            },
-        )
+        .update_job(&job_cloned, JobItemUpdates {
+            status: Some(JobStatus::PendingVerification),
+            metadata: Some(metadata),
+            external_id: Some(external_id.into()),
+            internal_id: None,
+            job_type: None,
+        })
         .await
         .map_err(|e| JobError::Other(OtherError(e)))?;
 
@@ -231,10 +238,12 @@ pub async fn process_job(id: Uuid, config: Arc<Config>) -> Result<(), JobError> 
     Ok(())
 }
 
+/// Verify Job Function
+///
 /// Verifies the job and updates the status of the job in the DB. If the verification fails, it
 /// retries processing the job if the max attempts have not been exceeded. If the max attempts have
-/// been exceeded, it marks the job as timed out. If the verification is still pending, it pushes the
-/// job back to the queue.
+/// been exceeded, it marks the job as timed out. If the verification is still pending, it pushes
+/// the job back to the queue.
 #[tracing::instrument(skip(config), fields(category = "general", job, job_type, internal_id, verification_status))]
 pub async fn verify_job(id: Uuid, config: Arc<Config>) -> Result<(), JobError> {
     let mut job = get_job(id, config.clone()).await?;
@@ -271,16 +280,13 @@ pub async fn verify_job(id: Uuid, config: Arc<Config>) -> Result<(), JobError> {
 
             config
                 .database()
-                .update_job(
-                    &job,
-                    JobItemUpdates {
-                        status: Some(JobStatus::VerificationFailed),
-                        metadata: Some(new_job.metadata),
-                        internal_id: None,
-                        job_type: None,
-                        external_id: None,
-                    },
-                )
+                .update_job(&job, JobItemUpdates {
+                    status: Some(JobStatus::VerificationFailed),
+                    metadata: Some(new_job.metadata),
+                    internal_id: None,
+                    job_type: None,
+                    external_id: None,
+                })
                 .await
                 .map_err(|e| JobError::Other(OtherError(e)))?;
 
@@ -364,16 +370,13 @@ pub async fn handle_job_failure(id: Uuid, config: Arc<Config>) -> Result<(), Job
     metadata.insert("last_job_status".to_string(), job.status.to_string());
     config
         .database()
-        .update_job(
-            &job,
-            JobItemUpdates {
-                status: Some(JobStatus::Failed),
-                metadata: Some(metadata),
-                internal_id: None,
-                job_type: None,
-                external_id: None,
-            },
-        )
+        .update_job(&job, JobItemUpdates {
+            status: Some(JobStatus::Failed),
+            metadata: Some(metadata),
+            internal_id: None,
+            job_type: None,
+            external_id: None,
+        })
         .await
         .map_err(|e| JobError::Other(OtherError(e)))?;
 
