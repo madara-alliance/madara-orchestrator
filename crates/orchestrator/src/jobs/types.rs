@@ -161,11 +161,32 @@ impl Default for JobItemUpdates {
 
 /// implements only needed singular changes
 impl JobItemUpdates {
-    pub fn only_status(status: JobStatus) -> Self {
-        JobItemUpdates { status: Some(status), ..Default::default() }
+   
+    pub fn update_internal_id(mut self, internal_id: String) -> JobItemUpdates {
+        self.internal_id = Some(internal_id);
+        self
     }
-    pub fn only_metadata(metadata: HashMap<String, String>) -> Self {
-        JobItemUpdates { metadata: Some(metadata), ..Default::default() }
+
+    pub fn update_job_type(mut self, job_type: JobType) -> JobItemUpdates {
+        self.job_type = Some(job_type);
+        self
+    }
+
+    pub fn update_status(mut self, status: JobStatus) -> JobItemUpdates {
+        self.status = Some(status);
+        self
+    }
+    pub fn update_external_id(mut self, external_id: ExternalId) -> JobItemUpdates {
+        self.external_id = Some(external_id);
+        self
+    }
+    pub fn update_metadata(mut self, metadata: HashMap<String, String>) -> JobItemUpdates {
+        self.metadata = Some(metadata);
+        self
+    }
+    // creating another type JobItemUpdatesBuilder would be an overkill
+    pub fn build(self) -> JobItemUpdates {
+        self
     }
 }
 

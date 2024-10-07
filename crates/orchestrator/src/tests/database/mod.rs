@@ -179,13 +179,13 @@ async fn database_test_update_job() {
 
     let job_cloned = job.clone();
     let _ = database_client
-        .update_job(&job_cloned, JobItemUpdates {
-            status: Some(JobStatus::LockedForProcessing),
-            metadata: Some(updated_metadata),
-            external_id: None,
-            internal_id: None,
-            job_type: None,
-        })
+        .update_job(
+            &job_cloned,
+            JobItemUpdates::default()
+                .update_status(JobStatus::LockedForProcessing)
+                .update_metadata(updated_metadata)
+                .build(),
+        )
         .await;
 
     if let Some(job_after_updates_db) = database_client.get_job_by_id(job_id).await.unwrap() {

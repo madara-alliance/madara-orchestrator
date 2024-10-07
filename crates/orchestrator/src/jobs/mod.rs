@@ -195,7 +195,7 @@ pub async fn process_job(id: Uuid, config: Arc<Config>) -> Result<(), JobError> 
     // outdated
     config
         .database()
-        .update_job(&job, JobItemUpdates::only_status(JobStatus::LockedForProcessing))
+        .update_job(&job, JobItemUpdates::default().update_status(JobStatus::LockedForProcessing).build())
         .await
         .map_err(|e| JobError::Other(OtherError(e)))?;
 
@@ -209,13 +209,14 @@ pub async fn process_job(id: Uuid, config: Arc<Config>) -> Result<(), JobError> 
     // Fetching the job again because update status above will update the job version
     config
         .database()
-        .update_job(&job_cloned, JobItemUpdates {
-            status: Some(JobStatus::PendingVerification),
-            metadata: Some(metadata),
-            external_id: Some(external_id.into()),
-            internal_id: None,
-            job_type: None,
-        })
+        .update_job(
+            &job_cloned,
+            JobItemUpdates::default()
+                .update_status(JobStatus::PendingVerification)
+                .update_metadata(metadata)
+                .update_external_id(external_id.into())
+                .build(),
+        )
         .await
         .map_err(|e| JobError::Other(OtherError(e)))?;
 
@@ -269,7 +270,7 @@ pub async fn verify_job(id: Uuid, config: Arc<Config>) -> Result<(), JobError> {
         JobVerificationStatus::Verified => {
             config
                 .database()
-                .update_job(&job, JobItemUpdates::only_status(JobStatus::Completed))
+                .update_job(&job, JobItemUpdates::default().update_status(JobStatus::Completed).build())
                 .await
                 .map_err(|e| JobError::Other(OtherError(e)))?;
         }
@@ -280,13 +281,13 @@ pub async fn verify_job(id: Uuid, config: Arc<Config>) -> Result<(), JobError> {
 
             config
                 .database()
-                .update_job(&job, JobItemUpdates {
-                    status: Some(JobStatus::VerificationFailed),
-                    metadata: Some(new_job.metadata),
-                    internal_id: None,
-                    job_type: None,
-                    external_id: None,
-                })
+                .update_job(
+                    &job,
+                    JobItemUpdates::default()
+                        .update_status(JobStatus::VerificationFailed)
+                        .update_metadata(new_job.metadata)
+                        .build(),
+                )
                 .await
                 .map_err(|e| JobError::Other(OtherError(e)))?;
 
@@ -313,7 +314,7 @@ pub async fn verify_job(id: Uuid, config: Arc<Config>) -> Result<(), JobError> {
                 log::info!("Verification attempts exceeded for job {}. Marking as timed out.", job.id);
                 config
                     .database()
-                    .update_job(&job, JobItemUpdates::only_status(JobStatus::VerificationTimeout))
+                    .update_job(&job, JobItemUpdates::default().update_status(JobStatus::VerificationFailed).build())
                     .await
                     .map_err(|e| JobError::Other(OtherError(e)))?;
                 return Ok(());
@@ -322,7 +323,7 @@ pub async fn verify_job(id: Uuid, config: Arc<Config>) -> Result<(), JobError> {
 
             config
                 .database()
-                .update_job(&job, JobItemUpdates::only_metadata(metadata))
+                .update_job(&job, JobItemUpdates::default().update_metadata(metadata).build())
                 .await
                 .map_err(|e| JobError::Other(OtherError(e)))?;
 
@@ -370,13 +371,7 @@ pub async fn handle_job_failure(id: Uuid, config: Arc<Config>) -> Result<(), Job
     metadata.insert("last_job_status".to_string(), job.status.to_string());
     config
         .database()
-        .update_job(&job, JobItemUpdates {
-            status: Some(JobStatus::Failed),
-            metadata: Some(metadata),
-            internal_id: None,
-            job_type: None,
-            external_id: None,
-        })
+        .update_job(&job, JobItemUpdates::default().update_status(JobStatus::Failed).update_metadata(metadata).build())
         .await
         .map_err(|e| JobError::Other(OtherError(e)))?;
 
