@@ -45,6 +45,38 @@ impl MongoDb {
         Self { client }
     }
 
+    pub fn to_document(&self, current_job: &JobItem) -> Result<Document> {
+        let mut doc = Document::new();
+
+        // Serialize the struct to BSON
+        let bson = bson::to_bson(&self)?;
+
+        // If serialization was successful and it's a document
+        if let Bson::Document(bson_doc) = bson {
+            let mut is_update_available: bool = false;
+            // Add non-null fields to our document
+            for (key, value) in bson_doc.iter() {
+                if !matches!(value, Bson::Null) {
+                    is_update_available = true;
+                    doc.insert(key, value.clone());
+                }
+            }
+
+            // checks if is_update_available is still false.
+            // if it is still false that means there's no field to be updated
+            // and the call is likely a false call, so raise an error.
+            if !is_update_available {
+                return Err(("No field to be updated, likely a false call"));
+            }
+        }
+
+        // Add additional fields that are always updated
+        doc.insert("version", Bson::Int32(current_job.version + 1));
+        doc.insert("updated_at", Bson::DateTime(Utc::now().round_subsecs(0).into()));
+
+        Ok(doc)
+    }
+
     /// Mongodb client uses Arc internally, reducing the cost of clone.
     /// Directly using clone is not recommended for libraries not using Arc internally.
     pub fn client(&self) -> Client {
@@ -90,7 +122,7 @@ impl Database for MongoDb {
         };
         let options = UpdateOptions::builder().upsert(false).build();
 
-        let values = updates.to_document(current_job)?;
+        let values = self.to_document(current_job)?;
 
         let update = doc! {
             "$set": values
