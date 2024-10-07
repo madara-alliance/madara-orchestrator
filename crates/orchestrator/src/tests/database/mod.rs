@@ -196,6 +196,8 @@ async fn database_test_update_job() {
         assert_eq!(job_after_updates.status, job_after_updates_db.status);
         assert_eq!(job_after_updates.version, job_after_updates_db.version);
         assert_eq!(job_after_updates.internal_id, job_after_updates_db.internal_id);
+    } else { 
+        panic!("Job not found in Database.")
     }
 }
 
