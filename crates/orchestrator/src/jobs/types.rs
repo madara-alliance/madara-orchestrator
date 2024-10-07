@@ -175,11 +175,20 @@ impl JobItemUpdates {
 
         // If serialization was successful and it's a document
         if let Bson::Document(bson_doc) = bson {
+            let mut is_update_available: bool = false;
             // Add non-null fields to our document
             for (key, value) in bson_doc.iter() {
                 if !matches!(value, Bson::Null) {
+                    is_update_available = true;
                     doc.insert(key, value.clone());
                 }
+            }
+
+            // checks if is_update_available is still false.
+            // if it is still false that means there's no field to be updated
+            // and the call is likely a false call, so raise an error.
+            if !is_update_available {
+                return Err(("No field to be updated, likely a false call"));
             }
         }
 
