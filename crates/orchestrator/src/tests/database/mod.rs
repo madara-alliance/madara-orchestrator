@@ -188,15 +188,12 @@ async fn database_test_update_job() {
         })
         .await;
 
-    let mut job_after_updates = build_job_item(JobType::DataSubmission, JobStatus::LockedForProcessing, 456);
-    job_after_updates.version += 1;
-
     if let Some(job_after_updates_db) = database_client.get_job_by_id(job_id).await.unwrap() {
-        assert_eq!(job_after_updates.job_type, job_after_updates_db.job_type);
-        assert_eq!(job_after_updates.status, job_after_updates_db.status);
-        assert_eq!(job_after_updates.version, job_after_updates_db.version);
-        assert_eq!(job_after_updates.internal_id, job_after_updates_db.internal_id);
-    } else { 
+        assert_eq!(JobType::DataSubmission, job_after_updates_db.job_type);
+        assert_eq!(JobStatus::LockedForProcessing, job_after_updates_db.status);
+        assert_eq!(1, job_after_updates_db.version);
+        assert_eq!(456, job_after_updates_db.internal_id);
+    } else {
         panic!("Job not found in Database.")
     }
 }
