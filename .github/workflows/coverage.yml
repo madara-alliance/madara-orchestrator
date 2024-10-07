@@ -10,7 +10,7 @@ on:
 
 jobs:
   coverage:
-    runs-on: karnot-arc-runner-set
+    runs-on: ubuntu-latest
 
     services:
       localstack:
@@ -105,15 +105,15 @@ jobs:
           ref: "0c821aecd1cafc516d00548473fcaddaa4dc0ce4"
           path: madara
 
-      - name: Build Madara
-        working-directory: madara
-        run: |
-          cargo build
-          mv target/debug/madara ../madara-binary
-          cd ..
-          echo -e "
-          MADARA_BINARY_PATH=\"$(pwd)/madara-binary\"" >> .env.test
-          cat .env.test
+      # - name: Build Madara
+      #   working-directory: madara
+      #   run: |
+      #     cargo build
+      #     mv target/debug/madara ../madara-binary
+      #     cd ..
+      #     echo -e "
+      #     MADARA_BINARY_PATH=\"$(pwd)/madara-binary\"" >> .env.test
+      #     cat .env.test
 
       - name: Getting neccesary files for testing
         run: |
@@ -142,7 +142,7 @@ jobs:
           RPC_FOR_SNOS: ${{ secrets.RPC_FOR_SNOS }}
           # the self hosted runner has a different region so we override it here
           AWS_REGION: us-east-1
-        run: RUST_LOG=debug RUST_BACKTRACE=1 cargo llvm-cov nextest --release --features testing --lcov --output-path lcov.info --test-threads=1 --workspace --exclude=e2e-tests --no-fail-fast
+        run: RUST_LOG=debug RUST_BACKTRACE=1 cargo nextest run tests::jobs::snos_job::test_process_job --nocapture
 
       - name: Coveralls
         uses: coverallsapp/github-action@v2
