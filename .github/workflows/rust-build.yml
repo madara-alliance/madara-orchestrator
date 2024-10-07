@@ -45,7 +45,7 @@ jobs:
           # Navigating to snos
           cd snos-*
           # Navigating to the build
-          cd 71bd0a1
+          cd 836a4a7
           # Activating the venv
           source ~/cairo_venv/bin/activate
           # Building the cairo lang repo requirements
