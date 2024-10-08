@@ -46,29 +46,31 @@ impl MongoDb {
         // Serialize the struct to BSON
         let bson = bson::to_bson(updates)?;
 
-        // If serialization was successful and it's a document
-        if let Bson::Document(bson_doc) = bson {
-            let mut is_update_available: bool = false;
-            // Add non-null fields to our document
-            for (key, value) in bson_doc.iter() {
-                if !matches!(value, Bson::Null) {
-                    is_update_available = true;
-                    doc.insert(key, value.clone());
+        match bson {
+            // If serialization was successful and it's a document
+            Bson::Document(bson_doc) => {
+                let mut is_update_available: bool = false;
+                // Add non-null fields to our document
+                for (key, value) in bson_doc.iter() {
+                    if !matches!(value, Bson::Null) {
+                        is_update_available = true;
+                        doc.insert(key, value.clone());
+                    }
                 }
-            }
 
-            // checks if is_update_available is still false.
-            // if it is still false that means there's no field to be updated
-            // and the call is likely a false call, so raise an error.
-            if !is_update_available {
-                return Err(eyre!("No field to be updated, likely a false call"));
-            }
+                // checks if is_update_available is still false.
+                // if it is still false that means there's no field to be updated
+                // and the call is likely a false call, so raise an error.
+                if !is_update_available {
+                    return Err(eyre!("No field to be updated, likely a false call"));
+                }
 
-            // Add additional fields that are always updated
-            doc.insert("version", Bson::Int32(current_job.version + 1));
-            doc.insert("updated_at", Bson::DateTime(Utc::now().round_subsecs(0).into()));
+                // Add additional fields that are always updated
+                doc.insert("version", Bson::Int32(current_job.version + 1));
+                doc.insert("updated_at", Bson::DateTime(Utc::now().round_subsecs(0).into()));
+            }
+            _ => return Err(eyre!("Bson object is not a document.")),
         }
-
         Ok(doc)
     }
 
