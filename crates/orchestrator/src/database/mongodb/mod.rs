@@ -1,17 +1,12 @@
-use std::collections::HashMap;
-
 use async_std::stream::StreamExt;
 use async_trait::async_trait;
 use chrono::{SubsecRound, Utc};
 use color_eyre::Result;
 use color_eyre::eyre::eyre;
 use futures::TryStreamExt;
-use mongodb::bson::{Bson, Document, doc, doc};
-use mongodb::options::{
-    ClientOptions, FindOneOptions, FindOneOptions, FindOptions, FindOptions, ServerApi, ServerApi, ServerApiVersion,
-    ServerApiVersion, UpdateOptions, UpdateOptions,
-};
-use mongodb::{Client, Collection, Collection, bson, bson};
+use mongodb::bson::{Bson, Document, doc};
+use mongodb::options::{ClientOptions, FindOneOptions, FindOptions, ServerApi, ServerApiVersion, UpdateOptions};
+use mongodb::{Client, Collection, bson};
 use utils::settings::Settings;
 use uuid::Uuid;
 
@@ -45,11 +40,11 @@ impl MongoDb {
         Self { client }
     }
 
-    pub fn to_document(&self, current_job: &JobItem) -> Result<Document> {
+    pub fn to_document(&self, current_job: &JobItem, updates: &JobItemUpdates) -> Result<Document> {
         let mut doc = Document::new();
 
         // Serialize the struct to BSON
-        let bson = bson::to_bson(&self)?;
+        let bson = bson::to_bson(updates)?;
 
         // If serialization was successful and it's a document
         if let Bson::Document(bson_doc) = bson {
@@ -66,15 +61,13 @@ impl MongoDb {
             // if it is still false that means there's no field to be updated
             // and the call is likely a false call, so raise an error.
             if !is_update_available {
-                return Err(("No field to be updated, likely a false call"));
+                return Err(eyre!("No field to be updated, likely a false call"));
             }
-            
+
             // Add additional fields that are always updated
             doc.insert("version", Bson::Int32(current_job.version + 1));
             doc.insert("updated_at", Bson::DateTime(Utc::now().round_subsecs(0).into()));
         }
-
-     
 
         Ok(doc)
     }
@@ -124,7 +117,7 @@ impl Database for MongoDb {
         };
         let options = UpdateOptions::builder().upsert(false).build();
 
-        let values = self.to_document(current_job)?;
+        let values = self.to_document(current_job, &updates)?;
 
         let update = doc! {
             "$set": values

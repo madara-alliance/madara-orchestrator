@@ -5,7 +5,7 @@ use rstest::*;
 use uuid::Uuid;
 
 use crate::jobs::increment_key_in_metadata;
-use crate::jobs::types::{ExternalId, JobItem, JobItem, JobItemUpdates, JobStatus, JobStatus, JobType, JobType};
+use crate::jobs::types::{ExternalId, JobItem, JobItemUpdates, JobStatus, JobType};
 use crate::tests::config::{ConfigType, TestConfigBuilder};
 
 #[rstest]
@@ -192,7 +192,7 @@ async fn database_test_update_job() {
         assert_eq!(JobType::DataSubmission, job_after_updates_db.job_type);
         assert_eq!(JobStatus::LockedForProcessing, job_after_updates_db.status);
         assert_eq!(1, job_after_updates_db.version);
-        assert_eq!(456, job_after_updates_db.internal_id);
+        assert_eq!(456.to_string(), job_after_updates_db.internal_id);
     } else {
         panic!("Job not found in Database.")
     }

@@ -1,14 +1,12 @@
 use std::collections::HashMap;
 
 // TODO: job types shouldn't depend on mongodb
-use chrono::{DateTime, SubsecRound as _, Utc};
 use chrono::{DateTime, Utc};
 use color_eyre::Result;
 use color_eyre::eyre::eyre;
 use da_client_interface::DaVerificationStatus;
 #[cfg(feature = "with_mongodb")]
 use mongodb::bson::serde_helpers::{chrono_datetime_as_bson_datetime, uuid_1_as_binary};
-use mongodb::bson::{self, Bson, Document};
 use serde::{Deserialize, Serialize};
 use settlement_client_interface::SettlementVerificationStatus;
 use uuid::Uuid;
@@ -153,6 +151,12 @@ pub struct JobItemUpdates {
 }
 
 /// implements only needed singular changes
+impl Default for JobItemUpdates {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 impl JobItemUpdates {
     pub fn new() -> Self {
         JobItemUpdates { internal_id: None, job_type: None, status: None, external_id: None, metadata: None }
