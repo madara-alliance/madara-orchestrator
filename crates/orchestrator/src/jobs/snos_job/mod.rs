@@ -98,7 +98,7 @@ impl Job for SnosJob {
         let snos_url = config.snos_url().to_string();
         let snos_url = snos_url.trim_end_matches('/');
         let (cairo_pie, snos_output) =
-            prove_block(block_number, snos_url, LayoutName::all_cairo, true).await.map_err(|e| {
+            prove_block(block_number, snos_url, LayoutName::all_cairo, false).await.map_err(|e| {
                 SnosError::SnosExecutionError { internal_id: job.internal_id.clone(), message: e.to_string() }
             })?;
 

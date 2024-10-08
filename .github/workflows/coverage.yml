@@ -41,101 +41,98 @@ jobs:
           profile: minimal
           toolchain: nightly
 
-      # - name: Rust Cache
-      #   uses: Swatinem/rust-cache@v2
+      - name: Rust Cache
+        uses: Swatinem/rust-cache@v2
 
-      # - name: Install Foundry
-      #   uses: foundry-rs/foundry-toolchain@v1
+      - name: Install Foundry
+        uses: foundry-rs/foundry-toolchain@v1
 
-      # - name: Set up Python 3.9
-      #   uses: actions/setup-python@v2
-      #   with:
-      #     python-version: 3.9
+      - name: Set up Python 3.9
+        uses: actions/setup-python@v2
+        with:
+          python-version: 3.9
 
-      # - name: Display Python version
-      #   run: python --version
+      - name: Display Python version
+        run: python --version
 
-      # - name: Install cairo 0
-      #   run: |
-      #     # Creating venv
-      #     python3.9 -m venv ~/cairo_venv
-      #     source ~/cairo_venv/bin/activate
+      - name: Install cairo 0
+        run: |
+          # Creating venv
+          python3.9 -m venv ~/cairo_venv
+          source ~/cairo_venv/bin/activate
 
-      #     # Installing deps
-      #     sudo apt install -y libgmp3-dev
-      #     pip3 install ecdsa fastecdsa sympy
+          # Installing deps
+          sudo apt install -y libgmp3-dev
+          pip3 install ecdsa fastecdsa sympy
 
-      #     # Installing cairo lang
-      #     pip3 install cairo-lang
+          # Installing cairo lang
+          pip3 install cairo-lang
 
-      # - name: Check Anvil Installation
-      #   run: |
-      #     if command -v anvil &> /dev/null
-      #     then
-      #         echo "Anvil is installed. Version information:"
-      #         anvil --version
-      #     else
-      #         echo "Anvil is not installed or not in PATH"
-      #         exit 1
-      #     fi
+      - name: Check Anvil Installation
+        run: |
+          if command -v anvil &> /dev/null
+          then
+              echo "Anvil is installed. Version information:"
+              anvil --version
+          else
+              echo "Anvil is not installed or not in PATH"
+              exit 1
+          fi
 
-      # - name: Install cargo-llvm-cov & nextest
-      #   uses: taiki-e/install-action@cargo-llvm-cov
+      - name: Install cargo-llvm-cov & nextest
+        uses: taiki-e/install-action@cargo-llvm-cov
 
-      # - name: Install nextest
-      #   uses: taiki-e/install-action@nextest
+      - name: Install nextest
+        uses: taiki-e/install-action@nextest
 
-      # - name: Setup scarb
-      #   uses: software-mansion/setup-scarb@v1
-      #   with:
-      #     scarb-version: "2.8.2"
+      - name: Setup scarb
+        uses: software-mansion/setup-scarb@v1
+        with:
+          scarb-version: "2.8.2"
 
-      # - name: Build Mock Contracts using Scarb
-      #   run: |
-      #     cd crates/settlement-clients/starknet/src/tests/mock_contracts
-      #     scarb fmt --check
-      #     scarb build
+      - name: Build Mock Contracts using Scarb
+        run: |
+          cd crates/settlement-clients/starknet/src/tests/mock_contracts
+          scarb fmt --check
+          scarb build
 
-      # - name: Checkout Madara
-      #   uses: actions/checkout@v4
-      #   with:
-      #     repository: madara-alliance/madara
-      #     ref: "0c821aecd1cafc516d00548473fcaddaa4dc0ce4"
-      #     path: madara
+      - name: Checkout Madara
+        uses: actions/checkout@v4
+        with:
+          repository: madara-alliance/madara
+          ref: "0c821aecd1cafc516d00548473fcaddaa4dc0ce4"
+          path: madara
 
-      # - name: Build Madara
-      #   working-directory: madara
-      #   run: |
-      #     cargo build
-      #     mv target/debug/madara ../madara-binary
-      #     cd ..
-      #     echo -e "
-      #     MADARA_BINARY_PATH=\"$(pwd)/madara-binary\"" >> .env.test
-      #     cat .env.test
+      - name: Build Madara
+        working-directory: madara
+        run: |
+          cargo build
+          mv target/debug/madara ../madara-binary
+          cd ..
+          echo -e "
+          MADARA_BINARY_PATH=\"$(pwd)/madara-binary\"" >> .env.test
+          cat .env.test
 
-      # - name: Getting neccesary files for testing
-      #   run: |
-      #     wget -P ./crates/prover-services/sharp-service/tests/artifacts https://madara-orchestrator-sharp-pie.s3.amazonaws.com/238996-SN.zip
-      #     # TODO: this can be optimised
-      #     cp ./crates/prover-services/sharp-service/tests/artifacts/238996-SN.zip ./crates/orchestrator/src/tests/artifacts/238996-SN.zip
+      - name: Getting neccesary files for testing
+        run: |
+          wget -P ./crates/prover-services/sharp-service/tests/artifacts https://madara-orchestrator-sharp-pie.s3.amazonaws.com/238996-SN.zip
+          # TODO: this can be optimised
+          cp ./crates/prover-services/sharp-service/tests/artifacts/238996-SN.zip ./crates/orchestrator/src/tests/artifacts/238996-SN.zip
 
-      # - name: Build SNOS files
-      #   run: |
-      #     # Downloading all the deps
-      #     cargo fetch
-      #     # Navigate to checkouts folder
-      #     cd /home/runner/.cargo/git/checkouts
-      #     # Navigating to snos
-      #     cd snos-*
-      #     # Navigating to the build
-      #     cd 836a4a7
-      #     # Activating the venv
-      #     source ~/cairo_venv/bin/activate
-      #     # Building the cairo lang repo requirements
-      #     ./scripts/setup-tests.sh
-
-      - name: Display rustc version
-        run: rustup show
+      - name: Build SNOS files
+        run: |
+          # Downloading all the deps
+          cargo fetch
+          # Navigate to checkouts folder
+          cd /home/runner/.cargo/git/checkouts
+          # Navigating to snos
+          cd snos-*
+          # Navigating to the build
+          cd 836a4a7
+          # Activating the venv
+          source ~/cairo_venv/bin/activate
+          # Building the cairo lang repo requirements
+          ./scripts/setup-tests.sh
 
       - name: Run llvm-cov tests
         env:

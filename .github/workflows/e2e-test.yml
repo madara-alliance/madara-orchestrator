@@ -37,8 +37,6 @@ jobs:
         with:
           profile: minimal
           toolchain: nightly
-          override: true
-          default: true
 
       - name: Rust Cache
         uses: Swatinem/rust-cache@v2
