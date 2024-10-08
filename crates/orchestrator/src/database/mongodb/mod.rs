@@ -37,7 +37,7 @@ impl MongoDb {
         let client = Client::with_options(client_options).expect("Failed to create MongoDB client");
         // Ping the server to see if you can connect to the cluster
         client.database("admin").run_command(doc! {"ping": 1}, None).await.expect("Failed to ping MongoDB deployment");
-        log::debug!("Pinged your deployment. You successfully connected to MongoDB!");
+        tracing::debug!("Pinged your deployment. You successfully connected to MongoDB!");
 
         Self { client }
     }
@@ -99,6 +99,7 @@ impl Database for MongoDb {
     #[tracing::instrument(skip(self), fields(function_type = "db_call"))]
     async fn create_job(&self, job: JobItem) -> Result<JobItem> {
         self.get_job_collection().insert_one(&job, None).await?;
+        tracing::info!("DB: Created job with id {:?}", job.id);
         Ok(job)
     }
 
@@ -107,6 +108,7 @@ impl Database for MongoDb {
         let filter = doc! {
             "id":  id
         };
+        tracing::info!("DB: Getting job with id {:?}", id);
         Ok(self.get_job_collection().find_one(filter, None).await?)
     }
 
@@ -116,6 +118,7 @@ impl Database for MongoDb {
             "internal_id": internal_id,
             "job_type": mongodb::bson::to_bson(&job_type)?,
         };
+        tracing::info!("DB: Getting job with internal_id {:?} and job_type {:?}", internal_id, job_type);
         Ok(self.get_job_collection().find_one(filter, None).await?)
     }
 
@@ -126,6 +129,7 @@ impl Database for MongoDb {
             "$set": job_doc
         };
         self.update_job_optimistically(job, update).await?;
+        tracing::info!("DB: Updated job with id {:?}", job.id);
         Ok(())
     }
 
@@ -137,6 +141,7 @@ impl Database for MongoDb {
             }
         };
         self.update_job_optimistically(job, update).await?;
+        tracing::info!("DB: Updated job with id {:?} to status {:?}", job.id, new_status);
         Ok(())
     }
 
@@ -148,6 +153,7 @@ impl Database for MongoDb {
             }
         };
         self.update_job_optimistically(job, update).await?;
+        tracing::info!("DB: Updated metadata for job with id {:?}", job.id);
         Ok(())
     }
 
@@ -157,6 +163,8 @@ impl Database for MongoDb {
             "job_type": mongodb::bson::to_bson(&job_type)?,
         };
         let find_options = FindOneOptions::builder().sort(doc! { "internal_id": -1 }).build();
+
+        tracing::info!("DB: Getting latest job with type {:?}", job_type);
         Ok(self.get_job_collection().find_one(filter, find_options).await?)
     }
 
@@ -278,6 +286,11 @@ impl Database for MongoDb {
             }
         }
 
+        tracing::info!(
+            "DB: Got jobs without successor with job_a_type {:?} and job_a_status {:?}",
+            job_a_type,
+            job_a_status
+        );
         Ok(vec_jobs)
     }
 
@@ -293,6 +306,7 @@ impl Database for MongoDb {
         };
         let find_options = FindOneOptions::builder().sort(doc! { "internal_id": -1 }).build();
 
+        tracing::info!("DB: Getting latest job with type {:?} and status {:?}", job_type, job_status);
         Ok(self.get_job_collection().find_one(filter, find_options).await?)
     }
 
@@ -306,11 +320,17 @@ impl Database for MongoDb {
         let filter = doc! {
             "job_type": bson::to_bson(&job_type)?,
             "status": bson::to_bson(&job_status)?,
-            "internal_id": { "$gt": internal_id }
+            "internal_id": { "$gt": internal_id.clone() }
         };
 
         let jobs = self.get_job_collection().find(filter, None).await?.try_collect().await?;
 
+        tracing::info!(
+            "DB: Got jobs after internal_id {:?} with job_type {:?} and job_status {:?}",
+            internal_id,
+            job_type,
+            job_status
+        );
         Ok(jobs)
     }
 
@@ -327,6 +347,7 @@ impl Database for MongoDb {
 
         let jobs = self.get_job_collection().find(filter, find_options).await?.try_collect().await?;
 
+        tracing::info!("DB: Got jobs with statuses {:?}", job_status);
         Ok(jobs)
     }
 }

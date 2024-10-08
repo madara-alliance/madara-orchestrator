@@ -86,6 +86,8 @@ impl Job for StateUpdateJob {
             metadata.insert(JOB_PROCESS_ATTEMPT_METADATA_KEY.to_string(), "0".to_string());
         }
 
+        tracing::info!("State Update: Created job with id {:?}", Uuid::new_v4());
+
         Ok(JobItem {
             id: Uuid::new_v4(),
             internal_id,
@@ -103,6 +105,8 @@ impl Job for StateUpdateJob {
 
     #[tracing::instrument(fields(category = "state_update"), skip(self, config))]
     async fn process_job(&self, config: Arc<Config>, job: &mut JobItem) -> Result<String, JobError> {
+        tracing::info!("State Update: Processing job with id {:?}", job.id);
+
         let attempt_no = job
             .metadata
             .get(JOB_PROCESS_ATTEMPT_METADATA_KEY)
@@ -145,6 +149,8 @@ impl Job for StateUpdateJob {
         // external_id returned corresponds to the last block number settled
         let val = block_numbers.last().ok_or_else(|| StateUpdateError::LastNumberReturnedError)?;
 
+        tracing::info!("State Update: Job with id {:?} has been processed", job.id);
+
         Ok(val.to_string())
     }
 
@@ -155,6 +161,8 @@ impl Job for StateUpdateJob {
     ///    provider.
     #[tracing::instrument(fields(category = "state_update"), skip(self, config))]
     async fn verify_job(&self, config: Arc<Config>, job: &mut JobItem) -> Result<JobVerificationStatus, JobError> {
+        tracing::info!("State Update: Verifying job with id {:?}", job.id);
+
         let attempt_no = job
             .metadata
             .get(JOB_PROCESS_ATTEMPT_METADATA_KEY)
@@ -180,6 +188,7 @@ impl Job for StateUpdateJob {
             match tx_inclusion_status {
                 SettlementVerificationStatus::Rejected(_) => {
                     job.metadata.insert(JOB_METADATA_STATE_UPDATE_LAST_FAILED_BLOCK_NO.into(), block_no.to_string());
+                    tracing::error!("State Update: Job with id {:?} failed to be verified", job.id);
                     return Ok(tx_inclusion_status.into());
                 }
                 // If the tx is still pending, we wait for it to be finalized and check again the status.
@@ -196,15 +205,21 @@ impl Job for StateUpdateJob {
                         SettlementVerificationStatus::Rejected(_) => {
                             job.metadata
                                 .insert(JOB_METADATA_STATE_UPDATE_LAST_FAILED_BLOCK_NO.into(), block_no.to_string());
+                            tracing::error!("State Update: Job with id {:?} failed to be verified", job.id);
                             return Ok(new_status.into());
                         }
                         SettlementVerificationStatus::Pending => {
+                            tracing::error!("State Update: Job with id {:?} failed to be verified", job.id);
                             Err(StateUpdateError::TxnShouldNotBePending { tx_hash: tx_hash.to_string() })?
                         }
-                        SettlementVerificationStatus::Verified => {}
+                        SettlementVerificationStatus::Verified => {
+                            tracing::info!("State Update: Job with id {:?} has been verified", job.id);
+                        }
                     }
                 }
-                SettlementVerificationStatus::Verified => {}
+                SettlementVerificationStatus::Verified => {
+                    tracing::info!("State Update: Job with id {:?} has been verified", job.id);
+                }
             }
         }
         // verify that the last settled block is indeed the one we expect to be
@@ -220,6 +235,7 @@ impl Job for StateUpdateJob {
                 expected_last_block_number, out_last_block_number
             ))
         };
+        tracing::info!("State Update: Job with id {:?} has been verified", job.id);
         Ok(block_status.into())
     }
 

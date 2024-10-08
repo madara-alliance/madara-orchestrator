@@ -14,7 +14,6 @@ use starknet::core::types::{
 };
 use starknet::providers::Provider;
 use thiserror::Error;
-use tracing::log;
 use uuid::Uuid;
 
 use super::types::{JobItem, JobStatus, JobType, JobVerificationStatus};
@@ -72,6 +71,7 @@ impl Job for DaJob {
         internal_id: String,
         metadata: HashMap<String, String>,
     ) -> Result<JobItem, JobError> {
+        tracing::info!("DA JOB: Creating job with internal_id {:?}", internal_id);
         Ok(JobItem {
             id: Uuid::new_v4(),
             internal_id,
@@ -87,6 +87,8 @@ impl Job for DaJob {
 
     #[tracing::instrument(fields(category = "da"), skip(self, config))]
     async fn process_job(&self, config: Arc<Config>, job: &mut JobItem) -> Result<String, JobError> {
+        tracing::info!("DA JOB: processing job with id {:?}", job.id);
+
         let block_no = job
             .internal_id
             .parse::<u64>()
@@ -147,11 +149,14 @@ impl Job for DaJob {
             .await
             .map_err(|e| JobError::Other(OtherError(e)))?;
 
+        tracing::info!("DA JOB: published state diff with external id {:?}", external_id);
+
         Ok(external_id)
     }
 
     #[tracing::instrument(fields(category = "da"), skip(self, config))]
     async fn verify_job(&self, config: Arc<Config>, job: &mut JobItem) -> Result<JobVerificationStatus, JobError> {
+        tracing::info!("DA JOB: verifying job with id {:?}", job.id);
         Ok(config
             .da_client()
             .verify_inclusion(job.external_id.unwrap_string().map_err(|e| JobError::Other(OtherError(e)))?)
@@ -234,7 +239,7 @@ fn data_to_blobs(blob_size: u64, block_data: Vec<BigUint>) -> Result<Vec<Vec<u8>
         let mut blob = chunk.to_vec();
         if blob.len() < chunk_size {
             blob.resize(chunk_size, 0);
-            log::debug!("Warning: Last chunk of {} bytes was padded to full blob size", chunk.len());
+            tracing::debug!("Warning: Last chunk of {} bytes was padded to full blob size", chunk.len());
         }
         blobs.push(blob);
     }

@@ -30,6 +30,7 @@ impl AWSSNS {
 impl Alerts for AWSSNS {
     async fn send_alert_message(&self, message_body: String) -> color_eyre::Result<()> {
         self.client.publish().topic_arn(self.topic_arn.clone()).message(message_body).send().await?;
+        tracing::info!("Sent alert message to sns topic {:?}", self.topic_arn);
         Ok(())
     }
 }

@@ -21,7 +21,6 @@ async fn main() {
     tracing_subscriber::fmt().with_max_level(level).with_target(false).init();
 
     // Analytics Setup
-
     let meter_provider = setup_analytics();
 
     // initial config setup

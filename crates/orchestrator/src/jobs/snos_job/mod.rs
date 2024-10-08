@@ -76,6 +76,7 @@ impl Job for SnosJob {
         internal_id: String,
         metadata: HashMap<String, String>,
     ) -> Result<JobItem, JobError> {
+        tracing::info!("SNOS: Creating job with internal_id {:?}", internal_id);
         let mut metadata = metadata;
         metadata.insert(JOB_METADATA_SNOS_BLOCK.to_string(), internal_id.clone());
         Ok(JobItem {
@@ -93,6 +94,7 @@ impl Job for SnosJob {
 
     #[tracing::instrument(fields(category = "snos"), skip(self, config))]
     async fn process_job(&self, config: Arc<Config>, job: &mut JobItem) -> Result<String, JobError> {
+        tracing::info!("SNOS:Processing job with internal_id {:?}", job.internal_id);
         let block_number = self.get_block_number_from_metadata(job)?;
 
         let snos_url = config.snos_url().to_string();
@@ -112,6 +114,7 @@ impl Job for SnosJob {
         // store the fact
         job.metadata.insert(JOB_METADATA_SNOS_FACT.into(), fact_info.fact.to_string());
 
+        tracing::info!("SNOS: Job with internal_id {:?} has been processed", job.internal_id);
         Ok(block_number.to_string())
     }
 

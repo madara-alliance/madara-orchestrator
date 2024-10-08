@@ -49,6 +49,7 @@ impl DataStorage for AWSS3 {
         let response = self.client.get_object().bucket(&self.bucket).key(key).send().await?;
         let data_stream = response.body.collect().await.expect("Failed to convert body into AggregatedBytes.");
         let data_bytes = data_stream.into_bytes();
+        tracing::info!("Got data from s3 bucket {:?}", self.bucket);
         Ok(data_bytes)
     }
 
@@ -63,6 +64,7 @@ impl DataStorage for AWSS3 {
             .send()
             .await?;
 
+        tracing::info!("Put data to s3 bucket {:?}", self.bucket);
         Ok(())
     }
 

@@ -55,6 +55,8 @@ impl Worker for SnosWorker {
             create_job(JobType::SnosRun, x.to_string(), HashMap::new(), config.clone()).await?;
         }
 
+        tracing::info!("Created SNOS run jobs from {:?} to {:?}", latest_block_processed + 1, latest_block_number);
+
         Ok(())
     }
 }

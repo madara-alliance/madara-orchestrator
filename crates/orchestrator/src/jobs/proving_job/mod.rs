@@ -7,8 +7,6 @@ use chrono::{SubsecRound, Utc};
 use color_eyre::eyre::{WrapErr, eyre};
 use prover_client_interface::{Task, TaskStatus};
 use thiserror::Error;
-use tracing::log::Level::Error;
-use tracing::log::log;
 use uuid::Uuid;
 
 use super::types::{JobItem, JobStatus, JobType, JobVerificationStatus};
@@ -43,6 +41,7 @@ impl Job for ProvingJob {
         internal_id: String,
         metadata: HashMap<String, String>,
     ) -> Result<JobItem, JobError> {
+        tracing::info!("Proving Job: creating job with internal_id {:?}", internal_id);
         Ok(JobItem {
             id: Uuid::new_v4(),
             internal_id,
@@ -59,6 +58,7 @@ impl Job for ProvingJob {
     #[tracing::instrument(fields(category = "proving"), skip(self, config))]
     async fn process_job(&self, config: Arc<Config>, job: &mut JobItem) -> Result<String, JobError> {
         // Cairo Pie path in s3 storage client
+        tracing::info!("Proving Job: Processing job with internal_id {:?}", job.internal_id);
         let block_number: String = job.internal_id.to_string();
         let cairo_pie_path = block_number + "/" + CAIRO_PIE_FILE_NAME;
         let cairo_pie_file = config
@@ -77,11 +77,17 @@ impl Job for ProvingJob {
             .wrap_err("Prover Client Error".to_string())
             .map_err(|e| JobError::Other(OtherError(e)))?;
 
+        tracing::info!(
+            "Proving Job: Job with internal_id {:?} has been submitted to prover client with external_id {:?}",
+            job.internal_id,
+            external_id
+        );
         Ok(external_id)
     }
 
     #[tracing::instrument(fields(category = "proving"), skip(self, config))]
     async fn verify_job(&self, config: Arc<Config>, job: &mut JobItem) -> Result<JobVerificationStatus, JobError> {
+        tracing::info!("Proving Job: Verifying job with internal_id {:?}", job.internal_id);
         let task_id: String = job.external_id.unwrap_string().map_err(|e| JobError::Other(OtherError(e)))?.into();
 
         let fact = job.metadata.get(JOB_METADATA_SNOS_FACT).ok_or(OtherError(eyre!("Fact not available in job")))?;
@@ -96,7 +102,7 @@ impl Job for ProvingJob {
             TaskStatus::Processing => Ok(JobVerificationStatus::Pending),
             TaskStatus::Succeeded => Ok(JobVerificationStatus::Verified),
             TaskStatus::Failed(err) => {
-                log!(Error, "Prover job #{} failed: {}", job.internal_id, err);
+                tracing::error!("Proving job #{} failed with error: {}", job.internal_id, err);
                 Ok(JobVerificationStatus::Rejected(format!(
                     "Prover job #{} failed with error: {}",
                     job.internal_id, err

@@ -20,9 +20,15 @@ impl Worker for ProvingWorker {
             .get_jobs_without_successor(JobType::SnosRun, JobStatus::Completed, JobType::ProofCreation)
             .await?;
 
-        for job in successful_snos_jobs {
+        for job in successful_snos_jobs.clone() {
             create_job(JobType::ProofCreation, job.internal_id.to_string(), job.metadata, config.clone()).await?
         }
+
+        tracing::info!(
+            "Created proving jobs from {:?} to {:?}",
+            successful_snos_jobs.first().unwrap().internal_id,
+            successful_snos_jobs.last().unwrap().internal_id
+        );
 
         Ok(())
     }

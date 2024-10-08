@@ -45,6 +45,8 @@ impl Worker for DataSubmissionWorker {
             create_job(JobType::DataSubmission, new_job_id.to_string(), HashMap::new(), config.clone()).await?;
         }
 
+        tracing::info!("Created data submission jobs from {} to {}", latest_data_submission_id, latest_proven_id);
+
         Ok(())
     }
 }

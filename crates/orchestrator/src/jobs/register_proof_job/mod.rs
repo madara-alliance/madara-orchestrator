@@ -22,6 +22,7 @@ impl Job for RegisterProofJob {
         internal_id: String,
         metadata: HashMap<String, String>,
     ) -> Result<JobItem, JobError> {
+        tracing::info!("Proof Registration: Creating job with id {:?}", internal_id);
         Ok(JobItem {
             id: Uuid::new_v4(),
             internal_id,

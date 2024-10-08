@@ -13,7 +13,6 @@ use proving_job::ProvingError;
 use snos_job::SnosError;
 use snos_job::error::FactError;
 use state_update_job::StateUpdateError;
-use tracing::log;
 use uuid::Uuid;
 
 use crate::config::Config;
@@ -150,12 +149,15 @@ pub async fn create_job(
         .map_err(|e| JobError::Other(OtherError(e)))?;
 
     if existing_job.is_some() {
+        tracing::error!("Job already exists for internal_id {:?} and job_type {:?}", internal_id, job_type);
         return Err(JobError::JobAlreadyExists { internal_id, job_type });
     }
 
     let job_handler = factory::get_job_handler(&job_type).await;
     let job_item = job_handler.create_job(config.clone(), internal_id.clone(), metadata).await?;
     config.database().create_job(job_item.clone()).await.map_err(|e| JobError::Other(OtherError(e)))?;
+
+    tracing::info!("Created job with id {:?}", job_item.id);
 
     add_job_to_process_queue(job_item.id, config.clone()).await.map_err(|e| JobError::Other(OtherError(e)))?;
 
@@ -183,7 +185,7 @@ pub async fn process_job(id: Uuid, config: Arc<Config>) -> Result<(), JobError> 
         // we only want to process jobs that are in the created or verification failed state.
         // verification failed state means that the previous processing failed and we want to retry
         JobStatus::Created | JobStatus::VerificationFailed => {
-            log::info!("Processing job with id {:?}", id);
+            tracing::info!("Processing job with id {:?}", id);
         }
         _ => {
             return Err(JobError::InvalidStatus { id, job_status: job.status });
@@ -225,6 +227,8 @@ pub async fn process_job(id: Uuid, config: Arc<Config>) -> Result<(), JobError> 
         KeyValue::new("job", format!("{:?}", job)),
     ];
 
+    tracing::info!("Processed job with id {:?}", id);
+
     ORCHESTRATOR_METRICS.block_gauge.record(job.internal_id.parse::<f64>().unwrap(), &attributes);
 
     Ok(())
@@ -246,7 +250,7 @@ pub async fn verify_job(id: Uuid, config: Arc<Config>) -> Result<(), JobError> {
 
     match job.status {
         JobStatus::PendingVerification => {
-            log::info!("Verifying job with id {:?}", id);
+            tracing::info!("Verifying job with id {:?}", id);
         }
         _ => {
             return Err(JobError::InvalidStatus { id, job_status: job.status });
@@ -256,6 +260,8 @@ pub async fn verify_job(id: Uuid, config: Arc<Config>) -> Result<(), JobError> {
     let job_handler = factory::get_job_handler(&job.job_type).await;
     let verification_status = job_handler.verify_job(config.clone(), &mut job).await?;
     tracing::Span::current().record("verification_status", format!("{:?}", verification_status.clone()));
+
+    tracing::info!("Verification status for job with id {:?} is {:?}", id, verification_status);
 
     match verification_status {
         JobVerificationStatus::Verified => {
@@ -272,13 +278,13 @@ pub async fn verify_job(id: Uuid, config: Arc<Config>) -> Result<(), JobError> {
 
             config.database().update_job(&new_job).await.map_err(|e| JobError::Other(OtherError(e)))?;
 
-            log::error!("Verification failed for job with id {:?}. Cannot verify.", id);
+            tracing::error!("Verification failed for job with id {:?}. Cannot verify.", id);
 
             // retry job processing if we haven't exceeded the max limit
             let process_attempts = get_u64_from_metadata(&job.metadata, JOB_PROCESS_ATTEMPT_METADATA_KEY)
                 .map_err(|e| JobError::Other(OtherError(e)))?;
             if process_attempts < job_handler.max_process_attempts() {
-                log::info!(
+                tracing::info!(
                     "Verification failed for job {}. Retrying processing attempt {}.",
                     job.id,
                     process_attempts + 1
@@ -286,13 +292,14 @@ pub async fn verify_job(id: Uuid, config: Arc<Config>) -> Result<(), JobError> {
                 add_job_to_process_queue(job.id, config.clone()).await.map_err(|e| JobError::Other(OtherError(e)))?;
                 return Ok(());
             }
+            tracing::error!("Verification failed for job {}. Marking as timed out.", job.id);
         }
         JobVerificationStatus::Pending => {
-            log::info!("Inclusion is still pending for job {}. Pushing back to queue.", job.id);
+            tracing::info!("Inclusion is still pending for job {}. Pushing back to queue.", job.id);
             let verify_attempts = get_u64_from_metadata(&job.metadata, JOB_VERIFICATION_ATTEMPT_METADATA_KEY)
                 .map_err(|e| JobError::Other(OtherError(e)))?;
             if verify_attempts >= job_handler.max_verification_attempts() {
-                log::info!("Verification attempts exceeded for job {}. Marking as timed out.", job.id);
+                tracing::info!("Verification attempts exceeded for job {}. Marking as timed out.", job.id);
                 config
                     .database()
                     .update_job_status(&job, JobStatus::VerificationTimeout)
@@ -309,8 +316,11 @@ pub async fn verify_job(id: Uuid, config: Arc<Config>) -> Result<(), JobError> {
             )
             .await
             .map_err(|e| JobError::Other(OtherError(e)))?;
+            tracing::info!("Pushed job with id {:?} back to verification queue", job.id);
         }
     };
+
+    tracing::info!("Verified job with id {:?}", id);
 
     let attributes = [
         KeyValue::new("job_type", format!("{:?}", job.job_type)),
@@ -333,8 +343,10 @@ pub async fn handle_job_failure(id: Uuid, config: Arc<Config>) -> Result<(), Job
     tracing::Span::current().record("job_status", format!("{:?}", job.status));
     tracing::Span::current().record("job_type", format!("{:?}", job.job_type));
 
+    tracing::info!("Handling job failure for job with id {:?}", id);
+
     if job.status == JobStatus::Completed {
-        log::error!("Invalid state exists on DL queue: {}", job.status.to_string());
+        tracing::error!("Invalid state exists on DL queue: {}", job.status.to_string());
         return Ok(());
     }
     // We assume that a Failure status wil only show up if the message is sent twice from a queue

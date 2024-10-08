@@ -46,6 +46,12 @@ impl Worker for UpdateStateWorker {
                 )
                 .await?;
 
+                tracing::info!(
+                    "Created state update job from {:?} to {:?}",
+                    successful_da_jobs_without_successor.first().unwrap().internal_id,
+                    successful_da_jobs_without_successor.last().unwrap().internal_id
+                );
+
                 Ok(())
             }
             None => {
@@ -68,6 +74,12 @@ impl Worker for UpdateStateWorker {
                 );
 
                 create_job(JobType::StateTransition, job.internal_id, metadata, config).await?;
+
+                tracing::info!(
+                    "Created state update job from {:?} to {:?}",
+                    latest_successful_jobs_without_successor.first().unwrap().internal_id,
+                    latest_successful_jobs_without_successor.last().unwrap().internal_id
+                );
 
                 return Ok(());
             }

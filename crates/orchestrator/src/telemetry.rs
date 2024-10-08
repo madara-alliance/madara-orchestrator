@@ -39,6 +39,7 @@ pub fn setup_analytics() -> Option<SdkMeterProvider> {
         .with(OpenTelemetryLayer::new(tracer))
         .init();
 
+    tracing::info!("Analytics initialized");
     Some(meter_provider)
 }
 
