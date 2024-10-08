@@ -44,7 +44,6 @@ impl Orchestrator {
             .arg("orchestrator")
             .arg("--features")
             .arg("testing")
-            .arg("--release")
             .current_dir(repository_root)
             .envs(envs)
             .stdout(Stdio::piped())

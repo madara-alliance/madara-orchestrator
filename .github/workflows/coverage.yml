@@ -136,6 +136,9 @@ jobs:
           # Building the cairo lang repo requirements
           ./scripts/setup-tests.sh
 
+      - name: Display rustc version
+        run: rustup show
+
       - name: Run llvm-cov tests
         env:
           SETTLEMENT_RPC_URL: ${{ secrets.ETHEREUM_SEPOLIA_BLAST_RPC }}
