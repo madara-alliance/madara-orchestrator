@@ -3,7 +3,6 @@ use std::sync::Arc;
 
 use cairo_vm::vm::runners::cairo_pie::CairoPie;
 use chrono::{SubsecRound, Utc};
-use prove_block::prove_block;
 use rstest::*;
 use starknet_os::io::output::StarknetOsOutput;
 use url::Url;
