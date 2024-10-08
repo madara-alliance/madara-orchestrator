@@ -1,4 +1,3 @@
-use std::str::FromStr as _;
 use std::time::Duration;
 
 use lazy_static::lazy_static;
@@ -13,33 +12,26 @@ use tracing::Level;
 use tracing_opentelemetry::OpenTelemetryLayer;
 use tracing_subscriber::layer::SubscriberExt as _;
 use tracing_subscriber::util::SubscriberInitExt as _;
-use utils::env_utils::get_env_var_or_panic;
+use utils::env_utils::{get_env_var_optional, get_env_var_or_panic};
 
 lazy_static! {
     #[derive(Debug)]
     pub static ref OTEL_SERVICE_NAME: String = get_env_var_or_panic("OTEL_SERVICE_NAME");
 }
 
-pub fn setup_analytics() -> Option<SdkMeterProvider> {
-    let otel_endpoint = get_env_var_or_panic("OTEL_COLLECTOR_ENDPOINT");
-    let tracing_level = Level::from_str(&get_env_var_or_panic("TRACING_LEVEL"))
-        .expect("Could not obtain tracing level from environment variable.");
+pub fn setup_analytics(level: Level) -> Option<SdkMeterProvider> {
+    get_env_var_optional("OTEL_COLLECTOR_ENDPOINT").unwrap_or(None).map(|otel_endpoint| {
+        let meter_provider = init_metric_provider(&otel_endpoint);
+        let tracer = init_tracer_provider(&otel_endpoint);
 
-    // guard clause if otel is disabled
-    if otel_endpoint.is_empty() {
-        return None;
-    }
+        tracing_subscriber::registry()
+            .with(tracing_subscriber::filter::LevelFilter::from_level(level))
+            .with(tracing_subscriber::fmt::layer())
+            .with(OpenTelemetryLayer::new(tracer))
+            .init();
 
-    let meter_provider = init_metric_provider(otel_endpoint.as_str());
-    let tracer = init_tracer_provider(otel_endpoint.as_str());
-
-    tracing_subscriber::registry()
-        .with(tracing_subscriber::filter::LevelFilter::from_level(tracing_level))
-        .with(tracing_subscriber::fmt::layer())
-        .with(OpenTelemetryLayer::new(tracer))
-        .init();
-
-    Some(meter_provider)
+        meter_provider
+    })
 }
 
 pub fn shutdown_analytics(meter_provider: Option<SdkMeterProvider>) {
@@ -70,7 +62,7 @@ pub fn init_tracer_provider(otel_endpoint: &str) -> Tracer {
         )])))
         .with_batch_config(batch_config)
         .install_batch(runtime::Tokio)
-        .unwrap();
+        .expect("Failed to install tracer provider");
 
     global::set_tracer_provider(provider.clone());
 
@@ -89,8 +81,9 @@ pub fn init_metric_provider(otel_endpoint: &str) -> SdkMeterProvider {
     );
 
     // Creates a periodic reader that exports every 5 seconds
-    let reader =
-        PeriodicReader::builder(exporter.unwrap(), runtime::Tokio).with_interval(Duration::from_secs(5)).build();
+    let reader = PeriodicReader::builder(exporter.expect("Failed to build metrics exporter"), runtime::Tokio)
+        .with_interval(Duration::from_secs(5))
+        .build();
 
     // Builds a meter provider with the periodic reader
     let provider = SdkMeterProvider::builder()
@@ -107,8 +100,10 @@ pub fn init_metric_provider(otel_endpoint: &str) -> SdkMeterProvider {
 #[cfg(test)]
 mod tests {
     use std::env;
+    use std::str::FromStr as _;
 
     use once_cell::sync::Lazy;
+    use utils::env_utils::get_env_var_or_default;
     use utils::metrics::lib::Metrics;
     use utils::register_metric;
 
@@ -161,7 +156,10 @@ mod tests {
         env::set_var("TRACING_LEVEL", "info");
         env::set_var("OTEL_SERVICE_NAME", "test_service");
 
-        let analytics = setup_analytics();
+        let log_level = get_env_var_or_default("RUST_LOG", "INFO");
+        let level = Level::from_str(&log_level).unwrap_or(Level::INFO);
+
+        let analytics = setup_analytics(level);
 
         assert!(analytics.is_some(), " Unable to set analytics")
     }
@@ -175,7 +173,10 @@ mod tests {
         env::set_var("TRACING_LEVEL", "info");
         env::set_var("OTEL_SERVICE_NAME", "test_service");
 
-        setup_analytics();
+        let log_level = get_env_var_or_default("RUST_LOG", "INFO");
+        let level = Level::from_str(&log_level).unwrap_or(Level::INFO);
+
+        setup_analytics(level);
 
         register_metric!(ORCHESTRATOR_METRICS, OrchestratorMetrics);
     }
