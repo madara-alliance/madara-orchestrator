@@ -3,6 +3,7 @@ use std::sync::Arc;
 
 use cairo_vm::vm::runners::cairo_pie::CairoPie;
 use chrono::{SubsecRound, Utc};
+use prove_block::prove_block;
 use rstest::*;
 use starknet_os::io::output::StarknetOsOutput;
 use url::Url;
@@ -96,4 +97,15 @@ async fn test_process_job() -> color_eyre::Result<()> {
     let _: StarknetOsOutput = serde_json::from_slice(&snos_output_data)?;
 
     Ok(())
+}
+
+#[rstest]
+#[tokio::test(flavor = "multi_thread")]
+async fn test_prove_selected_blocks() {
+    let endpoint = std::env::var("RPC_FOR_SNOS").expect("Missing RPC_FOR_SNOS in env");
+    let (snos_pie, _snos_output) =
+        prove_block(76793, &endpoint, cairo_vm::types::layout_name::LayoutName::all_cairo, true)
+            .await
+            .expect("OS generate Cairo PIE");
+    snos_pie.run_validity_checks().expect("Valid SNOS PIE");
 }
