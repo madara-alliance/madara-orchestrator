@@ -314,7 +314,7 @@ pub async fn verify_job(id: Uuid, config: Arc<Config>) -> Result<(), JobError> {
                 log::info!("Verification attempts exceeded for job {}. Marking as timed out.", job.id);
                 config
                     .database()
-                    .update_job(&job, JobItemUpdates::new().update_status(JobStatus::VerificationFailed).build())
+                    .update_job(&job, JobItemUpdates::new().update_status(JobStatus::VerificationTimeout).build())
                     .await
                     .map_err(|e| JobError::Other(OtherError(e)))?;
                 return Ok(());
