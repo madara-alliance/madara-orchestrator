@@ -72,14 +72,3 @@ services:
 networks:
   app-network:
     driver: bridge
-
-#  foundry:
-#    image: ghcr.io/foundry-rs/foundry:latest
-#    volumes:
-#      - ./:/app
-#    working_dir: /app
-#    command: tail -f /dev/null
-#    ports:
-#      - "8545:8545"
-#    environment:
-#      - RUST_BACKTRACE=1

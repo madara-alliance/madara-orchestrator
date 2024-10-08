@@ -1,7 +1,7 @@
-FROM rust:1.75-bullseye
+FROM rust:1.81 AS builder
 
 # Set the working directory in the container
-WORKDIR /usr/src/app
+WORKDIR /usr/src/madara-orchestrator
 
 # Install system dependencies
 RUN apt update && apt install -y  \
@@ -34,6 +34,10 @@ RUN python3.9 --version && pip3.9 --version
 # Copy the current directory contents into the container
 COPY . .
 
+
+# Check rust version (this also installs version from rust-toolchain file)
+RUN rustup show
+
 # #############################################################
 # TODO : remove this step after snos build is sorted
 # Build cairo lang
@@ -45,9 +49,26 @@ RUN bash -c "cd /usr/local/cargo/git/checkouts \
     && ./scripts/setup-tests.sh"
 # #############################################################
 
-WORKDIR /usr/src/app
+WORKDIR /usr/src/madara-orchestrator
 
 # Build the project
 RUN cargo build --release
 
-CMD ["cargo", "run", "--release"]
+
+FROM debian:bookworm
+
+# Install runtime dependencies
+RUN apt-get -y update && \
+    apt-get install -y openssl ca-certificates &&\
+    apt-get autoremove -y; \
+    apt-get clean; \
+    rm -rf /var/lib/apt/lists/*
+
+# Set the working directory
+WORKDIR /usr/local/bin
+
+# Copy the compiled binary from the builder stage
+COPY --from=builder /usr/src/madara-orchestrator/target/release/orchestrator .
+
+# Set the entrypoint
+ENTRYPOINT ["./orchestrator"]

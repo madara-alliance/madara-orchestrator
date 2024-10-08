@@ -29,10 +29,6 @@ pub struct FactInfo {
 pub fn get_fact_info(cairo_pie: &CairoPie, program_hash: Option<Felt>) -> Result<FactInfo, FactError> {
     let program_output = get_program_output(cairo_pie)?;
 
-    for i in &program_output {
-        println!(">>> {:?}", i.to_string());
-    }
-
     let fact_topology = get_fact_topology(cairo_pie, program_output.len())?;
     let program_hash = match program_hash {
         Some(hash) => hash,
