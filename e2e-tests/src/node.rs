@@ -40,6 +40,7 @@ impl Orchestrator {
         let mut command = Command::new("cargo");
         command
             .arg("run")
+            .arg("--release")
             .arg("--bin")
             .arg("orchestrator")
             .arg("--features")
