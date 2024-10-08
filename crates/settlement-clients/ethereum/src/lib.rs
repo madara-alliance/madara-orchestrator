@@ -114,6 +114,7 @@ impl EthereumSettlementClient {
 
     /// Build kzg proof for the x_0 point evaluation
     pub fn build_proof(blob_data: Vec<Vec<u8>>, x_0_value: Bytes32) -> Result<KzgProof> {
+        tracing::info!("Ethereum Settlement Client: Building proof for blob data with x_0 value: {:?}", x_0_value);
         // Assuming that there is only one blob in the whole Vec<Vec<u8>> array for now.
         // Later we will add the support for multiple blob in single blob_data vec.
         assert_eq!(blob_data.len(), 1);
@@ -133,7 +134,16 @@ impl EthereumSettlementClient {
             &KZG_SETTINGS,
         )?;
 
-        if !eval { Err(eyre!("ERROR : Assertion failed, not able to verify the proof.")) } else { Ok(kzg_proof) }
+        if !eval {
+            tracing::error!("Ethereum Settlement Client: ERROR : Assertion failed, not able to verify the proof.");
+            Err(eyre!("ERROR : Assertion failed, not able to verify the proof."))
+        } else {
+            tracing::info!(
+                "Ethereum Settlement Client: Successfully built proof for blob data with x_0 value: {:?}",
+                x_0_value
+            );
+            Ok(kzg_proof)
+        }
     }
 }
 
@@ -154,11 +164,13 @@ impl SettlementClient for EthereumSettlementClient {
         onchain_data_hash: [u8; 32],
         onchain_data_size: [u8; 32],
     ) -> Result<String> {
+        tracing::info!("Ethereum Settlement Client: Updating state with calldata");
         let program_output: Vec<U256> = vec_u8_32_to_vec_u256(program_output.as_slice())?;
         let onchain_data_hash: U256 = slice_u8_to_u256(&onchain_data_hash)?;
         let onchain_data_size = U256::from_be_bytes(onchain_data_size);
         let tx_receipt =
             self.core_contract_client.update_state(program_output, onchain_data_hash, onchain_data_size).await?;
+        tracing::info!("Ethereum Settlement Client: Updated state with calldata {:?}", tx_receipt.transaction_hash);
         Ok(format!("0x{:x}", tx_receipt.transaction_hash))
     }
 
@@ -169,6 +181,7 @@ impl SettlementClient for EthereumSettlementClient {
         state_diff: Vec<Vec<u8>>,
         nonce: u64,
     ) -> Result<String> {
+        tracing::info!("Ethereum Settlement Client: Updating state with blobs");
         let (sidecar_blobs, sidecar_commitments, sidecar_proofs) = prepare_sidecar(&state_diff, &KZG_SETTINGS).await?;
         let sidecar = BlobTransactionSidecar::new(sidecar_blobs, sidecar_commitments, sidecar_proofs);
 
@@ -179,6 +192,8 @@ impl SettlementClient for EthereumSettlementClient {
         // TODO: need to send more than current gas price.
         max_fee_per_blob_gas += 12;
         let max_priority_fee_per_gas: u128 = self.provider.get_max_priority_fee_per_gas().await?.to_string().parse()?;
+
+        tracing::info!("Ethereum Settlement Client: Building proof for blob data");
 
         // x_0_value : program_output[10]
         // Updated with starknet 0.13.2 spec
@@ -207,6 +222,8 @@ impl SettlementClient for EthereumSettlementClient {
 
         let tx_sidecar = TxEip4844WithSidecar { tx: tx.clone(), sidecar: sidecar.clone() };
 
+        tracing::info!("Ethereum Settlement Client: Built tx for update state with blobs");
+
         let mut variant = TxEip4844Variant::from(tx_sidecar);
         let signature = self.wallet.default_signer().sign_transaction(&mut variant).await?;
         let tx_signed = variant.into_signed(signature);
@@ -223,22 +240,30 @@ impl SettlementClient for EthereumSettlementClient {
             { test_config::configure_transaction(self.provider.clone(), tx_envelope, self.impersonate_account).await };
 
         let pending_transaction = self.provider.send_transaction(txn_request).await?;
+
+        tracing::info!("Ethereum Settlement Client: Sent tx for update state with blobs");
         return Ok(pending_transaction.tx_hash().to_string());
     }
 
     /// Should verify the inclusion of a tx in the settlement layer
     async fn verify_tx_inclusion(&self, tx_hash: &str) -> Result<SettlementVerificationStatus> {
+        tracing::info!("Ethereum Settlement Client: Verifying tx inclusion for tx hash: {:?}", tx_hash);
         let tx_hash = B256::from_str(tx_hash)?;
         let maybe_tx_status: Option<TransactionReceipt> = self.provider.get_transaction_receipt(tx_hash).await?;
         match maybe_tx_status {
             Some(tx_status) => {
                 if tx_status.status() {
+                    tracing::info!("Ethereum Settlement Client: Tx verified");
                     Ok(SettlementVerificationStatus::Verified)
                 } else {
+                    tracing::info!("Ethereum Settlement Client: Tx is pending");
                     Ok(SettlementVerificationStatus::Pending)
                 }
             }
-            None => Ok(SettlementVerificationStatus::Rejected(format!("Could not find status of tx: {}", tx_hash))),
+            None => {
+                tracing::error!("Ethereum Settlement Client: Could not find status of tx: {}", tx_hash);
+                Ok(SettlementVerificationStatus::Rejected(format!("Could not find status of tx: {}", tx_hash)))
+            }
         }
     }
 

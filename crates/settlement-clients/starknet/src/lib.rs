@@ -106,6 +106,7 @@ impl SettlementClient for StarknetSettlementClient {
     /// which can be used to track the status.
     #[allow(unused)]
     async fn register_proof(&self, proof: [u8; 32]) -> Result<String> {
+        tracing::info!("Starknet Settlement Client: register_proof not implemented yet");
         !unimplemented!("register_proof not implemented yet")
     }
 
@@ -116,32 +117,43 @@ impl SettlementClient for StarknetSettlementClient {
         onchain_data_hash: [u8; 32],
         onchain_data_size: [u8; 32],
     ) -> Result<String> {
+        tracing::info!("Starknet Settlement Client: update_state_calldata called.");
         let program_output = slice_slice_u8_to_vec_field(program_output.as_slice());
         let onchain_data_hash = slice_u8_to_field(&onchain_data_hash);
         let core_contract: &CoreContract = self.starknet_core_contract_client.as_ref();
         let onchain_data_size = crypto_bigint::U256::from_be_bytes(onchain_data_size).into();
         let invoke_result = core_contract.update_state(program_output, onchain_data_hash, onchain_data_size).await?;
-
+        tracing::info!("Starknet Settlement Client: update_state_calldata finished.");
         Ok(invoke_result.transaction_hash.to_hex_string())
     }
 
     /// Should verify the inclusion of a tx in the settlement layer
     async fn verify_tx_inclusion(&self, tx_hash: &str) -> Result<SettlementVerificationStatus> {
+        tracing::info!("Starknet Settlement Client: verify_tx_inclusion called.");
         let tx_hash = Felt::from_hex(tx_hash)?;
         let tx_receipt = self.account.provider().get_transaction_receipt(tx_hash).await?;
         let execution_result = tx_receipt.receipt.execution_result();
         let status = execution_result.status();
 
         match status {
-            TransactionExecutionStatus::Reverted => Ok(SettlementVerificationStatus::Rejected(format!(
-                "Transaction {} has been reverted: {}",
-                tx_hash,
-                execution_result.revert_reason().unwrap()
-            ))),
+            TransactionExecutionStatus::Reverted => {
+                tracing::error!(
+                    "Transaction {} has been reverted: {}",
+                    tx_hash,
+                    execution_result.revert_reason().unwrap()
+                );
+                Ok(SettlementVerificationStatus::Rejected(format!(
+                    "Transaction {} has been reverted: {}",
+                    tx_hash,
+                    execution_result.revert_reason().unwrap()
+                )))
+            }
             TransactionExecutionStatus::Succeeded => {
                 if tx_receipt.block.is_pending() {
+                    tracing::info!("Transaction {} is pending", tx_hash);
                     Ok(SettlementVerificationStatus::Pending)
                 } else {
+                    tracing::info!("Transaction {} is settled", tx_hash);
                     Ok(SettlementVerificationStatus::Verified)
                 }
             }
@@ -164,6 +176,7 @@ impl SettlementClient for StarknetSettlementClient {
         let mut retries = 0;
         let duration_to_wait_between_polling = Duration::from_secs(self.tx_finality_retry_delay_in_seconds);
         sleep(duration_to_wait_between_polling).await;
+        tracing::info!("Waiting for tx finality for tx hash {:?}", tx_hash);
 
         let tx_hash = Felt::from_hex(tx_hash)?;
         loop {
@@ -171,10 +184,12 @@ impl SettlementClient for StarknetSettlementClient {
             if tx_receipt.block.is_pending() {
                 retries += 1;
                 if retries > MAX_RETRIES_VERIFY_TX_FINALITY {
+                    tracing::error!("Max retries exceeeded while waiting for tx {tx_hash} finality.");
                     return Err(eyre!("Max retries exceeeded while waiting for tx {tx_hash} finality."));
                 }
                 sleep(duration_to_wait_between_polling).await;
             } else {
+                tracing::info!("Tx {tx_hash} has achieved finality");
                 break;
             }
         }

@@ -52,6 +52,7 @@ impl SharpClient {
     }
 
     pub async fn add_job(&self, encoded_pie: &str) -> Result<(SharpAddJobResponse, Uuid), SharpError> {
+        tracing::info!("Sharp Service: Adding job to SHARP");
         let mut base_url = self.base_url.clone();
 
         base_url.path_segments_mut().map_err(|_| SharpError::PathSegmentMutFailOnUrl)?.push("add_job");
@@ -72,12 +73,15 @@ impl SharpClient {
         // Adding params to the URL
         add_params_to_url(&mut base_url, params);
 
+        tracing::info!("Sharp Service: Sending PIE to SHARP");
+
         let res =
             self.client.post(base_url).body(encoded_pie.to_string()).send().await.map_err(SharpError::AddJobFailure)?;
 
         match res.status() {
             reqwest::StatusCode::OK => {
                 let result: SharpAddJobResponse = res.json().await.map_err(SharpError::AddJobFailure)?;
+                tracing::info!("Sharp Service: Job added to SHARP: {:?}", result.message);
                 Ok((result, cairo_key))
             }
             code => Err(SharpError::SharpService(code)),
@@ -85,6 +89,7 @@ impl SharpClient {
     }
 
     pub async fn get_job_status(&self, job_key: &Uuid) -> Result<SharpGetStatusResponse, SharpError> {
+        tracing::info!("Sharp Service: Getting job status from SHARP");
         let mut base_url = self.base_url.clone();
 
         base_url.path_segments_mut().map_err(|_| SharpError::PathSegmentMutFailOnUrl)?.push("get_status");
@@ -99,6 +104,7 @@ impl SharpClient {
         add_params_to_url(&mut base_url, params);
 
         let res = self.client.post(base_url).send().await.map_err(SharpError::GetJobStatusFailure)?;
+        tracing::info!("Sharp Service: Job status response: {:?}", res);
 
         match res.status() {
             reqwest::StatusCode::OK => res.json().await.map_err(SharpError::GetJobStatusFailure),

@@ -30,9 +30,11 @@ impl ProverClient for SharpProverService {
     async fn submit_task(&self, task: Task) -> Result<String, ProverClientError> {
         match task {
             Task::CairoPie(cairo_pie) => {
+                tracing::info!("Sharp Service: Submitting task to SHARP");
                 let encoded_pie =
                     starknet_os::sharp::pie::encode_pie_mem(cairo_pie).map_err(ProverClientError::PieEncoding)?;
                 let (_, job_key) = self.sharp_client.add_job(&encoded_pie).await?;
+                tracing::info!("Sharp Service: Task with key {:?} added to SHARP", job_key);
                 Ok(job_key.to_string())
             }
         }
@@ -43,24 +45,38 @@ impl ProverClient for SharpProverService {
         let job_key = Uuid::from_str(job_key)
             .map_err(|e| ProverClientError::InvalidJobKey(format!("Failed to convert {} to UUID {}", job_key, e)))?;
         let res = self.sharp_client.get_job_status(&job_key).await?;
+        tracing::info!("Sharp Service: Job with key {:?} status: {:?}", job_key, res.status);
 
         match res.status {
             // TODO : We would need to remove the FAILED, UNKNOWN, NOT_CREATED status as it is not in the sharp client
             // response specs : https://docs.google.com/document/d/1-9ggQoYmjqAtLBGNNR2Z5eLreBmlckGYjbVl0khtpU0
             // We are waiting for the official public API spec before making changes
-            CairoJobStatus::FAILED => Ok(TaskStatus::Failed(res.error_log.unwrap_or_default())),
-            CairoJobStatus::INVALID => {
-                Ok(TaskStatus::Failed(format!("Task is invalid: {:?}", res.invalid_reason.unwrap_or_default())))
+            CairoJobStatus::FAILED => {
+                let error_log = res.error_log.unwrap_or_default();
+                tracing::error!("Sharp Service: Task failed: {:?}", error_log);
+                Ok(TaskStatus::Failed(error_log))
             }
-            CairoJobStatus::UNKNOWN => Ok(TaskStatus::Failed(format!("Task not found: {}", job_key))),
+            CairoJobStatus::INVALID => {
+                let invalid_reason = res.invalid_reason.unwrap_or_default();
+                tracing::error!("Sharp Service: Task is invalid: {:?}", invalid_reason.clone());
+                Ok(TaskStatus::Failed(format!("Task is invalid: {:?}", invalid_reason)))
+            }
+            CairoJobStatus::UNKNOWN => {
+                tracing::error!("Sharp Service: Task not found: {}", job_key);
+                Ok(TaskStatus::Failed(format!("Task not found: {}", job_key)))
+            }
             CairoJobStatus::IN_PROGRESS | CairoJobStatus::NOT_CREATED | CairoJobStatus::PROCESSED => {
+                tracing::info!("Sharp Service: Task is in progress: {}", job_key);
                 Ok(TaskStatus::Processing)
             }
             CairoJobStatus::ONCHAIN => {
                 let fact = B256::from_str(fact).map_err(|e| ProverClientError::FailedToConvertFact(e.to_string()))?;
+                tracing::info!("Sharp Service: Checking fact {:?} with SHARP", fact);
                 if self.fact_checker.is_valid(&fact).await? {
+                    tracing::info!("Sharp Service: Fact {:?} is valid", fact);
                     Ok(TaskStatus::Succeeded)
                 } else {
+                    tracing::error!("Sharp Service: Fact {:?} is not valid or not registered", fact);
                     Ok(TaskStatus::Failed(format!("Fact {} is not valid or not registered", hex::encode(fact))))
                 }
             }
