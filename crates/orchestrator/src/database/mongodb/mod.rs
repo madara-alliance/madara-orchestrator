@@ -68,11 +68,13 @@ impl MongoDb {
             if !is_update_available {
                 return Err(("No field to be updated, likely a false call"));
             }
+            
+            // Add additional fields that are always updated
+            doc.insert("version", Bson::Int32(current_job.version + 1));
+            doc.insert("updated_at", Bson::DateTime(Utc::now().round_subsecs(0).into()));
         }
 
-        // Add additional fields that are always updated
-        doc.insert("version", Bson::Int32(current_job.version + 1));
-        doc.insert("updated_at", Bson::DateTime(Utc::now().round_subsecs(0).into()));
+     
 
         Ok(doc)
     }

@@ -152,16 +152,12 @@ pub struct JobItemUpdates {
     pub metadata: Option<HashMap<String, String>>,
 }
 
-/// implements default selections for JobItemUpdates
-impl Default for JobItemUpdates {
-    fn default() -> Self {
-        JobItemUpdates { internal_id: None, job_type: None, status: None, external_id: None, metadata: None }
-    }
-}
-
 /// implements only needed singular changes
 impl JobItemUpdates {
-   
+    pub fn new() -> Self {
+        JobItemUpdates { internal_id: None, job_type: None, status: None, external_id: None, metadata: None }
+    }
+
     pub fn update_internal_id(mut self, internal_id: String) -> JobItemUpdates {
         self.internal_id = Some(internal_id);
         self

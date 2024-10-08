@@ -181,7 +181,7 @@ async fn database_test_update_job() {
     let _ = database_client
         .update_job(
             &job_cloned,
-            JobItemUpdates::default()
+            JobItemUpdates::new()
                 .update_status(JobStatus::LockedForProcessing)
                 .update_metadata(updated_metadata)
                 .build(),

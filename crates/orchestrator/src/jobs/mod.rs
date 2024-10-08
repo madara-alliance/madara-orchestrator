@@ -195,7 +195,7 @@ pub async fn process_job(id: Uuid, config: Arc<Config>) -> Result<(), JobError> 
     // outdated
     config
         .database()
-        .update_job(&job, JobItemUpdates::default().update_status(JobStatus::LockedForProcessing).build())
+        .update_job(&job, JobItemUpdates::new().update_status(JobStatus::LockedForProcessing).build())
         .await
         .map_err(|e| JobError::Other(OtherError(e)))?;
 
@@ -211,7 +211,7 @@ pub async fn process_job(id: Uuid, config: Arc<Config>) -> Result<(), JobError> 
         .database()
         .update_job(
             &job_cloned,
-            JobItemUpdates::default()
+            JobItemUpdates::new()
                 .update_status(JobStatus::PendingVerification)
                 .update_metadata(metadata)
                 .update_external_id(external_id.into())
@@ -270,7 +270,7 @@ pub async fn verify_job(id: Uuid, config: Arc<Config>) -> Result<(), JobError> {
         JobVerificationStatus::Verified => {
             config
                 .database()
-                .update_job(&job, JobItemUpdates::default().update_status(JobStatus::Completed).build())
+                .update_job(&job, JobItemUpdates::new().update_status(JobStatus::Completed).build())
                 .await
                 .map_err(|e| JobError::Other(OtherError(e)))?;
         }
@@ -283,7 +283,7 @@ pub async fn verify_job(id: Uuid, config: Arc<Config>) -> Result<(), JobError> {
                 .database()
                 .update_job(
                     &job,
-                    JobItemUpdates::default()
+                    JobItemUpdates::new()
                         .update_status(JobStatus::VerificationFailed)
                         .update_metadata(new_job.metadata)
                         .build(),
@@ -314,7 +314,7 @@ pub async fn verify_job(id: Uuid, config: Arc<Config>) -> Result<(), JobError> {
                 log::info!("Verification attempts exceeded for job {}. Marking as timed out.", job.id);
                 config
                     .database()
-                    .update_job(&job, JobItemUpdates::default().update_status(JobStatus::VerificationFailed).build())
+                    .update_job(&job, JobItemUpdates::new().update_status(JobStatus::VerificationFailed).build())
                     .await
                     .map_err(|e| JobError::Other(OtherError(e)))?;
                 return Ok(());
@@ -323,7 +323,7 @@ pub async fn verify_job(id: Uuid, config: Arc<Config>) -> Result<(), JobError> {
 
             config
                 .database()
-                .update_job(&job, JobItemUpdates::default().update_metadata(metadata).build())
+                .update_job(&job, JobItemUpdates::new().update_metadata(metadata).build())
                 .await
                 .map_err(|e| JobError::Other(OtherError(e)))?;
 
@@ -371,7 +371,7 @@ pub async fn handle_job_failure(id: Uuid, config: Arc<Config>) -> Result<(), Job
     metadata.insert("last_job_status".to_string(), job.status.to_string());
     config
         .database()
-        .update_job(&job, JobItemUpdates::default().update_status(JobStatus::Failed).update_metadata(metadata).build())
+        .update_job(&job, JobItemUpdates::new().update_status(JobStatus::Failed).update_metadata(metadata).build())
         .await
         .map_err(|e| JobError::Other(OtherError(e)))?;
 
