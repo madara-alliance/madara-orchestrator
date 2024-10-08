@@ -1,5 +1,7 @@
+use std::str::FromStr;
 use std::time::Duration;
 
+use dotenvy::dotenv;
 use lazy_static::lazy_static;
 use opentelemetry::trace::TracerProvider;
 use opentelemetry::{KeyValue, global};
@@ -12,26 +14,32 @@ use tracing::Level;
 use tracing_opentelemetry::OpenTelemetryLayer;
 use tracing_subscriber::layer::SubscriberExt as _;
 use tracing_subscriber::util::SubscriberInitExt as _;
-use utils::env_utils::{get_env_var_optional, get_env_var_or_panic};
+use utils::env_utils::{get_env_var_optional, get_env_var_or_default, get_env_var_or_panic};
 
 lazy_static! {
     #[derive(Debug)]
     pub static ref OTEL_SERVICE_NAME: String = get_env_var_or_panic("OTEL_SERVICE_NAME");
 }
 
-pub fn setup_analytics(level: Level) -> Option<SdkMeterProvider> {
-    get_env_var_optional("OTEL_COLLECTOR_ENDPOINT").unwrap_or(None).map(|otel_endpoint| {
+pub fn setup_analytics() -> Option<SdkMeterProvider> {
+    dotenv().ok();
+    let otel_endpoint = get_env_var_optional("OTEL_COLLECTOR_ENDPOINT").expect("Failed to get OTEL_COLLECTOR_ENDPOINT");
+    let log_level = get_env_var_or_default("RUST_LOG", "INFO");
+    let level = Level::from_str(&log_level).unwrap_or(Level::INFO);
+
+    let tracing_subscriber = tracing_subscriber::registry()
+        .with(tracing_subscriber::filter::LevelFilter::from_level(level))
+        .with(tracing_subscriber::fmt::layer().with_target(false));
+
+    if let Some(otel_endpoint) = otel_endpoint {
         let meter_provider = init_metric_provider(&otel_endpoint);
         let tracer = init_tracer_provider(&otel_endpoint);
-
-        tracing_subscriber::registry()
-            .with(tracing_subscriber::filter::LevelFilter::from_level(level))
-            .with(tracing_subscriber::fmt::layer())
-            .with(OpenTelemetryLayer::new(tracer))
-            .init();
-
-        meter_provider
-    })
+        tracing_subscriber.with(OpenTelemetryLayer::new(tracer)).init();
+        Some(meter_provider)
+    } else {
+        tracing_subscriber.init();
+        None
+    }
 }
 
 pub fn shutdown_analytics(meter_provider: Option<SdkMeterProvider>) {
@@ -100,10 +108,8 @@ pub fn init_metric_provider(otel_endpoint: &str) -> SdkMeterProvider {
 #[cfg(test)]
 mod tests {
     use std::env;
-    use std::str::FromStr as _;
 
     use once_cell::sync::Lazy;
-    use utils::env_utils::get_env_var_or_default;
     use utils::metrics::lib::Metrics;
     use utils::register_metric;
 
@@ -156,10 +162,7 @@ mod tests {
         env::set_var("TRACING_LEVEL", "info");
         env::set_var("OTEL_SERVICE_NAME", "test_service");
 
-        let log_level = get_env_var_or_default("RUST_LOG", "INFO");
-        let level = Level::from_str(&log_level).unwrap_or(Level::INFO);
-
-        let analytics = setup_analytics(level);
+        let analytics = setup_analytics();
 
         assert!(analytics.is_some(), " Unable to set analytics")
     }
@@ -173,10 +176,7 @@ mod tests {
         env::set_var("TRACING_LEVEL", "info");
         env::set_var("OTEL_SERVICE_NAME", "test_service");
 
-        let log_level = get_env_var_or_default("RUST_LOG", "INFO");
-        let level = Level::from_str(&log_level).unwrap_or(Level::INFO);
-
-        setup_analytics(level);
+        setup_analytics();
 
         register_metric!(ORCHESTRATOR_METRICS, OrchestratorMetrics);
     }
