@@ -86,15 +86,19 @@ impl Orchestrator {
     }
 
     pub async fn wait_till_started(&mut self) {
+        println!("Waiting for orchestrator node to start");
         let mut attempts = CONNECTION_ATTEMPTS;
         loop {
+            println!("Attempting to connect to {}", self.address);
             match TcpStream::connect(&self.address).await {
                 Ok(_) => return,
                 Err(err) => {
                     if let Some(status) = self.has_exited() {
+                        println!("Orchestrator node exited early with {}", status);
                         panic!("Orchestrator node exited early with {}", status);
                     }
                     if attempts == 0 {
+                        println!("Failed to connect to {}: {}", self.address, err);
                         panic!("Failed to connect to {}: {}", self.address, err);
                     }
                 }
