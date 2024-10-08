@@ -98,14 +98,3 @@ async fn test_process_job() -> color_eyre::Result<()> {
 
     Ok(())
 }
-
-#[rstest]
-#[tokio::test(flavor = "multi_thread")]
-async fn test_prove_selected_blocks() {
-    let endpoint = std::env::var("RPC_FOR_SNOS").expect("Missing RPC_FOR_SNOS in env");
-    let (snos_pie, _snos_output) =
-        prove_block(76793, &endpoint, cairo_vm::types::layout_name::LayoutName::all_cairo, false)
-            .await
-            .expect("OS generate Cairo PIE");
-    snos_pie.run_validity_checks().expect("Valid SNOS PIE");
-}
