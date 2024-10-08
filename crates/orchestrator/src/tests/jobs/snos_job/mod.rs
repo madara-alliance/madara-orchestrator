@@ -10,10 +10,10 @@ use url::Url;
 use uuid::Uuid;
 
 use crate::constants::{CAIRO_PIE_FILE_NAME, SNOS_OUTPUT_FILE_NAME};
-use crate::jobs::Job;
 use crate::jobs::constants::JOB_METADATA_SNOS_BLOCK;
 use crate::jobs::snos_job::SnosJob;
 use crate::jobs::types::{JobItem, JobStatus, JobType, JobVerificationStatus};
+use crate::jobs::Job;
 use crate::tests::common::default_job_item;
 use crate::tests::config::{MockType, TestConfigBuilder};
 use crate::tests::jobs::ConfigType;
