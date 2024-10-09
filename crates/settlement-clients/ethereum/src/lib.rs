@@ -222,7 +222,7 @@ impl SettlementClient for EthereumSettlementClient {
 
         let tx_sidecar = TxEip4844WithSidecar { tx: tx.clone(), sidecar: sidecar.clone() };
 
-        tracing::info!("Ethereum Settlement Client: Built tx for update state with blobs");
+        tracing::debug!("Ethereum Settlement Client: Built tx for update state with blobs");
 
         let mut variant = TxEip4844Variant::from(tx_sidecar);
         let signature = self.wallet.default_signer().sign_transaction(&mut variant).await?;
@@ -241,7 +241,7 @@ impl SettlementClient for EthereumSettlementClient {
 
         let pending_transaction = self.provider.send_transaction(txn_request).await?;
 
-        tracing::info!("Ethereum Settlement Client: Sent tx for update state with blobs");
+        tracing::info!("Ethereum Settlement Client: Sent txn for update state with blobs");
         return Ok(pending_transaction.tx_hash().to_string());
     }
 

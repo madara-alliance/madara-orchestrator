@@ -41,6 +41,7 @@ pub fn get_fact_topology(cairo_pie: &CairoPie, output_size: usize) -> Result<Fac
         let page_sizes = get_page_sizes(&additional_data.pages, output_size)?;
         Ok(FactTopology { tree_structure, page_sizes })
     } else {
+        tracing::error!("Get fact topology: No additional data for the output builtin");
         Err(FactError::OutputBuiltinNoAdditionalData)
     }
 }
@@ -48,6 +49,7 @@ pub fn get_fact_topology(cairo_pie: &CairoPie, output_size: usize) -> Result<Fac
 /// Returns the sizes of the program output pages, given the pages dictionary that appears
 /// in the additional attributes of the output builtin.
 pub fn get_page_sizes(pages: &HashMap<usize, PublicMemoryPage>, output_size: usize) -> Result<Vec<usize>, FactError> {
+    tracing::debug!("Get page sizes: {:?}", pages);
     let mut pages_list: Vec<(usize, usize, usize)> =
         pages.iter().map(|(&id, page)| (id, page.start, page.size)).collect();
     pages_list.sort();
@@ -83,6 +85,7 @@ pub fn get_page_sizes(pages: &HashMap<usize, PublicMemoryPage>, output_size: usi
         );
         expected_page_start = Some(page_start + page_size);
         expected_page_id += 1;
+        tracing::debug!("Page size: {:?}", page_size);
 
         page_sizes.push(page_size);
     }
@@ -91,5 +94,6 @@ pub fn get_page_sizes(pages: &HashMap<usize, PublicMemoryPage>, output_size: usi
         pages.is_empty() || expected_page_start == Some(output_size),
         FactError::OutputPagesUncoveredOutput(expected_page_start.unwrap_or_default(), output_size)
     );
+    tracing::debug!("Page sizes: {:?}", page_sizes);
     Ok(page_sizes)
 }

@@ -73,7 +73,7 @@ impl SharpClient {
         // Adding params to the URL
         add_params_to_url(&mut base_url, params);
 
-        tracing::info!("Sharp Service: Sending PIE to SHARP");
+        tracing::debug!("Sharp Service: Sending PIE to SHARP");
 
         let res =
             self.client.post(base_url).body(encoded_pie.to_string()).send().await.map_err(SharpError::AddJobFailure)?;

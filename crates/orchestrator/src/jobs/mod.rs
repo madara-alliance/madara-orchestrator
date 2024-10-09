@@ -149,7 +149,7 @@ pub async fn create_job(
         .map_err(|e| JobError::Other(OtherError(e)))?;
 
     if existing_job.is_some() {
-        tracing::error!("Job already exists for internal_id {:?} and job_type {:?}", internal_id, job_type);
+        tracing::warn!("Job already exists for internal_id {:?} and job_type {:?}", internal_id, job_type);
         return Err(JobError::JobAlreadyExists { internal_id, job_type });
     }
 
@@ -253,7 +253,10 @@ pub async fn verify_job(id: Uuid, config: Arc<Config>) -> Result<(), JobError> {
             tracing::info!("Verifying job with id {:?}", id);
         }
         _ => {
-            return Err(JobError::InvalidStatus { id, job_status: job.status });
+            return {
+                tracing::warn!("Invalid status for job with id {:?}: {:?}", id, job.status);
+                Err(JobError::InvalidStatus { id, job_status: job.status })
+            };
         }
     }
 
@@ -261,10 +264,11 @@ pub async fn verify_job(id: Uuid, config: Arc<Config>) -> Result<(), JobError> {
     let verification_status = job_handler.verify_job(config.clone(), &mut job).await?;
     tracing::Span::current().record("verification_status", format!("{:?}", verification_status.clone()));
 
-    tracing::info!("Verification status for job with id {:?} is {:?}", id, verification_status);
+    tracing::debug!("Verification status for job with id {:?} is {:?}", id, verification_status);
 
     match verification_status {
         JobVerificationStatus::Verified => {
+            tracing::info!("Verification successful for job with id {:?}", id);
             config
                 .database()
                 .update_job_status(&job, JobStatus::Completed)
@@ -278,13 +282,11 @@ pub async fn verify_job(id: Uuid, config: Arc<Config>) -> Result<(), JobError> {
 
             config.database().update_job(&new_job).await.map_err(|e| JobError::Other(OtherError(e)))?;
 
-            tracing::error!("Verification failed for job with id {:?}. Cannot verify.", id);
-
             // retry job processing if we haven't exceeded the max limit
             let process_attempts = get_u64_from_metadata(&job.metadata, JOB_PROCESS_ATTEMPT_METADATA_KEY)
                 .map_err(|e| JobError::Other(OtherError(e)))?;
             if process_attempts < job_handler.max_process_attempts() {
-                tracing::info!(
+                tracing::warn!(
                     "Verification failed for job {}. Retrying processing attempt {}.",
                     job.id,
                     process_attempts + 1
@@ -295,7 +297,7 @@ pub async fn verify_job(id: Uuid, config: Arc<Config>) -> Result<(), JobError> {
             tracing::error!("Verification failed for job {}. Marking as timed out.", job.id);
         }
         JobVerificationStatus::Pending => {
-            tracing::info!("Inclusion is still pending for job {}. Pushing back to queue.", job.id);
+            tracing::debug!("Inclusion is still pending for job {}. Pushing back to queue.", job.id);
             let verify_attempts = get_u64_from_metadata(&job.metadata, JOB_VERIFICATION_ATTEMPT_METADATA_KEY)
                 .map_err(|e| JobError::Other(OtherError(e)))?;
             if verify_attempts >= job_handler.max_verification_attempts() {
@@ -343,7 +345,7 @@ pub async fn handle_job_failure(id: Uuid, config: Arc<Config>) -> Result<(), Job
     tracing::Span::current().record("job_status", format!("{:?}", job.status));
     tracing::Span::current().record("job_type", format!("{:?}", job.job_type));
 
-    tracing::info!("Handling job failure for job with id {:?}", id);
+    tracing::debug!("Handling job failure for job with id {:?}", id);
 
     if job.status == JobStatus::Completed {
         tracing::error!("Invalid state exists on DL queue: {}", job.status.to_string());
@@ -360,6 +362,7 @@ pub async fn handle_job_failure(id: Uuid, config: Arc<Config>) -> Result<(), Job
     job.status = JobStatus::Failed;
 
     config.database().update_job(&job).await.map_err(|e| JobError::Other(OtherError(e)))?;
+    tracing::error!("Job with id {:?} failed", id);
 
     Ok(())
 }

@@ -122,6 +122,7 @@ impl Job for StateUpdateJob {
         if let Some(last_failed_block) = job.metadata.get(JOB_METADATA_STATE_UPDATE_LAST_FAILED_BLOCK_NO) {
             let last_failed_block =
                 last_failed_block.parse().map_err(|_| StateUpdateError::LastFailedBlockNonPositive)?;
+            tracing::debug!("Last failed block: {:?}", last_failed_block);
 
             block_numbers = block_numbers.into_iter().filter(|&block| block >= last_failed_block).collect::<Vec<u64>>();
         }

@@ -40,6 +40,7 @@ pub fn get_fact_info(cairo_pie: &CairoPie, program_hash: Option<Felt>) -> Result
     };
     let output_root = generate_merkle_root(&program_output, &fact_topology)?;
     let fact = keccak256([program_hash.to_bytes_be(), *output_root.node_hash].concat());
+    tracing::debug!("Fact info: {:?}", fact);
     Ok(FactInfo { program_output, fact_topology, fact })
 }
 
@@ -68,6 +69,7 @@ pub fn get_program_output(cairo_pie: &CairoPie) -> Result<Vec<Felt252>, FactErro
     if insertion_count != segment_info.size {
         return Err(FactError::InvalidSegment);
     }
+    tracing::debug!("Program output: {:?}", output);
 
     Ok(output)
 }

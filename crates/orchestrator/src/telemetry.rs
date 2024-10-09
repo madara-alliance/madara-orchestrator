@@ -55,6 +55,7 @@ pub fn shutdown_analytics(meter_provider: Option<SdkMeterProvider>) {
         global::shutdown_tracer_provider();
         let _ = meter_provider.shutdown();
     }
+    tracing::info!("Analytics shutdown");
 }
 
 pub fn init_tracer_provider(otel_endpoint: &str) -> Tracer {

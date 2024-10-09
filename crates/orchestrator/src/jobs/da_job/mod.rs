@@ -71,7 +71,7 @@ impl Job for DaJob {
         internal_id: String,
         metadata: HashMap<String, String>,
     ) -> Result<JobItem, JobError> {
-        tracing::info!("DA JOB: Creating job with internal_id {:?}", internal_id);
+        tracing::debug!("DA JOB: Creating job with internal_id {:?}", internal_id);
         Ok(JobItem {
             id: Uuid::new_v4(),
             internal_id,
@@ -134,6 +134,13 @@ impl Job for DaJob {
 
         // there is a limit on number of blobs per txn, checking that here
         if current_blob_length > max_blob_per_txn {
+            tracing::warn!(
+                "Exceeded the maximum number of blobs per transaction: allowed {}, found {}, for block {}, job id {}",
+                max_blob_per_txn,
+                current_blob_length,
+                block_no,
+                job.id
+            );
             Err(DaError::MaxBlobsLimitExceeded {
                 max_blob_per_txn,
                 current_blob_length,
@@ -180,6 +187,7 @@ impl Job for DaJob {
 
 #[tracing::instrument(skip(elements))]
 pub fn fft_transformation(elements: Vec<BigUint>) -> Vec<BigUint> {
+    tracing::debug!("Performing FFT transformation on {:?} elements", elements.len());
     let xs: Vec<BigUint> = (0..*BLOB_LEN)
         .map(|i| {
             let bin = format!("{:012b}", i);
@@ -195,6 +203,7 @@ pub fn fft_transformation(elements: Vec<BigUint>) -> Vec<BigUint> {
 
     for i in 0..n {
         for j in (0..n).rev() {
+            tracing::debug!("FFT transformation: i = {}, j = {}", i, j);
             transform[i] = (transform[i].clone().mul(&xs[i]).add(&elements[j])).rem(&*BLS_MODULUS);
         }
     }

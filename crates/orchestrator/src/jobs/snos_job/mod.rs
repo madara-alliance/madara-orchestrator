@@ -94,7 +94,7 @@ impl Job for SnosJob {
 
     #[tracing::instrument(fields(category = "snos"), skip(self, config))]
     async fn process_job(&self, config: Arc<Config>, job: &mut JobItem) -> Result<String, JobError> {
-        tracing::info!("SNOS:Processing job with internal_id {:?}", job.internal_id);
+        tracing::info!("SNOS: Processing job with internal_id {:?}", job.internal_id);
         let block_number = self.get_block_number_from_metadata(job)?;
 
         let snos_url = config.snos_url().to_string();

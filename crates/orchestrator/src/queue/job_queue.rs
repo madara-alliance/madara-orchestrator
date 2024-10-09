@@ -103,12 +103,12 @@ enum DeliveryReturnType {
 }
 
 pub async fn add_job_to_process_queue(id: Uuid, config: Arc<Config>) -> EyreResult<()> {
-    tracing::info!("Adding job with id {:?} to processing queue", id);
+    tracing::debug!("Adding job with id {:?} to processing queue", id);
     add_job_to_queue(id, JOB_PROCESSING_QUEUE.to_string(), None, config).await
 }
 
 pub async fn add_job_to_verification_queue(id: Uuid, delay: Duration, config: Arc<Config>) -> EyreResult<()> {
-    tracing::info!("Adding job with id {:?} to verification queue", id);
+    tracing::debug!("Adding job with id {:?} to verification queue", id);
     add_job_to_queue(id, JOB_VERIFICATION_QUEUE.to_string(), Some(delay), config).await
 }
 
@@ -191,7 +191,7 @@ where
     F: FnOnce(Uuid, Arc<Config>) -> Fut,
     Fut: Future<Output = Result<(), JobError>>,
 {
-    tracing::info!("Handling job with id {:?}", job_message.id);
+    tracing::debug!("Handling job with id {:?}", job_message.id);
 
     match handler(job_message.id, config.clone()).await {
         Ok(_) => {
@@ -201,6 +201,7 @@ where
                 .map_err(|(e, _)| e)
                 .wrap_err("Queue Error")
                 .map_err(|e| ConsumptionError::Other(OtherError::from(e)))?;
+            tracing::info!("Job with id {:?} handled successfully", job_message.id);
             Ok(())
         }
         Err(e) => {
@@ -237,7 +238,7 @@ where
 {
     let worker_handler = get_worker_handler_from_worker_trigger_type(job_message.worker.clone());
 
-    tracing::info!("Handling worker trigger {:?}", job_message.worker);
+    tracing::debug!("Handling worker trigger {:?}", job_message.worker);
 
     match handler(worker_handler, config.clone()).await {
         Ok(_) => {
@@ -247,6 +248,7 @@ where
                 .map_err(|(e, _)| e)
                 .wrap_err("Queue Error")
                 .map_err(|e| ConsumptionError::Other(OtherError::from(e)))?;
+            tracing::info!("Worker trigger {:?} handled successfully", job_message.worker);
             Ok(())
         }
         Err(e) => {
@@ -316,7 +318,7 @@ async fn spawn_worker(worker: Box<dyn Worker>, config: Arc<Config>) -> color_eyr
 }
 async fn add_job_to_queue(id: Uuid, queue: String, delay: Option<Duration>, config: Arc<Config>) -> EyreResult<()> {
     let message = JobQueueMessage { id };
-    tracing::info!("Adding job with id {:?} to queue {:?}", id, queue);
+    tracing::debug!("Adding job with id {:?} to queue {:?}", id, queue);
     config.queue().send_message_to_queue(queue, serde_json::to_string(&message)?, delay).await?;
     Ok(())
 }

@@ -57,6 +57,7 @@ pub fn generate_merkle_root(program_output: &[Felt252], fact_topology: &FactTopo
     let mut output_iter = program_output.iter();
 
     for (n_pages, n_nodes) in tree_structure.into_iter().tuples() {
+        tracing::debug!("Generating merkle root: n_pages: {:?}, n_nodes: {:?}", n_pages, n_nodes);
         ensure!(n_pages <= page_sizes.len(), FactError::TreeStructurePagesCountOutOfRange(n_pages, page_sizes.len()));
 
         // Push n_pages (leaves) to the stack
@@ -107,6 +108,7 @@ pub fn generate_merkle_root(program_output: &[Felt252], fact_topology: &FactTopo
         FactError::TreeStructureRootOffsetInvalid(node_stack[0].end_offset, program_output.len(),)
     );
 
+    tracing::debug!("Merkle root: {:?}", node_stack.remove(0).node_hash);
     Ok(node_stack.remove(0))
 }
 
