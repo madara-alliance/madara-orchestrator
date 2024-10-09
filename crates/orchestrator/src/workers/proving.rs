@@ -24,12 +24,6 @@ impl Worker for ProvingWorker {
             create_job(JobType::ProofCreation, job.internal_id.to_string(), job.metadata, config.clone()).await?
         }
 
-        tracing::info!(
-            "Created proving jobs from {:?} to {:?}",
-            successful_snos_jobs.first().unwrap().internal_id,
-            successful_snos_jobs.last().unwrap().internal_id
-        );
-
         Ok(())
     }
 }
