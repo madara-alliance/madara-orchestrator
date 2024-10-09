@@ -1,14 +1,14 @@
 name: Build/Push Docker Image to ghcr
 
 on:
-  release:
-    types: [published]
   workflow_dispatch:
     inputs:
       docker_tag:
         description: "Docker tag to use"
         required: true
         default: "latest"
+  pull_request:
+    branches: [main]
 
 permissions:
   contents: read
