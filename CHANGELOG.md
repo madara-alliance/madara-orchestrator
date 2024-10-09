@@ -6,6 +6,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ## Added
 
+- added dockerfile
 - `SnosJob` implementation and e2e
 - Telemetry tracing and metrics.
 - e2e flow test
@@ -35,6 +36,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ## Changed
 
+- bumped snos and downgraded rust to match SNOS rust version
 - Bumped dependencies, and associated api changes done
 - ethereum DA client builder
 - AWS config built from TestConfigBuilder.
@@ -56,6 +58,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 ## Fixed
 
 - Simplified Update_Job for Database.
+- Simplified otel setup.
 - Added new_with_settings to SharpClient.
 - Calculate root hash logic and added a simple test for it.
 - Cargo.toml dependency reorg.
