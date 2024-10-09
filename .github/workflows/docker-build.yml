@@ -7,8 +7,6 @@ on:
         description: "Docker tag to use"
         required: true
         default: "latest"
-  pull_request:
-    branches: [main]
 
 permissions:
   contents: read
