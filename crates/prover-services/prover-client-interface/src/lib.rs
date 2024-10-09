@@ -19,7 +19,8 @@ pub trait ProverClient: Send + Sync {
 }
 
 pub enum Task {
-    CairoPie(CairoPie),
+    CairoPie(Box<CairoPie>),
+    CairoPieFilePath(String),
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
