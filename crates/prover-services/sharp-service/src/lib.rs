@@ -44,6 +44,9 @@ impl ProverClient for SharpProverService {
             .map_err(|e| ProverClientError::InvalidJobKey(format!("Failed to convert {} to UUID {}", job_key, e)))?;
         let res = self.sharp_client.get_job_status(&job_key).await?;
 
+        println!(">>>> res : {:?}", res);
+        println!(">>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>");
+
         match res.status {
             // TODO : We would need to remove the FAILED, UNKNOWN, NOT_CREATED status as it is not in the sharp client
             // response specs : https://docs.google.com/document/d/1-9ggQoYmjqAtLBGNNR2Z5eLreBmlckGYjbVl0khtpU0

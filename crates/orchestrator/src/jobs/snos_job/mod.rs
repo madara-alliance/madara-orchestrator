@@ -30,6 +30,8 @@ pub mod fact_info;
 pub mod fact_node;
 pub mod fact_topology;
 
+pub const SNOS_FAILED_JOB_TAG: &str = "failed_snos_job";
+
 #[derive(Error, Debug, PartialEq)]
 pub enum SnosError {
     #[error("Block numbers to run must be specified (snos job #{internal_id:?})")]
@@ -97,10 +99,14 @@ impl Job for SnosJob {
 
         let snos_url = config.snos_url().to_string();
         let snos_url = snos_url.trim_end_matches('/');
-        let (cairo_pie, snos_output) =
-            prove_block(block_number, snos_url, LayoutName::all_cairo).await.map_err(|e| {
-                SnosError::SnosExecutionError { internal_id: job.internal_id.clone(), message: e.to_string() }
-            })?;
+        let (cairo_pie, snos_output) = match prove_block(block_number, snos_url, LayoutName::all_cairo).await {
+            Ok(res) => (res.0, res.1),
+            Err(_) => {
+                // inserting failed snos job tag
+                job.metadata.insert(SNOS_FAILED_JOB_TAG.to_string(), "1".into());
+                return Ok(block_number.to_string());
+            }
+        };
 
         let fact_info = get_fact_info(&cairo_pie, None)?;
         let program_output = fact_info.program_output;

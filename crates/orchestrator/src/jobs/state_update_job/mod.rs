@@ -4,11 +4,18 @@ use std::collections::HashMap;
 use std::sync::Arc;
 
 use ::utils::collections::{has_dup, is_sorted};
+use ::utils::settings::Settings;
+use ::utils::settings::env::EnvSettingsProvider;
 use async_trait::async_trait;
 use cairo_vm::Felt252;
 use chrono::{SubsecRound, Utc};
 use color_eyre::eyre::eyre;
+use serde::Deserialize;
+use serde_json::json;
 use settlement_client_interface::SettlementVerificationStatus;
+use starknet::core::types::BlockId;
+use starknet::core::types::MaybePendingStateUpdate::{PendingUpdate, Update};
+use starknet::providers::Provider;
 use starknet_os::io::output::StarknetOsOutput;
 use thiserror::Error;
 use uuid::Uuid;
@@ -22,6 +29,7 @@ use crate::config::Config;
 use crate::constants::{PROGRAM_OUTPUT_FILE_NAME, SNOS_OUTPUT_FILE_NAME};
 use crate::jobs::Job;
 use crate::jobs::constants::JOB_METADATA_STATE_UPDATE_BLOCKS_TO_SETTLE_KEY;
+use crate::jobs::snos_job::SNOS_FAILED_JOB_TAG;
 use crate::jobs::state_update_job::utils::fetch_blob_data_for_block;
 use crate::jobs::types::{JobItem, JobStatus, JobType, JobVerificationStatus};
 
@@ -68,6 +76,12 @@ pub enum StateUpdateError {
 
     #[error("Other error: {0}")]
     Other(#[from] OtherError),
+}
+
+#[derive(Deserialize)]
+pub struct UpdateStateApiResponse {
+    pub msg: String,
+    pub txn_hash: String,
 }
 
 pub struct StateUpdateJob;
@@ -126,17 +140,35 @@ impl Job for StateUpdateJob {
 
         let mut sent_tx_hashes: Vec<String> = Vec::with_capacity(block_numbers.len());
         for block_no in block_numbers.iter() {
-            let snos = self.fetch_snos_for_block(*block_no, config.clone()).await;
-            let tx_hash = self.update_state_for_block(config.clone(), *block_no, snos, nonce).await.map_err(|e| {
-                job.metadata.insert(JOB_METADATA_STATE_UPDATE_LAST_FAILED_BLOCK_NO.into(), block_no.to_string());
+            let job_item = config
+                .database()
+                .get_job_by_internal_id_and_type(&block_no.to_string(), &JobType::DataSubmission)
+                .await
+                .unwrap();
 
-                self.insert_attempts_into_metadata(job, &attempt_no, &sent_tx_hashes);
+            // TODO : remove unwrap()
+            // If block has failed snos job then just call to the service and update the state.
+            let txn_hash = if job_item.unwrap().metadata.contains_key(SNOS_FAILED_JOB_TAG) {
+                let txn_hash = Self::call_to_service_snos_failure(config.clone(), block_no.clone()).await.unwrap();
+                txn_hash
+            } else {
+                let snos = self.fetch_snos_for_block(*block_no, config.clone()).await;
+                let txn_hash = self
+                    .update_state_for_block(config.clone(), *block_no, snos, nonce)
+                    .await
+                    .map_err(|e| {
+                        job.metadata
+                            .insert(JOB_METADATA_STATE_UPDATE_LAST_FAILED_BLOCK_NO.into(), block_no.to_string());
+                        self.insert_attempts_into_metadata(job, &attempt_no, &sent_tx_hashes);
+                        StateUpdateError::Other(OtherError(eyre!(
+                            "Block #{block_no} - Error occurred during the state update: {e}"
+                        )));
+                    })
+                    .unwrap();
+                txn_hash
+            };
 
-                StateUpdateError::Other(OtherError(eyre!(
-                    "Block #{block_no} - Error occurred during the state update: {e}"
-                )))
-            })?;
-            sent_tx_hashes.push(tx_hash);
+            sent_tx_hashes.push(txn_hash);
             nonce += 1;
         }
 
@@ -332,5 +364,33 @@ impl StateUpdateJob {
     fn insert_attempts_into_metadata(&self, job: &mut JobItem, attempt_no: &str, tx_hashes: &[String]) {
         let new_attempt_metadata_key = format!("{}{}", JOB_METADATA_STATE_UPDATE_ATTEMPT_PREFIX, attempt_no);
         job.metadata.insert(new_attempt_metadata_key, tx_hashes.join(","));
+    }
+
+    async fn call_to_service_snos_failure(config: Arc<Config>, block_number: u64) -> color_eyre::Result<String> {
+        // getting the block updates from rpc
+        let starknet_client = config.starknet_client();
+        let block_state_update = starknet_client.get_state_update(BlockId::Number(block_number)).await?;
+        let settings_provider = EnvSettingsProvider {};
+
+        match block_state_update {
+            Update(val) => {
+                // calling to service
+                let client = reqwest::Client::new();
+                let body = json!({
+                    "block_no": block_number,
+                    "block_hash": val.block_hash,
+                    "global_root" : val.new_root
+                });
+
+                let sharp_url = settings_provider.get_settings_or_panic("SHARP_URL");
+                let response = client.post(sharp_url + "/txn/update-state").json(&body).send().await?;
+                let response_json: UpdateStateApiResponse = response.json().await?;
+
+                Ok(response_json.txn_hash)
+            }
+            PendingUpdate(_) => {
+                panic!("State update not found for block : {:?}", block_number);
+            }
+        }
     }
 }

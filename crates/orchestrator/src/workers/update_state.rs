@@ -31,10 +31,43 @@ impl Worker for UpdateStateWorker {
                     return Ok(());
                 }
 
+                let mut blocks_processed_in_last_job: Vec<u64> = job
+                    .metadata
+                    .get(JOB_METADATA_STATE_UPDATE_BLOCKS_TO_SETTLE_KEY)
+                    .unwrap()
+                    .split(',')
+                    .filter_map(|s| s.parse().ok())
+                    .collect();
+                blocks_processed_in_last_job.sort();
+                let last_block_processed_in_last_job =
+                    blocks_processed_in_last_job[blocks_processed_in_last_job.len() - 1];
+
+                let mut blocks_to_process = successful_da_jobs_without_successor
+                    .iter()
+                    .map(|j| j.internal_id.clone().parse::<u64>().unwrap())
+                    .collect::<Vec<u64>>();
+                blocks_to_process.sort();
+
+                let mut blocks_to_process_final = Vec::new();
+                for block in blocks_to_process {
+                    if !blocks_processed_in_last_job.contains(&block) {
+                        blocks_to_process_final.push(block);
+                    }
+                }
+
+                if blocks_to_process_final.is_empty() {
+                    return Ok(());
+                }
+
+                if blocks_to_process_final[0] != last_block_processed_in_last_job + 1 {
+                    log::warn!("⚠️ Can't create job because of inconsistent blocks.");
+                    return Ok(());
+                }
+
                 let mut metadata = job.metadata;
                 metadata.insert(
                     JOB_METADATA_STATE_UPDATE_BLOCKS_TO_SETTLE_KEY.to_string(),
-                    Self::parse_job_items_into_block_number_list(successful_da_jobs_without_successor.clone()),
+                    blocks_to_process_final.iter().map(|ele| ele.to_string()).collect::<Vec<String>>().join(","),
                 );
 
                 // Creating a single job for all the pending blocks.

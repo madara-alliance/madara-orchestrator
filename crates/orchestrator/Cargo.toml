@@ -52,6 +52,7 @@ omniqueue = { workspace = true, optional = true }
 once_cell = { workspace = true }
 prove_block = { workspace = true }
 prover-client-interface = { workspace = true }
+reqwest = { workspace = true }
 rstest = { workspace = true }
 serde = { workspace = true }
 serde_json = { workspace = true }

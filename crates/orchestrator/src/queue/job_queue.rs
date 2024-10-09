@@ -310,8 +310,14 @@ pub async fn init_consumers(config: Arc<Config>) -> Result<(), JobError> {
 
 /// To spawn the worker by passing the worker struct
 async fn spawn_worker(worker: Box<dyn Worker>, config: Arc<Config>) -> color_eyre::Result<()> {
-    worker.run_worker_if_enabled(config).await.expect("Error in running the worker.");
-    Ok(())
+    let res = worker.run_worker_if_enabled(config).await;
+    match res {
+        Ok(_) => Ok(()),
+        Err(e) => {
+            log::warn!("{:?}", e);
+            Ok(())
+        }
+    }
 }
 async fn add_job_to_queue(id: Uuid, queue: String, delay: Option<Duration>, config: Arc<Config>) -> EyreResult<()> {
     let message = JobQueueMessage { id };
