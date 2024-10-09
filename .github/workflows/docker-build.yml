@@ -6,9 +6,9 @@ on:
   workflow_dispatch:
     inputs:
       docker_tag:
-        description: 'Docker tag to use'
+        description: "Docker tag to use"
         required: true
-        default: 'latest'
+        default: "latest"
 
 permissions:
   contents: read
