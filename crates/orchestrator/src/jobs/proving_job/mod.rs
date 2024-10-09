@@ -70,6 +70,7 @@ impl Job for ProvingJob {
         let cairo_pie = CairoPie::from_bytes(cairo_pie_file.to_vec().as_slice())
             .map_err(|e| ProvingError::CairoPIENotReadable(e.to_string()))?;
 
+        let cairo_pie = Box::new(cairo_pie);
         let external_id = config
             .prover_client()
             .submit_task(Task::CairoPie(cairo_pie))

@@ -33,6 +33,7 @@ async fn prover_client_submit_task_works() {
         then.status(200).body(serde_json::to_vec(&sharp_response).unwrap());
     });
 
+    let cairo_pie = Box::new(cairo_pie);
     assert!(sharp_service.submit_task(Task::CairoPie(cairo_pie)).await.is_ok());
 
     sharp_add_job_call.assert();
