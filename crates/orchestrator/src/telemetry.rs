@@ -1,7 +1,6 @@
 use std::str::FromStr;
 use std::time::Duration;
 
-use dotenvy::dotenv;
 use lazy_static::lazy_static;
 use opentelemetry::trace::TracerProvider;
 use opentelemetry::{KeyValue, global};
@@ -22,7 +21,6 @@ lazy_static! {
 }
 
 pub fn setup_analytics() -> Option<SdkMeterProvider> {
-    dotenv().ok();
     let otel_endpoint = get_env_var_optional("OTEL_COLLECTOR_ENDPOINT").expect("Failed to get OTEL_COLLECTOR_ENDPOINT");
     let log_level = get_env_var_or_default("RUST_LOG", "INFO");
     let level = Level::from_str(&log_level).unwrap_or(Level::INFO);

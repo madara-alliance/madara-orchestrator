@@ -1,3 +1,4 @@
+use dotenvy::dotenv;
 use orchestrator::config::init_config;
 use orchestrator::queue::init_consumers;
 use orchestrator::routes::app_router;
@@ -10,6 +11,8 @@ use utils::env_utils::get_env_var_or_default;
 // version but have added it for now
 #[allow(clippy::needless_return)]
 async fn main() {
+    dotenv().ok();
+
     // Analytics Setup
     let meter_provider = setup_analytics();
 
