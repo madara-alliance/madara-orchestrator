@@ -73,9 +73,8 @@ impl Setup {
         let mut env_vec: Vec<(String, String)> =
             vec![("MONGODB_CONNECTION_STRING".to_string(), mongo_db_instance.endpoint().to_string())];
 
-        
-        env_vec.push(("RUST_LOG".to_string(), "debug".to_string()));
-        
+        env_vec.push(("RUST_LOG".to_string(), "info".to_string()));
+
         // Adding other values to the environment variables vector
         env_vec.push(("MADARA_RPC_URL".to_string(), get_env_var_or_panic("RPC_FOR_SNOS")));
         env_vec.push(("SETTLEMENT_RPC_URL".to_string(), anvil_setup.rpc_url.to_string()));
@@ -222,9 +221,6 @@ async fn wait_for_db_state(
             get_database_state(mongo_db_server, l2_block_for_testing.clone(), expected_db_state.job_type.clone())
                 .await
                 .unwrap();
-
-        println!("DB state: {:?}", db_state);
-        println!("Expected DB state: {:?}", expected_db_state);
 
         if db_state.is_some() && db_state.unwrap() == expected_db_state {
             return Ok(());
