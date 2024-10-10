@@ -36,6 +36,8 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ## Changed
 
+- handle jobs in tokio tasks
+- cleaned .env.example and .env.test files
 - bumped snos and downgraded rust to match SNOS rust version
 - Bumped dependencies, and associated api changes done
 - ethereum DA client builder
@@ -57,6 +59,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ## Fixed
 
+- Simplified Update_Job for Database.
 - Simplified otel setup.
 - Added new_with_settings to SharpClient.
 - Calculate root hash logic and added a simple test for it.
