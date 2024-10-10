@@ -150,6 +150,7 @@ pub async fn create_job(
         .await
         .map_err(|e| JobError::Other(OtherError(e)))?;
 
+    // this is technicaly a redundant check, we've another check inside `create_job`
     if existing_job.is_some() {
         return Err(JobError::JobAlreadyExists { internal_id, job_type });
     }
