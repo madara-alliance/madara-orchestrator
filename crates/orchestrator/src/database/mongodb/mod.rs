@@ -5,7 +5,7 @@ use chrono::{SubsecRound, Utc};
 use color_eyre::eyre::eyre;
 use color_eyre::Result;
 use futures::TryStreamExt;
-use mongodb::bson::{doc, Bson};
+use mongodb::bson::{doc, Bson, Document};
 use mongodb::options::{ClientOptions, FindOneOptions, FindOptions, ServerApi, ServerApiVersion, UpdateOptions};
 use mongodb::{bson, Client, Collection};
 use utils::ToDocument;
@@ -59,22 +59,21 @@ impl Database for MongoDb {
     async fn create_job(&self, job: JobItem) -> Result<JobItem, JobError> {
         let options = UpdateOptions::builder().upsert(true).build();
 
-        let mut updates = job.to_document().map_err(|e| JobError::Other(e.into()))?;
+        let updates = job.to_document().map_err(|e| JobError::Other(e.into()))?;
         let job_type =
-            updates.remove("job_type").ok_or(eyre!("Job type not found")).map_err(|e| JobError::Other(e.into()))?;
-        let internal_id = updates
-            .remove("internal_id")
-            .ok_or(eyre!("Internal ID not found"))
-            .map_err(|e| JobError::Other(e.into()))?;
+            updates.get("job_type").ok_or(eyre!("Job type not found")).map_err(|e| JobError::Other(e.into()))?;
+        let internal_id =
+            updates.get("internal_id").ok_or(eyre!("Internal ID not found")).map_err(|e| JobError::Other(e.into()))?;
 
         // Filter using only two fields
         let filter = doc! {
-            "job_type": job_type,
-            "internal_id": internal_id
+            "job_type": job_type.clone(),
+            "internal_id": internal_id.clone()
         };
 
         let updates = doc! {
-            "$set": updates
+            // only set when the document is inserted for the first time
+            "$setOnInsert": updates
         };
 
         let result = self
@@ -82,6 +81,7 @@ impl Database for MongoDb {
             .update_one(filter, updates, options)
             .await
             .map_err(|e| JobError::Other(e.to_string().into()))?;
+
         if result.matched_count == 0 {
             Ok(job)
         } else {
@@ -117,17 +117,25 @@ impl Database for MongoDb {
 
         let mut updates = updates.to_document()?;
 
+        // remove null values from the updates
+        let mut non_null_updates = Document::new();
+        updates.iter_mut().for_each(|(k, v)| {
+            if v != &Bson::Null {
+                non_null_updates.insert(k, v);
+            }
+        });
+
         // throw an error if there's no field to be updated
-        if updates.is_empty() {
+        if non_null_updates.is_empty() {
             return Err(eyre!("No field to be updated, likely a false call"));
         }
 
         // Add additional fields that are always updated
-        updates.insert("version", Bson::Int32(current_job.version + 1));
-        updates.insert("updated_at", Bson::DateTime(Utc::now().round_subsecs(0).into()));
+        non_null_updates.insert("version", Bson::Int32(current_job.version + 1));
+        non_null_updates.insert("updated_at", Bson::DateTime(Utc::now().round_subsecs(0).into()));
 
         let update = doc! {
-            "$set": updates
+            "$set": non_null_updates
         };
 
         let result = self.get_job_collection().update_one(filter, update, options).await?;

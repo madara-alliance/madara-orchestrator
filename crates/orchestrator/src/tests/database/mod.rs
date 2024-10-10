@@ -4,8 +4,8 @@ use chrono::{SubsecRound, Utc};
 use rstest::*;
 use uuid::Uuid;
 
-use crate::jobs::increment_key_in_metadata;
 use crate::jobs::types::{ExternalId, JobItem, JobItemUpdates, JobStatus, JobType};
+use crate::jobs::{increment_key_in_metadata, JobError};
 use crate::tests::config::{ConfigType, TestConfigBuilder};
 
 #[rstest]
@@ -46,10 +46,14 @@ async fn database_create_job_works() {
     assert_eq!(get_job_3, job_vec[2].clone());
 }
 
+/// Tests for `create_job` operation in database trait.
+/// Creates a job with the same job type and internal id as an existing job.
+/// Should fail.
 #[rstest]
 #[tokio::test]
 async fn database_create_job_with_job_exists_fails() {
-    let services = TestConfigBuilder::new().configure_database(ConfigType::Actual).build().await;
+    let services: crate::tests::config::TestConfigBuilderReturns =
+        TestConfigBuilder::new().configure_database(ConfigType::Actual).build().await;
     let config = services.config;
     let database_client = config.database();
 
@@ -62,7 +66,14 @@ async fn database_create_job_with_job_exists_fails() {
 
     let result = database_client.create_job(job_two).await;
 
-    assert_eq!(result.unwrap_err().to_string(), "Job with same internal id and type already exists");
+    assert_eq!(
+        result.unwrap_err(),
+        JobError::JobAlreadyExists { internal_id: "1".to_string(), job_type: JobType::ProofCreation }
+    );
+    // fetch job to see status wasn't updated
+    let fetched_job =
+        database_client.get_job_by_internal_id_and_type("1", &JobType::ProofCreation).await.unwrap().unwrap();
+    assert_eq!(fetched_job.status, JobStatus::Created);
 }
 
 /// Test for `get_jobs_without_successor` operation in database trait.
