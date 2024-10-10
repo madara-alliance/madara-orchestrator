@@ -156,7 +156,7 @@ pub async fn create_job(
 
     let job_handler = factory::get_job_handler(&job_type).await;
     let job_item = job_handler.create_job(config.clone(), internal_id.clone(), metadata).await?;
-    config.database().create_job(job_item.clone()).await.map_err(|e| JobError::Other(OtherError(e)))?;
+    config.database().create_job(job_item.clone()).await?;
 
     add_job_to_process_queue(job_item.id, config.clone()).await.map_err(|e| JobError::Other(OtherError(e)))?;
 

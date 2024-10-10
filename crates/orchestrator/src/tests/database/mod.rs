@@ -46,6 +46,25 @@ async fn database_create_job_works() {
     assert_eq!(get_job_3, job_vec[2].clone());
 }
 
+#[rstest]
+#[tokio::test]
+async fn database_create_job_with_job_exists_fails() {
+    let services = TestConfigBuilder::new().configure_database(ConfigType::Actual).build().await;
+    let config = services.config;
+    let database_client = config.database();
+
+    let job_one = build_job_item(JobType::ProofCreation, JobStatus::Created, 1);
+
+    // same job type and internal id
+    let job_two = build_job_item(JobType::ProofCreation, JobStatus::LockedForProcessing, 1);
+
+    database_client.create_job(job_one).await.unwrap();
+
+    let result = database_client.create_job(job_two).await;
+
+    assert_eq!(result.unwrap_err().to_string(), "Job with same internal id and type already exists");
+}
+
 /// Test for `get_jobs_without_successor` operation in database trait.
 /// Creates jobs in the following sequence :
 ///
