@@ -69,8 +69,9 @@ impl AtlanticProverService {
 
     pub fn new_with_settings(settings: &impl Settings) -> Self {
         let atlantic_config = AtlanticConfig::new_with_settings(settings)
-            .expect("Not able to create SharpProverService from given settings.");
-        let atlantic_client = AtlanticClient::new_with_settings(atlantic_config.service_url);
+            .expect("Not able to create Atlantic Prover Service from given settings.");
+        let atlantic_client =
+            AtlanticClient::new_with_settings(atlantic_config.service_url, atlantic_config.settlement_layer);
         let fact_checker = FactChecker::new(atlantic_config.rpc_node_url, atlantic_config.verifier_address);
         log::debug!("Atlantic Client instantiated: {:?}", atlantic_client);
         log::debug!("Fact checker instantiated: {:?}", atlantic_client);
@@ -81,7 +82,10 @@ impl AtlanticProverService {
     pub fn with_test_settings(settings: &impl Settings, port: u16) -> Self {
         let atlantic_config = AtlanticConfig::new_with_settings(settings)
             .expect("Not able to create SharpProverService from given settings.");
-        let atlantic_client = AtlanticClient::new_with_settings(format!("http://127.0.0.1:{}", port).parse().unwrap());
+        let atlantic_client = AtlanticClient::new_with_settings(
+            format!("http://127.0.0.1:{}", port).parse().unwrap(),
+            atlantic_config.settlement_layer,
+        );
         let fact_checker = FactChecker::new(atlantic_config.rpc_node_url, atlantic_config.verifier_address);
         Self::new(atlantic_client, fact_checker)
     }
