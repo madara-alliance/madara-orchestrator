@@ -245,7 +245,12 @@ pub async fn process_job(id: Uuid, config: Arc<Config>) -> Result<(), JobError> 
 /// retries processing the job if the max attempts have not been exceeded. If the max attempts have
 /// been exceeded, it marks the job as timed out. If the verification is still pending, it pushes
 /// the job back to the queue.
-#[tracing::instrument(skip(config), fields(category = "general", job, job_type, internal_id, verification_status), ret, err)]
+#[tracing::instrument(
+    skip(config),
+    fields(category = "general", job, job_type, internal_id, verification_status),
+    ret,
+    err
+)]
 pub async fn verify_job(id: Uuid, config: Arc<Config>) -> Result<(), JobError> {
     let mut job = get_job(id, config.clone()).await?;
 
