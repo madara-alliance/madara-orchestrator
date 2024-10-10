@@ -35,9 +35,7 @@ impl ProverClient for SharpProverService {
                 let (_, job_key) = self.sharp_client.add_job(&encoded_pie).await?;
                 Ok(job_key.to_string())
             }
-            Task::CairoPieFilePath(_) => {
-                unimplemented!();
-            }
+            Task::CairoPieFilePath(_) => Err(ProverClientError::TaskInvalid("Sharp supports encoded pie".to_string())),
         }
     }
 

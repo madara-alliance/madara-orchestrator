@@ -30,9 +30,7 @@ impl ProverClient for AtlanticProverService {
     #[tracing::instrument(skip(self, task))]
     async fn submit_task(&self, task: Task) -> Result<String, ProverClientError> {
         match task {
-            Task::CairoPie(_) => {
-                unimplemented!();
-            }
+            Task::CairoPie(_) => Err(ProverClientError::TaskInvalid("Atlantic only supports file method".to_string())),
             Task::CairoPieFilePath(cair_pie_file) => {
                 let cairo_pie_path = Path::new(&cair_pie_file);
                 let atlantic_job_reponse = self.atlantic_client.add_job(cairo_pie_path).await?;

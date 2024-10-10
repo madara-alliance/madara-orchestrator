@@ -134,10 +134,17 @@ async fn submit_l3_proving_job(
         .text("prover", prover)
         .text("mockFactHash", mock_fact_hash);
 
+    log::trace!("form {:?}", form);
     // Adding params to the URL
     add_params_to_url(&mut base_url, query_params);
-    let res =
-        atlantic_client.client.post(base_url).multipart(form).send().await.map_err(AtlanticError::AddJobFailure)?;
+    let res = atlantic_client
+        .client
+        .post(base_url)
+        .header("Content-Type", "multipart/form-data")
+        .multipart(form)
+        .send()
+        .await
+        .map_err(AtlanticError::AddJobFailure)?;
     match res.status() {
         reqwest::StatusCode::OK => {
             let result: AtlanticAddJobResponse = res.json().await.map_err(AtlanticError::AddJobFailure)?;
