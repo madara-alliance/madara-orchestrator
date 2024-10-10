@@ -217,7 +217,6 @@ pub async fn process_job(id: Uuid, config: Arc<Config>) -> Result<(), JobError> 
 
     tracing::trace!(job_id = ?id, job_type = ?job.job_type, "Getting job handler");
     let job_handler = factory::get_job_handler(&job.job_type).await;
-    tracing::debug!(job_id = ?id, "Processing job with handler");
     let external_id = job_handler.process_job(config.clone(), &mut job).await?;
     tracing::trace!(job_id = ?id, "Incrementing process attempt count in metadata");
     let metadata = increment_key_in_metadata(&job.metadata, JOB_PROCESS_ATTEMPT_METADATA_KEY)?;
@@ -261,7 +260,6 @@ pub async fn process_job(id: Uuid, config: Arc<Config>) -> Result<(), JobError> 
         KeyValue::new("job", format!("{:?}", job)),
     ];
 
-    tracing::trace!(job_id = ?id, "Recording metrics");
     ORCHESTRATOR_METRICS.block_gauge.record(job.internal_id.parse::<f64>().unwrap(), &attributes);
 
     tracing::info!(log_type = "completed", category = "general", function_type = "process_job", block_no = %internal_id, "General process job completed for block: {:?}", internal_id);
@@ -396,7 +394,6 @@ pub async fn verify_job(id: Uuid, config: Arc<Config>) -> Result<(), JobError> {
         KeyValue::new("job", format!("{:?}", job)),
     ];
 
-    tracing::trace!(job_id = ?id, "Recording metrics");
     ORCHESTRATOR_METRICS.block_gauge.record(job.internal_id.parse::<f64>().unwrap(), &attributes);
 
     tracing::info!(log_type = "completed", category = "general", function_type = "verify_job", block_no = %internal_id, "General verify job completed for block: {:?}", internal_id);
@@ -428,7 +425,6 @@ pub async fn handle_job_failure(id: Uuid, config: Arc<Config>) -> Result<(), Job
         return Ok(());
     }
 
-    tracing::trace!(job_id = ?id, "Updating job metadata with last job status");
     metadata.insert("last_job_status".to_string(), job.status.to_string());
 
     tracing::debug!(job_id = ?id, "Updating job status to Failed in database");

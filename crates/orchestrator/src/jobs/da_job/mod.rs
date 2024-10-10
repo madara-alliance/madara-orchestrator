@@ -125,14 +125,13 @@ impl Job for DaJob {
         })?;
         // transforming the data so that we can apply FFT on this.
         // @note: we can skip this step if in the above step we return vec<BigUint> directly
-        tracing::trace!(job_id = ?job.id, "Converted state update to blob data");
 
         let blob_data_biguint = convert_to_biguint(blob_data.clone());
         tracing::trace!(job_id = ?job.id, "Converted blob data to BigUint");
 
         let transformed_data = fft_transformation(blob_data_biguint);
         // data transformation on the data
-        tracing::debug!(job_id = ?job.id, "Applied FFT transformation");
+        tracing::trace!(job_id = ?job.id, "Applied FFT transformation");
 
         store_blob_data(transformed_data.clone(), block_no, config.clone()).await?;
         tracing::debug!(job_id = ?job.id, "Stored blob data");

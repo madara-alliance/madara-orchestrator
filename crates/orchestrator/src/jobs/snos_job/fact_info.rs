@@ -53,8 +53,7 @@ pub fn get_fact_info(cairo_pie: &CairoPie, program_hash: Option<Felt>) -> Result
             )
         }
     };
-    tracing::trace!("[FactInfo] Program hash: {:?}", program_hash);
-    tracing::debug!("[FactInfo] Generating Merkle root");
+    tracing::trace!("[FactInfo] Program hash: {:?} and now generating merkle root", program_hash);
     let output_root = generate_merkle_root(&program_output, &fact_topology)?;
     let fact = keccak256([program_hash.to_bytes_be(), *output_root.node_hash].concat());
     tracing::info!("[FactInfo] Fact computed successfully: {:?}", fact);

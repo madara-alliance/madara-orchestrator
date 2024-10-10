@@ -57,7 +57,7 @@ pub fn generate_merkle_root(program_output: &[Felt252], fact_topology: &FactTopo
     let mut node_stack: Vec<FactNode> = Vec::with_capacity(page_sizes.len());
     let mut output_iter = program_output.iter();
 
-    tracing::debug!("[FactNode] Processing tree structure: {:?}", tree_structure);
+    tracing::debug!("[FactNode] Processing tree structure: {:?}", tree_structure.len());
     for (n_pages, n_nodes) in tree_structure.into_iter().tuples() {
         tracing::trace!("[FactNode] Processing (n_pages: {}, n_nodes: {})", n_pages, n_nodes);
         ensure!(n_pages <= page_sizes.len(), FactError::TreeStructurePagesCountOutOfRange(n_pages, page_sizes.len()));
@@ -72,7 +72,7 @@ pub fn generate_merkle_root(program_output: &[Felt252], fact_topology: &FactTopo
             end_offset += page_size;
             // Add lead node (no children)
             node_stack.push(FactNode { node_hash, end_offset, page_size, children: vec![] });
-            tracing::debug!("[FactNode] Added leaf node with hash: {:?}", node_hash);
+            tracing::debug!("[FactNode] Added leaf node with hash: {:?}", node_hash.to_string());
         }
 
         ensure!(n_nodes <= node_stack.len(), FactError::TreeStructureNodesCountOutOfRange(n_nodes, node_stack.len()));

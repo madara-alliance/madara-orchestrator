@@ -89,34 +89,32 @@ impl MongoDb {
 impl Database for MongoDb {
     #[tracing::instrument(skip(self), fields(function_type = "db_call"), ret, err)]
     async fn create_job(&self, job: JobItem) -> Result<JobItem> {
-        tracing::debug!(job_id = %job.id, "DB Calls: Creating new job");
         self.get_job_collection().insert_one(&job, None).await?;
-        tracing::debug!(job_id = %job.id, "DB Calls: Job created successfully");
+        tracing::debug!(job_id = %job.id, category = "db_call", "Job created successfully");
         Ok(job)
     }
 
     #[tracing::instrument(skip(self), fields(function_type = "db_call"), ret, err)]
     async fn get_job_by_id(&self, id: Uuid) -> Result<Option<JobItem>> {
-        tracing::debug!(job_id = %id, "DB Calls: Fetching job by ID");
         let filter = doc! {
             "id":  id
         };
+        tracing::debug!(job_id = %id, category = "db_call", "Fetched job by ID");
         Ok(self.get_job_collection().find_one(filter, None).await?)
     }
 
     #[tracing::instrument(skip(self), fields(function_type = "db_call"), ret, err)]
     async fn get_job_by_internal_id_and_type(&self, internal_id: &str, job_type: &JobType) -> Result<Option<JobItem>> {
-        tracing::debug!(internal_id = %internal_id, job_type = ?job_type, "DB Calls: Fetching job by internal ID and type");
         let filter = doc! {
             "internal_id": internal_id,
             "job_type": mongodb::bson::to_bson(&job_type)?,
         };
+        tracing::debug!(internal_id = %internal_id, job_type = ?job_type, category = "db_call", "Fetched job by internal ID and type");
         Ok(self.get_job_collection().find_one(filter, None).await?)
     }
 
     #[tracing::instrument(skip(self), fields(function_type = "db_call"), ret, err)]
     async fn update_job(&self, current_job: &JobItem, updates: JobItemUpdates) -> Result<()> {
-        tracing::debug!(job_id = %current_job.id, "DB Calls: Updating job");
         // Filters to search for the job
         let filter = doc! {
             "id": current_job.id,
@@ -136,17 +134,17 @@ impl Database for MongoDb {
             return Err(eyre!("Failed to update job. Job version is likely outdated"));
         }
 
-        tracing::debug!(job_id = %current_job.id, "DB Calls: Job updated successfully");
+        tracing::debug!(job_id = %current_job.id, category = "db_call", "Job updated successfully");
         Ok(())
     }
 
     #[tracing::instrument(skip(self), fields(function_type = "db_call"), ret, err)]
     async fn get_latest_job_by_type(&self, job_type: JobType) -> Result<Option<JobItem>> {
-        tracing::debug!(job_type = ?job_type, "DB Calls: Fetching latest job by type");
         let filter = doc! {
             "job_type": mongodb::bson::to_bson(&job_type)?,
         };
         let find_options = FindOneOptions::builder().sort(doc! { "internal_id": -1 }).build();
+        tracing::debug!(job_type = ?job_type, category = "db_call", "Fetching latest job by type");
         Ok(self.get_job_collection().find_one(filter, find_options).await?)
     }
 
@@ -178,7 +176,6 @@ impl Database for MongoDb {
         job_a_status: JobStatus,
         job_b_type: JobType,
     ) -> Result<Vec<JobItem>> {
-        tracing::debug!(job_a_type = ?job_a_type, job_a_status = ?job_a_status, job_b_type = ?job_b_type, "DB Calls: Fetching jobs without successor");
         // Convert enums to Bson strings
         let job_a_type_bson = Bson::String(format!("{:?}", job_a_type));
         let job_a_status_bson = Bson::String(format!("{:?}", job_a_status));
@@ -198,17 +195,17 @@ impl Database for MongoDb {
             },
             // Stage 2: Lookup to find corresponding job_b_type jobs
             doc! {
-                "$lookup": {
-                    "from": "jobs",
-                    "let": { "internal_id": "$internal_id" },
-                    "pipeline": [
-                        {
-                            "$match": {
-                                "$expr": {
-                                    "$and": [
-                                        { "$eq": ["$job_type", job_b_type_bson] },
-                                        // Conditionally match job_b_status if provided
-                                        { "$eq": ["$internal_id", "$$internal_id"] }
+            "$lookup": {
+                "from": "jobs",
+                "let": { "internal_id": "$internal_id" },
+                "pipeline": [
+                    {
+                        "$match": {
+                            "$expr": {
+                                "$and": [
+                                    { "$eq": ["$job_type", job_b_type_bson] },
+                                    // Conditionally match job_b_status if provided
+                                    { "$eq": ["$internal_id", "$$internal_id"] }
                                     ]
                                 }
                             }
@@ -216,19 +213,19 @@ impl Database for MongoDb {
                         // TODO : Job B status code :
                         // // Add status matching if job_b_status is provided
                         // if let Some(status) = job_b_status {
-                        //     doc! {
-                        //         "$match": {
-                        //             "$expr": { "$eq": ["$status", status] }
-                        //         }
-                        //     }
-                        // } else {
-                        //     doc! {}
-                        // }
-                    // ].into_iter().filter(|d| !d.is_empty()).collect::<Vec<_>>(),
-                    ],
-                    "as": "successor_jobs"
-                }
-            },
+                            //     doc! {
+                                //         "$match": {
+                                    //             "$expr": { "$eq": ["$status", status] }
+                                    //         }
+                                    //     }
+                                    // } else {
+                                        //     doc! {}
+                                        // }
+                                        // ].into_iter().filter(|d| !d.is_empty()).collect::<Vec<_>>(),
+                                        ],
+                                        "as": "successor_jobs"
+                                    }
+                                },
             // Stage 3: Filter out job_a_type jobs that have corresponding job_b_type jobs
             doc! {
                 "$match": {
@@ -269,7 +266,7 @@ impl Database for MongoDb {
             }
         }
 
-        tracing::debug!(job_count = vec_jobs.len(), "DB Calls: Retrieved jobs without successor");
+        tracing::debug!(job_count = vec_jobs.len(), category = "db_call", "Retrieved jobs without successor");
         Ok(vec_jobs)
     }
 
@@ -279,13 +276,13 @@ impl Database for MongoDb {
         job_type: JobType,
         job_status: JobStatus,
     ) -> Result<Option<JobItem>> {
-        tracing::debug!(job_type = ?job_type, job_status = ?job_status, "DB Calls: Fetching latest job by type and status");
         let filter = doc! {
             "job_type": bson::to_bson(&job_type)?,
             "status": bson::to_bson(&job_status)?
         };
         let find_options = FindOneOptions::builder().sort(doc! { "internal_id": -1 }).build();
 
+        tracing::debug!(job_type = ?job_type, job_status = ?job_status, category = "db_call", "Fetched latest job by type and status");
         Ok(self.get_job_collection().find_one(filter, find_options).await?)
     }
 
@@ -296,21 +293,18 @@ impl Database for MongoDb {
         job_status: JobStatus,
         internal_id: String,
     ) -> Result<Vec<JobItem>> {
-        tracing::debug!(job_type = ?job_type, job_status = ?job_status, internal_id = %internal_id, "DB Calls: Fetching jobs after internal ID by job type");
         let filter = doc! {
             "job_type": bson::to_bson(&job_type)?,
             "status": bson::to_bson(&job_status)?,
-            "internal_id": { "$gt": internal_id }
+            "internal_id": { "$gt": internal_id.clone() }
         };
-
         let jobs: Vec<JobItem> = self.get_job_collection().find(filter, None).await?.try_collect().await?;
-        tracing::debug!(job_count = jobs.len(), "DB Calls: Retrieved jobs after internal ID");
+        tracing::debug!(job_type = ?job_type, job_status = ?job_status, internal_id = internal_id, category = "db_call", "Fetched jobs after internal ID by job type");
         Ok(jobs)
     }
 
     #[tracing::instrument(skip(self, limit), fields(function_type = "db_call"), ret, err)]
     async fn get_jobs_by_statuses(&self, job_status: Vec<JobStatus>, limit: Option<i64>) -> Result<Vec<JobItem>> {
-        tracing::debug!(job_status = ?job_status, limit = ?limit, "DB Calls: Fetching jobs by statuses");
         let filter = doc! {
             "status": {
                 // TODO: Check that the conversion leads to valid output!
@@ -321,7 +315,7 @@ impl Database for MongoDb {
         let find_options = limit.map(|val| FindOptions::builder().limit(Some(val)).build());
 
         let jobs: Vec<JobItem> = self.get_job_collection().find(filter, find_options).await?.try_collect().await?;
-        tracing::debug!(job_count = jobs.len(), "DB Calls: Retrieved jobs by statuses");
+        tracing::debug!(job_count = jobs.len(), category = "db_call", "Retrieved jobs by statuses");
         Ok(jobs)
     }
 }
