@@ -1,7 +1,7 @@
 {
   "name": "madara-orchestrator",
   "version": "1.0.0",
-  "description": "The Madara orchestrator is designed to be an additional service which runs in parallel to Madara and handles",
+  "description": "The Madara orchestrator is designed to be an additional service which runs in parallel to Madara and handles async tasks like proving, state updates, and other background jobs.",
   "main": "index.js",
   "directories": {
     "doc": "docs"
