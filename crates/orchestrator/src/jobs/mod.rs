@@ -166,7 +166,10 @@ pub async fn create_job(
         KeyValue::new("job", format!("{:?}", job_item)),
     ];
 
-    ORCHESTRATOR_METRICS.block_gauge.record(internal_id.parse::<f64>().unwrap(), &attributes);
+    let internal_id = internal_id
+        .parse::<f64>()
+        .map_err(|e| JobError::Other(OtherError::from(format!("Could not parse internal id into f64: {e}"))))?;
+    ORCHESTRATOR_METRICS.block_gauge.record(internal_id, &attributes);
     Ok(())
 }
 
@@ -233,8 +236,11 @@ pub async fn process_job(id: Uuid, config: Arc<Config>) -> Result<(), JobError> 
         KeyValue::new("type", "process_job"),
         KeyValue::new("job", format!("{:?}", job)),
     ];
-
-    ORCHESTRATOR_METRICS.block_gauge.record(job.internal_id.parse::<f64>().unwrap(), &attributes);
+    let internal_id = job
+        .internal_id
+        .parse::<f64>()
+        .map_err(|e| JobError::Other(OtherError::from(format!("Could not parse internal id into f64: {e}"))))?;
+    ORCHESTRATOR_METRICS.block_gauge.record(internal_id, &attributes);
 
     Ok(())
 }
@@ -343,7 +349,11 @@ pub async fn verify_job(id: Uuid, config: Arc<Config>) -> Result<(), JobError> {
         KeyValue::new("job", format!("{:?}", job)),
     ];
 
-    ORCHESTRATOR_METRICS.block_gauge.record(job.internal_id.parse::<f64>().unwrap(), &attributes);
+    let internal_id = job
+        .internal_id
+        .parse::<f64>()
+        .map_err(|e| JobError::Other(OtherError::from(format!("Could not parse internal id into f64: {e}"))))?;
+    ORCHESTRATOR_METRICS.block_gauge.record(internal_id, &attributes);
 
     Ok(())
 }
@@ -394,7 +404,10 @@ pub fn increment_key_in_metadata(
     let attempt = get_u64_from_metadata(metadata, key).map_err(|e| JobError::Other(OtherError(e)))?;
     let incremented_value = attempt.checked_add(1);
     incremented_value.ok_or_else(|| JobError::KeyOutOfBounds { key: key.to_string() })?;
-    new_metadata.insert(key.to_string(), incremented_value.unwrap().to_string());
+    new_metadata.insert(
+        key.to_string(),
+        incremented_value.ok_or(JobError::Other(OtherError(eyre!("Overflow while incrementing attempt"))))?.to_string(),
+    );
     Ok(new_metadata)
 }
 
