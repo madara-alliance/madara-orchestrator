@@ -39,6 +39,7 @@ tracing = { workspace = true }
 tracing-core = { workspace = true, default-features = false }
 tracing-opentelemetry = "0.26.0"
 tracing-subscriber = { workspace = true, features = ["env-filter"] }
+thiserror = { workspace = true }
 
 
 [dev-dependencies]

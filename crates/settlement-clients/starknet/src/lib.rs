@@ -66,7 +66,7 @@ impl StarknetSettlementClient {
                 provider.clone(),
                 signer.clone(),
                 signer_address,
-                provider.chain_id().await.unwrap(),
+                provider.chain_id().await.expect("Failed to get chain id"),
                 ExecutionEncoding::New,
             ));
 
@@ -136,7 +136,7 @@ impl SettlementClient for StarknetSettlementClient {
             TransactionExecutionStatus::Reverted => Ok(SettlementVerificationStatus::Rejected(format!(
                 "Transaction {} has been reverted: {}",
                 tx_hash,
-                execution_result.revert_reason().unwrap()
+                execution_result.revert_reason().unwrap_or_default()
             ))),
             TransactionExecutionStatus::Succeeded => {
                 if tx_receipt.block.is_pending() {
