@@ -35,7 +35,7 @@ impl MongoDb {
         let client = Client::with_options(client_options).expect("Failed to create MongoDB client");
         // Ping the server to see if you can connect to the cluster
         client.database("admin").run_command(doc! {"ping": 1}, None).await.expect("Failed to ping MongoDB deployment");
-        log::debug!("Pinged your deployment. You successfully connected to MongoDB!");
+        tracing::debug!("Pinged your deployment. You successfully connected to MongoDB!");
 
         Self { client }
     }
@@ -130,7 +130,7 @@ impl Database for MongoDb {
 
         let result = self.get_job_collection().update_one(filter, update, options).await?;
         if result.modified_count == 0 {
-            tracing::warn!(job_id = %current_job.id, "DB Calls: Failed to update job. Job version is likely outdated");
+            tracing::warn!(job_id = %current_job.id, category = "db_call", "Failed to update job. Job version is likely outdated");
             return Err(eyre!("Failed to update job. Job version is likely outdated"));
         }
 
@@ -259,9 +259,9 @@ impl Database for MongoDb {
             match result {
                 Ok(document) => match bson::from_bson(Bson::Document(document)) {
                     Ok(job_item) => vec_jobs.push(job_item),
-                    Err(e) => tracing::error!(error = %e, "DB Calls: Failed to deserialize JobItem"),
+                    Err(e) => tracing::error!(error = %e, category = "db_call", "Failed to deserialize JobItem"),
                 },
-                Err(e) => tracing::error!(error = %e, "DB Calls: Error retrieving document"),
+                Err(e) => tracing::error!(error = %e, category = "db_call", "Error retrieving document"),
             }
         }
 

@@ -14,7 +14,6 @@ use starknet::core::types::{
 };
 use starknet::providers::Provider;
 use thiserror::Error;
-use tracing::log;
 use uuid::Uuid;
 
 use super::types::{JobItem, JobStatus, JobType, JobVerificationStatus};
@@ -98,8 +97,6 @@ impl Job for DaJob {
             JobError::Other(OtherError(e))
         })?;
 
-        tracing::debug!(job_id = ?job.id, block_no = block_no, "Parsed block number");
-
         let state_update = config
             .starknet_client()
             .get_state_update(BlockId::Number(block_no))
@@ -125,7 +122,6 @@ impl Job for DaJob {
         })?;
         // transforming the data so that we can apply FFT on this.
         // @note: we can skip this step if in the above step we return vec<BigUint> directly
-
         let blob_data_biguint = convert_to_biguint(blob_data.clone());
         tracing::trace!(job_id = ?job.id, "Converted blob data to BigUint");
 
@@ -268,7 +264,7 @@ fn data_to_blobs(blob_size: u64, block_data: Vec<BigUint>) -> Result<Vec<Vec<u8>
         let mut blob = chunk.to_vec();
         if blob.len() < chunk_size {
             blob.resize(chunk_size, 0);
-            log::debug!("Warning: Last chunk of {} bytes was padded to full blob size", chunk.len());
+            tracing::debug!("Warning: Last chunk of {} bytes was padded to full blob size", chunk.len());
         }
         blobs.push(blob);
     }

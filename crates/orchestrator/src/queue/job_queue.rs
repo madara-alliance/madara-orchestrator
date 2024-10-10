@@ -9,7 +9,6 @@ use omniqueue::{Delivery, QueueError};
 use serde::{Deserialize, Deserializer, Serialize};
 use thiserror::Error;
 use tokio::time::sleep;
-use tracing::log;
 use uuid::Uuid;
 
 use crate::config::Config;
@@ -162,7 +161,7 @@ where
     F: Send + 'static,
     Fut: Future<Output = color_eyre::Result<()>> + Send,
 {
-    log::debug!("Consuming from queue {:?}", queue);
+    tracing::debug!("Consuming from queue {:?}", queue);
     let delivery = get_delivery_from_queue(&queue, config.clone()).await?;
 
     let message = match delivery {
@@ -176,7 +175,7 @@ where
         tokio::spawn(async move {
             match handle_worker_message(job_message, message, handler, config).await {
                 Ok(_) => {}
-                Err(e) => log::error!("Failed to handle worker message. Error: {:?}", e),
+                Err(e) => tracing::error!("Failed to handle worker message. Error: {:?}", e),
             }
         });
     }
@@ -208,7 +207,7 @@ where
     F: FnOnce(Uuid, Arc<Config>) -> Fut,
     Fut: Future<Output = Result<(), JobError>>,
 {
-    log::info!("Handling job with id {:?}", job_message.id);
+    tracing::info!("Handling job with id {:?}", job_message.id);
 
     match handler(job_message.id, config.clone()).await {
         Ok(_) => {
@@ -221,7 +220,7 @@ where
             Ok(())
         }
         Err(e) => {
-            log::error!("Failed to handle job with id {:?}. Error: {:?}", job_message.id, e);
+            tracing::error!("Failed to handle job with id {:?}. Error: {:?}", job_message.id, e);
             config
                 .alerts()
                 .send_alert_message(e.to_string())
@@ -265,7 +264,7 @@ where
             Ok(())
         }
         Err(e) => {
-            log::error!("Failed to handle worker trigger {:?}. Error: {:?}", job_message.worker, e);
+            tracing::error!("Failed to handle worker trigger {:?}. Error: {:?}", job_message.worker, e);
             config
                 .alerts()
                 .send_alert_message(e.to_string())
