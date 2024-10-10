@@ -6,7 +6,7 @@ const config = {
     url: process.env.MONGODB_CONNECTION_STRING || "mongodb://localhost:27017",
 
     // TODO Change this to your database name:
-    databaseName: "orchestrator",
+    databaseName: process.env.DATABASE_NAME || "orchestrator",
 
     options: {
       useNewUrlParser: true, // removes a deprecation warning when connecting
