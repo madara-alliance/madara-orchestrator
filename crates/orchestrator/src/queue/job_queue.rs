@@ -104,12 +104,12 @@ enum DeliveryReturnType {
 }
 
 pub async fn add_job_to_process_queue(id: Uuid, config: Arc<Config>) -> EyreResult<()> {
-    log::info!("Adding job with id {:?} to processing queue", id);
+    tracing::info!("Adding job with id {:?} to processing queue", id);
     add_job_to_queue(id, JOB_PROCESSING_QUEUE.to_string(), None, config).await
 }
 
 pub async fn add_job_to_verification_queue(id: Uuid, delay: Duration, config: Arc<Config>) -> EyreResult<()> {
-    log::info!("Adding job with id {:?} to verification queue", id);
+    tracing::info!("Adding job with id {:?} to verification queue", id);
     add_job_to_queue(id, JOB_VERIFICATION_QUEUE.to_string(), Some(delay), config).await
 }
 
@@ -122,21 +122,31 @@ where
     F: FnOnce(Uuid, Arc<Config>) -> Fut,
     Fut: Future<Output = Result<(), JobError>>,
 {
-    log::debug!("Consuming from queue {:?}", queue);
+    tracing::debug!(queue = %queue, "Attempting to consume job from queue");
 
     let delivery = get_delivery_from_queue(&queue, config.clone()).await?;
 
     let message = match delivery {
-        DeliveryReturnType::Message(message) => message,
-        DeliveryReturnType::NoMessage => return Ok(()),
+        DeliveryReturnType::Message(message) => {
+            tracing::debug!(queue = %queue, "Message received from queue");
+            message
+        }
+        DeliveryReturnType::NoMessage => {
+            tracing::trace!(queue = %queue, "No message in queue");
+            return Ok(());
+        }
     };
 
     let job_message = parse_job_message(&message)?;
 
     if let Some(job_message) = job_message {
+        tracing::info!(queue = %queue, job_id = %job_message.id, "Processing job message");
         handle_job_message(job_message, message, handler, config).await?;
+    } else {
+        tracing::warn!(queue = %queue, "Received empty job message");
     }
 
+    tracing::debug!(queue = %queue, "Job consumption completed successfully");
     Ok(())
 }
 
@@ -292,7 +302,7 @@ macro_rules! spawn_consumer {
             loop {
                 match $consume_function($queue_type, $handler, config_clone.clone()).await {
                     Ok(_) => {}
-                    Err(e) => log::error!("Failed to consume from queue {:?}. Error: {:?}", $queue_type, e),
+                    Err(e) => tracing::error!("Failed to consume from queue {:?}. Error: {:?}", $queue_type, e),
                 }
                 sleep(Duration::from_millis(500)).await;
             }
@@ -314,6 +324,7 @@ async fn spawn_worker(worker: Box<dyn Worker>, config: Arc<Config>) -> color_eyr
     Ok(())
 }
 async fn add_job_to_queue(id: Uuid, queue: String, delay: Option<Duration>, config: Arc<Config>) -> EyreResult<()> {
+    tracing::info!("Adding job with id {:?} to {:?} queue", id, queue);
     let message = JobQueueMessage { id };
     config.queue().send_message_to_queue(queue, serde_json::to_string(&message)?, delay).await?;
     Ok(())
