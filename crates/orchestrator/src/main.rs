@@ -19,7 +19,7 @@ async fn main() {
     color_eyre::install().expect("Unable to isntall color_eyre");
 
     // initial config setup
-    let config = init_config().await.expect("Should be able to instantiate config");
+    let config = init_config().await.expect("Config instantiation failed");
 
     let host = get_env_var_or_default("HOST", "127.0.0.1");
     let port = get_env_var_or_default("PORT", "3000").parse::<u16>().expect("PORT must be a u16");
