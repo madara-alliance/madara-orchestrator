@@ -65,7 +65,7 @@ pub struct DaJob;
 
 #[async_trait]
 impl Job for DaJob {
-    #[tracing::instrument(fields(category = "da"), skip(self, _config, metadata))]
+    #[tracing::instrument(fields(category = "da"), skip(self, _config, metadata), ret, err)]
     async fn create_job(
         &self,
         _config: Arc<Config>,
@@ -89,7 +89,7 @@ impl Job for DaJob {
         Ok(job_item)
     }
 
-    #[tracing::instrument(fields(category = "da"), skip(self, config))]
+    #[tracing::instrument(fields(category = "da"), skip(self, config), ret, err)]
     async fn process_job(&self, config: Arc<Config>, job: &mut JobItem) -> Result<String, JobError> {
         tracing::info!(job_id = ?job.id, "Starting to process DA job");
         let block_no = job.internal_id.parse::<u64>().wrap_err("Failed to parse u64".to_string()).map_err(|e| {
@@ -173,7 +173,7 @@ impl Job for DaJob {
         Ok(external_id)
     }
 
-    #[tracing::instrument(fields(category = "da"), skip(self, config))]
+    #[tracing::instrument(fields(category = "da"), skip(self, config), ret, err)]
     async fn verify_job(&self, config: Arc<Config>, job: &mut JobItem) -> Result<JobVerificationStatus, JobError> {
         tracing::info!(job_id = ?job.id, "Starting job verification");
         let verification_status = config
@@ -206,7 +206,7 @@ impl Job for DaJob {
     }
 }
 
-#[tracing::instrument(skip(elements))]
+#[tracing::instrument(skip(elements), ret)]
 pub fn fft_transformation(elements: Vec<BigUint>) -> Vec<BigUint> {
     let xs: Vec<BigUint> = (0..*BLOB_LEN)
         .map(|i| {

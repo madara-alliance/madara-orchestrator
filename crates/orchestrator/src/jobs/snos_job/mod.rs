@@ -69,7 +69,7 @@ pub struct SnosJob;
 
 #[async_trait]
 impl Job for SnosJob {
-    #[tracing::instrument(fields(category = "snos"), skip(self, _config, metadata))]
+    #[tracing::instrument(fields(category = "snos"), skip(self, _config, metadata), ret, err)]
     async fn create_job(
         &self,
         _config: Arc<Config>,
@@ -94,7 +94,7 @@ impl Job for SnosJob {
         Ok(job_item)
     }
 
-    #[tracing::instrument(fields(category = "snos"), skip(self, config))]
+    #[tracing::instrument(fields(category = "snos"), skip(self, config), ret, err)]
     async fn process_job(&self, config: Arc<Config>, job: &mut JobItem) -> Result<String, JobError> {
         tracing::info!(job_id = %job.internal_id, "Processing SNOS job");
         let block_number = self.get_block_number_from_metadata(job)?;
@@ -123,7 +123,7 @@ impl Job for SnosJob {
         Ok(block_number.to_string())
     }
 
-    #[tracing::instrument(fields(category = "snos"), skip(self, _config))]
+    #[tracing::instrument(fields(category = "snos"), skip(self, _config), ret, err)]
     async fn verify_job(&self, _config: Arc<Config>, _job: &mut JobItem) -> Result<JobVerificationStatus, JobError> {
         tracing::info!(job_id = %_job.internal_id, "Verifying SNOS job");
         tracing::warn!(job_id = %_job.internal_id, "SNOS job verification not implemented, returning as verified");

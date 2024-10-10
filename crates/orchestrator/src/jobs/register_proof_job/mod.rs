@@ -15,7 +15,7 @@ pub struct RegisterProofJob;
 
 #[async_trait]
 impl Job for RegisterProofJob {
-    #[tracing::instrument(fields(category = "proof_registry"), skip(self, _config, metadata))]
+    #[tracing::instrument(fields(category = "proof_registry"), skip(self, _config, metadata), ret, err)]
     async fn create_job(
         &self,
         _config: Arc<Config>,
@@ -40,7 +40,7 @@ impl Job for RegisterProofJob {
         Ok(job_item)
     }
 
-    #[tracing::instrument(fields(category = "proof_registry"), skip(self, _config))]
+    #[tracing::instrument(fields(category = "proof_registry"), skip(self, _config), ret, err)]
     async fn process_job(&self, _config: Arc<Config>, _job: &mut JobItem) -> Result<String, JobError> {
         tracing::info!(job_id = %_job.internal_id, "Processing proof registration job");
         // Get proof from storage and submit on chain for verification
@@ -50,7 +50,7 @@ impl Job for RegisterProofJob {
         todo!()
     }
 
-    #[tracing::instrument(fields(category = "proof_registry"), skip(self, _config))]
+    #[tracing::instrument(fields(category = "proof_registry"), skip(self, _config), ret, err)]
     async fn verify_job(&self, _config: Arc<Config>, _job: &mut JobItem) -> Result<JobVerificationStatus, JobError> {
         tracing::info!(job_id = %_job.internal_id, "Verifying proof registration job");
         // verify that the proof transaction has been included on chain

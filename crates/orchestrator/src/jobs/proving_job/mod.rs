@@ -34,7 +34,7 @@ pub struct ProvingJob;
 
 #[async_trait]
 impl Job for ProvingJob {
-    #[tracing::instrument(fields(category = "proving"), skip(self, _config, metadata))]
+    #[tracing::instrument(fields(category = "proving"), skip(self, _config, metadata), ret, err)]
     async fn create_job(
         &self,
         _config: Arc<Config>,
@@ -57,7 +57,7 @@ impl Job for ProvingJob {
         Ok(job_item)
     }
 
-    #[tracing::instrument(fields(category = "proving"), skip(self, config))]
+    #[tracing::instrument(fields(category = "proving"), skip(self, config), ret, err)]
     async fn process_job(&self, config: Arc<Config>, job: &mut JobItem) -> Result<String, JobError> {
         tracing::info!(job_id = %job.internal_id, "Processing proving job");
 
@@ -92,7 +92,7 @@ impl Job for ProvingJob {
         Ok(external_id)
     }
 
-    #[tracing::instrument(fields(category = "proving"), skip(self, config))]
+    #[tracing::instrument(fields(category = "proving"), skip(self, config), ret, err)]
     async fn verify_job(&self, config: Arc<Config>, job: &mut JobItem) -> Result<JobVerificationStatus, JobError> {
         tracing::info!(job_id = %job.internal_id, "Verifying proving job");
 
