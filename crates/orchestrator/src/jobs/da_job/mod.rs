@@ -73,10 +73,10 @@ impl Job for DaJob {
         metadata: HashMap<String, String>,
     ) -> Result<JobItem, JobError> {
         let job_id = Uuid::new_v4();
-        tracing::info!(job_id = ?job_id, "Creating new DA job");
+        tracing::info!(log_type = "starting", category = "da", function_type = "create_job",  block_no = %internal_id, "DA job creation started.");
         let job_item = JobItem {
             id: job_id,
-            internal_id,
+            internal_id: internal_id.clone(),
             job_type: JobType::DataSubmission,
             status: JobStatus::Created,
             external_id: String::new().into(),
@@ -85,13 +85,14 @@ impl Job for DaJob {
             created_at: Utc::now().round_subsecs(0),
             updated_at: Utc::now().round_subsecs(0),
         };
-        tracing::debug!(job_id = ?job_id, "Job details created");
+        tracing::info!(log_type = "completed", category = "da", function_type = "create_job", block_no = %internal_id, "DA job creation completed.");
         Ok(job_item)
     }
 
     #[tracing::instrument(fields(category = "da"), skip(self, config), ret, err)]
     async fn process_job(&self, config: Arc<Config>, job: &mut JobItem) -> Result<String, JobError> {
-        tracing::info!(job_id = ?job.id, "Starting to process DA job");
+        let internal_id = job.internal_id.clone();
+        tracing::info!(log_type = "starting", category = "da", function_type = "process_job", job_id = ?job.id,  block_no = %internal_id, "DA job processing started.");
         let block_no = job.internal_id.parse::<u64>().wrap_err("Failed to parse u64".to_string()).map_err(|e| {
             tracing::error!(job_id = ?job.id, error = ?e, "Failed to parse block number");
             JobError::Other(OtherError(e))
@@ -169,13 +170,14 @@ impl Job for DaJob {
             JobError::Other(OtherError(e))
         })?;
 
-        tracing::info!(job_id = ?job.id, external_id = ?external_id, "Successfully published state diff to DA layer");
+        tracing::info!(log_type = "completed", category = "da", function_type = "process_job", job_id = ?job.id,  block_no = %internal_id, external_id = ?external_id, "Successfully published state diff to DA layer.");
         Ok(external_id)
     }
 
     #[tracing::instrument(fields(category = "da"), skip(self, config), ret, err)]
     async fn verify_job(&self, config: Arc<Config>, job: &mut JobItem) -> Result<JobVerificationStatus, JobError> {
-        tracing::info!(job_id = ?job.id, "Starting job verification");
+        let internal_id = job.internal_id.clone();
+        tracing::info!(log_type = "starting", category = "da", function_type = "verify_job", job_id = ?job.id,  block_no = %internal_id, "DA job verification started.");
         let verification_status = config
             .da_client()
             .verify_inclusion(job.external_id.unwrap_string().map_err(|e| {
@@ -189,7 +191,7 @@ impl Job for DaJob {
             })?
             .into();
 
-        tracing::info!(job_id = ?job.id, verification_status = ?verification_status, "Job verification completed");
+        tracing::info!(log_type = "completed", category = "da", function_type = "verify_job", job_id = ?job.id,  block_no = %internal_id, verification_status = ?verification_status, "DA job verification completed.");
         Ok(verification_status)
     }
 

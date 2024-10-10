@@ -78,6 +78,8 @@ impl Setup {
         env_vec.push(("SETTLEMENT_RPC_URL".to_string(), anvil_setup.rpc_url.to_string()));
         env_vec.push(("SHARP_URL".to_string(), sharp_client.url()));
 
+        env_vec.push(("RUST_LOG".to_string(), "info".to_string()));
+
         // Sharp envs
         env_vec.push(("SHARP_CUSTOMER_ID".to_string(), get_env_var_or_panic("SHARP_CUSTOMER_ID")));
         env_vec.push(("SHARP_USER_CRT".to_string(), get_env_var_or_panic("SHARP_USER_CRT")));
@@ -203,6 +205,68 @@ async fn test_orchestrator_workflow(#[case] l2_block_number: String) {
     )
     .await;
     assert!(test_result.is_ok(), "After Update State Job state DB state assertion failed.");
+}
+
+#[rstest]
+#[case("671070".to_string())]
+#[tokio::test]
+async fn test_single_da_flow(#[case] l2_block_number: String) {
+    // Fetching the env vars from the test env file as these will be used in
+    // setting up of the test and during orchestrator run too.
+    dotenvy::from_filename(".env.test").expect("Failed to load the .env file");
+
+    let mut setup_config = Setup::new().await;
+    // Setup S3
+    setup_s3(setup_config.localstack().s3_client()).await.unwrap();
+
+    // Clearing old database
+    let mongo_db_client = get_mongo_db_client(setup_config.mongo_db_instance()).await;
+    mongo_db_client.database("orchestrator").drop(None).await.unwrap();
+
+    // Mocking
+    mock_proving_job_endpoint_output(setup_config.sharp_client()).await;
+    mock_starknet_get_state_update(setup_config.starknet_client(), l2_block_number.clone()).await;
+    mock_starknet_get_nonce(setup_config.starknet_client(), l2_block_number.clone()).await;
+
+    // 671070 SNOS Completed
+    put_job_data_in_db_snos(setup_config.mongo_db_instance(), l2_block_number.clone()).await;
+
+    // 671069 DA Completed
+    put_job_data_in_db_da(setup_config.mongo_db_instance(), (l2_block_number.parse::<u32>().unwrap() - 1).to_string())
+        .await;
+
+    // 671070 Proving Completed
+    put_job_data_in_db_proving(setup_config.mongo_db_instance(), l2_block_number.clone().to_string()).await;
+
+    // 671070 SU Completed
+    put_job_data_in_db_update_state(setup_config.mongo_db_instance(), l2_block_number.clone().to_string()).await;
+    put_job_data_in_db_update_state(
+        setup_config.mongo_db_instance(),
+        (l2_block_number.parse::<u32>().unwrap() - 1).to_string(),
+    )
+    .await;
+
+    println!("✅ Orchestrator setup completed.");
+
+    // Run orchestrator
+    let mut orchestrator = Orchestrator::run(setup_config.envs());
+    orchestrator.wait_till_started().await;
+
+    // Check : After DA Job state (5 mins. approx time)
+    let expected_state_after_da_job = ExpectedDBState {
+        internal_id: l2_block_number.clone(),
+        job_type: JobType::DataSubmission,
+        job_status: JobStatus::Completed,
+        version: 3,
+    };
+    let test_result = wait_for_db_state(
+        Duration::from_secs(240),
+        l2_block_number.clone(),
+        setup_config.mongo_db_instance(),
+        expected_state_after_da_job,
+    )
+    .await;
+    assert!(test_result.is_ok(), "After DA Job state DB state assertion failed.");
 }
 
 /// Function to check db for expected state continuously

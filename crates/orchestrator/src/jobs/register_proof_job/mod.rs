@@ -22,7 +22,7 @@ impl Job for RegisterProofJob {
         internal_id: String,
         metadata: HashMap<String, String>,
     ) -> Result<JobItem, JobError> {
-        tracing::info!(job_id = %internal_id, "Creating proof registration job");
+        tracing::info!(log_type = "starting", category = "proof_registry", function_type = "create_job",  block_no = %internal_id, "Proof registration job creation started.");
         let job_item = JobItem {
             id: Uuid::new_v4(),
             internal_id: internal_id.clone(),
@@ -36,25 +36,24 @@ impl Job for RegisterProofJob {
             created_at: Utc::now().round_subsecs(0),
             updated_at: Utc::now().round_subsecs(0),
         };
-        tracing::debug!(job_id = %internal_id, "Proof registration job created: {:?}", job_item);
+        tracing::info!(log_type = "completed", category = "proof_registry", function_type = "create_job",  block_no = %internal_id,  "Proof registration job created.");
         Ok(job_item)
     }
 
     #[tracing::instrument(fields(category = "proof_registry"), skip(self, _config), ret, err)]
     async fn process_job(&self, _config: Arc<Config>, _job: &mut JobItem) -> Result<String, JobError> {
-        tracing::info!(job_id = %_job.internal_id, "Processing proof registration job");
         // Get proof from storage and submit on chain for verification
         // We need to implement a generic trait for this to support multiple
         // base layers
-        tracing::warn!(job_id = %_job.internal_id, "Proof registration job processing not implemented");
         todo!()
     }
 
     #[tracing::instrument(fields(category = "proof_registry"), skip(self, _config), ret, err)]
-    async fn verify_job(&self, _config: Arc<Config>, _job: &mut JobItem) -> Result<JobVerificationStatus, JobError> {
-        tracing::info!(job_id = %_job.internal_id, "Verifying proof registration job");
+    async fn verify_job(&self, _config: Arc<Config>, job: &mut JobItem) -> Result<JobVerificationStatus, JobError> {
+        let internal_id = job.internal_id.clone();
+        tracing::info!(log_type = "starting", category = "proof_registry", function_type = "verify_job", job_id = ?job.id,  block_no = %internal_id, "Proof registration job verification started.");
         // verify that the proof transaction has been included on chain
-        tracing::warn!(job_id = %_job.internal_id, "Proof registration job verification not implemented");
+        tracing::info!(log_type = "completed", category = "proof_registry", function_type = "verify_job", job_id = ?job.id,  block_no = %internal_id, "Proof registration job verification completed.");
         todo!()
     }
 

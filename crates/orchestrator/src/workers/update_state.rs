@@ -17,7 +17,7 @@ impl Worker for UpdateStateWorker {
     /// 2. Fetch all successful proving jobs covering blocks after the last state update
     /// 3. Create state updates for all the blocks that don't have a state update job
     async fn run_worker(&self, config: Arc<Config>) -> Result<(), Box<dyn Error>> {
-        tracing::info!("Starting UpdateStateWorker");
+        tracing::info!(log_type = "starting", category = "UpdateStateWorker", "UpdateStateWorker started.");
 
         let latest_successful_job =
             config.database().get_latest_job_by_type_and_status(JobType::StateTransition, JobStatus::Completed).await?;
@@ -31,7 +31,7 @@ impl Worker for UpdateStateWorker {
                     .await?;
 
                 if successful_da_jobs_without_successor.is_empty() {
-                    tracing::info!("No new data submission jobs to process");
+                    tracing::debug!("No new data submission jobs to process");
                     return Ok(());
                 }
 
@@ -50,13 +50,14 @@ impl Worker for UpdateStateWorker {
                 // Creating a single job for all the pending blocks.
                 let new_job_id = successful_da_jobs_without_successor[0].internal_id.clone();
                 match create_job(JobType::StateTransition, new_job_id.clone(), metadata, config).await {
-                    Ok(_) => tracing::info!(job_id = %new_job_id, "Successfully created new state transition job"),
+                    Ok(_) => tracing::debug!(job_id = %new_job_id, "Successfully created new state transition job"),
                     Err(e) => {
                         tracing::error!(job_id = %new_job_id, error = %e, "Failed to create new state transition job");
                         return Err(e.into());
                     }
                 }
 
+                tracing::info!(log_type = "completed", category = "UpdateStateWorker", "UpdateStateWorker completed.");
                 Ok(())
             }
             None => {
@@ -68,7 +69,7 @@ impl Worker for UpdateStateWorker {
                     .await?;
 
                 if latest_successful_jobs_without_successor.is_empty() {
-                    tracing::info!("No data submission jobs found to process");
+                    tracing::debug!("No data submission jobs found to process");
                     return Ok(());
                 }
 
@@ -89,6 +90,7 @@ impl Worker for UpdateStateWorker {
                     }
                 }
 
+                tracing::info!(log_type = "completed", category = "UpdateStateWorker", "UpdateStateWorker completed.");
                 Ok(())
             }
         }

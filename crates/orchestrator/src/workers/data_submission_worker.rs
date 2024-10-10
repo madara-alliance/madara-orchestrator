@@ -18,7 +18,7 @@ impl Worker for DataSubmissionWorker {
     // 2. Fetch the latest DA job creation.
     // 3. Create jobs from after the lastest DA job already created till latest completed proving job.
     async fn run_worker(&self, config: Arc<Config>) -> Result<(), Box<dyn Error>> {
-        tracing::info!("Starting DataSubmissionWorker");
+        tracing::info!(log_type = "starting", category = "DataSubmissionWorker", "DataSubmissionWorker started.");
 
         // provides latest completed proof creation job id
         let latest_proven_job_id = config
@@ -73,7 +73,7 @@ impl Worker for DataSubmissionWorker {
             }
         }
 
-        tracing::info!("DataSubmissionWorker completed successfully");
+        tracing::info!(log_type = "completed", category = "DataSubmissionWorker", "DataSubmissionWorker completed.");
         Ok(())
     }
 }

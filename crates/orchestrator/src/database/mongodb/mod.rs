@@ -89,7 +89,7 @@ impl MongoDb {
 impl Database for MongoDb {
     #[tracing::instrument(skip(self), fields(function_type = "db_call"), ret, err)]
     async fn create_job(&self, job: JobItem) -> Result<JobItem> {
-        tracing::info!(job_id = %job.id, "DB Calls: Creating new job");
+        tracing::debug!(job_id = %job.id, "DB Calls: Creating new job");
         self.get_job_collection().insert_one(&job, None).await?;
         tracing::debug!(job_id = %job.id, "DB Calls: Job created successfully");
         Ok(job)
@@ -116,7 +116,7 @@ impl Database for MongoDb {
 
     #[tracing::instrument(skip(self), fields(function_type = "db_call"), ret, err)]
     async fn update_job(&self, current_job: &JobItem, updates: JobItemUpdates) -> Result<()> {
-        tracing::info!(job_id = %current_job.id, "DB Calls: Updating job");
+        tracing::debug!(job_id = %current_job.id, "DB Calls: Updating job");
         // Filters to search for the job
         let filter = doc! {
             "id": current_job.id,
@@ -178,7 +178,7 @@ impl Database for MongoDb {
         job_a_status: JobStatus,
         job_b_type: JobType,
     ) -> Result<Vec<JobItem>> {
-        tracing::info!(job_a_type = ?job_a_type, job_a_status = ?job_a_status, job_b_type = ?job_b_type, "DB Calls: Fetching jobs without successor");
+        tracing::debug!(job_a_type = ?job_a_type, job_a_status = ?job_a_status, job_b_type = ?job_b_type, "DB Calls: Fetching jobs without successor");
         // Convert enums to Bson strings
         let job_a_type_bson = Bson::String(format!("{:?}", job_a_type));
         let job_a_status_bson = Bson::String(format!("{:?}", job_a_status));
@@ -296,7 +296,7 @@ impl Database for MongoDb {
         job_status: JobStatus,
         internal_id: String,
     ) -> Result<Vec<JobItem>> {
-        tracing::info!(job_type = ?job_type, job_status = ?job_status, internal_id = %internal_id, "DB Calls: Fetching jobs after internal ID by job type");
+        tracing::debug!(job_type = ?job_type, job_status = ?job_status, internal_id = %internal_id, "DB Calls: Fetching jobs after internal ID by job type");
         let filter = doc! {
             "job_type": bson::to_bson(&job_type)?,
             "status": bson::to_bson(&job_status)?,
@@ -310,7 +310,7 @@ impl Database for MongoDb {
 
     #[tracing::instrument(skip(self, limit), fields(function_type = "db_call"), ret, err)]
     async fn get_jobs_by_statuses(&self, job_status: Vec<JobStatus>, limit: Option<i64>) -> Result<Vec<JobItem>> {
-        tracing::info!(job_status = ?job_status, limit = ?limit, "DB Calls: Fetching jobs by statuses");
+        tracing::debug!(job_status = ?job_status, limit = ?limit, "DB Calls: Fetching jobs by statuses");
         let filter = doc! {
             "status": {
                 // TODO: Check that the conversion leads to valid output!

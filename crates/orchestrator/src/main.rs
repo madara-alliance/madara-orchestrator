@@ -11,14 +11,10 @@ use utils::env_utils::get_env_var_or_default;
 // version but have added it for now
 #[allow(clippy::needless_return)]
 async fn main() {
-    tracing::info!(service = "orchestrator", "Starting orchestrator service");
-
     dotenv().ok();
-    tracing::debug!(service = "orchestrator", "Environment variables loaded");
-
     // Analytics Setup
     let meter_provider = setup_analytics();
-    tracing::debug!(service = "orchestrator", "Analytics setup completed");
+    tracing::info!(service = "orchestrator", "Starting orchestrator service");
 
     // initial config setup
     let config = init_config().await;

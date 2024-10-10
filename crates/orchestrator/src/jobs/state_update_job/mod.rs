@@ -80,7 +80,7 @@ impl Job for StateUpdateJob {
         internal_id: String,
         metadata: HashMap<String, String>,
     ) -> Result<JobItem, JobError> {
-        tracing::info!(job_id = %internal_id, "Creating state update job");
+        tracing::info!(log_type = "starting", category = "state_update", function_type = "create_job",  block_no = %internal_id, "State update job creation started.");
         // Inserting the metadata (If it doesn't exist)
         let mut metadata = metadata.clone();
         if !metadata.contains_key(JOB_PROCESS_ATTEMPT_METADATA_KEY) {
@@ -101,13 +101,14 @@ impl Job for StateUpdateJob {
             created_at: Utc::now().round_subsecs(0),
             updated_at: Utc::now().round_subsecs(0),
         };
-        tracing::debug!(job_id = %internal_id, "State update job created");
+        tracing::info!(log_type = "completed", category = "state_update", function_type = "create_job",  block_no = %internal_id, "State update job created.");
         Ok(job_item)
     }
 
     #[tracing::instrument(fields(category = "state_update"), skip(self, config), ret, err)]
     async fn process_job(&self, config: Arc<Config>, job: &mut JobItem) -> Result<String, JobError> {
-        tracing::info!(job_id = %job.internal_id, "Processing state update job");
+        let internal_id = job.internal_id.clone();
+        tracing::info!(log_type = "starting", category = "state_update", function_type = "process_job", job_id = %job.id,  block_no = %internal_id, "State update job processing started.");
         let attempt_no = job
             .metadata
             .get(JOB_PROCESS_ATTEMPT_METADATA_KEY)
@@ -145,7 +146,7 @@ impl Job for StateUpdateJob {
         self.insert_attempts_into_metadata(job, &attempt_no, &sent_tx_hashes);
 
         let val = block_numbers.last().ok_or_else(|| StateUpdateError::LastNumberReturnedError)?;
-        tracing::info!(job_id = %job.internal_id, last_settled_block = %val, "State update job processed successfully");
+        tracing::info!(log_type = "completed", category = "state_update", function_type = "process_job", job_id = %job.id,  block_no = %internal_id, last_settled_block = %val, "State update job processed successfully.");
 
         Ok(val.to_string())
     }
@@ -157,7 +158,8 @@ impl Job for StateUpdateJob {
     ///    provider.
     #[tracing::instrument(fields(category = "state_update"), skip(self, config), ret, err)]
     async fn verify_job(&self, config: Arc<Config>, job: &mut JobItem) -> Result<JobVerificationStatus, JobError> {
-        tracing::info!(job_id = %job.internal_id, "Verifying state update job");
+        let internal_id = job.internal_id.clone();
+        tracing::info!(log_type = "starting", category = "state_update", function_type = "verify_job", job_id = %job.id,  block_no = %internal_id, "State update job verification started.");
         let attempt_no = job
             .metadata
             .get(JOB_PROCESS_ATTEMPT_METADATA_KEY)
@@ -227,10 +229,10 @@ impl Job for StateUpdateJob {
         let out_last_block_number =
             settlement_client.get_last_settled_block().await.map_err(|e| JobError::Other(OtherError(e)))?;
         let block_status = if out_last_block_number == *expected_last_block_number {
-            tracing::info!(job_id = %job.internal_id, last_settled_block = %out_last_block_number, "Last settled block verified");
+            tracing::info!(log_type = "completed", category = "state_update", function_type = "verify_job", job_id = %job.id,  block_no = %internal_id, last_settled_block = %out_last_block_number, "Last settled block verified.");
             SettlementVerificationStatus::Verified
         } else {
-            tracing::warn!(job_id = %job.internal_id, expected = %expected_last_block_number, actual = %out_last_block_number, "Last settled block mismatch");
+            tracing::warn!(log_type = "completed", category = "state_update", function_type = "verify_job", job_id = %job.id,  block_no = %internal_id, expected = %expected_last_block_number, actual = %out_last_block_number, "Last settled block mismatch.");
             SettlementVerificationStatus::Rejected(format!(
                 "Last settle bock expected was {} but found {}",
                 expected_last_block_number, out_last_block_number
