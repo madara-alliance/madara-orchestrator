@@ -51,7 +51,7 @@ impl MadaraCmd {
     pub async fn wait_for_ready(&mut self) -> &mut Self {
         // We are fine with `expect` here as this function is called in the intial phases of the
         // program execution
-        let endpoint = self.rpc_url.join("/health").expect("Should be able to get health");
+        let endpoint = self.rpc_url.join("/health").expect("Request to health endpoint failed");
         wait_for_cond(
             || async {
                 let res = reqwest::get(endpoint.clone()).await?;

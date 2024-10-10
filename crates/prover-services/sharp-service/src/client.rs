@@ -39,7 +39,7 @@ impl SharpClient {
             .expect("Failed to decode sharp user key");
         let server_cert = general_purpose::STANDARD
             .decode(settings.get_settings_or_panic("SHARP_SERVER_CRT"))
-            .expect("Failed to parse sharp server certificate");
+            .expect("Failed to decode sharp server certificate");
 
         // Adding Customer ID to the url
 

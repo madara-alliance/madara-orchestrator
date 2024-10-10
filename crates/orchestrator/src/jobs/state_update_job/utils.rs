@@ -63,7 +63,7 @@ pub fn bytes_to_vec_u8(bytes: &[u8]) -> color_eyre::Result<Vec<[u8; 32]>> {
         let res_vec = result.to_be_bytes_vec();
         let hex = to_padded_hex(res_vec.as_slice());
         let vec_hex =
-            hex_string_to_u8_vec(&hex).map_err(|e| eyre!(format!("Converting hex string to Vec<u8>, {:?}", e)))?;
+            hex_string_to_u8_vec(&hex).map_err(|e| eyre!(format!("Failed converting hex string to Vec<u8>, {:?}", e)))?;
         program_output
             .push(vec_hex.try_into().map_err(|e| eyre!(format!("Failed to convert Vec<u8> to [u8; 32] : {:?}", e)))?);
     }
