@@ -195,17 +195,17 @@ impl Database for MongoDb {
             },
             // Stage 2: Lookup to find corresponding job_b_type jobs
             doc! {
-            "$lookup": {
-                "from": "jobs",
-                "let": { "internal_id": "$internal_id" },
-                "pipeline": [
-                    {
-                        "$match": {
-                            "$expr": {
-                                "$and": [
-                                    { "$eq": ["$job_type", job_b_type_bson] },
-                                    // Conditionally match job_b_status if provided
-                                    { "$eq": ["$internal_id", "$$internal_id"] }
+                "$lookup": {
+                    "from": "jobs",
+                    "let": { "internal_id": "$internal_id" },
+                    "pipeline": [
+                        {
+                            "$match": {
+                                "$expr": {
+                                    "$and": [
+                                        { "$eq": ["$job_type", job_b_type_bson] },
+                                        // Conditionally match job_b_status if provided
+                                        { "$eq": ["$internal_id", "$$internal_id"] }
                                     ]
                                 }
                             }
@@ -213,19 +213,19 @@ impl Database for MongoDb {
                         // TODO : Job B status code :
                         // // Add status matching if job_b_status is provided
                         // if let Some(status) = job_b_status {
-                            //     doc! {
-                                //         "$match": {
-                                    //             "$expr": { "$eq": ["$status", status] }
-                                    //         }
-                                    //     }
-                                    // } else {
-                                        //     doc! {}
-                                        // }
-                                        // ].into_iter().filter(|d| !d.is_empty()).collect::<Vec<_>>(),
-                                        ],
-                                        "as": "successor_jobs"
-                                    }
-                                },
+                        //     doc! {
+                        //         "$match": {
+                        //             "$expr": { "$eq": ["$status", status] }
+                        //         }
+                        //     }
+                        // } else {
+                        //     doc! {}
+                        // }
+                    // ].into_iter().filter(|d| !d.is_empty()).collect::<Vec<_>>(),
+                    ],
+                    "as": "successor_jobs"
+                }
+            },
             // Stage 3: Filter out job_a_type jobs that have corresponding job_b_type jobs
             doc! {
                 "$match": {
@@ -233,7 +233,6 @@ impl Database for MongoDb {
                 }
             },
         ];
-
         // TODO : Job B status code :
         // // Conditionally add status matching for job_b_status
         // if let Some(status) = job_b_status {
