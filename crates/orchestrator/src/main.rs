@@ -12,12 +12,15 @@ use utils::env_utils::get_env_var_or_default;
 #[allow(clippy::needless_return)]
 async fn main() {
     dotenv().ok();
+    println!(">>> ENVs loaded");
 
     // Analytics Setup
     let meter_provider = setup_analytics();
+    println!(">>> Analytics setup completed");
 
     // initial config setup
     let config = init_config().await;
+    println!(">>> Config setup completed");
 
     let host = get_env_var_or_default("HOST", "127.0.0.1");
     let port = get_env_var_or_default("PORT", "3000").parse::<u16>().expect("PORT must be a u16");
@@ -27,6 +30,7 @@ async fn main() {
 
     // init consumer
     init_consumers(config).await.expect("Failed to init consumers");
+    println!(">>> Consumers init completed");
 
     tracing::info!("Listening on http://{}", address);
     axum::serve(listener, app).await.expect("Failed to start axum server");

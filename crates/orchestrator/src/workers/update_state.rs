@@ -64,6 +64,11 @@ impl Worker for UpdateStateWorker {
                     return Ok(());
                 }
 
+                if !Self::check_blocks_consecutive(blocks_to_process_final.clone()) {
+                    log::warn!("⚠️ Can't create job because of non consecutive blocks | blocks : {:?}", blocks_to_process_final);
+                    return Ok(());
+                }
+
                 let mut metadata = job.metadata;
                 metadata.insert(
                     JOB_METADATA_STATE_UPDATE_BLOCKS_TO_SETTLE_KEY.to_string(),
@@ -112,6 +117,24 @@ impl UpdateStateWorker {
     /// To parse the block numbers from the vector of jobs.
     pub fn parse_job_items_into_block_number_list(job_items: Vec<JobItem>) -> String {
         job_items.iter().map(|j| j.internal_id.clone()).collect::<Vec<String>>().join(",")
+    }
+    
+    /// To check if blocks sent to processing are consecutive
+    pub fn check_blocks_consecutive(block_numbers: Vec<u64>) -> bool {
+        if block_numbers.len() == 1 {
+            return true;
+        }
+
+        let mut temp = block_numbers[0];
+        for i in block_numbers[1..].iter() {
+            if temp + 1 == i.clone() {
+                temp = i.clone();
+            } else {
+                return false;
+            }
+        }
+
+        true
     }
 }
 

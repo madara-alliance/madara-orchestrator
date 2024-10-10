@@ -1,4 +1,5 @@
 use std::collections::HashMap;
+use std::env;
 use std::fs::File;
 use std::io::Read;
 use std::time::{Duration, Instant};
@@ -128,7 +129,7 @@ impl Setup {
 }
 
 #[rstest]
-#[case("218473".to_string())]
+#[case("208483".to_string())]
 #[tokio::test]
 async fn test_orchestrator_workflow(#[case] l2_block_number: String) {
     // Fetching the env vars from the test env file as these will be used in

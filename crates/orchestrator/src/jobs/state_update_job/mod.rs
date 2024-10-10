@@ -4,8 +4,8 @@ use std::collections::HashMap;
 use std::sync::Arc;
 
 use ::utils::collections::{has_dup, is_sorted};
-use ::utils::settings::Settings;
 use ::utils::settings::env::EnvSettingsProvider;
+use ::utils::settings::Settings;
 use async_trait::async_trait;
 use cairo_vm::Felt252;
 use chrono::{SubsecRound, Utc};
