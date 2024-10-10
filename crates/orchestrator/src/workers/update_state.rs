@@ -65,7 +65,10 @@ impl Worker for UpdateStateWorker {
                 }
 
                 if !Self::check_blocks_consecutive(blocks_to_process_final.clone()) {
-                    log::warn!("⚠️ Can't create job because of non consecutive blocks | blocks : {:?}", blocks_to_process_final);
+                    log::warn!(
+                        "⚠️ Can't create job because of non consecutive blocks | blocks : {:?}",
+                        blocks_to_process_final
+                    );
                     return Ok(());
                 }
 
@@ -118,7 +121,7 @@ impl UpdateStateWorker {
     pub fn parse_job_items_into_block_number_list(job_items: Vec<JobItem>) -> String {
         job_items.iter().map(|j| j.internal_id.clone()).collect::<Vec<String>>().join(",")
     }
-    
+
     /// To check if blocks sent to processing are consecutive
     pub fn check_blocks_consecutive(block_numbers: Vec<u64>) -> bool {
         if block_numbers.len() == 1 {

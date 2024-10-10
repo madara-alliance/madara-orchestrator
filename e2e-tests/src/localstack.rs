@@ -1,9 +1,9 @@
 use std::collections::HashMap;
 use std::sync::Arc;
 
+use aws_config::environment::EnvironmentVariableCredentialsProvider;
 use aws_config::meta::region::RegionProviderChain;
 use aws_config::{from_env, Region};
-use aws_config::environment::EnvironmentVariableCredentialsProvider;
 use aws_sdk_eventbridge::types::{InputTransformer, RuleState, Target};
 use aws_sdk_s3::config::ProvideCredentials;
 use aws_sdk_sqs::config::Credentials;
@@ -31,14 +31,8 @@ impl LocalStack {
     pub async fn new() -> Self {
         let region_provider = Region::new(get_env_var_or_panic("AWS_REGION"));
 
-        let creds = EnvironmentVariableCredentialsProvider::new()
-            .provide_credentials()
-            .await.unwrap();
-        let config = from_env()
-            .region(region_provider)
-            .credentials_provider(creds)
-            .load()
-            .await;
+        let creds = EnvironmentVariableCredentialsProvider::new().provide_credentials().await.unwrap();
+        let config = from_env().region(region_provider).credentials_provider(creds).load().await;
         let provider_config = Arc::new(ProviderConfig::AWS(Box::from(config.clone())));
 
         Self {

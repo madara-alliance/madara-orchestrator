@@ -4,6 +4,7 @@ use std::sync::Arc;
 
 use async_trait::async_trait;
 use starknet::providers::Provider;
+use utils::env_utils::get_env_var_or_default;
 
 use crate::config::Config;
 use crate::jobs::create_job;
@@ -19,7 +20,8 @@ impl Worker for SnosWorker {
     /// 3. Create SNOS run jobs for all the remaining blocks
     async fn run_worker(&self, config: Arc<Config>) -> Result<(), Box<dyn Error>> {
         let provider = config.starknet_client();
-        let latest_block_number = provider.block_number().await?;
+        let latest_block_number =
+            get_env_var_or_default("SNOS_LATEST_BLOCK", &provider.block_number().await?.to_string()).parse::<u64>()?;
 
         let latest_block_processed_data = config
             .database()
