@@ -133,7 +133,7 @@ impl Job for ProvingJob {
                 Ok(JobVerificationStatus::Verified)
             }
             TaskStatus::Failed(err) => {
-                tracing::info!(log_type = "failed", category = "proving", function_type = "verify_job", job_id = ?job.id,  block_no = %internal_id,     "Proving job verification completed.");
+                tracing::info!(log_type = "failed", category = "proving", function_type = "verify_job", job_id = ?job.id,  block_no = %internal_id,     "Proving job verification failed.");
                 Ok(JobVerificationStatus::Rejected(format!(
                     "Prover job #{} failed with error: {}",
                     job.internal_id, err
