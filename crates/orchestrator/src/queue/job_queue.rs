@@ -121,7 +121,7 @@ where
     F: FnOnce(Uuid, Arc<Config>) -> Fut,
     Fut: Future<Output = Result<(), JobError>>,
 {
-    tracing::debug!(queue = %queue, "Attempting to consume job from queue");
+    tracing::info!(queue = %queue, "Attempting to consume job from queue");
 
     let delivery = get_delivery_from_queue(&queue, config.clone()).await?;
 
@@ -131,7 +131,7 @@ where
             message
         }
         DeliveryReturnType::NoMessage => {
-            tracing::trace!(queue = %queue, "No message in queue");
+            tracing::debug!(queue = %queue, "No message in queue");
             return Ok(());
         }
     };
@@ -145,7 +145,7 @@ where
         tracing::warn!(queue = %queue, "Received empty job message");
     }
 
-    tracing::debug!(queue = %queue, "Job consumption completed successfully");
+    tracing::info!(queue = %queue, "Job consumption completed successfully");
     Ok(())
 }
 
@@ -329,8 +329,15 @@ async fn spawn_worker(worker: Box<dyn Worker>, config: Arc<Config>) -> color_eyr
     Ok(())
 }
 async fn add_job_to_queue(id: Uuid, queue: String, delay: Option<Duration>, config: Arc<Config>) -> EyreResult<()> {
-    tracing::info!("Adding job with id {:?} to {:?} queue", id, queue);
     let message = JobQueueMessage { id };
-    config.queue().send_message_to_queue(queue, serde_json::to_string(&message)?, delay).await?;
+    config.queue().send_message_to_queue(queue.clone(), serde_json::to_string(&message)?, delay).await?;
+    tracing::info!(
+        log_type = "JobQueue",
+        category = "add_job_to_queue",
+        function_type = "add_job_to_queue",
+        "Added job with id {:?} to {:?} queue",
+        id,
+        queue
+    );
     Ok(())
 }

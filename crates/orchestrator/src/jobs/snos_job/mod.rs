@@ -115,7 +115,7 @@ impl Job for SnosJob {
         let program_output = fact_info.program_output;
         tracing::debug!(job_id = %job.internal_id, "Fact info calculated successfully");
 
-        tracing::trace!(job_id = %job.internal_id, "Storing SNOS outputs");
+        tracing::debug!(job_id = %job.internal_id, "Storing SNOS outputs");
         self.store(config.storage(), &job.internal_id, block_number, cairo_pie, snos_output, program_output).await?;
 
         job.metadata.insert(JOB_METADATA_SNOS_FACT.into(), fact_info.fact.to_string());

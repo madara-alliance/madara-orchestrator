@@ -67,8 +67,8 @@ impl ProverClient for SharpProverService {
             // response specs : https://docs.google.com/document/d/1-9ggQoYmjqAtLBGNNR2Z5eLreBmlckGYjbVl0khtpU0
             // We are waiting for the official public API spec before making changes
             CairoJobStatus::FAILED => {
-                tracing::info!(
-                    log_type = "completed",
+                tracing::error!(
+                    log_type = "failed",
                     category = "get_task_status",
                     function_type = "cairo_pie",
                     "Cairo PIE task status: FAILED."
@@ -76,7 +76,7 @@ impl ProverClient for SharpProverService {
                 Ok(TaskStatus::Failed(res.error_log.unwrap_or_default()))
             }
             CairoJobStatus::INVALID => {
-                tracing::info!(
+                tracing::warn!(
                     log_type = "completed",
                     category = "get_task_status",
                     function_type = "cairo_pie",
@@ -85,8 +85,8 @@ impl ProverClient for SharpProverService {
                 Ok(TaskStatus::Failed(format!("Task is invalid: {:?}", res.invalid_reason.unwrap_or_default())))
             }
             CairoJobStatus::UNKNOWN => {
-                tracing::info!(
-                    log_type = "completed",
+                tracing::warn!(
+                    log_type = "unknown",
                     category = "get_task_status",
                     function_type = "cairo_pie",
                     "Cairo PIE task status: UNKNOWN."
@@ -95,7 +95,7 @@ impl ProverClient for SharpProverService {
             }
             CairoJobStatus::IN_PROGRESS | CairoJobStatus::NOT_CREATED | CairoJobStatus::PROCESSED => {
                 tracing::info!(
-                    log_type = "completed",
+                    log_type = "in_progress",
                     category = "get_task_status",
                     function_type = "cairo_pie",
                     "Cairo PIE task status: IN_PROGRESS, NOT_CREATED, or PROCESSED."
@@ -106,15 +106,15 @@ impl ProverClient for SharpProverService {
                 let fact = B256::from_str(fact).map_err(|e| ProverClientError::FailedToConvertFact(e.to_string()))?;
                 if self.fact_checker.is_valid(&fact).await? {
                     tracing::info!(
-                        log_type = "completed",
+                        log_type = "onchain",
                         category = "get_task_status",
                         function_type = "cairo_pie",
                         "Cairo PIE task status: ONCHAIN and fact is valid."
                     );
                     Ok(TaskStatus::Succeeded)
                 } else {
-                    tracing::info!(
-                        log_type = "completed",
+                    tracing::error!(
+                        log_type = "onchain_failed",
                         category = "get_task_status",
                         function_type = "cairo_pie",
                         "Cairo PIE task status: ONCHAIN and fact is not valid."

@@ -232,7 +232,7 @@ impl Job for StateUpdateJob {
             tracing::info!(log_type = "completed", category = "state_update", function_type = "verify_job", job_id = %job.id,  block_no = %internal_id, last_settled_block = %out_last_block_number, "Last settled block verified.");
             SettlementVerificationStatus::Verified
         } else {
-            tracing::warn!(log_type = "completed", category = "state_update", function_type = "verify_job", job_id = %job.id,  block_no = %internal_id, expected = %expected_last_block_number, actual = %out_last_block_number, "Last settled block mismatch.");
+            tracing::warn!(log_type = "failed/rejected", category = "state_update", function_type = "verify_job", job_id = %job.id,  block_no = %internal_id, expected = %expected_last_block_number, actual = %out_last_block_number, "Last settled block mismatch.");
             SettlementVerificationStatus::Rejected(format!(
                 "Last settle bock expected was {} but found {}",
                 expected_last_block_number, out_last_block_number

@@ -142,6 +142,7 @@ impl SettlementClient for StarknetSettlementClient {
             log_type = "starting",
             category = "verify_tx",
             function_type = "inclusion",
+            tx_hash = %tx_hash,
             "Verifying tx inclusion."
         );
         let tx_hash = Felt::from_hex(tx_hash)?;
@@ -154,7 +155,9 @@ impl SettlementClient for StarknetSettlementClient {
                 tracing::info!(
                     log_type = "completed",
                     category = "verify_tx",
+                    tx_hash = %tx_hash,
                     function_type = "inclusion",
+                    revert_reason = %execution_result.revert_reason().unwrap(),
                     "Tx inclusion verified."
                 );
                 Ok(SettlementVerificationStatus::Rejected(format!(
@@ -169,6 +172,7 @@ impl SettlementClient for StarknetSettlementClient {
                         log_type = "pending",
                         category = "verify_tx",
                         function_type = "inclusion",
+                        tx_hash = %tx_hash,
                         "Tx inclusion pending."
                     );
                     Ok(SettlementVerificationStatus::Pending)
@@ -177,6 +181,7 @@ impl SettlementClient for StarknetSettlementClient {
                         log_type = "completed",
                         category = "verify_tx",
                         function_type = "inclusion",
+                        tx_hash = %tx_hash,
                         "Tx inclusion verified."
                     );
                     Ok(SettlementVerificationStatus::Verified)

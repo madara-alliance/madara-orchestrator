@@ -31,7 +31,7 @@ impl Job for RegisterProofJob {
             external_id: String::new().into(),
             // metadata must contain the blocks that have been included inside this proof
             // this will allow state update jobs to be created for each block
-            metadata: metadata.clone(),
+            metadata,
             version: 0,
             created_at: Utc::now().round_subsecs(0),
             updated_at: Utc::now().round_subsecs(0),

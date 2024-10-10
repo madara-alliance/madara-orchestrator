@@ -58,7 +58,7 @@ impl Worker for DataSubmissionWorker {
             }
         };
 
-        tracing::trace!(latest_data_submission_id, latest_proven_id, "Parsed job IDs");
+        tracing::debug!(latest_data_submission_id, latest_proven_id, "Parsed job IDs");
 
         // creating data submission jobs for latest blocks that don't have existing data submission jobs
         // yet.

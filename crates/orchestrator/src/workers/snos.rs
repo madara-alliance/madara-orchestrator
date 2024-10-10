@@ -43,14 +43,14 @@ impl Worker for SnosWorker {
             .unwrap();
 
         if job_in_db.is_some() {
-            tracing::info!(block_number = %latest_block_number, "SNOS job already exists for the latest block");
+            tracing::trace!(block_number = %latest_block_number, "SNOS job already exists for the latest block");
             return Ok(());
         }
 
         let latest_block_processed: u64 = match latest_block_processed_data.parse() {
             Ok(block) => block,
             Err(e) => {
-                tracing::error!(error = %e, "Failed to parse latest processed block number");
+                tracing::error!(error = %e, block_no = %latest_block_processed_data, "Failed to parse latest processed block number");
                 return Err(Box::new(e));
             }
         };

@@ -25,11 +25,11 @@ impl Worker for ProvingWorker {
         tracing::debug!("Found {} successful SNOS jobs without proving jobs", successful_snos_jobs.len());
 
         for job in successful_snos_jobs {
-            tracing::trace!(job_id = %job.internal_id, "Creating proof creation job for SNOS job");
+            tracing::debug!(job_id = %job.internal_id, "Creating proof creation job for SNOS job");
             match create_job(JobType::ProofCreation, job.internal_id.to_string(), job.metadata.clone(), config.clone())
                 .await
             {
-                Ok(_) => tracing::info!(job_id = %job.internal_id, "Successfully created proof creation job"),
+                Ok(_) => tracing::info!(block_no = %job.internal_id, "Successfully created proof creation job"),
                 Err(e) => tracing::error!(job_id = %job.internal_id, error = %e, "Failed to create proof creation job"),
             }
         }

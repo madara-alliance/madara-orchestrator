@@ -48,9 +48,15 @@ impl DataStorage for AWSS3 {
     async fn get_data(&self, key: &str) -> Result<Bytes> {
         let response = self.client.get_object().bucket(&self.bucket).key(key).send().await?;
         let data_stream = response.body.collect().await.expect("Failed to convert body into AggregatedBytes.");
-        tracing::trace!("DataStorage: Collected response body into data stream. key={}", key);
+        tracing::debug!("DataStorage: Collected response body into data stream from {}, key={}", self.bucket, key);
         let data_bytes = data_stream.into_bytes();
-        tracing::info!("DataStorage: Successfully retrieved and converted data from S3. key={}", key);
+        tracing::info!(
+            log_type = "DataStorage",
+            category = "data_storage_call",
+            "Successfully retrieved and converted data from {}, key={}",
+            self.bucket,
+            key
+        );
         Ok(data_bytes)
     }
 
@@ -65,7 +71,13 @@ impl DataStorage for AWSS3 {
             .send()
             .await?;
 
-        tracing::info!("DataStorage: Successfully put data into S3 bucket. key={}", key);
+        tracing::info!(
+            log_type = "DataStorage",
+            category = "data_storage_call",
+            "Successfully put data into {}. key={}",
+            self.bucket,
+            key
+        );
         Ok(())
     }
 

@@ -143,7 +143,7 @@ pub async fn create_job(
     metadata: HashMap<String, String>,
     config: Arc<Config>,
 ) -> Result<(), JobError> {
-    tracing::info!(log_type = "starting", category = "general", function_type = "create_job", job_type = ?job_type, block_no = %internal_id, "General create job started for block: {:?}", internal_id);
+    tracing::info!(log_type = "starting", category = "general", function_type = "create_job", job_type = ?job_type, block_no = %internal_id, "General create job started for block");
 
     tracing::debug!(
         job_type = ?job_type,
@@ -174,7 +174,7 @@ pub async fn create_job(
     ];
 
     ORCHESTRATOR_METRICS.block_gauge.record(internal_id.parse::<f64>().unwrap(), &attributes);
-    tracing::info!(log_type = "completed", category = "general", function_type = "create_job", block_no = %internal_id, "General create job completed for block: {:?}", internal_id);
+    tracing::info!(log_type = "completed", category = "general", function_type = "create_job", block_no = %internal_id, "General create job completed for block");
     Ok(())
 }
 
@@ -184,7 +184,7 @@ pub async fn create_job(
 pub async fn process_job(id: Uuid, config: Arc<Config>) -> Result<(), JobError> {
     let mut job = get_job(id, config.clone()).await?;
     let internal_id = job.internal_id.clone();
-    tracing::info!(log_type = "starting", category = "general", function_type = "process_job", block_no = %internal_id, "General process job started for block: {:?}", internal_id);
+    tracing::info!(log_type = "starting", category = "general", function_type = "process_job", block_no = %internal_id, "General process job started for block");
 
     tracing::Span::current().record("job", format!("{:?}", job.clone()));
     tracing::Span::current().record("job_type", format!("{:?}", job.job_type.clone()));
@@ -195,10 +195,10 @@ pub async fn process_job(id: Uuid, config: Arc<Config>) -> Result<(), JobError> 
         // we only want to process jobs that are in the created or verification failed state.
         // verification failed state means that the previous processing failed and we want to retry
         JobStatus::Created | JobStatus::VerificationFailed => {
-            tracing::info!(job_id = ?id, "Processing job");
+            tracing::info!(job_id = ?id, status = ?job.status, "Job status is Created or VerificationFailed, proceeding with processing");
         }
         _ => {
-            tracing::warn!(job_id = ?id, status = ?job.status, "Invalid job status for processing");
+            tracing::warn!(job_id = ?id, status = ?job.status, "Job status is Invalid. Cannot process.");
             return Err(JobError::InvalidStatus { id, job_status: job.status });
         }
     }
@@ -215,10 +215,10 @@ pub async fn process_job(id: Uuid, config: Arc<Config>) -> Result<(), JobError> 
             JobError::Other(OtherError(e))
         })?;
 
-    tracing::trace!(job_id = ?id, job_type = ?job.job_type, "Getting job handler");
+    tracing::debug!(job_id = ?id, job_type = ?job.job_type, "Getting job handler");
     let job_handler = factory::get_job_handler(&job.job_type).await;
     let external_id = job_handler.process_job(config.clone(), &mut job).await?;
-    tracing::trace!(job_id = ?id, "Incrementing process attempt count in metadata");
+    tracing::debug!(job_id = ?id, "Incrementing process attempt count in metadata");
     let metadata = increment_key_in_metadata(&job.metadata, JOB_PROCESS_ATTEMPT_METADATA_KEY)?;
 
     let mut job_cloned = job.clone();
@@ -262,7 +262,7 @@ pub async fn process_job(id: Uuid, config: Arc<Config>) -> Result<(), JobError> 
 
     ORCHESTRATOR_METRICS.block_gauge.record(job.internal_id.parse::<f64>().unwrap(), &attributes);
 
-    tracing::info!(log_type = "completed", category = "general", function_type = "process_job", block_no = %internal_id, "General process job completed for block: {:?}", internal_id);
+    tracing::info!(log_type = "completed", category = "general", function_type = "process_job", block_no = %internal_id, "General process job completed for block");
     Ok(())
 }
 
@@ -281,7 +281,7 @@ pub async fn process_job(id: Uuid, config: Arc<Config>) -> Result<(), JobError> 
 pub async fn verify_job(id: Uuid, config: Arc<Config>) -> Result<(), JobError> {
     let mut job = get_job(id, config.clone()).await?;
     let internal_id = job.internal_id.clone();
-    tracing::info!(log_type = "starting", category = "general", function_type = "verify_job", block_no = %internal_id, "General verify job started for block: {:?}", internal_id.clone());
+    tracing::info!(log_type = "starting", category = "general", function_type = "verify_job", block_no = %internal_id, "General verify job started for block");
 
     tracing::Span::current().record("job", format!("{:?}", job.clone()));
     tracing::Span::current().record("job_type", format!("{:?}", job.job_type.clone()));
@@ -396,7 +396,7 @@ pub async fn verify_job(id: Uuid, config: Arc<Config>) -> Result<(), JobError> {
 
     ORCHESTRATOR_METRICS.block_gauge.record(job.internal_id.parse::<f64>().unwrap(), &attributes);
 
-    tracing::info!(log_type = "completed", category = "general", function_type = "verify_job", block_no = %internal_id, "General verify job completed for block: {:?}", internal_id);
+    tracing::info!(log_type = "completed", category = "general", function_type = "verify_job", block_no = %internal_id, "General verify job completed for block");
     Ok(())
 }
 
@@ -406,13 +406,13 @@ pub async fn verify_job(id: Uuid, config: Arc<Config>) -> Result<(), JobError> {
 pub async fn handle_job_failure(id: Uuid, config: Arc<Config>) -> Result<(), JobError> {
     let job = get_job(id, config.clone()).await?.clone();
     let internal_id = job.internal_id.clone();
-    tracing::info!(log_type = "starting", category = "general", function_type = "handle_job_failure", block_no = %internal_id, "General handle job failure started for block: {:?}", internal_id);
+    tracing::info!(log_type = "starting", category = "general", function_type = "handle_job_failure", block_no = %internal_id, "General handle job failure started for block");
     let mut metadata = job.metadata.clone();
 
     tracing::Span::current().record("job_status", format!("{:?}", job.status));
     tracing::Span::current().record("job_type", format!("{:?}", job.job_type));
 
-    tracing::debug!(job_id = ?id, job_status = ?job.status, job_type = ?job.job_type, "Job details for failure handling for block: {:?}", internal_id);
+    tracing::debug!(job_id = ?id, job_status = ?job.status, job_type = ?job.job_type, block_no = %internal_id, "Job details for failure handling for block");
 
     if job.status == JobStatus::Completed {
         tracing::error!(job_id = ?id, job_status = ?job.status, "Invalid state exists on DL queue");
@@ -434,11 +434,11 @@ pub async fn handle_job_failure(id: Uuid, config: Arc<Config>) -> Result<(), Job
         .await
     {
         Ok(_) => {
-            tracing::info!(log_type = "completed", category = "general", function_type = "handle_job_failure", block_no = %internal_id, "General handle job failure completed for block: {:?}", internal_id);
+            tracing::info!(log_type = "completed", category = "general", function_type = "handle_job_failure", block_no = %internal_id, "General handle job failure completed for block");
             Ok(())
         }
         Err(e) => {
-            tracing::error!(log_type = "error", category = "general", function_type = "handle_job_failure",  block_no = %internal_id, error = %e, "General handle job failure failed for block: {:?}", internal_id);
+            tracing::error!(log_type = "error", category = "general", function_type = "handle_job_failure",  block_no = %internal_id, error = %e, "General handle job failure failed for block");
             Err(JobError::Other(OtherError(e)))
         }
     }

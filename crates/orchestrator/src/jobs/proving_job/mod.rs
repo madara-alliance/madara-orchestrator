@@ -72,7 +72,7 @@ impl Job for ProvingJob {
             ProvingError::CairoPIEFileFetchFailed(e.to_string())
         })?;
 
-        tracing::trace!(job_id = %job.internal_id, "Parsing Cairo PIE file");
+        tracing::debug!(job_id = %job.internal_id, "Parsing Cairo PIE file");
         let cairo_pie = CairoPie::from_bytes(cairo_pie_file.to_vec().as_slice()).map_err(|e| {
             tracing::error!(job_id = %job.internal_id, error = %e, "Failed to parse Cairo PIE file");
             ProvingError::CairoPIENotReadable(e.to_string())

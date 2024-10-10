@@ -77,7 +77,7 @@ pub async fn create_sqs_queues(provider_config: Arc<ProviderConfig>) -> color_ey
     for queue_url in queue_urls {
         match sqs_client.delete_queue().queue_url(queue_url).send().await {
             Ok(_) => tracing::debug!("Successfully deleted queue: {}", queue_url),
-            Err(e) => eprintln!("Error deleting queue {}: {:?}", queue_url, e),
+            Err(e) => tracing::error!("Error deleting queue {}: {:?}", queue_url, e),
         }
     }
 

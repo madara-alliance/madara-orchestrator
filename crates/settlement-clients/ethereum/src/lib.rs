@@ -169,6 +169,7 @@ impl SettlementClient for EthereumSettlementClient {
             log_type = "completed",
             category = "update_state",
             function_type = "calldata",
+            tx_hash = %tx_receipt.transaction_hash,
             "State updated with calldata."
         );
         Ok(format!("0x{:x}", tx_receipt.transaction_hash))
@@ -256,6 +257,7 @@ impl SettlementClient for EthereumSettlementClient {
             log_type = "starting",
             category = "verify_tx",
             function_type = "inclusion",
+            tx_hash = %tx_hash,
             "Verifying tx inclusion."
         );
         let tx_hash = B256::from_str(tx_hash)?;
@@ -267,6 +269,7 @@ impl SettlementClient for EthereumSettlementClient {
                         log_type = "completed",
                         category = "verify_tx",
                         function_type = "inclusion",
+                        tx_hash = %tx_status.transaction_hash,
                         "Tx inclusion verified."
                     );
                     Ok(SettlementVerificationStatus::Verified)
@@ -275,6 +278,7 @@ impl SettlementClient for EthereumSettlementClient {
                         log_type = "pending",
                         category = "verify_tx",
                         function_type = "inclusion",
+                        tx_hash = %tx_status.transaction_hash,
                         "Tx inclusion pending."
                     );
                     Ok(SettlementVerificationStatus::Pending)
@@ -285,6 +289,7 @@ impl SettlementClient for EthereumSettlementClient {
                     log_type = "pending",
                     category = "verify_tx",
                     function_type = "inclusion",
+                    tx_hash = %tx_hash,
                     "Tx inclusion pending."
                 );
                 Ok(SettlementVerificationStatus::Pending)
