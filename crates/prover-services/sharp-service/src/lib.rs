@@ -26,7 +26,7 @@ pub struct SharpProverService {
 
 #[async_trait]
 impl ProverClient for SharpProverService {
-    #[tracing::instrument(skip(self, task))]
+    #[tracing::instrument(skip(self, task), ret, err)]
     async fn submit_task(&self, task: Task) -> Result<String, ProverClientError> {
         match task {
             Task::CairoPie(cairo_pie) => {
@@ -38,7 +38,7 @@ impl ProverClient for SharpProverService {
         }
     }
 
-    #[tracing::instrument(skip(self))]
+    #[tracing::instrument(skip(self), ret, err)]
     async fn get_task_status(&self, job_key: &str, fact: &str) -> Result<TaskStatus, ProverClientError> {
         let job_key = Uuid::from_str(job_key)
             .map_err(|e| ProverClientError::InvalidJobKey(format!("Failed to convert {} to UUID {}", job_key, e)))?;
