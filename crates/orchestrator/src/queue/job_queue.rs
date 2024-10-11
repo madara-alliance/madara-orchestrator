@@ -119,7 +119,8 @@ pub async fn consume_job_from_queue<F, Fut>(
 ) -> Result<(), ConsumptionError>
 where
     F: FnOnce(Uuid, Arc<Config>) -> Fut,
-    Fut: Future<Output = Result<(), JobError>>,
+    F: Send + 'static,
+    Fut: Future<Output = Result<(), JobError>> + Send,
 {
     tracing::info!(queue = %queue, "Attempting to consume job from queue");
 
@@ -140,7 +141,12 @@ where
 
     if let Some(job_message) = job_message {
         tracing::info!(queue = %queue, job_id = %job_message.id, "Processing job message");
-        handle_job_message(job_message, message, handler, config).await?;
+         tokio::spawn(async move {
+            match handle_job_message(job_message, message, handler, config).await {
+                Ok(_) => {}
+                Err(e) => log::error!("Failed to handle job message. Error: {:?}", e),
+            }
+        });
     } else {
         tracing::warn!(queue = %queue, "Received empty job message");
     }
