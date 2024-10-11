@@ -1,5 +1,6 @@
 use std::collections::HashMap;
 use std::fmt;
+use std::str::FromStr;
 use std::sync::Arc;
 use std::time::Duration;
 
@@ -166,10 +167,7 @@ pub async fn create_job(
         KeyValue::new("job", format!("{:?}", job_item)),
     ];
 
-    let internal_id = internal_id
-        .parse::<f64>()
-        .map_err(|e| JobError::Other(OtherError::from(format!("Could not parse internal id into f64: {e}"))))?;
-    ORCHESTRATOR_METRICS.block_gauge.record(internal_id, &attributes);
+    ORCHESTRATOR_METRICS.block_gauge.record(parse_string(internal_id)?, &attributes);
     Ok(())
 }
 
@@ -236,12 +234,8 @@ pub async fn process_job(id: Uuid, config: Arc<Config>) -> Result<(), JobError> 
         KeyValue::new("type", "process_job"),
         KeyValue::new("job", format!("{:?}", job)),
     ];
-    let internal_id = job
-        .internal_id
-        .parse::<f64>()
-        .map_err(|e| JobError::Other(OtherError::from(format!("Could not parse internal id into f64: {e}"))))?;
-    ORCHESTRATOR_METRICS.block_gauge.record(internal_id, &attributes);
 
+    ORCHESTRATOR_METRICS.block_gauge.record(parse_string(job.internal_id)?, &attributes);
     Ok(())
 }
 
@@ -349,12 +343,7 @@ pub async fn verify_job(id: Uuid, config: Arc<Config>) -> Result<(), JobError> {
         KeyValue::new("job", format!("{:?}", job)),
     ];
 
-    let internal_id = job
-        .internal_id
-        .parse::<f64>()
-        .map_err(|e| JobError::Other(OtherError::from(format!("Could not parse internal id into f64: {e}"))))?;
-    ORCHESTRATOR_METRICS.block_gauge.record(internal_id, &attributes);
-
+    ORCHESTRATOR_METRICS.block_gauge.record(parse_string(job.internal_id)?, &attributes);
     Ok(())
 }
 
@@ -417,6 +406,15 @@ fn get_u64_from_metadata(metadata: &HashMap<String, String>, key: &str) -> color
         .unwrap_or(&"0".to_string())
         .parse::<u64>()
         .wrap_err(format!("Failed to parse u64 from metadata key '{}'", key))
+}
+
+fn parse_string<T: FromStr>(value: String) -> Result<T, JobError>
+where
+    T::Err: std::fmt::Display,
+{
+    value
+        .parse::<T>()
+        .map_err(|e| JobError::Other(OtherError::from(format!("Could not parse internal id into f64: {e}"))))
 }
 
 #[cfg(test)]

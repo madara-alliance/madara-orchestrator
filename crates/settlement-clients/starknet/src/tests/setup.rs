@@ -76,8 +76,7 @@ impl Drop for MadaraCmd {
             Ok::<_, color_eyre::Report>(())
         };
         if let Err(_err) = kill() {
-            let kill = child.kill();
-            match kill {
+            match child.kill() {
                 Ok(kill) => kill,
                 Err(e) => {
                     log::error!("{}", format!("Failed to kill Madara {:?}", e));
