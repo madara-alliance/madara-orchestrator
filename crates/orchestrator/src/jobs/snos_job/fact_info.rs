@@ -27,7 +27,7 @@ pub struct FactInfo {
 }
 
 pub fn get_fact_info(cairo_pie: &CairoPie, program_hash: Option<Felt>) -> Result<FactInfo, FactError> {
-    tracing::info!(
+    tracing::debug!(
         log_type = "FactInfo",
         category = "fact_info",
         function_type = "get_fact_info",
@@ -99,7 +99,7 @@ pub fn get_fact_info(cairo_pie: &CairoPie, program_hash: Option<Felt>) -> Result
     );
     let output_root = generate_merkle_root(&program_output, &fact_topology)?;
     let fact = keccak256([program_hash.to_bytes_be(), *output_root.node_hash].concat());
-    tracing::info!(
+    tracing::debug!(
         log_type = "FactInfo",
         category = "fact_info",
         function_type = "get_fact_info",

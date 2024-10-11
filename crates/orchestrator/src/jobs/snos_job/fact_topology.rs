@@ -67,7 +67,7 @@ pub fn get_fact_topology(cairo_pie: &CairoPie, output_size: usize) -> Result<Fac
 /// Returns the sizes of the program output pages, given the pages dictionary that appears
 /// in the additional attributes of the output builtin.
 pub fn get_page_sizes(pages: &HashMap<usize, PublicMemoryPage>, output_size: usize) -> Result<Vec<usize>, FactError> {
-    tracing::info!(
+    tracing::debug!(
         log_type = "FactTopology",
         category = "get_page_sizes",
         function_type = "get_page_sizes",
@@ -126,6 +126,10 @@ pub fn get_page_sizes(pages: &HashMap<usize, PublicMemoryPage>, output_size: usi
         FactError::OutputPagesUncoveredOutput(expected_page_start.unwrap_or_default(), output_size)
     );
 
-    tracing::info!("FactTopology Successfully generated page sizes");
+    tracing::debug!(
+        log_type = "FactTopology",
+        category = "get_page_sizes",
+        "FactTopology Successfully generated page sizes"
+    );
     Ok(page_sizes)
 }
