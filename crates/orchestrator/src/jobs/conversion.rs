@@ -2,7 +2,7 @@ use std::str::FromStr;
 
 use crate::jobs::{JobError, OtherError};
 
-pub fn parse_string<T: FromStr>(value: &String) -> Result<T, JobError>
+pub fn parse_string<T: FromStr>(value: &str) -> Result<T, JobError>
 where
     T::Err: std::fmt::Display,
 {
