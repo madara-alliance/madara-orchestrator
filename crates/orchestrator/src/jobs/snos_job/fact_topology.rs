@@ -23,7 +23,7 @@ pub struct FactTopology {
 
 /// Returns the fact topology from the additional data of the output builtin.
 pub fn get_fact_topology(cairo_pie: &CairoPie, output_size: usize) -> Result<FactTopology, FactError> {
-    tracing::info!(
+    tracing::debug!(
         log_type = "FactTopology",
         category = "get_fact_topology",
         function_type = "get_fact_topology",
