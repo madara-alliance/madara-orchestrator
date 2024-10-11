@@ -55,7 +55,7 @@ impl MongoDb {
 
 #[async_trait]
 impl Database for MongoDb {
-   #[tracing::instrument(skip(self), fields(function_type = "db_call"), ret, err)]
+    #[tracing::instrument(skip(self), fields(function_type = "db_call"), ret, err)]
     async fn create_job(&self, job: JobItem) -> Result<JobItem, JobError> {
         let options = UpdateOptions::builder().upsert(true).build();
 
