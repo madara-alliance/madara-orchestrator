@@ -83,8 +83,7 @@ impl Drop for MadaraCmd {
                 }
             }
         }
-        let exit_result = child.wait();
-        match exit_result {
+        match child.wait() {
             Ok(exit_status) => log::debug!("{}", exit_status),
             Err(e) => log::error!("failed to exit madara {:?}", e),
         }
