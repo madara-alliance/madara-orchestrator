@@ -51,7 +51,7 @@ pub fn get_fact_topology(cairo_pie: &CairoPie, output_size: usize) -> Result<Fac
         };
         tracing::debug!("Retrieving page sizes");
         let page_sizes = get_page_sizes(&additional_data.pages, output_size)?;
-        tracing::info!(
+        tracing::debug!(
             log_type = "FactTopology",
             category = "get_fact_topology",
             function_type = "get_fact_topology",
