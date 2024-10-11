@@ -172,14 +172,20 @@ impl SettlementClient for EthereumSettlementClient {
         let (sidecar_blobs, sidecar_commitments, sidecar_proofs) = prepare_sidecar(&state_diff, &KZG_SETTINGS).await?;
         let sidecar = BlobTransactionSidecar::new(sidecar_blobs, sidecar_commitments, sidecar_proofs);
 
+        println!(">>>> sidecar done");
+        
         let eip1559_est = self.provider.estimate_eip1559_fees(None).await?;
         let chain_id: u64 = self.provider.get_chain_id().await?.to_string().parse()?;
 
+        println!(">>>> chain_id: {:?}", chain_id);
+        
         let mut max_fee_per_blob_gas: u128 = self.provider.get_blob_base_fee().await?.to_string().parse()?;
         // TODO: need to send more than current gas price.
         max_fee_per_blob_gas += 12;
         let max_priority_fee_per_gas: u128 = self.provider.get_max_priority_fee_per_gas().await?.to_string().parse()?;
 
+        println!(">>>> max_priority_fee_per_gas: {:?}", max_priority_fee_per_gas);
+        
         // x_0_value : program_output[10]
         // Updated with starknet 0.13.2 spec
         let kzg_proof = Self::build_proof(
@@ -189,7 +195,11 @@ impl SettlementClient for EthereumSettlementClient {
         .expect("Unable to build KZG proof for given params.")
         .to_owned();
 
+        println!(">>>> kzg_proof: {:?}", kzg_proof);
+
         let input_bytes = get_input_data_for_eip_4844(program_output, kzg_proof)?;
+
+        println!(">>>> input_bytes: {:?}", input_bytes);
 
         let tx: TxEip4844 = TxEip4844 {
             chain_id,
@@ -207,10 +217,14 @@ impl SettlementClient for EthereumSettlementClient {
 
         let tx_sidecar = TxEip4844WithSidecar { tx: tx.clone(), sidecar: sidecar.clone() };
 
+        println!(">>>> tx sidecar built");
+
         let mut variant = TxEip4844Variant::from(tx_sidecar);
         let signature = self.wallet.default_signer().sign_transaction(&mut variant).await?;
         let tx_signed = variant.into_signed(signature);
+        println!(">>>> tx signed");
         let tx_envelope: TxEnvelope = tx_signed.into();
+        println!(">>>> tx envelope");
 
         #[cfg(not(feature = "testing"))]
         let txn_request = {
@@ -221,6 +235,8 @@ impl SettlementClient for EthereumSettlementClient {
         #[cfg(feature = "testing")]
         let txn_request =
             { test_config::configure_transaction(self.provider.clone(), tx_envelope, self.impersonate_account).await };
+
+        println!(">>>> tx request : {:?}", txn_request);
 
         let pending_transaction = self.provider.send_transaction(txn_request).await?;
         return Ok(pending_transaction.tx_hash().to_string());

@@ -8,7 +8,7 @@ use utils::env_utils::get_env_var_or_default;
 
 use crate::config::Config;
 use crate::jobs::create_job;
-use crate::jobs::types::{JobStatus, JobType};
+use crate::jobs::types::JobType;
 use crate::workers::Worker;
 
 pub struct SnosWorker;
@@ -23,38 +23,32 @@ impl Worker for SnosWorker {
         let latest_block_number =
             get_env_var_or_default("SNOS_LATEST_BLOCK", &provider.block_number().await?.to_string()).parse::<u64>()?;
 
-        let latest_block_processed_data = config
+        // TODO : This needs to be optimized.
+        // TODO : This is not scalable.
+        let mut snos_jobs_in_db_block_numbers: Vec<u64> = config
             .database()
-            .get_latest_job_by_type_and_status(JobType::SnosRun, JobStatus::Completed)
-            .await
-            .unwrap()
-            .map(|item| item.internal_id)
-            .unwrap_or("0".to_string());
+            .get_jobs_by_type(JobType::SnosRun)
+            .await?
+            .iter()
+            .map(|job| job.internal_id.parse::<u64>().unwrap())
+            .collect();
+        snos_jobs_in_db_block_numbers.sort();
 
-        // Check if job does not exist
-        // TODO: fetching all SNOS jobs with internal id > latest_block_processed_data
-        // can be done in one DB call
-        let job_in_db = config
-            .database()
-            .get_job_by_internal_id_and_type(&latest_block_number.to_string(), &JobType::SnosRun)
-            .await
-            .unwrap();
+        // TODO : temp solution
+        let first_block = snos_jobs_in_db_block_numbers.get(0);
+        let block = match first_block {
+            Some(first_block) => {
+                first_block.clone()
+            }
+            None => {
+                0
+            }
+        };
 
-        if job_in_db.is_some() {
-            return Ok(());
-        }
-
-        let latest_block_processed: u64 = latest_block_processed_data.parse()?;
-
-        let block_diff = latest_block_number - latest_block_processed;
-
-        // if all blocks are processed
-        if block_diff == 0 {
-            return Ok(());
-        }
-
-        for x in latest_block_processed + 1..latest_block_number + 1 {
-            create_job(JobType::SnosRun, x.to_string(), HashMap::new(), config.clone()).await?;
+        for x in block..latest_block_number + 1 {
+            if !snos_jobs_in_db_block_numbers.contains(&x) {
+                create_job(JobType::SnosRun, x.to_string(), HashMap::new(), config.clone()).await?;
+            }
         }
 
         Ok(())

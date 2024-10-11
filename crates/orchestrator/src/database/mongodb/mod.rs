@@ -310,4 +310,15 @@ impl Database for MongoDb {
 
         Ok(jobs)
     }
+
+    #[tracing::instrument(skip(self), fields(function_type = "db_call"))]
+    async fn get_jobs_by_type(&self, job_type: JobType) -> Result<Vec<JobItem>> {
+        let filter = doc! {
+            "job_type": bson::to_bson(&job_type)?,
+        };
+
+        let jobs = self.get_job_collection().find(filter, None).await?.try_collect().await?;
+
+        Ok(jobs)
+    }
 }

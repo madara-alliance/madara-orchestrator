@@ -17,8 +17,11 @@ impl Worker for UpdateStateWorker {
     /// 2. Fetch all successful proving jobs covering blocks after the last state update
     /// 3. Create state updates for all the blocks that don't have a state update job
     async fn run_worker(&self, config: Arc<Config>) -> Result<(), Box<dyn Error>> {
+        // TODO : fix this
+        // We should look for LockedForProcessing job also.
+        // Current assumption : no job will fail.
         let latest_successful_job =
-            config.database().get_latest_job_by_type_and_status(JobType::StateTransition, JobStatus::Completed).await?;
+            config.database().get_latest_job_by_type(JobType::StateTransition).await?;
 
         match latest_successful_job {
             Some(job) => {
@@ -39,6 +42,9 @@ impl Worker for UpdateStateWorker {
                     .filter_map(|s| s.parse().ok())
                     .collect();
                 blocks_processed_in_last_job.sort();
+
+                log::warn!(">>>> blocks processed in last job : {:?}", blocks_processed_in_last_job);
+
                 let last_block_processed_in_last_job =
                     blocks_processed_in_last_job[blocks_processed_in_last_job.len() - 1];
 
@@ -48,13 +54,18 @@ impl Worker for UpdateStateWorker {
                     .collect::<Vec<u64>>();
                 blocks_to_process.sort();
 
+                log::warn!(">>>> blocks to process : {:?}", blocks_to_process);
+                
                 let mut blocks_to_process_final = Vec::new();
                 for block in blocks_to_process {
                     if !blocks_processed_in_last_job.contains(&block) {
                         blocks_to_process_final.push(block);
                     }
                 }
+                blocks_to_process_final.sort();
 
+                log::warn!(">>>> blocks to process (final) : {:?}", blocks_to_process_final);
+                
                 if blocks_to_process_final.is_empty() {
                     return Ok(());
                 }
@@ -64,24 +75,30 @@ impl Worker for UpdateStateWorker {
                     return Ok(());
                 }
 
-                if !Self::check_blocks_consecutive(blocks_to_process_final.clone()) {
+                let blocks_to_process = Self::find_successive_blocks_in_vector(blocks_to_process_final.clone());
+
+                // TODO : remove this after testing is done
+                // Second check
+                if !Self::check_blocks_consecutive(blocks_to_process.clone()) {
                     log::warn!(
                         "⚠️ Can't create job because of non consecutive blocks | blocks : {:?}",
-                        blocks_to_process_final
+                        blocks_to_process
                     );
                     return Ok(());
                 }
 
+                log::warn!(">>> Creating UpdateState job for blocks : {:?}", blocks_to_process);
+
                 let mut metadata = job.metadata;
                 metadata.insert(
                     JOB_METADATA_STATE_UPDATE_BLOCKS_TO_SETTLE_KEY.to_string(),
-                    blocks_to_process_final.iter().map(|ele| ele.to_string()).collect::<Vec<String>>().join(","),
+                    blocks_to_process.iter().map(|ele| ele.to_string()).collect::<Vec<String>>().join(","),
                 );
 
                 // Creating a single job for all the pending blocks.
                 create_job(
                     JobType::StateTransition,
-                    successful_da_jobs_without_successor[0].internal_id.clone(),
+                    blocks_to_process[0].to_string(),
                     metadata,
                     config,
                 )
@@ -128,16 +145,39 @@ impl UpdateStateWorker {
             return true;
         }
 
-        let mut temp = block_numbers[0];
-        for i in block_numbers[1..].iter() {
-            if temp + 1 == i.clone() {
-                temp = i.clone();
-            } else {
+        let mut prev = block_numbers[0];
+        for &current in block_numbers.iter().skip(1) {
+            if current != prev + 1 {
                 return false;
             }
+            prev = current;
         }
 
         true
+    }
+
+    /// Gets the successive list of blocks from all the blocks processed in previous jobs
+    /// Eg : input_vec : [1,2,3,4,7,8,9,11]
+    /// We will take the first 4 block numbers and send it for processing
+    pub fn find_successive_blocks_in_vector(block_numbers: Vec<u64>) -> Vec<u64> {
+        if block_numbers.is_empty() {
+            return Vec::new();
+        }
+
+        let mut blocks_to_process = Vec::new();
+        let mut prev = block_numbers[0];
+        blocks_to_process.push(prev);
+
+        for &current in block_numbers.iter().skip(1) {
+            if current == prev + 1 {
+                blocks_to_process.push(current);
+                prev = current;
+            } else {
+                break;
+            }
+        }
+
+        blocks_to_process
     }
 }
 

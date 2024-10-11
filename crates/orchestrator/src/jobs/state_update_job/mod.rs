@@ -327,7 +327,11 @@ impl StateUpdateJob {
                 .await
                 .map_err(|e| JobError::Other(OtherError(e)))?;
 
+            println!(">>>> blob_data: {:?}", blob_data.len());
+
             let program_output = self.fetch_program_output_for_block(block_no, config.clone()).await;
+
+            println!(">>>> program_output: {:?}", program_output);
             // TODO :
             // Fetching nonce before the transaction is run
             // Sending update_state transaction from the settlement client
