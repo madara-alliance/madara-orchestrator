@@ -141,7 +141,7 @@ where
 
     if let Some(job_message) = job_message {
         tracing::info!(queue = %queue, job_id = %job_message.id, "Processing job message");
-         tokio::spawn(async move {
+        tokio::spawn(async move {
             match handle_job_message(job_message, message, handler, config).await {
                 Ok(_) => {}
                 Err(e) => log::error!("Failed to handle job message. Error: {:?}", e),
