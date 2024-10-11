@@ -175,7 +175,7 @@ pub async fn create_job(
         KeyValue::new("job", format!("{:?}", job_item)),
     ];
 
-    ORCHESTRATOR_METRICS.block_gauge.record(parse_string(internal_id)?, &attributes);
+    ORCHESTRATOR_METRICS.block_gauge.record(parse_string(&internal_id)?, &attributes);
     tracing::info!(log_type = "completed", category = "general", function_type = "create_job", block_no = %internal_id, "General create job completed for block");
     Ok(())
 }
@@ -262,7 +262,7 @@ pub async fn process_job(id: Uuid, config: Arc<Config>) -> Result<(), JobError> 
         KeyValue::new("job", format!("{:?}", job)),
     ];
 
-    ORCHESTRATOR_METRICS.block_gauge.record(parse_string(job.internal_id)?, &attributes);
+    ORCHESTRATOR_METRICS.block_gauge.record(parse_string(&job.internal_id)?, &attributes);
     tracing::info!(log_type = "completed", category = "general", function_type = "process_job", block_no = %internal_id, "General process job completed for block");
     Ok(())
 }
@@ -395,7 +395,7 @@ pub async fn verify_job(id: Uuid, config: Arc<Config>) -> Result<(), JobError> {
         KeyValue::new("job", format!("{:?}", job)),
     ];
 
-    ORCHESTRATOR_METRICS.block_gauge.record(parse_string(job.internal_id)?, &attributes);
+    ORCHESTRATOR_METRICS.block_gauge.record(parse_string(&job.internal_id)?, &attributes);
     tracing::info!(log_type = "completed", category = "general", function_type = "verify_job", block_no = %internal_id, "General verify job completed for block");
     Ok(())
 }
