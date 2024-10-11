@@ -6,6 +6,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ## Added
 
+- added logs
 - added MongoDB migrations using nodejs
 - added dockerfile
 - `SnosJob` implementation and e2e
@@ -37,6 +38,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ## Changed
 
+- made create_job atomic to avoid race conditions
 - handle jobs in tokio tasks
 - handle workers in tokio tasks
 - cleaned .env.example and .env.test files
@@ -61,6 +63,8 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ## Fixed
 
+- Fixes all unwraps() in code to improve error logging
+- Simplified Update_Job for Database.
 - Simplified otel setup.
 - Added new_with_settings to SharpClient.
 - Calculate root hash logic and added a simple test for it.
