@@ -12,6 +12,7 @@ use uuid::Uuid;
 
 use crate::jobs::da_job::test::{get_nonce_attached, read_state_update_from_file};
 use crate::jobs::da_job::{DaError, DaJob};
+use crate::jobs::state_update_job::utils::init_tracing;
 use crate::jobs::types::{ExternalId, JobItem, JobStatus, JobType};
 use crate::jobs::{Job, JobError};
 use crate::tests::common::drop_database;
@@ -35,6 +36,10 @@ async fn test_da_job_process_job_failure_on_small_blob_size(
     #[case] internal_id: String,
     #[case] current_blob_length: u64,
 ) {
+    use crate::jobs::state_update_job::utils::init_tracing;
+
+    init_tracing();
+
     // Mocking DA client calls
     let mut da_client = MockDaClient::new();
     // dummy state will have more than 1200 bytes
@@ -99,6 +104,8 @@ async fn test_da_job_process_job_failure_on_small_blob_size(
 #[rstest]
 #[tokio::test]
 async fn test_da_job_process_job_failure_on_pending_block() {
+    init_tracing();
+
     let services = TestConfigBuilder::new()
         .configure_starknet_client(ConfigType::Actual)
         .configure_da_client(ConfigType::Actual)
@@ -184,6 +191,7 @@ async fn test_da_job_process_job_success(
     #[case] nonces_file: String,
     #[case] internal_id: String,
 ) {
+    init_tracing();
     // Mocking DA client calls
     let mut da_client = MockDaClient::new();
     da_client.expect_publish_state_diff().with(always(), always()).returning(|_, _| Ok("Done".to_string()));

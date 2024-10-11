@@ -18,6 +18,11 @@ pub async fn fetch_blob_data_for_block(block_number: u64, config: Arc<Config>) -
     Ok(vec![blob_data.to_vec()])
 }
 
+
+pub fn init_tracing() {
+    tracing_subscriber::fmt::init();
+}
+
 /// Fetching the blob data (stored in remote storage during DA job) for a particular block
 pub async fn fetch_program_data_for_block(block_number: u64, config: Arc<Config>) -> color_eyre::Result<Vec<[u8; 32]>> {
     let storage_client = config.storage();

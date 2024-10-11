@@ -19,6 +19,7 @@ use crate::constants::CAIRO_PIE_FILE_NAME;
 use crate::data_storage::MockDataStorage;
 use crate::jobs::constants::JOB_METADATA_SNOS_FACT;
 use crate::jobs::proving_job::ProvingJob;
+use crate::jobs::state_update_job::utils::init_tracing;
 use crate::jobs::types::{JobItem, JobStatus, JobType};
 use crate::jobs::Job;
 use crate::tests::config::TestConfigBuilder;
@@ -44,6 +45,8 @@ async fn test_create_job() {
 #[rstest]
 #[tokio::test]
 async fn test_verify_job(#[from(default_job_item)] mut job_item: JobItem) {
+    init_tracing();
+
     let mut prover_client = MockProverClient::new();
     prover_client.expect_get_task_status().times(1).returning(|_, _| Ok(TaskStatus::Succeeded));
 
@@ -56,6 +59,8 @@ async fn test_verify_job(#[from(default_job_item)] mut job_item: JobItem) {
 #[rstest]
 #[tokio::test]
 async fn test_process_job() {
+    init_tracing();
+
     let server = MockServer::start();
     let mut prover_client = MockProverClient::new();
 

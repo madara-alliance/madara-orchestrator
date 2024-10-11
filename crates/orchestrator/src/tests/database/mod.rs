@@ -5,6 +5,7 @@ use rstest::*;
 use uuid::Uuid;
 
 use crate::jobs::increment_key_in_metadata;
+use crate::jobs::state_update_job::utils::init_tracing;
 use crate::jobs::types::{ExternalId, JobItem, JobItemUpdates, JobStatus, JobType};
 use crate::tests::config::{ConfigType, TestConfigBuilder};
 
@@ -20,6 +21,7 @@ async fn test_database_connection() -> color_eyre::Result<()> {
 #[rstest]
 #[tokio::test]
 async fn database_create_job_works() {
+    init_tracing();
     let services = TestConfigBuilder::new().configure_database(ConfigType::Actual).build().await;
     let config = services.config;
     let database_client = config.database();
@@ -59,6 +61,8 @@ async fn database_create_job_works() {
 #[case(false)]
 #[tokio::test]
 async fn database_get_jobs_without_successor_works(#[case] is_successor: bool) {
+    init_tracing();
+
     let services = TestConfigBuilder::new().configure_database(ConfigType::Actual).build().await;
     let config = services.config;
     let database_client = config.database();
@@ -103,6 +107,8 @@ async fn database_get_jobs_without_successor_works(#[case] is_successor: bool) {
 #[rstest]
 #[tokio::test]
 async fn database_get_last_successful_job_by_type_works() {
+    init_tracing();
+
     let services = TestConfigBuilder::new().configure_database(ConfigType::Actual).build().await;
     let config = services.config;
     let database_client = config.database();
@@ -131,6 +137,8 @@ async fn database_get_last_successful_job_by_type_works() {
 #[rstest]
 #[tokio::test]
 async fn database_get_jobs_after_internal_id_by_job_type_works() {
+    init_tracing();
+
     let services = TestConfigBuilder::new().configure_database(ConfigType::Actual).build().await;
     let config = services.config;
     let database_client = config.database();
@@ -164,6 +172,8 @@ async fn database_get_jobs_after_internal_id_by_job_type_works() {
 #[rstest]
 #[tokio::test]
 async fn database_test_update_job() {
+    init_tracing();
+
     let services = TestConfigBuilder::new().configure_database(ConfigType::Actual).build().await;
     let config = services.config;
     let database_client = config.database();
