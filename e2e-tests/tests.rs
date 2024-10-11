@@ -96,7 +96,7 @@ impl Setup {
         env_vec
             .push(("STARKNET_OPERATOR_ADDRESS".to_string(), "0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266".to_string()));
         env_vec.push((
-            "MEMORY_PAGES_CONTRACT_ADDRESS".to_string(),
+            "GPS_VERIFIER_CONTRACT_ADDRESS".to_string(),
             "0xe7f1725E7734CE288F8367e1Bb143E90bb3F0512".to_string(),
         ));
         env_vec
@@ -230,6 +230,7 @@ async fn wait_for_db_state(
             get_database_state(mongo_db_server, l2_block_for_testing.clone(), expected_db_state.job_type.clone())
                 .await
                 .unwrap();
+
         if db_state.is_some() && db_state.unwrap() == expected_db_state {
             return Ok(());
         }

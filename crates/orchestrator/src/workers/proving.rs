@@ -18,12 +18,17 @@ impl Worker for ProvingWorker {
     /// 1. Fetch all successful SNOS job runs that don't have a proving job
     /// 2. Create a proving job for each SNOS job run
     async fn run_worker(&self, config: Arc<Config>) -> Result<(), Box<dyn Error>> {
+        tracing::info!(log_type = "starting", category = "ProvingWorker", "ProvingWorker started.");
+
         let successful_snos_jobs = config
             .database()
             .get_jobs_without_successor(JobType::SnosRun, JobStatus::Completed, JobType::ProofCreation)
             .await?;
 
+        tracing::debug!("Found {} successful SNOS jobs without proving jobs", successful_snos_jobs.len());
+
         for job in successful_snos_jobs {
+            tracing::debug!(job_id = %job.internal_id, "Creating proof creation job for SNOS job");
             // If snos is not successful for this job then do not process it for proving
             if job.metadata.contains_key(SNOS_FAILED_JOB_TAG) {
                 Self::create_job_in_db(config.clone(), job.internal_id).await?;
@@ -32,6 +37,7 @@ impl Worker for ProvingWorker {
             }
         }
 
+        tracing::info!(log_type = "completed", category = "ProvingWorker", "ProvingWorker completed.");
         Ok(())
     }
 }
