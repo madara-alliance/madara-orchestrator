@@ -1,11 +1,11 @@
 use std::collections::HashMap;
 use std::fmt;
-use std::str::FromStr;
 use std::sync::Arc;
 use std::time::Duration;
 
 use async_trait::async_trait;
 use color_eyre::eyre::{eyre, Context};
+use conversion::parse_string;
 use da_job::DaError;
 use mockall::automock;
 use mockall_double::double;
@@ -27,6 +27,7 @@ use crate::metrics::ORCHESTRATOR_METRICS;
 use crate::queue::job_queue::{add_job_to_process_queue, add_job_to_verification_queue, ConsumptionError};
 
 pub mod constants;
+pub mod conversion;
 pub mod da_job;
 pub mod job_handler_factory;
 pub mod proving_job;
@@ -406,15 +407,6 @@ fn get_u64_from_metadata(metadata: &HashMap<String, String>, key: &str) -> color
         .unwrap_or(&"0".to_string())
         .parse::<u64>()
         .wrap_err(format!("Failed to parse u64 from metadata key '{}'", key))
-}
-
-fn parse_string<T: FromStr>(value: String) -> Result<T, JobError>
-where
-    T::Err: std::fmt::Display,
-{
-    value
-        .parse::<T>()
-        .map_err(|e| JobError::Other(OtherError::from(format!("Could not parse internal id into f64: {e}"))))
 }
 
 #[cfg(test)]
