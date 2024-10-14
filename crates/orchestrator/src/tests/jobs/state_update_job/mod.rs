@@ -12,8 +12,8 @@ use mockall::predicate::{always, eq};
 use num_bigint::BigUint;
 use rstest::*;
 use settlement_client_interface::MockSettlementClient;
-use starknet::providers::JsonRpcClient;
 use starknet::providers::jsonrpc::HttpTransport;
+use starknet::providers::JsonRpcClient;
 use url::Url;
 
 use crate::constants::{BLOB_DATA_FILE_NAME, PROGRAM_OUTPUT_FILE_NAME, SNOS_OUTPUT_FILE_NAME};
@@ -30,7 +30,7 @@ use crate::tests::common::default_job_item;
 use crate::tests::config::TestConfigBuilder;
 
 lazy_static! {
-    pub static ref CURRENT_PATH: PathBuf = std::env::current_dir().unwrap();
+    pub static ref CURRENT_PATH: PathBuf = std::env::current_dir().expect("Failed to get Current Path");
 }
 
 pub const X_0_FILE_NAME: &str = "x_0.txt";

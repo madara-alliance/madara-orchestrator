@@ -1,7 +1,7 @@
 use std::clone::Clone;
 
-use base64::Engine;
 use base64::engine::general_purpose;
+use base64::Engine;
 use reqwest::{Certificate, ClientBuilder, Identity};
 use url::Url;
 use utils::env_utils::get_env_var_or_panic;
@@ -31,9 +31,15 @@ impl SharpClient {
     pub fn new_with_settings(url: Url, settings: &impl Settings) -> Self {
         // Getting the cert files from the .env and then decoding it from base64
 
-        let cert = general_purpose::STANDARD.decode(settings.get_settings_or_panic("SHARP_USER_CRT")).unwrap();
-        let key = general_purpose::STANDARD.decode(settings.get_settings_or_panic("SHARP_USER_KEY")).unwrap();
-        let server_cert = general_purpose::STANDARD.decode(settings.get_settings_or_panic("SHARP_SERVER_CRT")).unwrap();
+        let cert = general_purpose::STANDARD
+            .decode(settings.get_settings_or_panic("SHARP_USER_CRT"))
+            .expect("Failed to decode certificate");
+        let key = general_purpose::STANDARD
+            .decode(settings.get_settings_or_panic("SHARP_USER_KEY"))
+            .expect("Failed to decode sharp user key");
+        let server_cert = general_purpose::STANDARD
+            .decode(settings.get_settings_or_panic("SHARP_SERVER_CRT"))
+            .expect("Failed to decode sharp server certificate");
 
         // Adding Customer ID to the url
 
@@ -44,10 +50,15 @@ impl SharpClient {
         Self {
             base_url: url_mut,
             client: ClientBuilder::new()
-                .identity(Identity::from_pkcs8_pem(&cert, &key).unwrap())
-                .add_root_certificate(Certificate::from_pem(server_cert.as_slice()).unwrap())
+                .identity(
+                    Identity::from_pkcs8_pem(&cert, &key)
+                        .expect("Failed to build the identity from certificate and key"),
+                )
+                .add_root_certificate(
+                    Certificate::from_pem(server_cert.as_slice()).expect("Failed to add root certificate"),
+                )
                 .build()
-                .unwrap(),
+                .expect("Failed to build the reqwest client with provided configs"),
         }
     }
 

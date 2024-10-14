@@ -1,8 +1,11 @@
+use std::collections::HashMap;
+
 use chrono::{SubsecRound, Utc};
 use rstest::*;
 use uuid::Uuid;
 
-use crate::jobs::types::{ExternalId, JobItem, JobStatus, JobType};
+use crate::jobs::types::{ExternalId, JobItem, JobItemUpdates, JobStatus, JobType};
+use crate::jobs::{increment_key_in_metadata, JobError};
 use crate::tests::config::{ConfigType, TestConfigBuilder};
 
 #[rstest]
@@ -41,6 +44,36 @@ async fn database_create_job_works() {
     assert_eq!(get_job_1, job_vec[0].clone());
     assert_eq!(get_job_2, job_vec[1].clone());
     assert_eq!(get_job_3, job_vec[2].clone());
+}
+
+/// Tests for `create_job` operation in database trait.
+/// Creates a job with the same job type and internal id as an existing job.
+/// Should fail.
+#[rstest]
+#[tokio::test]
+async fn database_create_job_with_job_exists_fails() {
+    let services: crate::tests::config::TestConfigBuilderReturns =
+        TestConfigBuilder::new().configure_database(ConfigType::Actual).build().await;
+    let config = services.config;
+    let database_client = config.database();
+
+    let job_one = build_job_item(JobType::ProofCreation, JobStatus::Created, 1);
+
+    // same job type and internal id
+    let job_two = build_job_item(JobType::ProofCreation, JobStatus::LockedForProcessing, 1);
+
+    database_client.create_job(job_one).await.unwrap();
+
+    let result = database_client.create_job(job_two).await;
+
+    assert_eq!(
+        result.unwrap_err(),
+        JobError::JobAlreadyExists { internal_id: "1".to_string(), job_type: JobType::ProofCreation }
+    );
+    // fetch job to see status wasn't updated
+    let fetched_job =
+        database_client.get_job_by_internal_id_and_type("1", &JobType::ProofCreation).await.unwrap().unwrap();
+    assert_eq!(fetched_job.status, JobStatus::Created);
 }
 
 /// Test for `get_jobs_without_successor` operation in database trait.
@@ -158,50 +191,41 @@ async fn database_get_jobs_after_internal_id_by_job_type_works() {
     assert_eq!(jobs_after_internal_id[1], job_vec[5]);
 }
 
-/// Test for `update_job_status` operation in database trait.
-/// Happy Case : Creating a job with version 0 and updating the job with version 0 update only.
 #[rstest]
 #[tokio::test]
-async fn database_update_job_status_passing_case_works() {
-    let services = TestConfigBuilder::new().configure_database(ConfigType::Actual).build().await;
-    let config = services.config;
-
-    let database_client = config.database();
-
-    let job = build_job_item(JobType::SnosRun, JobStatus::Created, 1);
-
-    database_client.create_job(job.clone()).await.unwrap();
-
-    let updating_job_res = database_client.update_job_status(&job, JobStatus::Completed).await.is_ok();
-
-    assert!(updating_job_res, "Job result assertion failed");
-}
-
-/// Test for `update_job_status` operation in database trait.
-/// Failing Case : Creating a job with version 1 and updating the job with version 0 update only.
-#[rstest]
-#[tokio::test]
-async fn database_update_job_status_failing_case_works() {
+async fn database_test_update_job() {
     let services = TestConfigBuilder::new().configure_database(ConfigType::Actual).build().await;
     let config = services.config;
     let database_client = config.database();
 
-    // Scenario :
-
-    // Worker 1 :
-    // Job is created
-    let job = build_job_item(JobType::SnosRun, JobStatus::Created, 1);
+    let job = build_job_item(JobType::DataSubmission, JobStatus::Created, 456);
     database_client.create_job(job.clone()).await.unwrap();
 
-    // Worker 2 :
-    // Job is updated
-    let updating_job_res = database_client.update_job_status(&job, JobStatus::Completed).await.is_ok();
-    assert!(updating_job_res, "Job result assertion failed");
+    let job_id = job.id;
 
-    // Worker 1 :
-    // Job update try (update should fail)
-    let updating_job_res = database_client.update_job_status(&job, JobStatus::PendingVerification).await.is_err();
-    assert!(updating_job_res, "Job result assertion failed");
+    let metadata = HashMap::new();
+    let key = "test_key";
+    let updated_metadata = increment_key_in_metadata(&metadata, key).unwrap();
+
+    let job_cloned = job.clone();
+    let _ = database_client
+        .update_job(
+            &job_cloned,
+            JobItemUpdates::new()
+                .update_status(JobStatus::LockedForProcessing)
+                .update_metadata(updated_metadata)
+                .build(),
+        )
+        .await;
+
+    if let Some(job_after_updates_db) = database_client.get_job_by_id(job_id).await.unwrap() {
+        assert_eq!(JobType::DataSubmission, job_after_updates_db.job_type);
+        assert_eq!(JobStatus::LockedForProcessing, job_after_updates_db.status);
+        assert_eq!(1, job_after_updates_db.version);
+        assert_eq!(456.to_string(), job_after_updates_db.internal_id);
+    } else {
+        panic!("Job not found in Database.")
+    }
 }
 
 // Test Util Functions

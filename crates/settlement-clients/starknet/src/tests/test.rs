@@ -3,6 +3,7 @@ use std::path::Path;
 use std::sync::Arc;
 use std::time::Duration;
 
+use color_eyre::eyre::eyre;
 use rstest::{fixture, rstest};
 use settlement_client_interface::SettlementClient;
 use starknet::accounts::{Account, ConnectedAccount, ExecutionEncoding, SingleOwnerAccount};
@@ -16,16 +17,16 @@ use starknet::macros::{felt, selector};
 use starknet::providers::jsonrpc::HttpTransport;
 use starknet::providers::{JsonRpcClient, Provider, ProviderError, Url};
 use starknet::signers::{LocalWallet, SigningKey};
-use utils::settings::Settings;
 use utils::settings::env::EnvSettingsProvider;
+use utils::settings::Settings;
 
-use super::setup::{MadaraCmd, MadaraCmdBuilder, wait_for_cond};
+use super::setup::{wait_for_cond, MadaraCmd, MadaraCmdBuilder};
 use crate::{LocalWalletSignerMiddleware, StarknetSettlementClient};
 
 #[fixture]
 pub async fn spin_up_madara() -> MadaraCmd {
     dotenvy::from_filename_override(".env.test").expect("Failed to load the .env file");
-    log::trace!("Spinning up Madara");
+    tracing::debug!("Spinning up Madara");
     let mut node = MadaraCmdBuilder::new()
         .args([
             "--no-sync-polling",
@@ -46,13 +47,13 @@ async fn wait_for_tx(account: &LocalWalletSignerMiddleware, transaction_hash: Fe
             let receipt = match account.provider().get_transaction_status(transaction_hash).await {
                 Ok(receipt) => Ok(receipt),
                 Err(ProviderError::StarknetError(StarknetError::TransactionHashNotFound)) => {
-                    Err(anyhow::anyhow!("Transaction not yet received"))
+                    Err(eyre!("Transaction not yet received"))
                 }
-                _ => Err(anyhow::anyhow!("Unknown error")),
+                _ => Err(eyre!("Unknown error")),
             };
 
             match receipt {
-                Ok(TransactionStatus::Received) => Err(anyhow::anyhow!("Transaction not yet received")),
+                Ok(TransactionStatus::Received) => Err(eyre!("Transaction not yet received")),
                 Ok(TransactionStatus::Rejected) => Ok(false),
                 Ok(TransactionStatus::AcceptedOnL2(status)) => match status {
                     TransactionExecutionStatus::Succeeded => Ok(true),
@@ -62,7 +63,7 @@ async fn wait_for_tx(account: &LocalWalletSignerMiddleware, transaction_hash: Fe
                     TransactionExecutionStatus::Succeeded => Ok(true),
                     TransactionExecutionStatus::Reverted => Ok(false),
                 },
-                Err(e) => Err(anyhow::anyhow!("Unknown error: {}", e)),
+                Err(e) => Err(eyre!("Unknown error: {}", e)),
             }
         },
         duration,
@@ -122,7 +123,7 @@ async fn test_settle(#[future] setup: (LocalWalletSignerMiddleware, MadaraCmd)) 
 
     let DeclareTransactionResult { transaction_hash: declare_tx_hash, class_hash: _ } =
         account.declare_v2(Arc::new(flattened_class.clone()), compiled_class_hash).send().await.unwrap();
-    log::debug!("declare tx hash {:?}", declare_tx_hash);
+    tracing::debug!("declare tx hash {:?}", declare_tx_hash);
 
     let is_success = wait_for_tx(&account, declare_tx_hash, Duration::from_secs(2)).await;
     assert!(is_success, "Declare trasactiion failed");
@@ -148,7 +149,7 @@ async fn test_settle(#[future] setup: (LocalWalletSignerMiddleware, MadaraCmd)) 
         .await
         .expect("Sending Update state");
 
-    log::debug!("update state tx hash {:?}", update_state_tx_hash);
+    tracing::debug!("update state tx hash {:?}", update_state_tx_hash);
 
     let is_success = wait_for_tx(
         &account,
@@ -179,8 +180,8 @@ async fn test_get_nonce_works(#[future] setup: (LocalWalletSignerMiddleware, Mad
     let (account, _madara_process) = setup.await;
     let nonce = account.get_nonce().await;
     match &nonce {
-        Ok(n) => log::info!("Nonce value from get_nonce: {:?}", n),
-        Err(e) => log::error!("Error getting nonce: {:?}", e),
+        Ok(n) => tracing::debug!("Nonce value from get_nonce: {:?}", n),
+        Err(e) => tracing::error!("Error getting nonce: {:?}", e),
     }
     assert!(nonce.is_ok(), "Failed to get nonce");
 }

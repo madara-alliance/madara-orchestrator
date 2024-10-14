@@ -3385,7 +3385,7 @@ dependencies = [
 [[package]]
 name = "cairo-type-derive"
 version = "0.1.0"
-source = "git+https://github.com/ocdbytes/snos?rev=836a4a7b3f378ef73a06a3f7f24ce6dde287a04f#836a4a7b3f378ef73a06a3f7f24ce6dde287a04f"
+source = "git+https://github.com/keep-starknet-strange/snos?rev=3bd95bfb315a596519b5b1d3c81114fbfa06f8a6#3bd95bfb315a596519b5b1d3c81114fbfa06f8a6"
 dependencies = [
  "proc-macro2",
  "quote",
@@ -4566,6 +4566,7 @@ dependencies = [
  "serde",
  "settlement-client-interface",
  "starknet-os",
+ "thiserror",
  "tokio",
  "tokio-test",
  "tracing",
@@ -7811,7 +7812,7 @@ dependencies = [
 [[package]]
 name = "prove_block"
 version = "0.1.0"
-source = "git+https://github.com/ocdbytes/snos?rev=836a4a7b3f378ef73a06a3f7f24ce6dde287a04f#836a4a7b3f378ef73a06a3f7f24ce6dde287a04f"
+source = "git+https://github.com/keep-starknet-strange/snos?rev=3bd95bfb315a596519b5b1d3c81114fbfa06f8a6#3bd95bfb315a596519b5b1d3c81114fbfa06f8a6"
 dependencies = [
  "anyhow",
  "blockifier",
@@ -8274,7 +8275,7 @@ dependencies = [
 [[package]]
 name = "rpc-client"
 version = "0.1.0"
-source = "git+https://github.com/ocdbytes/snos?rev=836a4a7b3f378ef73a06a3f7f24ce6dde287a04f#836a4a7b3f378ef73a06a3f7f24ce6dde287a04f"
+source = "git+https://github.com/keep-starknet-strange/snos?rev=3bd95bfb315a596519b5b1d3c81114fbfa06f8a6#3bd95bfb315a596519b5b1d3c81114fbfa06f8a6"
 dependencies = [
  "log",
  "reqwest 0.11.27",
@@ -8289,7 +8290,7 @@ dependencies = [
 [[package]]
 name = "rpc-replay"
 version = "0.1.0"
-source = "git+https://github.com/ocdbytes/snos?rev=836a4a7b3f378ef73a06a3f7f24ce6dde287a04f#836a4a7b3f378ef73a06a3f7f24ce6dde287a04f"
+source = "git+https://github.com/keep-starknet-strange/snos?rev=3bd95bfb315a596519b5b1d3c81114fbfa06f8a6#3bd95bfb315a596519b5b1d3c81114fbfa06f8a6"
 dependencies = [
  "blockifier",
  "cairo-lang-starknet-classes",
@@ -9663,7 +9664,7 @@ dependencies = [
 [[package]]
 name = "starknet-os"
 version = "0.1.0"
-source = "git+https://github.com/ocdbytes/snos?rev=836a4a7b3f378ef73a06a3f7f24ce6dde287a04f#836a4a7b3f378ef73a06a3f7f24ce6dde287a04f"
+source = "git+https://github.com/keep-starknet-strange/snos?rev=3bd95bfb315a596519b5b1d3c81114fbfa06f8a6#3bd95bfb315a596519b5b1d3c81114fbfa06f8a6"
 dependencies = [
  "anyhow",
  "ark-ec",
@@ -9712,7 +9713,7 @@ dependencies = [
 [[package]]
 name = "starknet-os-types"
 version = "0.1.0"
-source = "git+https://github.com/ocdbytes/snos?rev=836a4a7b3f378ef73a06a3f7f24ce6dde287a04f#836a4a7b3f378ef73a06a3f7f24ce6dde287a04f"
+source = "git+https://github.com/keep-starknet-strange/snos?rev=3bd95bfb315a596519b5b1d3c81114fbfa06f8a6#3bd95bfb315a596519b5b1d3c81114fbfa06f8a6"
 dependencies = [
  "blockifier",
  "cairo-lang-starknet-classes",
@@ -9756,7 +9757,6 @@ dependencies = [
 name = "starknet-settlement-client"
 version = "0.1.0"
 dependencies = [
- "anyhow",
  "appchain-core-contract-client",
  "async-std",
  "async-trait",

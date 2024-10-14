@@ -91,7 +91,7 @@ impl Setup {
         // Anvil.addresses[0]
         env_vec
             .push(("STARKNET_OPERATOR_ADDRESS".to_string(), "0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266".to_string()));
-        env_vec.push(("MEMORY_PAGES_CONTRACT_ADDRESS".to_string(), verifier_contract_address.to_string()));
+        env_vec.push(("GPS_VERIFIER_CONTRACT_ADDRESS".to_string(), verifier_contract_address.to_string()));
         env_vec.push(("L1_CORE_CONTRACT_ADDRESS".to_string(), starknet_core_contract_address.to_string()));
 
         Self { mongo_db_instance, starknet_client, sharp_client, env_vector: env_vec, localstack_instance }
@@ -219,6 +219,7 @@ async fn wait_for_db_state(
             get_database_state(mongo_db_server, l2_block_for_testing.clone(), expected_db_state.job_type.clone())
                 .await
                 .unwrap();
+
         if db_state.is_some() && db_state.unwrap() == expected_db_state {
             return Ok(());
         }

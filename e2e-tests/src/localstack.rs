@@ -1,17 +1,17 @@
 use std::collections::HashMap;
 use std::sync::Arc;
 
-use aws_config::Region;
 use aws_config::meta::region::RegionProviderChain;
+use aws_config::Region;
 use aws_sdk_eventbridge::types::{InputTransformer, RuleState, Target};
 use aws_sdk_sqs::types::QueueAttributeName;
 use aws_sdk_sqs::types::QueueAttributeName::VisibilityTimeout;
 use orchestrator::config::ProviderConfig;
-use orchestrator::data_storage::DataStorage;
 use orchestrator::data_storage::aws_s3::AWSS3;
+use orchestrator::data_storage::DataStorage;
 use orchestrator::queue::job_queue::{
-    JOB_HANDLE_FAILURE_QUEUE, JOB_PROCESSING_QUEUE, JOB_VERIFICATION_QUEUE, JobQueueMessage, WORKER_TRIGGER_QUEUE,
-    WorkerTriggerMessage, WorkerTriggerType,
+    JobQueueMessage, WorkerTriggerMessage, WorkerTriggerType, JOB_HANDLE_FAILURE_QUEUE, JOB_PROCESSING_QUEUE,
+    JOB_VERIFICATION_QUEUE, WORKER_TRIGGER_QUEUE,
 };
 use utils::env_utils::get_env_var_or_panic;
 use utils::settings::env::EnvSettingsProvider;
@@ -45,10 +45,10 @@ impl LocalStack {
     pub async fn setup_sqs(&self) -> color_eyre::Result<()> {
         let list_queues_output = self.sqs_client.list_queues().send().await?;
         let queue_urls = list_queues_output.queue_urls();
-        log::debug!("Found {} queues", queue_urls.len());
+        println!("Found {} queues", queue_urls.len());
         for queue_url in queue_urls {
             match self.sqs_client.delete_queue().queue_url(queue_url).send().await {
-                Ok(_) => log::debug!("Successfully deleted queue: {}", queue_url),
+                Ok(_) => println!("Successfully deleted queue: {}", queue_url),
                 Err(e) => eprintln!("Error deleting queue {}: {:?}", queue_url, e),
             }
         }

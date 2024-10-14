@@ -1,27 +1,27 @@
-use std::collections::HashMap;
-
+use ::utils::settings::Settings;
 use async_std::stream::StreamExt;
 use async_trait::async_trait;
 use chrono::{SubsecRound, Utc};
-use color_eyre::Result;
 use color_eyre::eyre::eyre;
+use color_eyre::Result;
 use futures::TryStreamExt;
-use mongodb::bson::{Bson, Document, doc};
+use mongodb::bson::{doc, Bson, Document};
 use mongodb::options::{ClientOptions, FindOneOptions, FindOptions, ServerApi, ServerApiVersion, UpdateOptions};
-use mongodb::{Client, Collection, bson};
-use utils::settings::Settings;
+use mongodb::{bson, Client, Collection};
+use utils::ToDocument;
 use uuid::Uuid;
 
 use crate::database::mongodb::config::MongoDbConfig;
 use crate::database::{Database, DatabaseConfig};
-use crate::jobs::types::{JobItem, JobStatus, JobType};
+use crate::jobs::types::{JobItem, JobItemUpdates, JobStatus, JobType};
+use crate::jobs::JobError;
 
 pub mod config;
-
-pub const MONGO_DB_SETTINGS: &str = "mongodb";
+mod utils;
 
 pub struct MongoDb {
     client: Client,
+    database_name: String,
 }
 
 impl MongoDb {
@@ -37,9 +37,9 @@ impl MongoDb {
         let client = Client::with_options(client_options).expect("Failed to create MongoDB client");
         // Ping the server to see if you can connect to the cluster
         client.database("admin").run_command(doc! {"ping": 1}, None).await.expect("Failed to ping MongoDB deployment");
-        log::debug!("Pinged your deployment. You successfully connected to MongoDB!");
+        tracing::debug!("Pinged your deployment. You successfully connected to MongoDB!");
 
-        Self { client }
+        Self { client, database_name: mongo_db_settings.database_name }
     }
 
     /// Mongodb client uses Arc internally, reducing the cost of clone.
@@ -49,114 +49,114 @@ impl MongoDb {
     }
 
     fn get_job_collection(&self) -> Collection<JobItem> {
-        self.client.database("orchestrator").collection("jobs")
-    }
-
-    /// Updates the job in the database optimistically. This means that the job is updated only if
-    /// the version of the job in the database is the same as the version of the job passed in.
-    /// If the version is different, the update fails.
-    #[tracing::instrument(skip(self, update), fields(function_type = "db_call"))]
-    async fn update_job_optimistically(&self, current_job: &JobItem, update: Document) -> Result<()> {
-        let filter = doc! {
-            "id": current_job.id,
-            "version": current_job.version,
-        };
-        let options = UpdateOptions::builder().upsert(false).build();
-        let result = self.get_job_collection().update_one(filter, update, options).await?;
-        if result.modified_count == 0 {
-            return Err(eyre!("Failed to update job. Job version is likely outdated"));
-        }
-        self.post_job_update(current_job).await?;
-
-        Ok(())
-    }
-
-    // TODO : remove this function
-    // Do this process in single db transaction.
-    /// To update the document version
-    #[tracing::instrument(skip(self), fields(function_type = "db_call"))]
-    async fn post_job_update(&self, current_job: &JobItem) -> Result<()> {
-        let filter = doc! {
-            "id": current_job.id,
-        };
-        let combined_update = doc! {
-            "$inc": { "version": 1 },
-            "$set" : {
-                "updated_at": Utc::now().round_subsecs(0)
-            }
-        };
-        let options = UpdateOptions::builder().upsert(false).build();
-        let result = self.get_job_collection().update_one(filter, combined_update, options).await?;
-        if result.modified_count == 0 {
-            return Err(eyre!("Failed to update job. version"));
-        }
-        Ok(())
+        self.client.database(&self.database_name).collection("jobs")
     }
 }
 
 #[async_trait]
 impl Database for MongoDb {
-    #[tracing::instrument(skip(self), fields(function_type = "db_call"))]
-    async fn create_job(&self, job: JobItem) -> Result<JobItem> {
-        self.get_job_collection().insert_one(&job, None).await?;
-        Ok(job)
+    #[tracing::instrument(skip(self), fields(function_type = "db_call"), ret, err)]
+    async fn create_job(&self, job: JobItem) -> Result<JobItem, JobError> {
+        let options = UpdateOptions::builder().upsert(true).build();
+
+        let updates = job.to_document().map_err(|e| JobError::Other(e.into()))?;
+        let job_type =
+            updates.get("job_type").ok_or(eyre!("Job type not found")).map_err(|e| JobError::Other(e.into()))?;
+        let internal_id =
+            updates.get("internal_id").ok_or(eyre!("Internal ID not found")).map_err(|e| JobError::Other(e.into()))?;
+
+        // Filter using only two fields
+        let filter = doc! {
+            "job_type": job_type.clone(),
+            "internal_id": internal_id.clone()
+        };
+
+        let updates = doc! {
+            // only set when the document is inserted for the first time
+            "$setOnInsert": updates
+        };
+
+        let result = self
+            .get_job_collection()
+            .update_one(filter, updates, options)
+            .await
+            .map_err(|e| JobError::Other(e.to_string().into()))?;
+
+        if result.matched_count == 0 {
+            Ok(job)
+        } else {
+            Err(JobError::JobAlreadyExists { internal_id: job.internal_id, job_type: job.job_type })
+        }
     }
 
-    #[tracing::instrument(skip(self), fields(function_type = "db_call"))]
+    #[tracing::instrument(skip(self), fields(function_type = "db_call"), ret, err)]
     async fn get_job_by_id(&self, id: Uuid) -> Result<Option<JobItem>> {
         let filter = doc! {
             "id":  id
         };
+        tracing::debug!(job_id = %id, category = "db_call", "Fetched job by ID");
         Ok(self.get_job_collection().find_one(filter, None).await?)
     }
 
-    #[tracing::instrument(skip(self), fields(function_type = "db_call"))]
+    #[tracing::instrument(skip(self), fields(function_type = "db_call"), ret, err)]
     async fn get_job_by_internal_id_and_type(&self, internal_id: &str, job_type: &JobType) -> Result<Option<JobItem>> {
         let filter = doc! {
             "internal_id": internal_id,
             "job_type": mongodb::bson::to_bson(&job_type)?,
         };
+        tracing::debug!(internal_id = %internal_id, job_type = ?job_type, category = "db_call", "Fetched job by internal ID and type");
         Ok(self.get_job_collection().find_one(filter, None).await?)
     }
 
-    #[tracing::instrument(skip(self), fields(function_type = "db_call"))]
-    async fn update_job(&self, job: &JobItem) -> Result<()> {
-        let job_doc = bson::to_document(job)?;
-        let update = doc! {
-            "$set": job_doc
+    #[tracing::instrument(skip(self), fields(function_type = "db_call"), ret, err)]
+    async fn update_job(&self, current_job: &JobItem, updates: JobItemUpdates) -> Result<()> {
+        // Filters to search for the job
+        let filter = doc! {
+            "id": current_job.id,
+            "version": current_job.version,
         };
-        self.update_job_optimistically(job, update).await?;
-        Ok(())
-    }
+        let options = UpdateOptions::builder().upsert(false).build();
 
-    #[tracing::instrument(skip(self), fields(function_type = "db_call"))]
-    async fn update_job_status(&self, job: &JobItem, new_status: JobStatus) -> Result<()> {
-        let update = doc! {
-            "$set": {
-                "status": mongodb::bson::to_bson(&new_status)?,
+        let mut updates = updates.to_document()?;
+
+        // remove null values from the updates
+        let mut non_null_updates = Document::new();
+        updates.iter_mut().for_each(|(k, v)| {
+            if v != &Bson::Null {
+                non_null_updates.insert(k, v);
             }
-        };
-        self.update_job_optimistically(job, update).await?;
-        Ok(())
-    }
+        });
 
-    #[tracing::instrument(skip(self), fields(function_type = "db_call"))]
-    async fn update_metadata(&self, job: &JobItem, metadata: HashMap<String, String>) -> Result<()> {
+        // throw an error if there's no field to be updated
+        if non_null_updates.is_empty() {
+            return Err(eyre!("No field to be updated, likely a false call"));
+        }
+
+        // Add additional fields that are always updated
+        non_null_updates.insert("version", Bson::Int32(current_job.version + 1));
+        non_null_updates.insert("updated_at", Bson::DateTime(Utc::now().round_subsecs(0).into()));
+
         let update = doc! {
-            "$set": {
-                "metadata":  mongodb::bson::to_document(&metadata)?
-            }
+            "$set": non_null_updates
         };
-        self.update_job_optimistically(job, update).await?;
+
+        let result = self.get_job_collection().update_one(filter, update, options).await?;
+        if result.modified_count == 0 {
+            tracing::warn!(job_id = %current_job.id, category = "db_call", "Failed to update job. Job version is likely outdated");
+            return Err(eyre!("Failed to update job. Job version is likely outdated"));
+        }
+
+        tracing::debug!(job_id = %current_job.id, category = "db_call", "Job updated successfully");
         Ok(())
     }
 
-    #[tracing::instrument(skip(self), fields(function_type = "db_call"))]
+    #[tracing::instrument(skip(self), fields(function_type = "db_call"), ret, err)]
     async fn get_latest_job_by_type(&self, job_type: JobType) -> Result<Option<JobItem>> {
         let filter = doc! {
             "job_type": mongodb::bson::to_bson(&job_type)?,
         };
         let find_options = FindOneOptions::builder().sort(doc! { "internal_id": -1 }).build();
+        tracing::debug!(job_type = ?job_type, category = "db_call", "Fetching latest job by type");
         Ok(self.get_job_collection().find_one(filter, find_options).await?)
     }
 
@@ -181,7 +181,7 @@ impl Database for MongoDb {
     /// job_b_type : ProofCreation
     ///
     /// TODO : For now Job B status implementation is pending so we can pass None
-    #[tracing::instrument(skip(self), fields(function_type = "db_call"))]
+    #[tracing::instrument(skip(self), fields(function_type = "db_call"), ret, err)]
     async fn get_jobs_without_successor(
         &self,
         job_a_type: JobType,
@@ -245,7 +245,6 @@ impl Database for MongoDb {
                 }
             },
         ];
-
         // TODO : Job B status code :
         // // Conditionally add status matching for job_b_status
         // if let Some(status) = job_b_status {
@@ -272,16 +271,17 @@ impl Database for MongoDb {
             match result {
                 Ok(document) => match bson::from_bson(Bson::Document(document)) {
                     Ok(job_item) => vec_jobs.push(job_item),
-                    Err(e) => eprintln!("Failed to deserialize JobItem: {:?}", e),
+                    Err(e) => tracing::error!(error = %e, category = "db_call", "Failed to deserialize JobItem"),
                 },
-                Err(e) => eprintln!("Error retrieving document: {:?}", e),
+                Err(e) => tracing::error!(error = %e, category = "db_call", "Error retrieving document"),
             }
         }
 
+        tracing::debug!(job_count = vec_jobs.len(), category = "db_call", "Retrieved jobs without successor");
         Ok(vec_jobs)
     }
 
-    #[tracing::instrument(skip(self), fields(function_type = "db_call"))]
+    #[tracing::instrument(skip(self), fields(function_type = "db_call"), ret, err)]
     async fn get_latest_job_by_type_and_status(
         &self,
         job_type: JobType,
@@ -293,10 +293,11 @@ impl Database for MongoDb {
         };
         let find_options = FindOneOptions::builder().sort(doc! { "internal_id": -1 }).build();
 
+        tracing::debug!(job_type = ?job_type, job_status = ?job_status, category = "db_call", "Fetched latest job by type and status");
         Ok(self.get_job_collection().find_one(filter, find_options).await?)
     }
 
-    #[tracing::instrument(skip(self), fields(function_type = "db_call"))]
+    #[tracing::instrument(skip(self), fields(function_type = "db_call"), ret, err)]
     async fn get_jobs_after_internal_id_by_job_type(
         &self,
         job_type: JobType,
@@ -306,15 +307,14 @@ impl Database for MongoDb {
         let filter = doc! {
             "job_type": bson::to_bson(&job_type)?,
             "status": bson::to_bson(&job_status)?,
-            "internal_id": { "$gt": internal_id }
+            "internal_id": { "$gt": internal_id.clone() }
         };
-
-        let jobs = self.get_job_collection().find(filter, None).await?.try_collect().await?;
-
+        let jobs: Vec<JobItem> = self.get_job_collection().find(filter, None).await?.try_collect().await?;
+        tracing::debug!(job_type = ?job_type, job_status = ?job_status, internal_id = internal_id, category = "db_call", "Fetched jobs after internal ID by job type");
         Ok(jobs)
     }
 
-    #[tracing::instrument(skip(self, limit), fields(function_type = "db_call"))]
+    #[tracing::instrument(skip(self, limit), fields(function_type = "db_call"), ret, err)]
     async fn get_jobs_by_statuses(&self, job_status: Vec<JobStatus>, limit: Option<i64>) -> Result<Vec<JobItem>> {
         let filter = doc! {
             "status": {
@@ -325,8 +325,8 @@ impl Database for MongoDb {
 
         let find_options = limit.map(|val| FindOptions::builder().limit(Some(val)).build());
 
-        let jobs = self.get_job_collection().find(filter, find_options).await?.try_collect().await?;
-
+        let jobs: Vec<JobItem> = self.get_job_collection().find(filter, find_options).await?.try_collect().await?;
+        tracing::debug!(job_count = jobs.len(), category = "db_call", "Retrieved jobs by statuses");
         Ok(jobs)
     }
 }
