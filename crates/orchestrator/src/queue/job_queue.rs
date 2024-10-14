@@ -170,7 +170,7 @@ where
     F: Send + 'static,
     Fut: Future<Output = Result<(), JobError>> + Send,
 {
-    tracing::info!(queue = %queue, "Attempting to consume job from queue");
+    tracing::trace!(queue = %queue, "Attempting to consume job from queue");
 
     let delivery = get_delivery_from_queue(&queue, config.clone()).await?;
 
