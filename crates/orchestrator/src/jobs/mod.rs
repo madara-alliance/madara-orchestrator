@@ -41,7 +41,7 @@ pub enum JobError {
     #[error("Job already exists for internal_id {internal_id:?} and job_type {job_type:?}. Skipping!")]
     JobAlreadyExists { internal_id: String, job_type: JobType },
 
-    #[error("Invalid status {id:?} for job with id {job_status:?}. Cannot process.")]
+    #[error("Invalid status {job_status:?} for job with id {id:?}. Cannot process.")]
     InvalidStatus { id: Uuid, job_status: JobStatus },
 
     #[error("Failed to find job with id {id:?}")]
