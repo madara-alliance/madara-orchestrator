@@ -186,7 +186,7 @@ pub async fn create_job(
 /// DB. It then adds the job to the verification queue.
 #[tracing::instrument(skip(config), fields(category = "general", job, job_type, internal_id), ret, err)]
 pub async fn process_job(id: Uuid, config: Arc<Config>) -> Result<(), JobError> {
-    let mut job = get_job(id, config.clone()).await?;
+    let job = get_job(id, config.clone()).await?;
     let internal_id = job.internal_id.clone();
     tracing::info!(log_type = "starting", category = "general", function_type = "process_job", block_no = %internal_id, "General process job started for block");
 
@@ -212,7 +212,7 @@ pub async fn process_job(id: Uuid, config: Arc<Config>) -> Result<(), JobError> 
     tracing::debug!(job_id = ?id, "Updating job status to LockedForProcessing");
     let mut job = config
         .database()
-        .update_job(&mut job, JobItemUpdates::new().update_status(JobStatus::LockedForProcessing).build())
+        .update_job(&job, JobItemUpdates::new().update_status(JobStatus::LockedForProcessing).build())
         .await
         .map_err(|e| {
             tracing::error!(job_id = ?id, error = ?e, "Failed to update job status");
@@ -355,7 +355,7 @@ pub async fn verify_job(id: Uuid, config: Arc<Config>) -> Result<(), JobError> {
             } else {
                 tracing::warn!(job_id = ?id, "Max process attempts reached. Job will not be retried");
                 return move_job_to_failed(
-                    &mut job,
+                    &job,
                     config.clone(),
                     format!("Verification rejected. Max process attempts reached: {}", process_attempts),
                 )

@@ -666,7 +666,10 @@ async fn handle_job_failure_with_correct_job_status_works(#[case] job_type: JobT
     // creating expected output
     let mut job_expected = job.clone();
     let mut job_metadata = job_expected.metadata.clone();
-    job_metadata.insert("last_job_status".to_string(), job_status.to_string());
+    job_metadata.insert(
+        JOB_METADATA_FAILURE_REASON.to_string(),
+        format!("Received failure queue message for job with status: {}", job_status),
+    );
     job_expected.metadata.clone_from(&job_metadata);
     job_expected.status = JobStatus::Failed;
     job_expected.version = 1;
