@@ -222,11 +222,15 @@ pub async fn process_job(id: Uuid, config: Arc<Config>) -> Result<(), JobError> 
     tracing::debug!(job_id = ?id, job_type = ?job.job_type, "Getting job handler");
     let job_handler = factory::get_job_handler(&job.job_type).await;
     let external_id = match job_handler.process_job(config.clone(), &mut job).await {
-        Ok(external_id) => external_id,
+        Ok(external_id) => {
+            tracing::debug!(job_id = ?id, "Successfully processed job");
+            external_id
+        }
         Err(e) => {
             // TODO: I think most of the times the errors will not be fixed automatically
             // if we just retry. But for some failures like DB issues, it might be possible
             // that retrying will work. So we can add a retry logic here to improve robustness.
+            tracing::error!(job_id = ?id, error = ?e, "Failed to process job");
             return move_job_to_failed(&job, config.clone(), format!("Processing failed: {}", e)).await;
         }
     };
