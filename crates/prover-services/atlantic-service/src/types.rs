@@ -1,7 +1,6 @@
 use serde::{Deserialize, Serialize};
-use starknet_os::sharp::InvalidReason;
-
 #[derive(Default, Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
 pub struct AtlanticAddJobResponse {
     pub sharp_query_id: String,
 }
@@ -11,19 +10,41 @@ pub struct AtlanticGetProofResponse {
     pub code: Option<String>,
 }
 
-#[derive(Default, Debug, Clone, Serialize, Deserialize)]
-#[allow(clippy::upper_case_acronyms)]
-pub enum AtlanticJobStatus {
-    #[default]
-    RECIEVED,
-    DONE,
-    FAILED,
+#[derive(Debug, Clone, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct AtlanticGetStatusResponse {
+    pub sharp_query: SharpQuery,
 }
 
-#[derive(Default, Debug, Clone, Deserialize)]
-pub struct AtlanticGetStatusResponse {
-    #[serde(default)]
-    pub status: AtlanticJobStatus,
-    pub invalid_reason: Option<InvalidReason>,
-    pub error_log: Option<String>,
+#[derive(Debug, Clone, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct SharpQuery {
+    pub id: String,
+    pub submitted_by_client: String,
+    pub status: SharpQueryStatus,
+    pub step: SharpQueryStep,
+    pub program_hash: Option<String>,
+    pub layout: Option<String>,
+    pub program_fact_hash: Option<String>,
+    pub is_fact_mocked: bool,
+    pub prover: String,
+    pub chain: String,
+    pub price: i64,
+    pub steps: Vec<SharpQueryStep>,
+}
+
+#[derive(Debug, Clone, Deserialize)]
+#[serde(rename_all = "SCREAMING_SNAKE_CASE")]
+pub enum SharpQueryStatus {
+    InProgress,
+    Done,
+    Failed,
+}
+
+#[derive(Debug, Clone, Deserialize)]
+#[serde(rename_all = "SCREAMING_SNAKE_CASE")]
+pub enum SharpQueryStep {
+    ProofGeneration,
+    FactHashGeneration,
+    FactHashRegistration,
 }

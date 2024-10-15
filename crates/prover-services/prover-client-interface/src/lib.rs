@@ -20,7 +20,6 @@ pub trait ProverClient: Send + Sync {
 
 pub enum Task {
     CairoPie(Box<CairoPie>),
-    CairoPieFilePath(String),
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -46,4 +45,8 @@ pub enum ProverClientError {
     InvalidJobKey(String),
     #[error("Failed to convert fact to B256: {0}")]
     FailedToConvertFact(String),
+    #[error("Failed to write file: {0}")]
+    FailedToCreateTempFile(String),
+    #[error("Failed to write file: {0}")]
+    FailedToWriteFile(String),
 }

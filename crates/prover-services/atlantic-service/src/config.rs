@@ -28,13 +28,13 @@ impl AtlanticConfig {
             "ethereum" => Ok(Self {
                 service_url: settings.get_settings_or_panic("ATLANTIC_URL").parse().unwrap(),
                 rpc_node_url: settings.get_settings_or_panic("SETTLEMENT_RPC_URL").parse().unwrap(),
-                verifier_address: settings.get_settings_or_panic("MEMORY_PAGES_CONTRACT_ADDRESS").parse().unwrap(),
+                verifier_address: settings.get_settings_or_panic("GPS_VERIFIER_CONTRACT_ADDRESS").parse().unwrap(),
                 settlement_layer: SettlementLayer::Ethereum,
             }),
             "starknet" => Ok(Self {
                 service_url: settings.get_settings_or_panic("ATLANTIC_URL").parse().unwrap(),
                 rpc_node_url: settings.get_settings_or_panic("SETTLEMENT_RPC_URL").parse().unwrap(),
-                verifier_address: settings.get_settings_or_panic("MEMORY_PAGES_CONTRACT_ADDRESS").parse().unwrap(),
+                verifier_address: settings.get_settings_or_panic("GPS_VERIFIER_CONTRACT_ADDRESS").parse().unwrap(),
                 settlement_layer: SettlementLayer::Starknet,
             }),
             _ => panic!("Unsupported Settlement layer"),

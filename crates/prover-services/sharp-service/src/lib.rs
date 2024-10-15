@@ -47,7 +47,6 @@ impl ProverClient for SharpProverService {
                 );
                 Ok(job_key.to_string())
             }
-            Task::CairoPieFilePath(_) => Err(ProverClientError::TaskInvalid("Sharp supports encoded pie".to_string())),
         }
     }
 
