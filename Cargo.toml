@@ -132,4 +132,5 @@ utils = { path = "crates/utils" }
 prover-client-interface = { path = "crates/prover-services/prover-client-interface" }
 gps-fact-checker = { path = "crates/prover-services/gps-fact-checker" }
 sharp-service = { path = "crates/prover-services/sharp-service" }
+atlantic-service = { path = "crates/prover-services/atlantic-service" }
 orchestrator = { path = "crates/orchestrator" }

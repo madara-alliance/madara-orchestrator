@@ -12,7 +12,7 @@ mod constants;
 #[rstest]
 async fn atlantic_client_submit_task_works() {
     let _ = env_logger::try_init();
-    color_eyre::install().expect("Unable to isntall color_eyre");
+    color_eyre::install().expect("Unable to install color_eyre");
     dotenvy::from_filename("../.env.test").expect("Failed to load the .env file");
     let atlantic_service = AtlanticProverService::new_with_settings(&EnvSettingsProvider {});
 

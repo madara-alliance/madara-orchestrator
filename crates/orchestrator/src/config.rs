@@ -6,6 +6,7 @@ use std::sync::Arc;
 use alloy::primitives::Address;
 #[cfg(feature = "testing")]
 use alloy::providers::RootProvider;
+use atlantic_service::AtlanticProverService;
 use aws_config::meta::region::RegionProviderChain;
 use aws_config::{Region, SdkConfig};
 use aws_credential_types::Credentials;
@@ -225,6 +226,7 @@ pub async fn build_da_client(settings_provider: &impl Settings) -> Box<dyn DaCli
 pub fn build_prover_service(settings_provider: &impl Settings) -> Box<dyn ProverClient> {
     match get_env_var_or_panic("PROVER_SERVICE").as_str() {
         "sharp" => Box::new(SharpProverService::new_with_settings(settings_provider)),
+        "atlantic" => Box::new(AtlanticProverService::new_with_settings(settings_provider)),
         _ => panic!("Unsupported prover service"),
     }
 }

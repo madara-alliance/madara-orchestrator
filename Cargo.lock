@@ -7017,6 +7017,7 @@ dependencies = [
  "assert_matches",
  "async-std",
  "async-trait",
+ "atlantic-service",
  "aws-config",
  "aws-credential-types",
  "aws-sdk-s3",

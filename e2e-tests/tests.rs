@@ -47,6 +47,8 @@ struct Setup {
 impl Setup {
     /// Initialise a new setup
     pub async fn new() -> Self {
+        color_eyre::install().expect("Unable to install color_eyre");
+
         let mongo_db_instance = MongoDbServer::run().await;
         println!("✅ Mongo DB setup completed");
 
