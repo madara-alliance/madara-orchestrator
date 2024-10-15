@@ -148,7 +148,7 @@ impl Database for MongoDb {
             Some(job) => {
                 tracing::debug!(job_id = %current_job.id, category = "db_call", "Job updated successfully");
                 Ok(job)
-            },
+            }
             None => {
                 tracing::warn!(job_id = %current_job.id, category = "db_call", "Failed to update job. Job version is likely outdated");
                 return Err(eyre!("Failed to update job. Job version is likely outdated"));
