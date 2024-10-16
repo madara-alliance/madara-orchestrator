@@ -23,7 +23,12 @@ impl Worker for SnosWorker {
         let provider = config.starknet_client();
         let block_number_provider = &provider.block_number().await?;
         let latest_block_number =
-            get_env_var_or_default("MAX_BLOCK_TO_PROCESS", &block_number_provider.to_string()).parse::<u64>()?;
+            if get_env_var_or_default("MAX_BLOCK_TO_PROCESS", &block_number_provider.to_string()) == "".to_string() {
+                // If the env var exists but is empty, we use the block number from the provider
+                block_number_provider.to_string().parse::<u64>()?
+            } else {
+                get_env_var_or_default("MAX_BLOCK_TO_PROCESS", &block_number_provider.to_string()).parse::<u64>()?
+            };
         tracing::debug!(latest_block_number = %latest_block_number, "Fetched latest block number from starknet");
 
         let latest_job_in_db = config.database().get_latest_job_by_type(JobType::SnosRun).await?;
