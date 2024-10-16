@@ -343,7 +343,7 @@ pub async fn verify_job(id: Uuid, config: Arc<Config>) -> Result<(), JobError> {
                     attempt = process_attempts + 1,
                     "Verification failed. Retrying job processing"
                 );
-                
+
                 config
                     .database()
                     .update_job(
