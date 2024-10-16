@@ -69,7 +69,11 @@ impl AnvilSetup {
         println!("📦 Deployed verifier at address: {}", verifier_client.address());
 
         let init_data = InitializeData {
-            programHash: U256::from(0u64),
+            programHash: U256::from_str_radix(
+                "1e324682835e60c4779a683b32713504aed894fd73842f7d05b18e7bd29cd70",
+                16,
+            )
+            .unwrap(),
             aggregatorProgramHash: U256::from(0u64),
             verifier: *verifier_client.address(),
             configHash: U256::from_str_radix(
