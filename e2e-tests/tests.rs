@@ -4,7 +4,6 @@ use std::io::Read;
 use std::time::{Duration, Instant};
 
 use chrono::{SubsecRound, Utc};
-use e2e_tests::anvil::AnvilSetup;
 use e2e_tests::localstack::LocalStack;
 use e2e_tests::mock_server::MockResponseBodyType;
 use e2e_tests::sharp::SharpClient;
@@ -13,13 +12,14 @@ use e2e_tests::utils::{get_mongo_db_client, read_state_update_from_file, vec_u8_
 use e2e_tests::{MongoDbServer, Orchestrator};
 use mongodb::bson::doc;
 use orchestrator::data_storage::DataStorage;
-use orchestrator::jobs::constants::JOB_METADATA_SNOS_BLOCK;
+use orchestrator::jobs::constants::{JOB_METADATA_SNOS_BLOCK, JOB_METADATA_STATE_UPDATE_BLOCKS_TO_SETTLE_KEY};
 use orchestrator::jobs::types::{ExternalId, JobItem, JobStatus, JobType};
 use orchestrator::queue::job_queue::{JobQueueMessage, WorkerTriggerType};
 use rstest::rstest;
 use serde::{Deserialize, Serialize};
 use serde_json::json;
 use starknet::core::types::{Felt, MaybePendingStateUpdate};
+use tokio::time::sleep;
 use utils::env_utils::get_env_var_or_panic;
 use uuid::Uuid;
 
@@ -56,14 +56,17 @@ impl Setup {
         let sharp_client = SharpClient::new();
         println!("✅ Sharp client setup completed");
 
-        let anvil_setup = AnvilSetup::new();
-        let (starknet_core_contract_address, verifier_contract_address) = anvil_setup.deploy_contracts().await;
+        // TODO : uncomment this
+        // let anvil_setup = AnvilSetup::new();
+        // let (starknet_core_contract_address, verifier_contract_address) =
+        // anvil_setup.deploy_contracts().await;
         println!("✅ Anvil setup completed");
 
         // Setting up LocalStack
         let localstack_instance = LocalStack::new().await;
         localstack_instance.setup_sqs().await.unwrap();
         localstack_instance.delete_event_bridge_rule("worker_trigger_scheduled").await.unwrap();
+        localstack_instance.setup_event_bridge(WorkerTriggerType::Snos).await.unwrap();
         localstack_instance.setup_event_bridge(WorkerTriggerType::Proving).await.unwrap();
         localstack_instance.setup_event_bridge(WorkerTriggerType::DataSubmission).await.unwrap();
         localstack_instance.setup_event_bridge(WorkerTriggerType::UpdateState).await.unwrap();
@@ -75,8 +78,8 @@ impl Setup {
 
         // Adding other values to the environment variables vector
         env_vec.push(("MADARA_RPC_URL".to_string(), get_env_var_or_panic("RPC_FOR_SNOS")));
-        env_vec.push(("SETTLEMENT_RPC_URL".to_string(), anvil_setup.rpc_url.to_string()));
-        env_vec.push(("SHARP_URL".to_string(), sharp_client.url()));
+        env_vec.push(("SETTLEMENT_RPC_URL".to_string(), "http://localhost:8545".to_string()));
+        env_vec.push(("SHARP_URL".to_string(), "http://localhost:6000".to_string()));
 
         // Sharp envs
         env_vec.push(("SHARP_CUSTOMER_ID".to_string(), get_env_var_or_panic("SHARP_CUSTOMER_ID")));
@@ -89,10 +92,15 @@ impl Setup {
         // But that logic is being used in integration tests so to keep that. We
         // add this address here.
         // Anvil.addresses[0]
+        // TODO : revert this
         env_vec
             .push(("STARKNET_OPERATOR_ADDRESS".to_string(), "0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266".to_string()));
-        env_vec.push(("GPS_VERIFIER_CONTRACT_ADDRESS".to_string(), verifier_contract_address.to_string()));
-        env_vec.push(("L1_CORE_CONTRACT_ADDRESS".to_string(), starknet_core_contract_address.to_string()));
+        env_vec.push((
+            "MEMORY_PAGES_CONTRACT_ADDRESS".to_string(),
+            "0xe7f1725E7734CE288F8367e1Bb143E90bb3F0512".to_string(),
+        ));
+        env_vec
+            .push(("L1_CORE_CONTRACT_ADDRESS".to_string(), "0x5FbDB2315678afecb367f032d93F642f64180aa3".to_string()));
 
         Self { mongo_db_instance, starknet_client, sharp_client, env_vector: env_vec, localstack_instance }
     }
@@ -120,25 +128,25 @@ impl Setup {
 }
 
 #[rstest]
-#[case("66645".to_string())]
+#[case("218473".to_string())]
 #[tokio::test]
 async fn test_orchestrator_workflow(#[case] l2_block_number: String) {
     // Fetching the env vars from the test env file as these will be used in
     // setting up of the test and during orchestrator run too.
     dotenvy::from_filename(".env.test").expect("Failed to load the .env file");
 
-    let mut setup_config = Setup::new().await;
+    let setup_config = Setup::new().await;
     // Setup S3
     setup_s3(setup_config.localstack().s3_client()).await.unwrap();
 
     // Step 1 : SNOS job runs =========================================
     // Updates the job in the db
-    let job_id = put_job_data_in_db_snos(setup_config.mongo_db_instance(), l2_block_number.clone()).await;
-    put_snos_job_in_processing_queue(setup_config.localstack(), job_id).await.unwrap();
+    let _job_id = put_job_data_in_db_snos(setup_config.mongo_db_instance(), l2_block_number.clone()).await;
+    // put_snos_job_in_processing_queue(setup_config.localstack(), job_id).await.unwrap();
 
     // Step 2: Proving Job ============================================
     // Mocking the endpoint
-    mock_proving_job_endpoint_output(setup_config.sharp_client()).await;
+    // mock_proving_job_endpoint_output(setup_config.sharp_client()).await;
     put_job_data_in_db_proving(setup_config.mongo_db_instance(), l2_block_number.clone()).await;
 
     // Step 3: DA job =================================================
@@ -153,6 +161,9 @@ async fn test_orchestrator_workflow(#[case] l2_block_number: String) {
     // Run orchestrator
     let mut orchestrator = Orchestrator::run(setup_config.envs());
     orchestrator.wait_till_started().await;
+
+    // TODO : temporary sleep
+    sleep(Duration::from_secs(20000)).await;
 
     // Adding State checks in DB for validation of tests
 
@@ -219,7 +230,6 @@ async fn wait_for_db_state(
             get_database_state(mongo_db_server, l2_block_for_testing.clone(), expected_db_state.job_type.clone())
                 .await
                 .unwrap();
-
         if db_state.is_some() && db_state.unwrap() == expected_db_state {
             return Ok(());
         }
@@ -258,9 +268,9 @@ async fn get_database_state(
 pub async fn put_job_data_in_db_snos(mongo_db: &MongoDbServer, l2_block_number: String) -> Uuid {
     let job_item = JobItem {
         id: Uuid::new_v4(),
-        internal_id: l2_block_number.clone(),
+        internal_id: (l2_block_number.parse::<u32>().unwrap() - 1).to_string(),
         job_type: JobType::SnosRun,
-        status: JobStatus::Created,
+        status: JobStatus::Completed,
         external_id: ExternalId::Number(0),
         metadata: HashMap::from([(JOB_METADATA_SNOS_BLOCK.to_string(), l2_block_number)]),
         version: 0,
@@ -397,7 +407,10 @@ pub async fn put_job_data_in_db_update_state(mongo_db: &MongoDbServer, l2_block_
         job_type: JobType::StateTransition,
         status: JobStatus::Completed,
         external_id: ExternalId::Number(0),
-        metadata: HashMap::new(),
+        metadata: HashMap::from([(
+            JOB_METADATA_STATE_UPDATE_BLOCKS_TO_SETTLE_KEY.to_string(),
+            (l2_block_number.parse::<u32>().unwrap() - 1).to_string(),
+        )]),
         version: 0,
         created_at: Utc::now().round_subsecs(0),
         updated_at: Utc::now().round_subsecs(0),

@@ -4,9 +4,9 @@ use std::sync::Arc;
 
 use async_trait::async_trait;
 use bytes::Bytes;
+use cairo_vm::Felt252;
 use cairo_vm::types::layout_name::LayoutName;
 use cairo_vm::vm::runners::cairo_pie::CairoPie;
-use cairo_vm::Felt252;
 use chrono::{SubsecRound, Utc};
 use color_eyre::Result;
 use prove_block::prove_block;
@@ -20,15 +20,17 @@ use super::{JobError, OtherError};
 use crate::config::Config;
 use crate::constants::{CAIRO_PIE_FILE_NAME, PROGRAM_OUTPUT_FILE_NAME, SNOS_OUTPUT_FILE_NAME};
 use crate::data_storage::DataStorage;
+use crate::jobs::Job;
 use crate::jobs::snos_job::error::FactError;
 use crate::jobs::snos_job::fact_info::get_fact_info;
 use crate::jobs::types::{JobItem, JobStatus, JobType, JobVerificationStatus};
-use crate::jobs::Job;
 
 pub mod error;
 pub mod fact_info;
 pub mod fact_node;
 pub mod fact_topology;
+
+pub const SNOS_FAILED_JOB_TAG: &str = "failed_snos_job";
 
 #[derive(Error, Debug, PartialEq)]
 pub enum SnosError {
@@ -69,17 +71,16 @@ pub struct SnosJob;
 
 #[async_trait]
 impl Job for SnosJob {
-    #[tracing::instrument(fields(category = "snos"), skip(self, _config, metadata), ret, err)]
+    #[tracing::instrument(fields(category = "snos"), skip(self, _config, metadata))]
     async fn create_job(
         &self,
         _config: Arc<Config>,
         internal_id: String,
         metadata: HashMap<String, String>,
     ) -> Result<JobItem, JobError> {
-        tracing::info!(log_type = "starting", category = "snos", function_type = "create_job",   block_no = %internal_id, "SNOS job creation started.");
         let mut metadata = metadata;
         metadata.insert(JOB_METADATA_SNOS_BLOCK.to_string(), internal_id.clone());
-        let job_item = JobItem {
+        Ok(JobItem {
             id: Uuid::new_v4(),
             internal_id: internal_id.clone(),
             job_type: JobType::SnosRun,
@@ -89,48 +90,41 @@ impl Job for SnosJob {
             version: 0,
             created_at: Utc::now().round_subsecs(0),
             updated_at: Utc::now().round_subsecs(0),
-        };
-        tracing::info!(log_type = "completed", category = "snos", function_type = "create_job",  block_no = %internal_id, "SNOS job creation completed.");
-        Ok(job_item)
+        })
     }
 
-    #[tracing::instrument(fields(category = "snos"), skip(self, config), ret, err)]
+    #[tracing::instrument(fields(category = "snos"), skip(self, config))]
     async fn process_job(&self, config: Arc<Config>, job: &mut JobItem) -> Result<String, JobError> {
-        let internal_id = job.internal_id.clone();
-        tracing::info!(log_type = "starting", category = "snos", function_type = "process_job", job_id = ?job.id,  block_no = %internal_id, "SNOS job processing started.");
         let block_number = self.get_block_number_from_metadata(job)?;
-        tracing::debug!(job_id = %job.internal_id, block_number = %block_number, "Retrieved block number from metadata");
 
         let snos_url = config.snos_url().to_string();
         let snos_url = snos_url.trim_end_matches('/');
-        tracing::debug!(job_id = %job.internal_id, "Calling prove_block function");
-        let (cairo_pie, snos_output) =
-            prove_block(block_number, snos_url, LayoutName::all_cairo, false).await.map_err(|e| {
-                tracing::error!(job_id = %job.internal_id, error = %e, "SNOS execution failed");
-                SnosError::SnosExecutionError { internal_id: job.internal_id.clone(), message: e.to_string() }
-            })?;
-        tracing::debug!(job_id = %job.internal_id, "prove_block function completed successfully");
+        let (cairo_pie, snos_output) = match prove_block(block_number, snos_url, LayoutName::all_cairo).await {
+            Ok(res) => (res.0, res.1),
+            Err(_) => {
+                // inserting failed snos job tag
+                job.metadata.insert(SNOS_FAILED_JOB_TAG.to_string(), "1".into());
+                return Ok(block_number.to_string());
+            }
+        };
 
         let fact_info = get_fact_info(&cairo_pie, None)?;
         let program_output = fact_info.program_output;
-        tracing::debug!(job_id = %job.internal_id, "Fact info calculated successfully");
 
-        tracing::debug!(job_id = %job.internal_id, "Storing SNOS outputs");
+        // snos output = output returned by SNOS
+        // program output = output written on the output segment
         self.store(config.storage(), &job.internal_id, block_number, cairo_pie, snos_output, program_output).await?;
 
+        // store the fact
         job.metadata.insert(JOB_METADATA_SNOS_FACT.into(), fact_info.fact.to_string());
-        tracing::info!(log_type = "completed", category = "snos", function_type = "process_job", job_id = ?job.id,  block_no = %internal_id, "SNOS job processed successfully.");
 
         Ok(block_number.to_string())
     }
 
-    #[tracing::instrument(fields(category = "snos"), skip(self, _config), ret, err)]
-    async fn verify_job(&self, _config: Arc<Config>, job: &mut JobItem) -> Result<JobVerificationStatus, JobError> {
-        let internal_id = job.internal_id.clone();
-        tracing::info!(log_type = "starting", category = "snos", function_type = "verify_job", job_id = %job.id,  block_no = %internal_id, "SNOS job verification started.");
+    #[tracing::instrument(fields(category = "snos"), skip(self, _config))]
+    async fn verify_job(&self, _config: Arc<Config>, _job: &mut JobItem) -> Result<JobVerificationStatus, JobError> {
         // No need for verification as of now. If we later on decide to outsource SNOS run
         // to another service, verify_job can be used to poll on the status of the job
-        tracing::info!(log_type = "completed", category = "snos", function_type = "verify_job", job_id = %job.id,  block_no = %internal_id, "SNOS job verification completed.");
         Ok(JobVerificationStatus::Verified)
     }
 

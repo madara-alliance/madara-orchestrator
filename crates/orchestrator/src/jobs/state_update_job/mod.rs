@@ -4,11 +4,18 @@ use std::collections::HashMap;
 use std::sync::Arc;
 
 use ::utils::collections::{has_dup, is_sorted};
+use ::utils::settings::Settings;
+use ::utils::settings::env::EnvSettingsProvider;
 use async_trait::async_trait;
 use cairo_vm::Felt252;
 use chrono::{SubsecRound, Utc};
 use color_eyre::eyre::eyre;
+use serde::Deserialize;
+use serde_json::json;
 use settlement_client_interface::SettlementVerificationStatus;
+use starknet::core::types::BlockId;
+use starknet::core::types::MaybePendingStateUpdate::{PendingUpdate, Update};
+use starknet::providers::Provider;
 use starknet_os::io::output::StarknetOsOutput;
 use thiserror::Error;
 use uuid::Uuid;
@@ -20,10 +27,11 @@ use super::constants::{
 use super::{JobError, OtherError};
 use crate::config::Config;
 use crate::constants::{PROGRAM_OUTPUT_FILE_NAME, SNOS_OUTPUT_FILE_NAME};
+use crate::jobs::Job;
 use crate::jobs::constants::JOB_METADATA_STATE_UPDATE_BLOCKS_TO_SETTLE_KEY;
+use crate::jobs::snos_job::SNOS_FAILED_JOB_TAG;
 use crate::jobs::state_update_job::utils::fetch_blob_data_for_block;
 use crate::jobs::types::{JobItem, JobStatus, JobType, JobVerificationStatus};
-use crate::jobs::Job;
 
 #[derive(Error, Debug, PartialEq)]
 pub enum StateUpdateError {
@@ -70,27 +78,31 @@ pub enum StateUpdateError {
     Other(#[from] OtherError),
 }
 
+#[derive(Deserialize)]
+pub struct UpdateStateApiResponse {
+    pub msg: String,
+    pub txn_hash: String,
+}
+
 pub struct StateUpdateJob;
 #[async_trait]
 impl Job for StateUpdateJob {
-    #[tracing::instrument(fields(category = "state_update"), skip(self, _config, metadata), ret, err)]
+    #[tracing::instrument(fields(category = "state_update"), skip(self, _config, metadata))]
     async fn create_job(
         &self,
         _config: Arc<Config>,
         internal_id: String,
         metadata: HashMap<String, String>,
     ) -> Result<JobItem, JobError> {
-        tracing::info!(log_type = "starting", category = "state_update", function_type = "create_job",  block_no = %internal_id, "State update job creation started.");
         // Inserting the metadata (If it doesn't exist)
         let mut metadata = metadata.clone();
         if !metadata.contains_key(JOB_PROCESS_ATTEMPT_METADATA_KEY) {
-            tracing::debug!(job_id = %internal_id, "Inserting initial process attempt metadata");
             metadata.insert(JOB_PROCESS_ATTEMPT_METADATA_KEY.to_string(), "0".to_string());
         }
 
-        let job_item = JobItem {
+        Ok(JobItem {
             id: Uuid::new_v4(),
-            internal_id: internal_id.clone(),
+            internal_id,
             job_type: JobType::StateTransition,
             status: JobStatus::Created,
             external_id: String::new().into(),
@@ -100,15 +112,11 @@ impl Job for StateUpdateJob {
             version: 0,
             created_at: Utc::now().round_subsecs(0),
             updated_at: Utc::now().round_subsecs(0),
-        };
-        tracing::info!(log_type = "completed", category = "state_update", function_type = "create_job",  block_no = %internal_id, "State update job created.");
-        Ok(job_item)
+        })
     }
 
-    #[tracing::instrument(fields(category = "state_update"), skip(self, config), ret, err)]
+    #[tracing::instrument(fields(category = "state_update"), skip(self, config))]
     async fn process_job(&self, config: Arc<Config>, job: &mut JobItem) -> Result<String, JobError> {
-        let internal_id = job.internal_id.clone();
-        tracing::info!(log_type = "starting", category = "state_update", function_type = "process_job", job_id = %job.id,  block_no = %internal_id, "State update job processing started.");
         let attempt_no = job
             .metadata
             .get(JOB_PROCESS_ATTEMPT_METADATA_KEY)
@@ -120,33 +128,54 @@ impl Job for StateUpdateJob {
         let mut block_numbers = self.get_block_numbers_from_metadata(job)?;
         self.validate_block_numbers(config.clone(), &block_numbers).await?;
 
+        // If we had a block state update failing last run, we recover from this block
         if let Some(last_failed_block) = job.metadata.get(JOB_METADATA_STATE_UPDATE_LAST_FAILED_BLOCK_NO) {
             let last_failed_block =
                 last_failed_block.parse().map_err(|_| StateUpdateError::LastFailedBlockNonPositive)?;
+
             block_numbers = block_numbers.into_iter().filter(|&block| block >= last_failed_block).collect::<Vec<u64>>();
         }
 
         let mut nonce = config.settlement_client().get_nonce().await.map_err(|e| JobError::Other(OtherError(e)))?;
+
         let mut sent_tx_hashes: Vec<String> = Vec::with_capacity(block_numbers.len());
         for block_no in block_numbers.iter() {
-            tracing::debug!(job_id = %job.internal_id, block_no = %block_no, "Processing block");
-            let snos = self.fetch_snos_for_block(*block_no, config.clone()).await;
-            let tx_hash = self.update_state_for_block(config.clone(), *block_no, snos, nonce).await.map_err(|e| {
-                tracing::error!(job_id = %job.internal_id, block_no = %block_no, error = %e, "Error updating state for block");
-                job.metadata.insert(JOB_METADATA_STATE_UPDATE_LAST_FAILED_BLOCK_NO.into(), block_no.to_string());
-                self.insert_attempts_into_metadata(job, &attempt_no, &sent_tx_hashes);
-                StateUpdateError::Other(OtherError(eyre!(
-                    "Block #{block_no} - Error occurred during the state update: {e}"
-                )))
-            })?;
-            sent_tx_hashes.push(tx_hash);
+            let job_item = config
+                .database()
+                .get_job_by_internal_id_and_type(&block_no.to_string(), &JobType::DataSubmission)
+                .await
+                .unwrap();
+
+            // TODO : remove unwrap()
+            // If block has failed snos job then just call to the service and update the state.
+            let txn_hash = if job_item.unwrap().metadata.contains_key(SNOS_FAILED_JOB_TAG) {
+                let txn_hash = Self::call_to_service_snos_failure(config.clone(), block_no.clone()).await.unwrap();
+                txn_hash
+            } else {
+                let snos = self.fetch_snos_for_block(*block_no, config.clone()).await;
+                let txn_hash = self
+                    .update_state_for_block(config.clone(), *block_no, snos, nonce)
+                    .await
+                    .map_err(|e| {
+                        job.metadata
+                            .insert(JOB_METADATA_STATE_UPDATE_LAST_FAILED_BLOCK_NO.into(), block_no.to_string());
+                        self.insert_attempts_into_metadata(job, &attempt_no, &sent_tx_hashes);
+                        StateUpdateError::Other(OtherError(eyre!(
+                            "Block #{block_no} - Error occurred during the state update: {e}"
+                        )));
+                    })
+                    .unwrap();
+                txn_hash
+            };
+
+            sent_tx_hashes.push(txn_hash);
             nonce += 1;
         }
 
         self.insert_attempts_into_metadata(job, &attempt_no, &sent_tx_hashes);
 
+        // external_id returned corresponds to the last block number settled
         let val = block_numbers.last().ok_or_else(|| StateUpdateError::LastNumberReturnedError)?;
-        tracing::info!(log_type = "completed", category = "state_update", function_type = "process_job", job_id = %job.id,  block_no = %internal_id, last_settled_block = %val, "State update job processed successfully.");
 
         Ok(val.to_string())
     }
@@ -156,48 +185,37 @@ impl Job for StateUpdateJob {
     /// 1. the last settlement tx hash is successful,
     /// 2. the expected last settled block from our configuration is indeed the one found in the
     ///    provider.
-    #[tracing::instrument(fields(category = "state_update"), skip(self, config), ret, err)]
+    #[tracing::instrument(fields(category = "state_update"), skip(self, config))]
     async fn verify_job(&self, config: Arc<Config>, job: &mut JobItem) -> Result<JobVerificationStatus, JobError> {
-        let internal_id = job.internal_id.clone();
-        tracing::info!(log_type = "starting", category = "state_update", function_type = "verify_job", job_id = %job.id,  block_no = %internal_id, "State update job verification started.");
         let attempt_no = job
             .metadata
             .get(JOB_PROCESS_ATTEMPT_METADATA_KEY)
             .ok_or_else(|| StateUpdateError::AttemptNumberNotFound)?;
-        tracing::debug!(job_id = %job.internal_id, attempt_no = %attempt_no, "Retrieved attempt number");
 
         // We are doing attempt_no - 1 because the attempt number is increased in the
         // global process job function and the transaction hash is stored with attempt
         // number : 0
         let metadata_tx_hashes = job
             .metadata
-            .get(&format!(
-                "{}{}",
-                JOB_METADATA_STATE_UPDATE_ATTEMPT_PREFIX,
-                attempt_no.parse::<u32>().map_err(|e| JobError::Other(OtherError(eyre!(e))))? - 1
-            ))
+            .get(&format!("{}{}", JOB_METADATA_STATE_UPDATE_ATTEMPT_PREFIX, attempt_no.parse::<u32>().unwrap() - 1))
             .ok_or_else(|| StateUpdateError::TxnHashMetadataNotFound)?
             .clone()
             .replace(' ', "");
 
         let tx_hashes: Vec<&str> = metadata_tx_hashes.split(',').collect();
         let block_numbers = self.get_block_numbers_from_metadata(job)?;
-        tracing::debug!(job_id = %job.internal_id, "Retrieved block numbers from metadata");
         let settlement_client = config.settlement_client();
 
         for (tx_hash, block_no) in tx_hashes.iter().zip(block_numbers.iter()) {
-            tracing::trace!(job_id = %job.internal_id, tx_hash = %tx_hash, block_no = %block_no, "Verifying transaction inclusion");
             let tx_inclusion_status =
                 settlement_client.verify_tx_inclusion(tx_hash).await.map_err(|e| JobError::Other(OtherError(e)))?;
             match tx_inclusion_status {
                 SettlementVerificationStatus::Rejected(_) => {
-                    tracing::warn!(job_id = %job.internal_id, tx_hash = %tx_hash, block_no = %block_no, "Transaction rejected");
                     job.metadata.insert(JOB_METADATA_STATE_UPDATE_LAST_FAILED_BLOCK_NO.into(), block_no.to_string());
                     return Ok(tx_inclusion_status.into());
                 }
                 // If the tx is still pending, we wait for it to be finalized and check again the status.
                 SettlementVerificationStatus::Pending => {
-                    tracing::debug!(job_id = %job.internal_id, tx_hash = %tx_hash, "Transaction pending, waiting for finality");
                     settlement_client
                         .wait_for_tx_finality(tx_hash)
                         .await
@@ -208,23 +226,17 @@ impl Job for StateUpdateJob {
                         .map_err(|e| JobError::Other(OtherError(e)))?;
                     match new_status {
                         SettlementVerificationStatus::Rejected(_) => {
-                            tracing::warn!(job_id = %job.internal_id, tx_hash = %tx_hash, block_no = %block_no, "Transaction rejected after finality");
                             job.metadata
                                 .insert(JOB_METADATA_STATE_UPDATE_LAST_FAILED_BLOCK_NO.into(), block_no.to_string());
                             return Ok(new_status.into());
                         }
                         SettlementVerificationStatus::Pending => {
-                            tracing::error!(job_id = %job.internal_id, tx_hash = %tx_hash, "Transaction still pending after finality check");
                             Err(StateUpdateError::TxnShouldNotBePending { tx_hash: tx_hash.to_string() })?
                         }
-                        SettlementVerificationStatus::Verified => {
-                            tracing::debug!(job_id = %job.internal_id, tx_hash = %tx_hash, "Transaction verified after finality");
-                        }
+                        SettlementVerificationStatus::Verified => {}
                     }
                 }
-                SettlementVerificationStatus::Verified => {
-                    tracing::debug!(job_id = %job.internal_id, tx_hash = %tx_hash, "Transaction verified");
-                }
+                SettlementVerificationStatus::Verified => {}
             }
         }
         // verify that the last settled block is indeed the one we expect to be
@@ -233,10 +245,8 @@ impl Job for StateUpdateJob {
         let out_last_block_number =
             settlement_client.get_last_settled_block().await.map_err(|e| JobError::Other(OtherError(e)))?;
         let block_status = if out_last_block_number == *expected_last_block_number {
-            tracing::info!(log_type = "completed", category = "state_update", function_type = "verify_job", job_id = %job.id,  block_no = %internal_id, last_settled_block = %out_last_block_number, "Last settled block verified.");
             SettlementVerificationStatus::Verified
         } else {
-            tracing::warn!(log_type = "failed/rejected", category = "state_update", function_type = "verify_job", job_id = %job.id,  block_no = %internal_id, expected = %expected_last_block_number, actual = %out_last_block_number, "Last settled block mismatch.");
             SettlementVerificationStatus::Rejected(format!(
                 "Last settle bock expected was {} but found {}",
                 expected_last_block_number, out_last_block_number
@@ -354,5 +364,33 @@ impl StateUpdateJob {
     fn insert_attempts_into_metadata(&self, job: &mut JobItem, attempt_no: &str, tx_hashes: &[String]) {
         let new_attempt_metadata_key = format!("{}{}", JOB_METADATA_STATE_UPDATE_ATTEMPT_PREFIX, attempt_no);
         job.metadata.insert(new_attempt_metadata_key, tx_hashes.join(","));
+    }
+
+    async fn call_to_service_snos_failure(config: Arc<Config>, block_number: u64) -> color_eyre::Result<String> {
+        // getting the block updates from rpc
+        let starknet_client = config.starknet_client();
+        let block_state_update = starknet_client.get_state_update(BlockId::Number(block_number)).await?;
+        let settings_provider = EnvSettingsProvider {};
+
+        match block_state_update {
+            Update(val) => {
+                // calling to service
+                let client = reqwest::Client::new();
+                let body = json!({
+                    "block_no": block_number,
+                    "block_hash": val.block_hash,
+                    "global_root" : val.new_root
+                });
+
+                let sharp_url = settings_provider.get_settings_or_panic("SHARP_URL");
+                let response = client.post(sharp_url + "/txn/update-state").json(&body).send().await?;
+                let response_json: UpdateStateApiResponse = response.json().await?;
+
+                Ok(response_json.txn_hash)
+            }
+            PendingUpdate(_) => {
+                panic!("State update not found for block : {:?}", block_number);
+            }
+        }
     }
 }

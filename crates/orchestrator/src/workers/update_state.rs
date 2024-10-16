@@ -17,51 +17,71 @@ impl Worker for UpdateStateWorker {
     /// 2. Fetch all successful proving jobs covering blocks after the last state update
     /// 3. Create state updates for all the blocks that don't have a state update job
     async fn run_worker(&self, config: Arc<Config>) -> Result<(), Box<dyn Error>> {
-        tracing::info!(log_type = "starting", category = "UpdateStateWorker", "UpdateStateWorker started.");
-
         let latest_successful_job =
             config.database().get_latest_job_by_type_and_status(JobType::StateTransition, JobStatus::Completed).await?;
 
         match latest_successful_job {
             Some(job) => {
-                tracing::debug!(job_id = %job.id, "Found latest successful state transition job");
                 let successful_da_jobs_without_successor = config
                     .database()
                     .get_jobs_without_successor(JobType::DataSubmission, JobStatus::Completed, JobType::StateTransition)
                     .await?;
 
                 if successful_da_jobs_without_successor.is_empty() {
-                    tracing::debug!("No new data submission jobs to process");
                     return Ok(());
                 }
 
-                tracing::debug!(
-                    count = successful_da_jobs_without_successor.len(),
-                    "Found data submission jobs without state transition"
-                );
+                let mut blocks_processed_in_last_job: Vec<u64> = job
+                    .metadata
+                    .get(JOB_METADATA_STATE_UPDATE_BLOCKS_TO_SETTLE_KEY)
+                    .unwrap()
+                    .split(',')
+                    .filter_map(|s| s.parse().ok())
+                    .collect();
+                blocks_processed_in_last_job.sort();
+                let last_block_processed_in_last_job =
+                    blocks_processed_in_last_job[blocks_processed_in_last_job.len() - 1];
 
-                let mut metadata = job.metadata;
-                let blocks_to_settle =
-                    Self::parse_job_items_into_block_number_list(successful_da_jobs_without_successor.clone());
-                metadata.insert(JOB_METADATA_STATE_UPDATE_BLOCKS_TO_SETTLE_KEY.to_string(), blocks_to_settle.clone());
+                let mut blocks_to_process = successful_da_jobs_without_successor
+                    .iter()
+                    .map(|j| j.internal_id.clone().parse::<u64>().unwrap())
+                    .collect::<Vec<u64>>();
+                blocks_to_process.sort();
 
-                tracing::trace!(blocks_to_settle = %blocks_to_settle, "Prepared blocks to settle for state transition");
-
-                // Creating a single job for all the pending blocks.
-                let new_job_id = successful_da_jobs_without_successor[0].internal_id.clone();
-                match create_job(JobType::StateTransition, new_job_id.clone(), metadata, config).await {
-                    Ok(_) => tracing::info!(job_id = %new_job_id, "Successfully created new state transition job"),
-                    Err(e) => {
-                        tracing::error!(job_id = %new_job_id, error = %e, "Failed to create new state transition job");
-                        return Err(e.into());
+                let mut blocks_to_process_final = Vec::new();
+                for block in blocks_to_process {
+                    if !blocks_processed_in_last_job.contains(&block) {
+                        blocks_to_process_final.push(block);
                     }
                 }
 
-                tracing::info!(log_type = "completed", category = "UpdateStateWorker", "UpdateStateWorker completed.");
+                if blocks_to_process_final.is_empty() {
+                    return Ok(());
+                }
+
+                if blocks_to_process_final[0] != last_block_processed_in_last_job + 1 {
+                    log::warn!("⚠️ Can't create job because of inconsistent blocks.");
+                    return Ok(());
+                }
+
+                let mut metadata = job.metadata;
+                metadata.insert(
+                    JOB_METADATA_STATE_UPDATE_BLOCKS_TO_SETTLE_KEY.to_string(),
+                    blocks_to_process_final.iter().map(|ele| ele.to_string()).collect::<Vec<String>>().join(","),
+                );
+
+                // Creating a single job for all the pending blocks.
+                create_job(
+                    JobType::StateTransition,
+                    successful_da_jobs_without_successor[0].internal_id.clone(),
+                    metadata,
+                    config,
+                )
+                .await?;
+
                 Ok(())
             }
             None => {
-                tracing::warn!("No previous state transition job found, fetching latest data submission job");
                 // Getting latest DA job in case no latest state update job is present
                 let latest_successful_jobs_without_successor = config
                     .database()
@@ -69,29 +89,20 @@ impl Worker for UpdateStateWorker {
                     .await?;
 
                 if latest_successful_jobs_without_successor.is_empty() {
-                    tracing::debug!("No data submission jobs found to process");
                     return Ok(());
                 }
 
                 let job = latest_successful_jobs_without_successor[0].clone();
                 let mut metadata = job.metadata;
 
-                let blocks_to_settle =
-                    Self::parse_job_items_into_block_number_list(latest_successful_jobs_without_successor.clone());
-                metadata.insert(JOB_METADATA_STATE_UPDATE_BLOCKS_TO_SETTLE_KEY.to_string(), blocks_to_settle.clone());
+                metadata.insert(
+                    JOB_METADATA_STATE_UPDATE_BLOCKS_TO_SETTLE_KEY.to_string(),
+                    Self::parse_job_items_into_block_number_list(latest_successful_jobs_without_successor.clone()),
+                );
 
-                tracing::trace!(job_id = %job.id, blocks_to_settle = %blocks_to_settle, "Prepared blocks to settle for initial state transition");
+                create_job(JobType::StateTransition, job.internal_id, metadata, config).await?;
 
-                match create_job(JobType::StateTransition, job.internal_id.clone(), metadata, config).await {
-                    Ok(_) => tracing::info!(job_id = %job.id, "Successfully created initial state transition job"),
-                    Err(e) => {
-                        tracing::error!(job_id = %job.id, error = %e, "Failed to create initial state transition job");
-                        return Err(e.into());
-                    }
-                }
-
-                tracing::info!(log_type = "completed", category = "UpdateStateWorker", "UpdateStateWorker completed.");
-                Ok(())
+                return Ok(());
             }
         }
     }
