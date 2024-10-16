@@ -99,7 +99,7 @@ impl Job for SnosJob {
 
         let snos_url = config.snos_url().to_string();
         let snos_url = snos_url.trim_end_matches('/');
-        let (cairo_pie, snos_output) = match prove_block(block_number, snos_url, LayoutName::all_cairo).await {
+        let (cairo_pie, snos_output) = match prove_block(block_number, snos_url, LayoutName::all_cairo, false).await {
             Ok(res) => (res.0, res.1),
             Err(_) => {
                 // inserting failed snos job tag
