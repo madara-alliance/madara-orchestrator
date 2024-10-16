@@ -124,16 +124,16 @@ async fn create_job_job_handler_is_not_implemented_panics() {
     let ctx = mock_factory::get_job_handler_context();
     ctx.expect().times(1).returning(|_| panic!("Job type not implemented yet."));
 
-    assert!(
-        create_job(JobType::ProofCreation, "0".to_string(), HashMap::new(), services.config.clone()).await.is_err()
-    );
+    let job_type = JobType::ProofCreation;
+
+    assert!(create_job(job_type.clone(), "0".to_string(), HashMap::new(), services.config.clone()).await.is_err());
 
     // Waiting for 5 secs for message to be passed into the queue
     sleep(Duration::from_secs(5)).await;
 
     // Queue checks.
     let consumed_messages =
-        services.config.queue().consume_message_from_queue(PROVING_JOB_PROCESSING_QUEUE.to_string()).await.unwrap_err();
+        services.config.queue().consume_message_from_queue(job_type.process_queue_name()).await.unwrap_err();
     assert_matches!(consumed_messages, QueueError::NoData);
 }
 
@@ -219,7 +219,7 @@ async fn process_job_with_job_exists_in_db_with_invalid_job_processing_status_er
 
     // Queue checks.
     let consumed_messages =
-        services.config.queue().consume_message_from_queue(SNOS_JOB_VERIFICATION_QUEUE.to_string()).await.unwrap_err();
+        services.config.queue().consume_message_from_queue(job_item.job_type.verify_queue_name()).await.unwrap_err();
     assert_matches!(consumed_messages, QueueError::NoData);
 }
 
@@ -245,7 +245,7 @@ async fn process_job_job_does_not_exists_in_db_works() {
 
     // Queue checks.
     let consumed_messages =
-        services.config.queue().consume_message_from_queue(SNOS_JOB_VERIFICATION_QUEUE.to_string()).await.unwrap_err();
+        services.config.queue().consume_message_from_queue(job_item.job_type.verify_queue_name()).await.unwrap_err();
     assert_matches!(consumed_messages, QueueError::NoData);
 }
 
