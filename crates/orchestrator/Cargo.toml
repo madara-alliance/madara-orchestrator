@@ -16,6 +16,7 @@ alloy = { workspace = true }
 assert_matches = "1.5.0"
 async-std = "1.12.0"
 async-trait = { workspace = true }
+atlantic-service = { workspace = true }
 aws-config = { workspace = true, features = ["behavior-version-latest"] }
 aws-credential-types = { version = "1.2.1", features = [
   "hardcoded-credentials",

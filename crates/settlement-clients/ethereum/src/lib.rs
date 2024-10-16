@@ -214,7 +214,7 @@ impl SettlementClient for EthereumSettlementClient {
             chain_id,
             nonce,
             gas_limit: 30_000_000,
-            max_fee_per_gas: eip1559_est.max_fee_per_gas.to_string().parse()?,
+            max_fee_per_gas: (eip1559_est.max_fee_per_gas * 10).to_string().parse()?,
             max_priority_fee_per_gas,
             to: self.core_contract_client.contract_address(),
             value: U256::from(0),
