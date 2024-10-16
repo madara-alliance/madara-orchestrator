@@ -76,7 +76,7 @@ async fn test_process_job_works(
 
     // Adding expectations for each block number to be called by settlement client.
     for block in block_numbers.iter().skip(processing_start_index as usize) {
-        let job_item = build_job_item(JobType::DataSubmission, JobStatus::Completed, *block).await;
+        let job_item = build_job_item(JobType::DataSubmission, JobStatus::Completed, *block);
         db.expect_get_job_by_internal_id_and_type()
             .with(eq(block.to_string()), eq(&JobType::DataSubmission))
             .returning(move |_, _| Ok(Some(job_item.clone())));
@@ -204,8 +204,7 @@ async fn process_job_works_unit_test() {
     // TODO: have tests for update_state_calldata, only kzg for now
     let block_numbers = ["651053", "651054", "651055", "651056"];
     for block_no in block_numbers {
-        let job_item =
-            build_job_item(JobType::DataSubmission, JobStatus::Completed, block_no.parse::<u64>().unwrap()).await;
+        let job_item = build_job_item(JobType::DataSubmission, JobStatus::Completed, block_no.parse::<u64>().unwrap());
 
         db.expect_get_job_by_internal_id_and_type()
             .with(eq(block_no.to_string()), eq(&JobType::DataSubmission))

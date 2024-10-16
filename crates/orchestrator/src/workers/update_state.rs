@@ -1,5 +1,4 @@
 use std::collections::HashMap;
-use std::error::Error;
 use std::sync::Arc;
 
 use async_trait::async_trait;
@@ -14,7 +13,7 @@ pub struct UpdateStateWorker;
 
 #[async_trait]
 impl Worker for UpdateStateWorker {
-    async fn run_worker(&self, config: Arc<Config>) -> Result<(), Box<dyn Error>> {
+    async fn run_worker(&self, config: Arc<Config>) -> color_eyre::Result<()> {
         tracing::trace!(log_type = "starting", category = "UpdateStateWorker", "UpdateStateWorker started.");
 
         let latest_job = config.database().get_latest_job_by_type(JobType::StateTransition).await?;

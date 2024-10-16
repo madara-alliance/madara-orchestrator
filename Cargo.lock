@@ -6976,7 +6976,6 @@ dependencies = [
  "opentelemetry_sdk",
  "prove_block",
  "prover-client-interface",
- "reqwest 0.12.7",
  "rstest 0.22.0",
  "serde",
  "serde_json",

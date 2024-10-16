@@ -30,8 +30,6 @@ pub mod fact_info;
 pub mod fact_node;
 pub mod fact_topology;
 
-pub const SNOS_FAILED_JOB_TAG: &str = "failed_snos_job";
-
 #[derive(Error, Debug, PartialEq)]
 pub enum SnosError {
     #[error("Block numbers to run must be specified (snos job #{internal_id:?})")]

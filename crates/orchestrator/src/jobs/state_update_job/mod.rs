@@ -8,7 +8,6 @@ use async_trait::async_trait;
 use cairo_vm::Felt252;
 use chrono::{SubsecRound, Utc};
 use color_eyre::eyre::eyre;
-use serde::Deserialize;
 use settlement_client_interface::SettlementVerificationStatus;
 use starknet_os::io::output::StarknetOsOutput;
 use thiserror::Error;
@@ -69,12 +68,6 @@ pub enum StateUpdateError {
 
     #[error("Other error: {0}")]
     Other(#[from] OtherError),
-}
-
-#[derive(Deserialize)]
-pub struct UpdateStateApiResponse {
-    pub msg: String,
-    pub txn_hash: String,
 }
 
 pub struct StateUpdateJob;
@@ -143,6 +136,7 @@ impl Job for StateUpdateJob {
                 .update_state_for_block(config.clone(), *block_no, snos, nonce)
                 .await
                 .map_err(|e| {
+                    tracing::error!(job_id = %job.internal_id, block_no = %block_no, error = %e, "Error updating state for block");
                     job.metadata.insert(JOB_METADATA_STATE_UPDATE_LAST_FAILED_BLOCK_NO.into(), block_no.to_string());
                     self.insert_attempts_into_metadata(job, &attempt_no, &sent_tx_hashes);
                     OtherError(eyre!("Block #{block_no} - Error occurred during the state update: {e}"));

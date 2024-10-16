@@ -631,7 +631,7 @@ async fn handle_job_failure_with_failed_job_status_works(#[case] job_type: JobTy
     let internal_id = 1;
 
     // create a job, with already available "last_job_status"
-    let mut job_expected = build_job_item(job_type.clone(), JobStatus::Failed, internal_id).await;
+    let mut job_expected = build_job_item(job_type.clone(), JobStatus::Failed, internal_id);
     let mut job_metadata = job_expected.metadata.clone();
     job_metadata.insert("last_job_status".to_string(), job_status.to_string());
     job_expected.metadata.clone_from(&job_metadata);
@@ -665,7 +665,7 @@ async fn handle_job_failure_with_correct_job_status_works(#[case] job_type: JobT
     let internal_id = 1;
 
     // create a job
-    let job = build_job_item(job_type.clone(), job_status.clone(), internal_id).await;
+    let job = build_job_item(job_type.clone(), job_status.clone(), internal_id);
     let job_id = job.id;
 
     // feeding the job to DB
@@ -707,7 +707,7 @@ async fn handle_job_failure_job_status_completed_works(#[case] job_type: JobType
     let internal_id = 1;
 
     // create a job
-    let job_expected = build_job_item(job_type.clone(), job_status.clone(), internal_id).await;
+    let job_expected = build_job_item(job_type.clone(), job_status.clone(), internal_id);
     let job_id = job_expected.id;
 
     // feeding the job to DB
