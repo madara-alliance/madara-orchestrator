@@ -353,32 +353,6 @@ impl SettlementClient for EthereumSettlementClient {
     }
 }
 
-#[cfg(not(feature = "testing"))]
-impl EthereumSettlementClient {
-    async fn wait_for_transaction_confirmation(
-        provider: Arc<RootProvider<Http<Client>>>,
-        tx_hash: B256,
-        max_attempts: u32,
-        delay: Duration,
-        required_confirmations: u64,
-    ) -> Result<Option<u64>> {
-        for _ in 0..max_attempts {
-            if let Some(receipt) = provider.get_transaction_receipt(tx_hash).await? {
-                if let Some(block_number) = receipt.block_number {
-                    let latest_block = provider.get_block_number().await?;
-                    let confirmations = latest_block.saturating_sub(block_number);
-                    if confirmations >= required_confirmations {
-                        return Ok(Some(block_number));
-                    }
-                }
-            }
-            sleep(delay).await;
-        }
-
-        Ok(None)
-    }
-}
-
 #[cfg(feature = "testing")]
 mod test_config {
     use alloy::network::TransactionBuilder;
