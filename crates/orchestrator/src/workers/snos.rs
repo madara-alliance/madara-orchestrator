@@ -51,7 +51,7 @@ impl Worker for SnosWorker {
 }
 
 fn get_env_var_or_default_block_number(env_var_name: &str, default_block_number: &str) -> color_eyre::Result<u64> {
-    if get_env_var_or_default(env_var_name, default_block_number) == "".to_string() {
+    if get_env_var_or_default(env_var_name, default_block_number) == *"" {
         Ok(default_block_number.to_string().parse::<u64>()?)
     } else {
         Ok(get_env_var_or_default(env_var_name, default_block_number).parse::<u64>()?)
