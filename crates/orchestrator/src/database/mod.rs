@@ -50,6 +50,7 @@ pub trait Database: Send + Sync {
 
     // TODO: can be extendible to support multiple status.
     async fn get_jobs_by_statuses(&self, status: Vec<JobStatus>, limit: Option<i64>) -> Result<Vec<JobItem>>;
+    async fn get_jobs_by_type(&self, job_type: JobType) -> Result<Vec<JobItem>>;
 }
 
 pub trait DatabaseConfig {
