@@ -491,12 +491,8 @@ async fn verify_job_with_rejected_status_works() {
     sleep(Duration::from_secs(5)).await;
 
     // Queue checks.
-    let consumed_messages_processing_queue = services
-        .config
-        .queue()
-        .consume_message_from_queue(DATA_SUBMISSION_JOB_PROCESSING_QUEUE.to_string())
-        .await
-        .unwrap_err();
+    let consumed_messages_processing_queue =
+        services.config.queue().consume_message_from_queue(job_item.job_type.process_queue_name()).await.unwrap_err();
     assert_matches!(consumed_messages_processing_queue, QueueError::NoData);
 }
 
@@ -541,12 +537,8 @@ async fn verify_job_with_pending_status_adds_to_queue_works() {
     sleep(Duration::from_secs(5)).await;
 
     // Queue checks
-    let consumed_messages = services
-        .config
-        .queue()
-        .consume_message_from_queue(DATA_SUBMISSION_JOB_VERIFICATION_QUEUE.to_string())
-        .await
-        .unwrap();
+    let consumed_messages =
+        services.config.queue().consume_message_from_queue(job_item.job_type.verify_queue_name()).await.unwrap();
     let consumed_message_payload: MessagePayloadType = consumed_messages.payload_serde_json().unwrap().unwrap();
     assert_eq!(consumed_message_payload.id, job_item.id);
 }
@@ -597,12 +589,8 @@ async fn verify_job_with_pending_status_works() {
     sleep(Duration::from_secs(5)).await;
 
     // Queue checks.
-    let consumed_messages_verification_queue = services
-        .config
-        .queue()
-        .consume_message_from_queue(DATA_SUBMISSION_JOB_VERIFICATION_QUEUE.to_string())
-        .await
-        .unwrap_err();
+    let consumed_messages_verification_queue =
+        services.config.queue().consume_message_from_queue(job_item.job_type.verify_queue_name()).await.unwrap_err();
     assert_matches!(consumed_messages_verification_queue, QueueError::NoData);
 }
 
