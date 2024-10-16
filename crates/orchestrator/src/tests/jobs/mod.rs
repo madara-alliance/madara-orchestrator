@@ -144,13 +144,12 @@ async fn create_job_job_handler_is_not_implemented_panics() {
 /// Tests `process_job` function when job is already existing in the db and job status is either
 /// `Created` or `VerificationFailed`.
 #[rstest]
-#[case(JobType::SnosRun, JobStatus::Created, SNOS_JOB_VERIFICATION_QUEUE)]
-#[case(JobType::DataSubmission, JobStatus::VerificationFailed, DATA_SUBMISSION_JOB_VERIFICATION_QUEUE)]
+#[case(JobType::SnosRun, JobStatus::Created)]
+#[case(JobType::DataSubmission, JobStatus::VerificationFailed)]
 #[tokio::test]
 async fn process_job_with_job_exists_in_db_and_valid_job_processing_status_works(
     #[case] job_type: JobType,
     #[case] job_status: JobStatus,
-    #[case] verification_queue: &str,
 ) {
     let job_item = build_job_item_by_type_and_status(job_type.clone(), job_status.clone(), "1".to_string());
 
@@ -188,7 +187,7 @@ async fn process_job_with_job_exists_in_db_and_valid_job_processing_status_works
 
     // Queue checks
     let consumed_messages =
-        services.config.queue().consume_message_from_queue(verification_queue.to_string()).await.unwrap();
+        services.config.queue().consume_message_from_queue(job_type.verify_queue_name()).await.unwrap();
     let consumed_message_payload: MessagePayloadType = consumed_messages.payload_serde_json().unwrap().unwrap();
     assert_eq!(consumed_message_payload.id, job_item.id);
 }
