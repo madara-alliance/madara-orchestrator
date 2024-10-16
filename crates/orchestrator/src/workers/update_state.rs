@@ -115,8 +115,8 @@ impl Worker for UpdateStateWorker {
                 );
 
                 // Creating a single job for all the pending blocks.
-                let new_job_id = successful_da_jobs_without_successor[0].internal_id.clone();
-                match create_job(JobType::StateTransition, new_job_id.clone(), metadata, config.clone()).await {
+                let new_job_id = blocks_to_process[0];
+                match create_job(JobType::StateTransition, new_job_id.to_string(), metadata, config.clone()).await {
                     Ok(_) => tracing::info!(job_id = %new_job_id, "Successfully created new state transition job"),
                     Err(e) => {
                         tracing::error!(job_id = %new_job_id, error = %e, "Failed to create new state transition job");

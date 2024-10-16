@@ -4,8 +4,8 @@ use std::collections::HashMap;
 use std::sync::Arc;
 
 use ::utils::collections::{has_dup, is_sorted};
-use ::utils::settings::Settings;
 use ::utils::settings::env::EnvSettingsProvider;
+use ::utils::settings::Settings;
 use async_trait::async_trait;
 use cairo_vm::Felt252;
 use chrono::{SubsecRound, Utc};
@@ -27,11 +27,11 @@ use super::constants::{
 use super::{JobError, OtherError};
 use crate::config::Config;
 use crate::constants::{PROGRAM_OUTPUT_FILE_NAME, SNOS_OUTPUT_FILE_NAME};
-use crate::jobs::Job;
 use crate::jobs::constants::JOB_METADATA_STATE_UPDATE_BLOCKS_TO_SETTLE_KEY;
 use crate::jobs::snos_job::SNOS_FAILED_JOB_TAG;
 use crate::jobs::state_update_job::utils::fetch_blob_data_for_block;
 use crate::jobs::types::{JobItem, JobStatus, JobType, JobVerificationStatus};
+use crate::jobs::Job;
 
 #[derive(Error, Debug, PartialEq)]
 pub enum StateUpdateError {
@@ -153,18 +153,15 @@ impl Job for StateUpdateJob {
                 txn_hash
             } else {
                 let snos = self.fetch_snos_for_block(*block_no, config.clone()).await;
-                let txn_hash = self
-                    .update_state_for_block(config.clone(), *block_no, snos, nonce)
-                    .await
-                    .map_err(|e| {
+                let txn_hash =
+                    self.update_state_for_block(config.clone(), *block_no, snos, nonce).await.map_err(|e| {
                         job.metadata
                             .insert(JOB_METADATA_STATE_UPDATE_LAST_FAILED_BLOCK_NO.into(), block_no.to_string());
                         self.insert_attempts_into_metadata(job, &attempt_no, &sent_tx_hashes);
                         StateUpdateError::Other(OtherError(eyre!(
                             "Block #{block_no} - Error occurred during the state update: {e}"
-                        )));
-                    })
-                    .unwrap();
+                        )))
+                    })?;
                 txn_hash
             };
 
