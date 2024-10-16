@@ -144,16 +144,30 @@ impl Job for StateUpdateJob {
         let mut sent_tx_hashes: Vec<String> = Vec::with_capacity(block_numbers.len());
         for block_no in block_numbers.iter() {
             tracing::debug!(job_id = %job.internal_id, block_no = %block_no, "Processing block");
-            let snos = self.fetch_snos_for_block(*block_no, config.clone()).await;
-            let tx_hash = self.update_state_for_block(config.clone(), *block_no, snos, nonce).await.map_err(|e| {
-                tracing::error!(job_id = %job.internal_id, block_no = %block_no, error = %e, "Error updating state for block");
-                job.metadata.insert(JOB_METADATA_STATE_UPDATE_LAST_FAILED_BLOCK_NO.into(), block_no.to_string());
-                self.insert_attempts_into_metadata(job, &attempt_no, &sent_tx_hashes);
-                StateUpdateError::Other(OtherError(eyre!(
-                    "Block #{block_no} - Error occurred during the state update: {e}"
-                )))
-            })?;
-            sent_tx_hashes.push(tx_hash);
+
+            let job_item = config
+                .database()
+                .get_job_by_internal_id_and_type(&block_no.to_string(), &JobType::DataSubmission)
+                .await
+                .unwrap();
+            let txn_hash = if job_item.unwrap().metadata.contains_key(SNOS_FAILED_JOB_TAG) {
+                Self::call_to_service_snos_failure(config.clone(), *block_no).await.unwrap()
+            } else {
+                let snos = self.fetch_snos_for_block(*block_no, config.clone()).await;
+                self
+                    .update_state_for_block(config.clone(), *block_no, snos, nonce)
+                    .await
+                    .map_err(|e| {
+                        job.metadata
+                            .insert(JOB_METADATA_STATE_UPDATE_LAST_FAILED_BLOCK_NO.into(), block_no.to_string());
+                        self.insert_attempts_into_metadata(job, &attempt_no, &sent_tx_hashes);
+                        OtherError(eyre!(
+                            "Block #{block_no} - Error occurred during the state update: {e}"
+                        ));
+                    })
+                    .unwrap()
+            };
+            sent_tx_hashes.push(txn_hash);
             nonce += 1;
         }
 

@@ -27,6 +27,7 @@ pub struct MongoDb {
 impl MongoDb {
     pub async fn new_with_settings(settings: &impl Settings) -> Self {
         let mongo_db_settings = MongoDbConfig::new_with_settings(settings);
+        println!(">>> mongo_db_settings.url : {:?}", mongo_db_settings.url);
         let mut client_options =
             ClientOptions::parse(mongo_db_settings.url).await.expect("Failed to parse MongoDB Url");
         // Set the server_api field of the client_options object to set the version of the Stable API on the
@@ -36,7 +37,11 @@ impl MongoDb {
         // Get a handle to the cluster
         let client = Client::with_options(client_options).expect("Failed to create MongoDB client");
         // Ping the server to see if you can connect to the cluster
-        client.database("admin").run_command(doc! {"ping": 1}, None).await.expect("Failed to ping MongoDB deployment");
+        client
+            .database("orchestrator")
+            .run_command(doc! {"ping": 1}, None)
+            .await
+            .expect("Failed to ping MongoDB deployment");
         tracing::debug!("Pinged your deployment. You successfully connected to MongoDB!");
 
         Self { client, database_name: mongo_db_settings.database_name }
@@ -155,7 +160,7 @@ impl Database for MongoDb {
         let filter = doc! {
             "job_type": mongodb::bson::to_bson(&job_type)?,
         };
-        let find_options = FindOneOptions::builder().sort(doc! { "internal_id": -1 }).build();
+        let find_options = FindOneOptions::builder().sort(doc! { "updated_at": -1 }).build();
         tracing::debug!(job_type = ?job_type, category = "db_call", "Fetching latest job by type");
         Ok(self.get_job_collection().find_one(filter, find_options).await?)
     }

@@ -1,3 +1,4 @@
+use std::collections::HashMap;
 use std::error::Error;
 use std::sync::Arc;
 
@@ -13,19 +14,25 @@ pub struct UpdateStateWorker;
 
 #[async_trait]
 impl Worker for UpdateStateWorker {
-    /// 1. Fetch the last successful state update job
-    /// 2. Fetch all successful proving jobs covering blocks after the last state update
-    /// 3. Create state updates for all the blocks that don't have a state update job
     async fn run_worker(&self, config: Arc<Config>) -> Result<(), Box<dyn Error>> {
         // TODO : fix this
         // We should look for LockedForProcessing job also.
         // Current assumption : no job will fail.
         tracing::info!(log_type = "starting", category = "UpdateStateWorker", "UpdateStateWorker started.");
 
-        let latest_successful_job = config.database().get_latest_job_by_type(JobType::StateTransition).await?;
+        let latest_job = config.database().get_latest_job_by_type(JobType::StateTransition).await?;
+        log::warn!(">>>> latest job : {:?}", latest_job);
 
-        match latest_successful_job {
+        match latest_job {
             Some(job) => {
+                if job.status == JobStatus::LockedForProcessing || job.status == JobStatus::PendingVerification {
+                    log::warn!(
+                        "⚠️  A job is already in processing or verification pending cannot create a new job. May \
+                         cause unexpected state update issues."
+                    );
+                    return Ok(());
+                }
+
                 tracing::debug!(job_id = %job.id, "Found latest successful state transition job");
                 let successful_da_jobs_without_successor = config
                     .database()
@@ -56,10 +63,14 @@ impl Worker for UpdateStateWorker {
                 let last_block_processed_in_last_job =
                     blocks_processed_in_last_job[blocks_processed_in_last_job.len() - 1];
 
-                let mut blocks_to_process = successful_da_jobs_without_successor
+                let mut blocks_to_process: Vec<u64> = successful_da_jobs_without_successor
                     .iter()
-                    .map(|j| j.internal_id.clone().parse::<u64>().unwrap())
-                    .collect::<Vec<u64>>();
+                    .filter_map(|j| {
+                        j.internal_id.parse::<u64>().ok().and_then(|internal_id| {
+                            if internal_id > last_block_processed_in_last_job { Some(internal_id) } else { None }
+                        })
+                    })
+                    .collect();
                 blocks_to_process.sort();
 
                 log::warn!(">>>> blocks to process : {:?}", blocks_to_process);
@@ -97,20 +108,11 @@ impl Worker for UpdateStateWorker {
 
                 log::warn!(">>> Creating UpdateState job for blocks : {:?}", blocks_to_process);
 
-                let mut metadata = job.metadata;
+                let mut metadata = HashMap::new();
                 metadata.insert(
                     JOB_METADATA_STATE_UPDATE_BLOCKS_TO_SETTLE_KEY.to_string(),
                     blocks_to_process.iter().map(|ele| ele.to_string()).collect::<Vec<String>>().join(","),
                 );
-
-                // Creating a single job for all the pending blocks.
-                create_job(
-                    JobType::StateTransition,
-                    blocks_to_process[0].to_string(),
-                    metadata.clone(),
-                    config.clone(),
-                )
-                .await?;
 
                 // Creating a single job for all the pending blocks.
                 let new_job_id = successful_da_jobs_without_successor[0].internal_id.clone();

@@ -1,17 +1,19 @@
 use std::path::PathBuf;
 use std::str::FromStr;
 use std::sync::Arc;
+use std::time::Duration;
 
 use alloy::consensus::{
     BlobTransactionSidecar, SignableTransaction, TxEip4844, TxEip4844Variant, TxEip4844WithSidecar, TxEnvelope,
 };
+use alloy::eips::eip2718::Encodable2718;
 use alloy::eips::eip2930::AccessList;
 use alloy::eips::eip4844::BYTES_PER_BLOB;
 use alloy::hex;
 use alloy::network::EthereumWallet;
 use alloy::primitives::{Address, B256, U256};
 use alloy::providers::{PendingTransactionConfig, Provider, ProviderBuilder};
-use alloy::rpc::types::{TransactionReceipt, TransactionRequest};
+use alloy::rpc::types::{TransactionReceipt};
 use alloy::signers::local::PrivateKeySigner;
 use alloy_primitives::Bytes;
 use async_trait::async_trait;
@@ -38,6 +40,7 @@ use alloy::transports::http::Http;
 use lazy_static::lazy_static;
 use mockall::automock;
 use reqwest::Client;
+use tokio::time::sleep;
 use utils::settings::Settings;
 
 pub const ENV_PRIVATE_KEY: &str = "ETHEREUM_PRIVATE_KEY";
@@ -180,7 +183,7 @@ impl SettlementClient for EthereumSettlementClient {
         &self,
         program_output: Vec<[u8; 32]>,
         state_diff: Vec<Vec<u8>>,
-        nonce: u64,
+        _nonce: u64,
     ) -> Result<String> {
         tracing::info!(
             log_type = "starting",
@@ -192,19 +195,17 @@ impl SettlementClient for EthereumSettlementClient {
         let sidecar = BlobTransactionSidecar::new(sidecar_blobs, sidecar_commitments, sidecar_proofs);
 
         println!(">>>> sidecar done");
-        
+
         let eip1559_est = self.provider.estimate_eip1559_fees(None).await?;
         let chain_id: u64 = self.provider.get_chain_id().await?.to_string().parse()?;
 
         println!(">>>> chain_id: {:?}", chain_id);
-        
-        let mut max_fee_per_blob_gas: u128 = self.provider.get_blob_base_fee().await?.to_string().parse()?;
-        // TODO: need to send more than current gas price.
-        max_fee_per_blob_gas += 12;
+
+        let max_fee_per_blob_gas: u128 = self.provider.get_blob_base_fee().await?.to_string().parse()?;
         let max_priority_fee_per_gas: u128 = self.provider.get_max_priority_fee_per_gas().await?.to_string().parse()?;
 
         println!(">>>> max_priority_fee_per_gas: {:?}", max_priority_fee_per_gas);
-        
+
         // x_0_value : program_output[10]
         // Updated with starknet 0.13.2 spec
         let kzg_proof = Self::build_proof(
@@ -220,17 +221,20 @@ impl SettlementClient for EthereumSettlementClient {
 
         println!(">>>> input_bytes: {:?}", input_bytes);
 
+        let nonce = self.provider.get_transaction_count(self.wallet_address).await?.to_string().parse()?;
+
+        let max_fee_per_gas: u128 = eip1559_est.max_fee_per_gas.to_string().parse()?;
         let tx: TxEip4844 = TxEip4844 {
             chain_id,
             nonce,
-            gas_limit: 30_000_000,
-            max_fee_per_gas: eip1559_est.max_fee_per_gas.to_string().parse()?,
-            max_priority_fee_per_gas,
+            gas_limit: 300_000,
+            max_fee_per_gas: max_fee_per_gas * 2,
+            max_priority_fee_per_gas: max_priority_fee_per_gas * 2,
             to: self.core_contract_client.contract_address(),
             value: U256::from(0),
             access_list: AccessList(vec![]),
             blob_versioned_hashes: sidecar.versioned_hashes().collect(),
-            max_fee_per_blob_gas,
+            max_fee_per_blob_gas: max_fee_per_blob_gas * 2,
             input: Bytes::from(hex::decode(input_bytes)?),
         };
 
@@ -245,26 +249,37 @@ impl SettlementClient for EthereumSettlementClient {
         let tx_envelope: TxEnvelope = tx_signed.into();
         println!(">>>> tx envelope");
 
-        #[cfg(not(feature = "testing"))]
-        let txn_request = {
-            let txn_request: TransactionRequest = tx_envelope.clone().into();
-            txn_request
-        };
+        let encoded = tx_envelope.encoded_2718();
 
-        #[cfg(feature = "testing")]
-        let txn_request =
-            { test_config::configure_transaction(self.provider.clone(), tx_envelope, self.impersonate_account).await };
-
-        println!(">>>> tx request : {:?}", txn_request);
-
-        let pending_transaction = self.provider.send_transaction(txn_request).await?;
+        let pending_transaction = self.provider.send_raw_transaction(encoded.as_slice()).await?;
         tracing::info!(
             log_type = "completed",
             category = "update_state",
             function_type = "blobs",
             "State updated with blobs."
         );
-        return Ok(pending_transaction.tx_hash().to_string());
+
+        log::warn!("⏳ Waiting for txn finality.......");
+        // waiting for txn finality (block to be specific)
+        let res = Self::wait_for_transaction_confirmation(
+            self.provider.clone(),
+            *pending_transaction.tx_hash(),
+            100,
+            Duration::from_secs(5),
+            3,
+        )
+        .await?;
+
+        match res {
+            Some(_) => {
+                println!(">>>> txn hash : {:?} Finalized ✅", pending_transaction.tx_hash().to_string());
+            }
+            None => {
+                log::error!("Txn hash not finalised");
+            }
+        }
+
+        Ok(pending_transaction.tx_hash().to_string())
     }
 
     /// Should verify the inclusion of a tx in the settlement layer
@@ -329,6 +344,31 @@ impl SettlementClient for EthereumSettlementClient {
     async fn get_nonce(&self) -> Result<u64> {
         let nonce = self.provider.get_transaction_count(self.wallet_address).await?.to_string().parse()?;
         Ok(nonce)
+    }
+}
+
+impl EthereumSettlementClient {
+    async fn wait_for_transaction_confirmation(
+        provider: Arc<RootProvider<Http<Client>>>,
+        tx_hash: B256,
+        max_attempts: u32,
+        delay: Duration,
+        required_confirmations: u64,
+    ) -> Result<Option<u64>> {
+        for _ in 0..max_attempts {
+            if let Some(receipt) = provider.get_transaction_receipt(tx_hash).await? {
+                if let Some(block_number) = receipt.block_number {
+                    let latest_block = provider.get_block_number().await?;
+                    let confirmations = latest_block.saturating_sub(block_number);
+                    if confirmations >= required_confirmations {
+                        return Ok(Some(block_number));
+                    }
+                }
+            }
+            sleep(delay).await;
+        }
+
+        Ok(None)
     }
 }
 
