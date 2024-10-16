@@ -260,32 +260,12 @@ impl SettlementClient for EthereumSettlementClient {
         );
 
         log::warn!("⏳ Waiting for txn finality.......");
-        println!(">>> pending txn = {:?}", pending_transaction);
 
         // Prod feature only (may cause issues while testing with anvil)
-        #[cfg(not(feature = "testing"))]
-        {
-            // waiting for txn finality (block to be specific)
-            let res = Self::wait_for_transaction_confirmation(
-                self.provider.clone(),
-                *pending_transaction.tx_hash(),
-                100,
-                Duration::from_secs(5),
-                3,
-            )
-            .await?;
+        let txn_hash = pending_transaction.tx_hash().to_string();
+        self.wait_for_tx_finality(&txn_hash).await?;
 
-            match res {
-                Some(_) => {
-                    println!(">>>> txn hash : {:?} Finalized ✅", pending_transaction.tx_hash().to_string());
-                }
-                None => {
-                    log::error!("Txn hash not finalised");
-                }
-            }
-        }
-
-        Ok(pending_transaction.tx_hash().to_string())
+        Ok(txn_hash)
     }
 
     /// Should verify the inclusion of a tx in the settlement layer
@@ -337,7 +317,9 @@ impl SettlementClient for EthereumSettlementClient {
     /// Wait for a pending tx to achieve finality
     async fn wait_for_tx_finality(&self, tx_hash: &str) -> Result<()> {
         let tx_hash = B256::from_str(tx_hash)?;
-        self.provider.watch_pending_transaction(PendingTransactionConfig::new(tx_hash)).await?;
+        self.provider
+            .watch_pending_transaction(PendingTransactionConfig::new(tx_hash).with_required_confirmations(1))
+            .await?;
         Ok(())
     }
 

@@ -71,7 +71,7 @@ jobs:
           then
               echo "Anvil is installed. Version information:"
               anvil --version
-              anvil &
+              anvil --block-time 6 &
           else
               echo "Anvil is not installed or not in PATH"
               exit 1
