@@ -37,8 +37,8 @@ impl Worker for SnosWorker {
         // To be used when testing in specific block range
         let block_start = get_env_var_or_default_block_number("MIN_BLOCK_TO_PROCESS", &latest_job_id)?;
 
-        for x in block_start..latest_block_number + 1 {
-            match create_job(JobType::SnosRun, x.to_string(), HashMap::new(), config.clone()).await {
+        for block_num in block_start..latest_block_number + 1 {
+            match create_job(JobType::SnosRun, block_num.to_string(), HashMap::new(), config.clone()).await {
                 Ok(_) => {}
                 Err(e) => {
                     log::warn!("Failed to create job: {:?}", e);
