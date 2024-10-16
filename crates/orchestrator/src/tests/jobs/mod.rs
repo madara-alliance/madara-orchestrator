@@ -20,7 +20,6 @@ use crate::jobs::{
 };
 use crate::queue::job_queue::{
     QueueNameForJobType, DATA_SUBMISSION_JOB_PROCESSING_QUEUE, DATA_SUBMISSION_JOB_VERIFICATION_QUEUE,
-    SNOS_JOB_VERIFICATION_QUEUE,
 };
 use crate::tests::common::MessagePayloadType;
 use crate::tests::config::{ConfigType, TestConfigBuilder};
