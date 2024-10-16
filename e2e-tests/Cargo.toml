@@ -32,6 +32,7 @@ tokio-util.workspace = true
 url.workspace = true
 utils.workspace = true
 uuid.workspace = true
+env_logger.workspace = true
 
 [[test]]
 name = "test_orchestrator_workflow"

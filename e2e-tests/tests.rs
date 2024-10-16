@@ -128,6 +128,7 @@ async fn test_orchestrator_workflow(#[case] l2_block_number: String) {
     // Fetching the env vars from the test env file as these will be used in
     // setting up of the test and during orchestrator run too.
     dotenvy::from_filename(".env.test").expect("Failed to load the .env file");
+    env_logger::init();
 
     let mut setup_config = Setup::new().await;
     // Setup S3
@@ -151,6 +152,8 @@ async fn test_orchestrator_workflow(#[case] l2_block_number: String) {
     put_job_data_in_db_update_state(setup_config.mongo_db_instance(), l2_block_number.clone()).await;
 
     println!("✅ Orchestrator setup completed.");
+
+    log::trace!("Trace.......General process job started for block");
 
     // Run orchestrator
     let mut orchestrator = Orchestrator::run(setup_config.envs());

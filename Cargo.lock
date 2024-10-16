@@ -4307,6 +4307,7 @@ dependencies = [
  "chrono",
  "color-eyre",
  "dotenvy",
+ "env_logger",
  "ethereum-settlement-client",
  "httpmock 0.8.0-alpha.1",
  "log",
