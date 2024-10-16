@@ -18,7 +18,6 @@ use url::Url;
 
 use crate::constants::{BLOB_DATA_FILE_NAME, PROGRAM_OUTPUT_FILE_NAME, SNOS_OUTPUT_FILE_NAME};
 use crate::data_storage::MockDataStorage;
-use crate::database::MockDatabase;
 use crate::jobs::constants::{
     JOB_METADATA_STATE_UPDATE_BLOCKS_TO_SETTLE_KEY, JOB_METADATA_STATE_UPDATE_FETCH_FROM_TESTS,
     JOB_METADATA_STATE_UPDATE_LAST_FAILED_BLOCK_NO, JOB_PROCESS_ATTEMPT_METADATA_KEY,
@@ -29,7 +28,6 @@ use crate::jobs::types::{JobStatus, JobType};
 use crate::jobs::{Job, JobError};
 use crate::tests::common::default_job_item;
 use crate::tests::config::{ConfigType, TestConfigBuilder};
-use crate::tests::database::build_job_item;
 
 lazy_static! {
     pub static ref CURRENT_PATH: PathBuf = std::env::current_dir().expect("Failed to get Current Path");
@@ -63,11 +61,9 @@ async fn test_process_job_works(
     #[case] processing_start_index: u8,
 ) {
     dotenvy::from_filename("../.env.test").expect("Failed to load the .env file");
-    // Will be used by storage client which we call while storing the data.
 
     // Mocking the settlement client.
     let mut settlement_client = MockSettlementClient::new();
-    let mut db = MockDatabase::new();
 
     let block_numbers: Vec<u64> = parse_block_numbers(&blocks_to_process).unwrap();
 
@@ -76,11 +72,6 @@ async fn test_process_job_works(
 
     // Adding expectations for each block number to be called by settlement client.
     for block in block_numbers.iter().skip(processing_start_index as usize) {
-        let job_item = build_job_item(JobType::DataSubmission, JobStatus::Completed, *block);
-        db.expect_get_job_by_internal_id_and_type()
-            .with(eq(block.to_string()), eq(&JobType::DataSubmission))
-            .returning(move |_, _| Ok(Some(job_item.clone())));
-
         // Getting the blob data from file.
         let blob_data = fs::read_to_string(
             CURRENT_PATH.join(format!("src/tests/jobs/state_update_job/test_data/{}/{}", block, BLOB_DATA_FILE_NAME)),
@@ -113,7 +104,6 @@ async fn test_process_job_works(
     let services = TestConfigBuilder::new()
         .configure_storage_client(ConfigType::Actual)
         .configure_settlement_client(settlement_client.into())
-        .configure_database(db.into())
         .build()
         .await;
 
@@ -196,7 +186,6 @@ async fn create_job_works() {
 async fn process_job_works_unit_test() {
     let mut settlement_client = MockSettlementClient::new();
     let mut storage_client = MockDataStorage::new();
-    let mut db = MockDatabase::new();
 
     // Mock the latest block settled
     settlement_client.expect_get_last_settled_block().returning(|| Ok(651052_u64));
@@ -204,12 +193,6 @@ async fn process_job_works_unit_test() {
     // TODO: have tests for update_state_calldata, only kzg for now
     let block_numbers = ["651053", "651054", "651055", "651056"];
     for block_no in block_numbers {
-        let job_item = build_job_item(JobType::DataSubmission, JobStatus::Completed, block_no.parse::<u64>().unwrap());
-
-        db.expect_get_job_by_internal_id_and_type()
-            .with(eq(block_no.to_string()), eq(&JobType::DataSubmission))
-            .returning(move |_, _| Ok(Some(job_item.clone())));
-
         let _state_diff: Vec<u8> = load_state_diff_file(block_no.parse::<u64>().unwrap()).await;
 
         let snos_output_key = block_no.to_owned() + "/" + SNOS_OUTPUT_FILE_NAME;
@@ -273,7 +256,6 @@ async fn process_job_works_unit_test() {
     let services = TestConfigBuilder::new()
         .configure_settlement_client(settlement_client.into())
         .configure_storage_client(storage_client.into())
-        .configure_database(db.into())
         .build()
         .await;
 

@@ -237,7 +237,6 @@ async fn database_test_update_job() {
 // ==========================================
 
 pub fn build_job_item(job_type: JobType, job_status: JobStatus, internal_id: u64) -> JobItem {
-    // Added a delay because some function may fetch the job by when that job was created.
     JobItem {
         id: Uuid::new_v4(),
         internal_id: internal_id.to_string(),
