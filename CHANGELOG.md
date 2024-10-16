@@ -64,6 +64,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ## Fixed
 
+- Fixed the layout of snos to `starknet_with_keccak` as `all_cairo` is not provable
 - all failed jobs should move to failed state
 - Fixes all unwraps() in code to improve error logging
 - Simplified Update_Job for Database.
