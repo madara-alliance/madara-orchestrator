@@ -37,7 +37,7 @@ pub const DATA_SUBMISSION_JOB_VERIFICATION_QUEUE: &str = "madara_orchestrator_da
 pub const UPDATE_STATE_JOB_PROCESSING_QUEUE: &str = "madara_orchestrator_update_state_job_processing_queue";
 pub const UPDATE_STATE_JOB_VERIFICATION_QUEUE: &str = "madara_orchestrator_update_state_job_verification_queue";
 
-// Below is the Dead Letter Queue for the above two jobs.
+// Below is the Dead Letter Queue for the above queues.
 pub const JOB_HANDLE_FAILURE_QUEUE: &str = "madara_orchestrator_job_handle_failure_queue";
 
 // Queues for SNOS worker trigger listening
@@ -117,22 +117,37 @@ enum DeliveryReturnType {
     NoMessage,
 }
 
+pub trait QueueNameForJobType {
+    fn process_queue_name(&self) -> String;
+    fn verify_queue_name(&self) -> String;
+}
+
+impl QueueNameForJobType for JobType {
+    fn process_queue_name(&self) -> String {
+        match self {
+            JobType::SnosRun => SNOS_JOB_PROCESSING_QUEUE,
+            JobType::ProofCreation => PROVING_JOB_PROCESSING_QUEUE,
+            JobType::ProofRegistration => PROOF_REGISTRATION_JOB_PROCESSING_QUEUE,
+            JobType::DataSubmission => DATA_SUBMISSION_JOB_PROCESSING_QUEUE,
+            JobType::StateTransition => UPDATE_STATE_JOB_PROCESSING_QUEUE,
+        }
+        .to_string()
+    }
+    fn verify_queue_name(&self) -> String {
+        match self {
+            JobType::SnosRun => SNOS_JOB_VERIFICATION_QUEUE,
+            JobType::ProofCreation => PROVING_JOB_VERIFICATION_QUEUE,
+            JobType::ProofRegistration => PROOF_REGISTRATION_JOB_VERIFICATION_QUEUE,
+            JobType::DataSubmission => DATA_SUBMISSION_JOB_VERIFICATION_QUEUE,
+            JobType::StateTransition => UPDATE_STATE_JOB_VERIFICATION_QUEUE,
+        }
+        .to_string()
+    }
+}
+
 pub async fn add_job_to_process_queue(id: Uuid, job_type: &JobType, config: Arc<Config>) -> EyreResult<()> {
     tracing::info!("Adding job with id {:?} to processing queue", id);
-
-    match job_type {
-        JobType::SnosRun => add_job_to_queue(id, SNOS_JOB_PROCESSING_QUEUE.to_string(), None, config).await,
-        JobType::ProofCreation => add_job_to_queue(id, PROVING_JOB_PROCESSING_QUEUE.to_string(), None, config).await,
-        JobType::ProofRegistration => {
-            add_job_to_queue(id, PROOF_REGISTRATION_JOB_PROCESSING_QUEUE.to_string(), None, config).await
-        }
-        JobType::DataSubmission => {
-            add_job_to_queue(id, DATA_SUBMISSION_JOB_PROCESSING_QUEUE.to_string(), None, config).await
-        }
-        JobType::StateTransition => {
-            add_job_to_queue(id, UPDATE_STATE_JOB_PROCESSING_QUEUE.to_string(), None, config).await
-        }
-    }
+    add_job_to_queue(id, job_type.process_queue_name(), None, config).await
 }
 
 pub async fn add_job_to_verification_queue(
@@ -142,22 +157,7 @@ pub async fn add_job_to_verification_queue(
     config: Arc<Config>,
 ) -> EyreResult<()> {
     tracing::info!("Adding job with id {:?} to verification queue", id);
-
-    match job_type {
-        JobType::SnosRun => add_job_to_queue(id, SNOS_JOB_VERIFICATION_QUEUE.to_string(), Some(delay), config).await,
-        JobType::ProofCreation => {
-            add_job_to_queue(id, PROVING_JOB_VERIFICATION_QUEUE.to_string(), Some(delay), config).await
-        }
-        JobType::ProofRegistration => {
-            add_job_to_queue(id, PROOF_REGISTRATION_JOB_VERIFICATION_QUEUE.to_string(), Some(delay), config).await
-        }
-        JobType::DataSubmission => {
-            add_job_to_queue(id, DATA_SUBMISSION_JOB_VERIFICATION_QUEUE.to_string(), Some(delay), config).await
-        }
-        JobType::StateTransition => {
-            add_job_to_queue(id, UPDATE_STATE_JOB_VERIFICATION_QUEUE.to_string(), Some(delay), config).await
-        }
-    }
+    add_job_to_queue(id, job_type.verify_queue_name(), Some(delay), config).await
 }
 
 pub async fn consume_job_from_queue<F, Fut>(

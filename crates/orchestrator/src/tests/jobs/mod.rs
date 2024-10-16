@@ -15,8 +15,8 @@ use crate::jobs::job_handler_factory::mock_factory;
 use crate::jobs::types::{ExternalId, JobItem, JobStatus, JobType, JobVerificationStatus};
 use crate::jobs::{create_job, handle_job_failure, increment_key_in_metadata, process_job, verify_job, Job, MockJob};
 use crate::queue::job_queue::{
-    DATA_SUBMISSION_JOB_PROCESSING_QUEUE, DATA_SUBMISSION_JOB_VERIFICATION_QUEUE, PROVING_JOB_PROCESSING_QUEUE,
-    SNOS_JOB_PROCESSING_QUEUE, SNOS_JOB_VERIFICATION_QUEUE,
+    QueueNameForJobType, DATA_SUBMISSION_JOB_PROCESSING_QUEUE, DATA_SUBMISSION_JOB_VERIFICATION_QUEUE,
+    PROVING_JOB_PROCESSING_QUEUE, SNOS_JOB_PROCESSING_QUEUE, SNOS_JOB_VERIFICATION_QUEUE,
 };
 use crate::tests::common::MessagePayloadType;
 use crate::tests::config::{ConfigType, TestConfigBuilder};
@@ -75,7 +75,7 @@ async fn create_job_job_does_not_exists_in_db_works() {
 
     // Queue checks.
     let consumed_messages =
-        services.config.queue().consume_message_from_queue(SNOS_JOB_PROCESSING_QUEUE.to_string()).await.unwrap();
+        services.config.queue().consume_message_from_queue(job_item.job_type.process_queue_name()).await.unwrap();
     let consumed_message_payload: MessagePayloadType = consumed_messages.payload_serde_json().unwrap().unwrap();
     assert_eq!(consumed_message_payload.id, job_item.id);
 }
@@ -93,7 +93,7 @@ async fn create_job_job_exists_in_db_works() {
         .await;
 
     let database_client = services.config.database();
-    database_client.create_job(job_item).await.unwrap();
+    database_client.create_job(job_item.clone()).await.unwrap();
 
     assert!(
         create_job(JobType::ProofCreation, "0".to_string(), HashMap::new(), services.config.clone()).await.is_err()
@@ -104,7 +104,7 @@ async fn create_job_job_exists_in_db_works() {
 
     // Queue checks.
     let consumed_messages =
-        services.config.queue().consume_message_from_queue(PROVING_JOB_PROCESSING_QUEUE.to_string()).await.unwrap_err();
+        services.config.queue().consume_message_from_queue(job_item.job_type.process_queue_name()).await.unwrap_err();
     assert_matches!(consumed_messages, QueueError::NoData);
 }
 
