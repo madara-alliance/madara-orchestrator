@@ -1,8 +1,6 @@
 use std::path::PathBuf;
 use std::str::FromStr;
 use std::sync::Arc;
-#[cfg(not(feature = "testing"))]
-use std::time::Duration;
 
 use alloy::consensus::{
     BlobTransactionSidecar, SignableTransaction, TxEip4844, TxEip4844Variant, TxEip4844WithSidecar, TxEnvelope,
@@ -42,8 +40,6 @@ use alloy::transports::http::Http;
 use lazy_static::lazy_static;
 use mockall::automock;
 use reqwest::Client;
-#[cfg(not(feature = "testing"))]
-use tokio::time::sleep;
 use utils::settings::Settings;
 
 pub const ENV_PRIVATE_KEY: &str = "ETHEREUM_PRIVATE_KEY";
@@ -64,8 +60,6 @@ pub struct EthereumSettlementClient {
     provider: Arc<RootProvider<Http<Client>>>,
     impersonate_account: Option<Address>,
 }
-
-const GAS_MULTIPLIER: f64 = 1.2;
 
 impl EthereumSettlementClient {
     pub fn new_with_settings(settings: &impl Settings) -> Self {

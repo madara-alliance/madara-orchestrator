@@ -71,6 +71,8 @@ pub struct EthereumTest {
     pub rpc_url: Url,
 }
 
+const BLOCK_TIME: u64 = 6;
+
 #[allow(clippy::new_without_default)]
 impl EthereumTestBuilder {
     pub fn new() -> Self {
@@ -96,10 +98,10 @@ impl EthereumTestBuilder {
             Some(fork_block) => Anvil::new()
                 .fork(&*ETH_RPC)
                 .fork_block_number(fork_block)
-                .block_time(6)
+                .block_time(BLOCK_TIME)
                 .try_spawn()
                 .expect("Could not spawn Anvil."),
-            None => Anvil::new().block_time(6).try_spawn().expect("Could not spawn Anvil."),
+            None => Anvil::new().block_time(BLOCK_TIME).try_spawn().expect("Could not spawn Anvil."),
         };
 
         // Setup Provider
@@ -133,7 +135,7 @@ mod settlement_client_tests {
     use settlement_client_interface::{SettlementClient, SettlementVerificationStatus};
     use tokio::time::sleep;
 
-    use super::ENV_FILE_PATH;
+    use super::{BLOCK_TIME, ENV_FILE_PATH};
     use crate::conversion::to_padded_hex;
     use crate::tests::{
         DummyCoreContract, EthereumTestBuilder, Pipe, CURRENT_PATH, STARKNET_CORE_CONTRACT,
@@ -190,7 +192,7 @@ mod settlement_client_tests {
         assert_eq!(txn.to.unwrap(), *contract.address());
 
         // Testing verify_tx_inclusion
-        sleep(Duration::from_secs(2)).await;
+        sleep(Duration::from_secs(BLOCK_TIME + 2)).await;
         ethereum_settlement_client
             .wait_for_tx_finality(update_state_result.as_str())
             .await
