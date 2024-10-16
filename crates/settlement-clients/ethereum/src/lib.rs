@@ -13,7 +13,7 @@ use alloy::hex;
 use alloy::network::EthereumWallet;
 use alloy::primitives::{Address, B256, U256};
 use alloy::providers::{PendingTransactionConfig, Provider, ProviderBuilder};
-use alloy::rpc::types::{TransactionReceipt};
+use alloy::rpc::types::TransactionReceipt;
 use alloy::signers::local::PrivateKeySigner;
 use alloy_primitives::Bytes;
 use async_trait::async_trait;
@@ -194,17 +194,11 @@ impl SettlementClient for EthereumSettlementClient {
         let (sidecar_blobs, sidecar_commitments, sidecar_proofs) = prepare_sidecar(&state_diff, &KZG_SETTINGS).await?;
         let sidecar = BlobTransactionSidecar::new(sidecar_blobs, sidecar_commitments, sidecar_proofs);
 
-        println!(">>>> sidecar done");
-
         let eip1559_est = self.provider.estimate_eip1559_fees(None).await?;
         let chain_id: u64 = self.provider.get_chain_id().await?.to_string().parse()?;
 
-        println!(">>>> chain_id: {:?}", chain_id);
-
         let max_fee_per_blob_gas: u128 = self.provider.get_blob_base_fee().await?.to_string().parse()?;
         let max_priority_fee_per_gas: u128 = self.provider.get_max_priority_fee_per_gas().await?.to_string().parse()?;
-
-        println!(">>>> max_priority_fee_per_gas: {:?}", max_priority_fee_per_gas);
 
         // x_0_value : program_output[10]
         // Updated with starknet 0.13.2 spec
@@ -215,11 +209,7 @@ impl SettlementClient for EthereumSettlementClient {
         .expect("Unable to build KZG proof for given params.")
         .to_owned();
 
-        println!(">>>> kzg_proof: {:?}", kzg_proof);
-
         let input_bytes = get_input_data_for_eip_4844(program_output, kzg_proof)?;
-
-        println!(">>>> input_bytes: {:?}", input_bytes);
 
         let nonce = self.provider.get_transaction_count(self.wallet_address).await?.to_string().parse()?;
 
@@ -240,14 +230,10 @@ impl SettlementClient for EthereumSettlementClient {
 
         let tx_sidecar = TxEip4844WithSidecar { tx: tx.clone(), sidecar: sidecar.clone() };
 
-        println!(">>>> tx sidecar built");
-
         let mut variant = TxEip4844Variant::from(tx_sidecar);
         let signature = self.wallet.default_signer().sign_transaction(&mut variant).await?;
         let tx_signed = variant.into_signed(signature);
-        println!(">>>> tx signed");
         let tx_envelope: TxEnvelope = tx_signed.into();
-        println!(">>>> tx envelope");
 
         let encoded = tx_envelope.encoded_2718();
 
@@ -271,9 +257,7 @@ impl SettlementClient for EthereumSettlementClient {
         .await?;
 
         match res {
-            Some(_) => {
-                println!(">>>> txn hash : {:?} Finalized ✅", pending_transaction.tx_hash().to_string());
-            }
+            Some(_) => {}
             None => {
                 log::error!("Txn hash not finalised");
             }
@@ -369,38 +353,5 @@ impl EthereumSettlementClient {
         }
 
         Ok(None)
-    }
-}
-
-#[cfg(feature = "testing")]
-mod test_config {
-    use alloy::network::TransactionBuilder;
-
-    use super::*;
-
-    pub async fn configure_transaction(
-        provider: Arc<RootProvider<Http<Client>>>,
-        tx_envelope: TxEnvelope,
-        impersonate_account: Option<Address>,
-    ) -> TransactionRequest {
-        let mut txn_request: TransactionRequest = tx_envelope.into();
-
-        // IMPORTANT to understand #[cfg(test)], #[cfg(not(test))] and SHOULD_IMPERSONATE_ACCOUNT
-        // Two tests :  `update_state_blob_with_dummy_contract_works` &
-        // `update_state_blob_with_impersonation_works` use a env var `SHOULD_IMPERSONATE_ACCOUNT` to inform
-        // the function `update_state_with_blobs` about the kind of testing,
-        // `SHOULD_IMPERSONATE_ACCOUNT` can have any of "0" or "1" value :
-        //      - if "0" then : Testing via default Anvil address.
-        //      - if "1" then : Testing via impersonating `Starknet Operator Address`.
-        // Note : changing between "0" and "1" is handled automatically by each test function, `no` manual
-        // change in `env.test` is needed.
-        if let Some(impersonate_account) = impersonate_account {
-            let nonce =
-                provider.get_transaction_count(impersonate_account).await.unwrap().to_string().parse::<u64>().unwrap();
-            txn_request.set_nonce(nonce);
-            txn_request = txn_request.with_from(impersonate_account);
-        }
-
-        txn_request
     }
 }

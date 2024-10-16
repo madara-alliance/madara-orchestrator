@@ -22,12 +22,9 @@ impl Worker for SnosWorker {
         tracing::info!(log_type = "starting", category = "SnosWorker", "SnosWorker started.");
 
         let provider = config.starknet_client();
-        println!(">>>> SNOS_LATEST_BLOCK : {:?}", get_env_var_or_panic("SNOS_LATEST_BLOCK"));
         let latest_block_number =
             get_env_var_or_default("SNOS_LATEST_BLOCK", &provider.block_number().await?.to_string()).parse::<u64>()?;
         tracing::debug!(latest_block_number = %latest_block_number, "Fetched latest block number from starknet");
-
-        println!(">>>> Latest block number: {}", latest_block_number);
 
         // TODO : This needs to be optimized.
         // TODO : This is not scalable.

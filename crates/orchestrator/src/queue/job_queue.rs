@@ -331,8 +331,7 @@ pub async fn init_consumers(config: Arc<Config>) -> Result<(), JobError> {
 
 /// To spawn the worker by passing the worker struct
 async fn spawn_worker(worker: Box<dyn Worker>, config: Arc<Config>) -> color_eyre::Result<()> {
-    let res = worker.run_worker_if_enabled(config).await;
-    match res {
+    match worker.run_worker_if_enabled(config).await {
         Ok(_) => Ok(()),
         Err(e) => {
             log::warn!("{:?}", e);

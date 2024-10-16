@@ -64,13 +64,7 @@ async fn test_process_job_works(
 
     use crate::tests::config::ConfigType;
 
-    let aws_region = env::var("AWS_REGION").unwrap();
-    println!("AWS_REGION: {}", aws_region);
-
     dotenvy::from_filename("../.env.test").expect("Failed to load the .env file");
-
-    let aws_region = env::var("AWS_REGION").unwrap();
-    println!("AWS_REGION: {}", aws_region);
 
     // Mocking the settlement client.
     let mut settlement_client = MockSettlementClient::new();
