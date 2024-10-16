@@ -65,6 +65,8 @@ pub struct EthereumSettlementClient {
     impersonate_account: Option<Address>,
 }
 
+const GAS_MULTIPLIER: f64 = 1.2;
+
 impl EthereumSettlementClient {
     pub fn new_with_settings(settings: &impl Settings) -> Self {
         let settlement_cfg = EthereumSettlementConfig::new_with_settings(settings);
@@ -216,18 +218,23 @@ impl SettlementClient for EthereumSettlementClient {
 
         let nonce = self.provider.get_transaction_count(self.wallet_address).await?.to_string().parse()?;
 
+        // add a safety margin to the gas price to handle fluctuations
+        let add_safety_margin = |n: u128| n + n / 5;
+
         let max_fee_per_gas: u128 = eip1559_est.max_fee_per_gas.to_string().parse()?;
         let tx: TxEip4844 = TxEip4844 {
             chain_id,
             nonce,
-            gas_limit: 300_000,
-            max_fee_per_gas: max_fee_per_gas * 2,
-            max_priority_fee_per_gas: max_priority_fee_per_gas * 2,
+            // we noticed Starknet uses the same limit on mainnet
+            // https://etherscan.io/tx/0x8a58b936faaefb63ee1371991337ae3b99d74cb3504d73868615bf21fa2f25a1
+            gas_limit: 5_500_000,
+            max_fee_per_gas: add_safety_margin(max_fee_per_gas),
+            max_priority_fee_per_gas: add_safety_margin(max_priority_fee_per_gas),
             to: self.core_contract_client.contract_address(),
             value: U256::from(0),
             access_list: AccessList(vec![]),
             blob_versioned_hashes: sidecar.versioned_hashes().collect(),
-            max_fee_per_blob_gas: max_fee_per_blob_gas * 2,
+            max_fee_per_blob_gas: add_safety_margin(max_fee_per_blob_gas),
             input: Bytes::from(hex::decode(input_bytes)?),
         };
 
