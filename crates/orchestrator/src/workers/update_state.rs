@@ -15,10 +15,7 @@ pub struct UpdateStateWorker;
 #[async_trait]
 impl Worker for UpdateStateWorker {
     async fn run_worker(&self, config: Arc<Config>) -> Result<(), Box<dyn Error>> {
-        // TODO : fix this
-        // We should look for LockedForProcessing job also.
-        // Current assumption : no job will fail.
-        tracing::info!(log_type = "starting", category = "UpdateStateWorker", "UpdateStateWorker started.");
+        tracing::trace!(log_type = "starting", category = "UpdateStateWorker", "UpdateStateWorker started.");
 
         let latest_job = config.database().get_latest_job_by_type(JobType::StateTransition).await?;
 
@@ -132,7 +129,7 @@ impl Worker for UpdateStateWorker {
             }
         }
 
-        tracing::info!(log_type = "completed", category = "UpdateStateWorker", "UpdateStateWorker completed.");
+        tracing::trace!(log_type = "completed", category = "UpdateStateWorker", "UpdateStateWorker completed.");
         Ok(())
     }
 }

@@ -6,6 +6,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ## Added
 
+- Add multiple queues for processing and verification based on job type
 - added logs
 - added MongoDB migrations using nodejs
 - added dockerfile
@@ -38,6 +39,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ## Changed
 
+- update_job returns the updated job item
 - made create_job atomic to avoid race conditions
 - handle jobs in tokio tasks
 - handle workers in tokio tasks
@@ -63,6 +65,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ## Fixed
 
+- all failed jobs should move to failed state
 - Fixes all unwraps() in code to improve error logging
 - Simplified Update_Job for Database.
 - Simplified otel setup.
