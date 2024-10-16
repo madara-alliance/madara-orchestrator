@@ -343,9 +343,7 @@ pub async fn verify_job(id: Uuid, config: Arc<Config>) -> Result<(), JobError> {
                     attempt = process_attempts + 1,
                     "Verification failed. Retrying job processing"
                 );
-                add_job_to_process_queue(job.id, &job.job_type, config.clone())
-                    .await
-                    .map_err(|e| JobError::Other(OtherError(e)))?;
+                
                 config
                     .database()
                     .update_job(
@@ -360,8 +358,9 @@ pub async fn verify_job(id: Uuid, config: Arc<Config>) -> Result<(), JobError> {
                         tracing::error!(job_id = ?id, error = ?e, "Failed to update job status to VerificationFailed");
                         JobError::Other(OtherError(e))
                     })?;
-                add_job_to_process_queue(job.id, config.clone()).await.map_err(|e| JobError::Other(OtherError(e)))?;
-                return Ok(());
+                add_job_to_process_queue(job.id, &job.job_type, config.clone())
+                    .await
+                    .map_err(|e| JobError::Other(OtherError(e)))?;
             } else {
                 tracing::warn!(job_id = ?id, "Max process attempts reached. Job will not be retried");
                 return move_job_to_failed(
