@@ -56,7 +56,6 @@ impl Worker for UpdateStateWorker {
             }
             None => {
                 tracing::warn!("No previous state transition job found, fetching latest data submission job");
-                println!("no state update job in DB right now");
                 // Getting latest DA job in case no latest state update job is present
                 (
                     config
@@ -76,22 +75,17 @@ impl Worker for UpdateStateWorker {
             completed_da_jobs.iter().map(|j| j.internal_id.parse::<u64>().unwrap()).collect();
         blocks_to_process.sort();
 
-        println!("blocks_to_process: {:?}", blocks_to_process);
-
         // no DA jobs completed after the last settled block
         if blocks_to_process.is_empty() {
             log::warn!("No DA jobs completed after the last settled block. Returning safely...");
             return Ok(());
         }
 
-        println!("Starting to process blocks for state transition...");
-
         match last_block_processed_in_last_job {
             Some(last_block_processed_in_last_job) => {
                 // DA job for the block just after the last settled block
                 // is not yet completed
                 if blocks_to_process[0] != last_block_processed_in_last_job + 1 {
-                    println!("DA job for the block just after the last settled block is not yet completed.");
                     log::warn!(
                         "DA job for the block just after the last settled block is not yet completed. Returning \
                          safely..."
@@ -100,7 +94,6 @@ impl Worker for UpdateStateWorker {
                 }
             }
             None => {
-                println!("No last block processed in last job found. Proceeding with the first block.");
                 if blocks_to_process[0] != 0 {
                     log::warn!("DA job for the first block is not yet completed. Returning safely...");
                     return Ok(());
@@ -115,8 +108,6 @@ impl Worker for UpdateStateWorker {
             JOB_METADATA_STATE_UPDATE_BLOCKS_TO_SETTLE_KEY.to_string(),
             blocks_to_process.iter().map(|ele| ele.to_string()).collect::<Vec<String>>().join(","),
         );
-
-        println!("Blocks to process for state transition: {:?}", blocks_to_process);
 
         // Creating a single job for all the pending blocks.
         let new_job_id = blocks_to_process[0].to_string();

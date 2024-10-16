@@ -197,7 +197,6 @@ impl SettlementClient for EthereumSettlementClient {
         let chain_id: u64 = self.provider.get_chain_id().await?.to_string().parse()?;
 
         let max_fee_per_blob_gas: u128 = self.provider.get_blob_base_fee().await?.to_string().parse()?;
-        let max_priority_fee_per_gas: u128 = self.provider.get_max_priority_fee_per_gas().await?.to_string().parse()?;
 
         // x_0_value : program_output[10]
         // Updated with starknet 0.13.2 spec
@@ -213,22 +212,24 @@ impl SettlementClient for EthereumSettlementClient {
         let nonce = self.provider.get_transaction_count(self.wallet_address).await?.to_string().parse()?;
 
         // add a safety margin to the gas price to handle fluctuations
-        let add_safety_margin = |n: u128| n + n / 5;
+        let add_safety_margin = |n: u128, div_factor: u128| n + n / div_factor;
 
         let max_fee_per_gas: u128 = eip1559_est.max_fee_per_gas.to_string().parse()?;
+        let max_priority_fee_per_gas: u128 = eip1559_est.max_priority_fee_per_gas.to_string().parse()?;
+
         let tx: TxEip4844 = TxEip4844 {
             chain_id,
             nonce,
             // we noticed Starknet uses the same limit on mainnet
             // https://etherscan.io/tx/0x8a58b936faaefb63ee1371991337ae3b99d74cb3504d73868615bf21fa2f25a1
             gas_limit: 5_500_000,
-            max_fee_per_gas: add_safety_margin(max_fee_per_gas),
-            max_priority_fee_per_gas: add_safety_margin(max_priority_fee_per_gas),
+            max_fee_per_gas: add_safety_margin(max_fee_per_gas, 5),
+            max_priority_fee_per_gas: add_safety_margin(max_priority_fee_per_gas, 5),
             to: self.core_contract_client.contract_address(),
             value: U256::from(0),
             access_list: AccessList(vec![]),
             blob_versioned_hashes: sidecar.versioned_hashes().collect(),
-            max_fee_per_blob_gas: add_safety_margin(max_fee_per_blob_gas),
+            max_fee_per_blob_gas: add_safety_margin(max_fee_per_blob_gas, 5),
             input: Bytes::from(hex::decode(input_bytes)?),
         };
 
