@@ -93,9 +93,12 @@ impl EthereumTestBuilder {
 
         // Setup Anvil
         let anvil = match self.fork_block {
-            Some(fork_block) => {
-                Anvil::new().fork(&*ETH_RPC).fork_block_number(fork_block).try_spawn().expect("Could not spawn Anvil.")
-            }
+            Some(fork_block) => Anvil::new()
+                .fork(&*ETH_RPC)
+                .fork_block_number(fork_block)
+                .block_time(5)
+                .try_spawn()
+                .expect("Could not spawn Anvil."),
             None => Anvil::new().try_spawn().expect("Could not spawn Anvil."),
         };
 

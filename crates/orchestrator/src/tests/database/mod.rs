@@ -1,7 +1,9 @@
 use std::collections::HashMap;
+use std::time::Duration;
 
 use chrono::{SubsecRound, Utc};
 use rstest::*;
+use tokio::time::sleep;
 use uuid::Uuid;
 
 use crate::jobs::types::{ExternalId, JobItem, JobItemUpdates, JobStatus, JobType};
@@ -25,9 +27,9 @@ async fn database_create_job_works() {
     let database_client = config.database();
 
     let job_vec = [
-        build_job_item(JobType::ProofCreation, JobStatus::Created, 1),
-        build_job_item(JobType::ProofCreation, JobStatus::Created, 2),
-        build_job_item(JobType::ProofCreation, JobStatus::Created, 3),
+        build_job_item(JobType::ProofCreation, JobStatus::Created, 1).await,
+        build_job_item(JobType::ProofCreation, JobStatus::Created, 2).await,
+        build_job_item(JobType::ProofCreation, JobStatus::Created, 3).await,
     ];
 
     database_client.create_job(job_vec[0].clone()).await.unwrap();
@@ -57,10 +59,10 @@ async fn database_create_job_with_job_exists_fails() {
     let config = services.config;
     let database_client = config.database();
 
-    let job_one = build_job_item(JobType::ProofCreation, JobStatus::Created, 1);
+    let job_one = build_job_item(JobType::ProofCreation, JobStatus::Created, 1).await;
 
     // same job type and internal id
-    let job_two = build_job_item(JobType::ProofCreation, JobStatus::LockedForProcessing, 1);
+    let job_two = build_job_item(JobType::ProofCreation, JobStatus::LockedForProcessing, 1).await;
 
     database_client.create_job(job_one).await.unwrap();
 
@@ -94,12 +96,12 @@ async fn database_get_jobs_without_successor_works(#[case] is_successor: bool) {
     let database_client = config.database();
 
     let job_vec = [
-        build_job_item(JobType::SnosRun, JobStatus::Completed, 1),
-        build_job_item(JobType::SnosRun, JobStatus::Completed, 2),
-        build_job_item(JobType::SnosRun, JobStatus::Completed, 3),
-        build_job_item(JobType::ProofCreation, JobStatus::Created, 1),
-        build_job_item(JobType::ProofCreation, JobStatus::Created, 2),
-        build_job_item(JobType::ProofCreation, JobStatus::Created, 3),
+        build_job_item(JobType::SnosRun, JobStatus::Completed, 1).await,
+        build_job_item(JobType::SnosRun, JobStatus::Completed, 2).await,
+        build_job_item(JobType::SnosRun, JobStatus::Completed, 3).await,
+        build_job_item(JobType::ProofCreation, JobStatus::Created, 1).await,
+        build_job_item(JobType::ProofCreation, JobStatus::Created, 2).await,
+        build_job_item(JobType::ProofCreation, JobStatus::Created, 3).await,
     ];
 
     database_client.create_job(job_vec[0].clone()).await.unwrap();
@@ -138,9 +140,9 @@ async fn database_get_last_successful_job_by_type_works() {
     let database_client = config.database();
 
     let job_vec = [
-        build_job_item(JobType::SnosRun, JobStatus::Completed, 1),
-        build_job_item(JobType::SnosRun, JobStatus::Completed, 2),
-        build_job_item(JobType::SnosRun, JobStatus::Completed, 3),
+        build_job_item(JobType::SnosRun, JobStatus::Completed, 1).await,
+        build_job_item(JobType::SnosRun, JobStatus::Completed, 2).await,
+        build_job_item(JobType::SnosRun, JobStatus::Completed, 3).await,
     ];
 
     database_client.create_job(job_vec[0].clone()).await.unwrap();
@@ -166,12 +168,12 @@ async fn database_get_jobs_after_internal_id_by_job_type_works() {
     let database_client = config.database();
 
     let job_vec = [
-        build_job_item(JobType::SnosRun, JobStatus::Completed, 1),
-        build_job_item(JobType::SnosRun, JobStatus::Completed, 2),
-        build_job_item(JobType::ProofCreation, JobStatus::Completed, 3),
-        build_job_item(JobType::ProofCreation, JobStatus::Completed, 4),
-        build_job_item(JobType::SnosRun, JobStatus::Completed, 5),
-        build_job_item(JobType::SnosRun, JobStatus::Completed, 6),
+        build_job_item(JobType::SnosRun, JobStatus::Completed, 1).await,
+        build_job_item(JobType::SnosRun, JobStatus::Completed, 2).await,
+        build_job_item(JobType::ProofCreation, JobStatus::Completed, 3).await,
+        build_job_item(JobType::ProofCreation, JobStatus::Completed, 4).await,
+        build_job_item(JobType::SnosRun, JobStatus::Completed, 5).await,
+        build_job_item(JobType::SnosRun, JobStatus::Completed, 6).await,
     ];
 
     database_client.create_job(job_vec[0].clone()).await.unwrap();
@@ -198,7 +200,7 @@ async fn database_test_update_job() {
     let config = services.config;
     let database_client = config.database();
 
-    let job = build_job_item(JobType::DataSubmission, JobStatus::Created, 456);
+    let job = build_job_item(JobType::DataSubmission, JobStatus::Created, 456).await;
     database_client.create_job(job.clone()).await.unwrap();
 
     let job_id = job.id;
@@ -231,7 +233,9 @@ async fn database_test_update_job() {
 // Test Util Functions
 // ==========================================
 
-pub fn build_job_item(job_type: JobType, job_status: JobStatus, internal_id: u64) -> JobItem {
+pub async fn build_job_item(job_type: JobType, job_status: JobStatus, internal_id: u64) -> JobItem {
+    // Added a delay because some function may fetch the job by when that job was created.
+    sleep(Duration::from_secs(2)).await;
     JobItem {
         id: Uuid::new_v4(),
         internal_id: internal_id.to_string(),

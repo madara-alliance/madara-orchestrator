@@ -7,7 +7,7 @@ use async_trait::async_trait;
 use crate::config::Config;
 use crate::jobs::constants::JOB_METADATA_STATE_UPDATE_BLOCKS_TO_SETTLE_KEY;
 use crate::jobs::create_job;
-use crate::jobs::types::{JobItem, JobStatus, JobType};
+use crate::jobs::types::{JobStatus, JobType};
 use crate::workers::Worker;
 
 pub struct UpdateStateWorker;
@@ -21,7 +21,6 @@ impl Worker for UpdateStateWorker {
         tracing::info!(log_type = "starting", category = "UpdateStateWorker", "UpdateStateWorker started.");
 
         let latest_job = config.database().get_latest_job_by_type(JobType::StateTransition).await?;
-        println!("Got the latest job {:?}", latest_job);
 
         let (completed_da_jobs, last_block_processed_in_last_job) = match latest_job {
             Some(job) => {

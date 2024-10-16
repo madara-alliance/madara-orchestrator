@@ -1,25 +1,16 @@
 use std::collections::HashMap;
-use std::error::Error;
 use std::sync::Arc;
 
-use da_client_interface::MockDaClient;
-use httpmock::MockServer;
 use mockall::predicate::eq;
-use rstest::{rstest, *};
-use starknet::providers::jsonrpc::HttpTransport;
-use starknet::providers::JsonRpcClient;
-use url::Url;
+use rstest::*;
 use uuid::Uuid;
 
-use crate::database::MockDatabase;
 use crate::jobs::constants::JOB_METADATA_STATE_UPDATE_BLOCKS_TO_SETTLE_KEY;
 use crate::jobs::job_handler_factory::mock_factory;
 use crate::jobs::state_update_job::StateUpdateJob;
-use crate::jobs::types::{JobItem, JobStatus, JobType};
-use crate::jobs::{Job, MockJob};
-use crate::queue::MockQueueProvider;
+use crate::jobs::types::{JobStatus, JobType};
 use crate::tests::config::{ConfigType, TestConfigBuilder};
-use crate::tests::workers::utils::{get_job_by_mock_id_vector, get_job_item_mock_by_id};
+use crate::tests::workers::utils::get_job_item_mock_by_id;
 use crate::workers::update_state::UpdateStateWorker;
 use crate::workers::Worker;
 
