@@ -4,7 +4,7 @@ use std::sync::Arc;
 
 use async_trait::async_trait;
 use starknet::providers::Provider;
-use utils::env_utils::{get_env_var_or_default, get_env_var_or_panic};
+use utils::env_utils::get_env_var_or_default;
 
 use crate::config::Config;
 use crate::jobs::create_job;
@@ -22,35 +22,27 @@ impl Worker for SnosWorker {
         tracing::info!(log_type = "starting", category = "SnosWorker", "SnosWorker started.");
 
         let provider = config.starknet_client();
-        println!(">>>> SNOS_LATEST_BLOCK : {:?}", get_env_var_or_panic("SNOS_LATEST_BLOCK"));
+        let block_number_provider = &provider.block_number().await?;
         let latest_block_number =
-            get_env_var_or_default("SNOS_LATEST_BLOCK", &provider.block_number().await?.to_string()).parse::<u64>()?;
+            get_env_var_or_default("SNOS_LATEST_BLOCK", &block_number_provider.to_string()).parse::<u64>()?;
         tracing::debug!(latest_block_number = %latest_block_number, "Fetched latest block number from starknet");
 
-        println!(">>>> Latest block number: {}", latest_block_number);
+        let latest_job_in_db = config.database().get_latest_job_by_type(JobType::SnosRun).await?;
 
-        // TODO : This needs to be optimized.
-        // TODO : This is not scalable.
-        let mut snos_jobs_in_db_block_numbers: Vec<u64> = config
-            .database()
-            .get_jobs_by_type(JobType::SnosRun)
-            .await?
-            .iter()
-            .map(|job| job.internal_id.parse::<u64>().unwrap())
-            .collect();
-        snos_jobs_in_db_block_numbers.sort();
-
-        // TODO : temp solution
-        // Just for testing purposes
-        let first_block = snos_jobs_in_db_block_numbers.first();
-        let block = match first_block {
-            Some(first_block) => *first_block,
-            None => 0,
+        let latest_job_id = match latest_job_in_db {
+            Some(job) => job.internal_id,
+            None => "0".to_string(),
         };
 
-        for x in block..latest_block_number + 1 {
-            if !snos_jobs_in_db_block_numbers.contains(&x) {
-                create_job(JobType::SnosRun, x.to_string(), HashMap::new(), config.clone()).await?;
+        // To be used when testing in specific block range
+        let block_start = get_env_var_or_default("SNOS_MINIMUM_START_BLOCK", &latest_job_id).parse::<u64>()?;
+
+        for x in block_start..latest_block_number + 1 {
+            match create_job(JobType::SnosRun, x.to_string(), HashMap::new(), config.clone()).await {
+                Ok(_) => {}
+                Err(e) => {
+                    log::warn!("Failed to create job: {:?}", e);
+                }
             }
         }
         tracing::info!(log_type = "completed", category = "SnosWorker", "SnosWorker completed.");

@@ -154,16 +154,13 @@ impl Job for StateUpdateJob {
                 Self::call_to_service_snos_failure(config.clone(), *block_no).await.unwrap()
             } else {
                 let snos = self.fetch_snos_for_block(*block_no, config.clone()).await;
-                self
-                    .update_state_for_block(config.clone(), *block_no, snos, nonce)
+                self.update_state_for_block(config.clone(), *block_no, snos, nonce)
                     .await
                     .map_err(|e| {
                         job.metadata
                             .insert(JOB_METADATA_STATE_UPDATE_LAST_FAILED_BLOCK_NO.into(), block_no.to_string());
                         self.insert_attempts_into_metadata(job, &attempt_no, &sent_tx_hashes);
-                        OtherError(eyre!(
-                            "Block #{block_no} - Error occurred during the state update: {e}"
-                        ));
+                        OtherError(eyre!("Block #{block_no} - Error occurred during the state update: {e}"));
                     })
                     .unwrap()
             };
@@ -345,11 +342,8 @@ impl StateUpdateJob {
                 .await
                 .map_err(|e| JobError::Other(OtherError(e)))?;
 
-            println!(">>>> blob_data: {:?}", blob_data.len());
-
             let program_output = self.fetch_program_output_for_block(block_no, config.clone()).await;
 
-            println!(">>>> program_output: {:?}", program_output);
             // TODO :
             // Fetching nonce before the transaction is run
             // Sending update_state transaction from the settlement client

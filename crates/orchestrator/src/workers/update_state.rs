@@ -21,7 +21,6 @@ impl Worker for UpdateStateWorker {
         tracing::info!(log_type = "starting", category = "UpdateStateWorker", "UpdateStateWorker started.");
 
         let latest_job = config.database().get_latest_job_by_type(JobType::StateTransition).await?;
-        log::warn!(">>>> latest job : {:?}", latest_job);
 
         match latest_job {
             Some(job) => {

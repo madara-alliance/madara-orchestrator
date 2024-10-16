@@ -1,11 +1,13 @@
 use std::path::PathBuf;
 use std::str::FromStr;
 use std::sync::Arc;
+#[cfg(not(feature = "testing"))]
 use std::time::Duration;
 
 use alloy::consensus::{
     BlobTransactionSidecar, SignableTransaction, TxEip4844, TxEip4844Variant, TxEip4844WithSidecar, TxEnvelope,
 };
+#[cfg(not(feature = "testing"))]
 use alloy::eips::eip2718::Encodable2718;
 use alloy::eips::eip2930::AccessList;
 use alloy::eips::eip4844::BYTES_PER_BLOB;
@@ -13,7 +15,7 @@ use alloy::hex;
 use alloy::network::EthereumWallet;
 use alloy::primitives::{Address, B256, U256};
 use alloy::providers::{PendingTransactionConfig, Provider, ProviderBuilder};
-use alloy::rpc::types::{TransactionReceipt};
+use alloy::rpc::types::TransactionReceipt;
 use alloy::signers::local::PrivateKeySigner;
 use alloy_primitives::Bytes;
 use async_trait::async_trait;
@@ -40,6 +42,7 @@ use alloy::transports::http::Http;
 use lazy_static::lazy_static;
 use mockall::automock;
 use reqwest::Client;
+#[cfg(not(feature = "testing"))]
 use tokio::time::sleep;
 use utils::settings::Settings;
 
@@ -249,9 +252,20 @@ impl SettlementClient for EthereumSettlementClient {
         let tx_envelope: TxEnvelope = tx_signed.into();
         println!(">>>> tx envelope");
 
-        let encoded = tx_envelope.encoded_2718();
+        #[cfg(feature = "testing")]
+        let pending_transaction = {
+            let txn_request = {
+                test_config::configure_transaction(self.provider.clone(), tx_envelope, self.impersonate_account).await
+            };
+            self.provider.send_transaction(txn_request).await?
+        };
 
-        let pending_transaction = self.provider.send_raw_transaction(encoded.as_slice()).await?;
+        #[cfg(not(feature = "testing"))]
+        let pending_transaction = {
+            let encoded = tx_envelope.encoded_2718();
+            self.provider.send_raw_transaction(encoded.as_slice()).await?
+        };
+
         tracing::info!(
             log_type = "completed",
             category = "update_state",
@@ -260,22 +274,28 @@ impl SettlementClient for EthereumSettlementClient {
         );
 
         log::warn!("⏳ Waiting for txn finality.......");
-        // waiting for txn finality (block to be specific)
-        let res = Self::wait_for_transaction_confirmation(
-            self.provider.clone(),
-            *pending_transaction.tx_hash(),
-            100,
-            Duration::from_secs(5),
-            3,
-        )
-        .await?;
+        println!(">>> pending txn = {:?}", pending_transaction);
 
-        match res {
-            Some(_) => {
-                println!(">>>> txn hash : {:?} Finalized ✅", pending_transaction.tx_hash().to_string());
-            }
-            None => {
-                log::error!("Txn hash not finalised");
+        // Prod feature only (may cause issues while testing with anvil)
+        #[cfg(not(feature = "testing"))]
+        {
+            // waiting for txn finality (block to be specific)
+            let res = Self::wait_for_transaction_confirmation(
+                self.provider.clone(),
+                *pending_transaction.tx_hash(),
+                100,
+                Duration::from_secs(5),
+                3,
+            )
+            .await?;
+
+            match res {
+                Some(_) => {
+                    println!(">>>> txn hash : {:?} Finalized ✅", pending_transaction.tx_hash().to_string());
+                }
+                None => {
+                    log::error!("Txn hash not finalised");
+                }
             }
         }
 
@@ -347,6 +367,7 @@ impl SettlementClient for EthereumSettlementClient {
     }
 }
 
+#[cfg(not(feature = "testing"))]
 impl EthereumSettlementClient {
     async fn wait_for_transaction_confirmation(
         provider: Arc<RootProvider<Http<Client>>>,
@@ -375,9 +396,11 @@ impl EthereumSettlementClient {
 #[cfg(feature = "testing")]
 mod test_config {
     use alloy::network::TransactionBuilder;
+    use alloy::rpc::types::TransactionRequest;
 
     use super::*;
 
+    #[allow(dead_code)]
     pub async fn configure_transaction(
         provider: Arc<RootProvider<Http<Client>>>,
         tx_envelope: TxEnvelope,
