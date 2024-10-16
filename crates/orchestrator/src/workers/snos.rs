@@ -4,10 +4,11 @@ use std::sync::Arc;
 
 use async_trait::async_trait;
 use starknet::providers::Provider;
+use utils::env_utils::{get_env_var_or_default, get_env_var_or_panic};
 
 use crate::config::Config;
 use crate::jobs::create_job;
-use crate::jobs::types::{JobStatus, JobType};
+use crate::jobs::types::JobType;
 use crate::workers::Worker;
 
 pub struct SnosWorker;
@@ -21,49 +22,36 @@ impl Worker for SnosWorker {
         tracing::info!(log_type = "starting", category = "SnosWorker", "SnosWorker started.");
 
         let provider = config.starknet_client();
-        let latest_block_number = provider.block_number().await?;
-        tracing::debug!(latest_block_number = %latest_block_number, "Fetched latest block number from Starknet");
+        println!(">>>> SNOS_LATEST_BLOCK : {:?}", get_env_var_or_panic("SNOS_LATEST_BLOCK"));
+        let latest_block_number =
+            get_env_var_or_default("SNOS_LATEST_BLOCK", &provider.block_number().await?.to_string()).parse::<u64>()?;
+        tracing::debug!(latest_block_number = %latest_block_number, "Fetched latest block number from starknet");
 
-        let latest_block_processed_data = config
+        println!(">>>> Latest block number: {}", latest_block_number);
+
+        // TODO : This needs to be optimized.
+        // TODO : This is not scalable.
+        let mut snos_jobs_in_db_block_numbers: Vec<u64> = config
             .database()
-            .get_latest_job_by_type_and_status(JobType::SnosRun, JobStatus::Completed)
+            .get_jobs_by_type(JobType::SnosRun)
             .await?
-            .map(|item| item.internal_id)
-            .unwrap_or("0".to_string());
-        tracing::debug!(latest_processed_block = %latest_block_processed_data, "Fetched latest processed block from database");
+            .iter()
+            .map(|job| job.internal_id.parse::<u64>().unwrap())
+            .collect();
+        snos_jobs_in_db_block_numbers.sort();
 
-        // Check if job does not exist
-        // TODO: fetching all SNOS jobs with internal id > latest_block_processed_data
-        // can be done in one DB call
-        let job_in_db = config
-            .database()
-            .get_job_by_internal_id_and_type(&latest_block_number.to_string(), &JobType::SnosRun)
-            .await?;
-
-        if job_in_db.is_some() {
-            tracing::trace!(block_number = %latest_block_number, "SNOS job already exists for the latest block");
-            return Ok(());
-        }
-
-        let latest_block_processed: u64 = match latest_block_processed_data.parse() {
-            Ok(block) => block,
-            Err(e) => {
-                tracing::error!(error = %e, block_no = %latest_block_processed_data, "Failed to parse latest processed block number");
-                return Err(Box::new(e));
-            }
+        // TODO : temp solution
+        // Just for testing purposes
+        let first_block = snos_jobs_in_db_block_numbers.first();
+        let block = match first_block {
+            Some(first_block) => *first_block,
+            None => 0,
         };
 
-        let block_diff = latest_block_number - latest_block_processed;
-        tracing::debug!(block_diff = %block_diff, "Calculated block difference");
-
-        // if all blocks are processed
-        if block_diff == 0 {
-            tracing::info!("All blocks are already processed");
-            return Ok(());
-        }
-
-        for x in latest_block_processed + 1..latest_block_number + 1 {
-            create_job(JobType::SnosRun, x.to_string(), HashMap::new(), config.clone()).await?;
+        for x in block..latest_block_number + 1 {
+            if !snos_jobs_in_db_block_numbers.contains(&x) {
+                create_job(JobType::SnosRun, x.to_string(), HashMap::new(), config.clone()).await?;
+            }
         }
         tracing::info!(log_type = "completed", category = "SnosWorker", "SnosWorker completed.");
         Ok(())
