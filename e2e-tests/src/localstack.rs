@@ -59,7 +59,7 @@ impl LocalStack {
 
         // Creating SQS queues
         let mut queue_attributes = HashMap::new();
-        queue_attributes.insert(VisibilityTimeout, "1".into());
+        queue_attributes.insert(VisibilityTimeout, "10000".into());
         self.sqs_client
             .create_queue()
             .queue_name(JOB_PROCESSING_QUEUE)
