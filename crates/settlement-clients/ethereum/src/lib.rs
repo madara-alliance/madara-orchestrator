@@ -1,11 +1,13 @@
 use std::path::PathBuf;
 use std::str::FromStr;
 use std::sync::Arc;
+#[cfg(not(feature = "testing"))]
 use std::time::Duration;
 
 use alloy::consensus::{
     BlobTransactionSidecar, SignableTransaction, TxEip4844, TxEip4844Variant, TxEip4844WithSidecar, TxEnvelope,
 };
+#[cfg(not(feature = "testing"))]
 use alloy::eips::eip2718::Encodable2718;
 use alloy::eips::eip2930::AccessList;
 use alloy::eips::eip4844::BYTES_PER_BLOB;
@@ -40,6 +42,7 @@ use alloy::transports::http::Http;
 use lazy_static::lazy_static;
 use mockall::automock;
 use reqwest::Client;
+#[cfg(not(feature = "testing"))]
 use tokio::time::sleep;
 use utils::settings::Settings;
 
@@ -362,6 +365,7 @@ impl SettlementClient for EthereumSettlementClient {
     }
 }
 
+#[cfg(not(feature = "testing"))]
 impl EthereumSettlementClient {
     async fn wait_for_transaction_confirmation(
         provider: Arc<RootProvider<Http<Client>>>,
@@ -390,7 +394,7 @@ impl EthereumSettlementClient {
 #[cfg(feature = "testing")]
 mod test_config {
     use alloy::network::TransactionBuilder;
-
+    use alloy::rpc::types::TransactionRequest;
     use super::*;
 
     pub async fn configure_transaction(
