@@ -29,7 +29,8 @@ pub fn setup_analytics() -> Option<SdkMeterProvider> {
 
     let tracing_subscriber = tracing_subscriber::registry()
         .with(tracing_subscriber::filter::LevelFilter::from_level(level))
-        .with(tracing_subscriber::fmt::layer().with_target(false));
+        .with(tracing_subscriber::fmt::layer())
+        .with(EnvFilter::from_default_env());
 
     if let Some(otel_endpoint) = otel_endpoint {
         let meter_provider = init_metric_provider(&otel_endpoint);
