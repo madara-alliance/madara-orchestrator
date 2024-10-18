@@ -1,5 +1,6 @@
 use std::sync::Arc;
 
+use cairo_vm::types::layout_name::LayoutName;
 use da_client_interface::{DaClient, MockDaClient};
 use httpmock::MockServer;
 use prover_client_interface::{MockProverClient, ProverClient};
@@ -219,6 +220,7 @@ impl TestConfigBuilder {
             queue,
             storage,
             alerts,
+            LayoutName::all_cairo,
         ));
 
         TestConfigBuilderReturns { server, config, provider_config: provider_config.clone() }

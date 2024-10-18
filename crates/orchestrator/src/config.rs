@@ -10,6 +10,7 @@ use atlantic_service::AtlanticProverService;
 use aws_config::meta::region::RegionProviderChain;
 use aws_config::{Region, SdkConfig};
 use aws_credential_types::Credentials;
+use cairo_vm::types::layout_name::LayoutName;
 use da_client_interface::DaClient;
 use dotenvy::dotenv;
 use ethereum_da_client::config::EthereumDaConfig;
@@ -58,6 +59,8 @@ pub struct Config {
     storage: Box<dyn DataStorage>,
     /// Alerts client
     alerts: Box<dyn Alerts>,
+    /// Layout to use for running SNOS and proving
+    snos_proof_layout: LayoutName,
 }
 
 /// `ProviderConfig` is an enum used to represent the global config built
@@ -116,6 +119,18 @@ pub async fn init_config() -> color_eyre::Result<Arc<Config>> {
     // us stop using the generic omniqueue abstractions for message ack/nack
     let queue = build_queue_client();
 
+    let snos_proof_layout = match settings_provider.get_settings_or_panic("SNOS_PROOF_LAYOUT").as_str() {
+        "all_cairo" => {
+            log::warn!(
+                "Using all_cairo layout for SNOS. This is probably not provable and so it's not recommended for \
+                 production use."
+            );
+            LayoutName::all_cairo
+        }
+        "starknet_with_keccak" => LayoutName::starknet_with_keccak,
+        _ => panic!("Unsupported SNOS proof layout"),
+    };
+
     Ok(Arc::new(Config::new(
         rpc_url,
         snos_url,
@@ -127,6 +142,7 @@ pub async fn init_config() -> color_eyre::Result<Arc<Config>> {
         queue,
         storage_client,
         alerts_client,
+        snos_proof_layout,
     )))
 }
 
@@ -144,6 +160,7 @@ impl Config {
         queue: Box<dyn QueueProvider>,
         storage: Box<dyn DataStorage>,
         alerts: Box<dyn Alerts>,
+        snos_proof_layout: LayoutName,
     ) -> Self {
         Self {
             starknet_rpc_url,
@@ -156,6 +173,7 @@ impl Config {
             queue,
             storage,
             alerts,
+            snos_proof_layout,
         }
     }
 
@@ -207,6 +225,11 @@ impl Config {
     /// Returns the alerts client
     pub fn alerts(&self) -> &dyn Alerts {
         self.alerts.as_ref()
+    }
+
+    /// Returns the snos proof layout
+    pub fn snos_proof_layout(&self) -> &LayoutName {
+        &self.snos_proof_layout
     }
 }
 

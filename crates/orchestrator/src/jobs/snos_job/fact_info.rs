@@ -90,13 +90,6 @@ pub fn get_fact_info(cairo_pie: &CairoPie, program_hash: Option<Felt>) -> Result
             )
         }
     };
-    tracing::info!(
-        log_type = "FactInfo",
-        category = "fact_info",
-        function_type = "get_fact_info",
-        "Program hash: {:?} and now generating merkle root",
-        program_hash
-    );
     tracing::trace!(
         log_type = "FactInfo",
         category = "fact_info",

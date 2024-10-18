@@ -1,6 +1,7 @@
 use std::clone::Clone;
 use std::path::Path;
 
+use cairo_vm::types::layout_name::LayoutName;
 use reqwest::multipart::Form;
 use reqwest::{multipart, Body, ClientBuilder};
 use tokio::fs::File;
@@ -12,24 +13,61 @@ use crate::config::SettlementLayer;
 use crate::error::AtlanticError;
 use crate::types::{AtlanticAddJobResponse, AtlanticGetStatusResponse};
 
+#[derive(Debug, strum_macros::EnumString)]
+enum ProverType {
+    #[strum(serialize = "starkware")]
+    Starkware,
+    #[strum(serialize = "herodotus")]
+    HeroDotus,
+}
+
 /// SHARP API async wrapper
 #[derive(Debug)]
 pub struct AtlanticClient {
     base_url: Url,
     client: reqwest::Client,
     settlement_layer: SettlementLayer,
+    api_key: String,
+    mock_fact_hash: bool,
+    prover_type: ProverType,
 }
 
 impl AtlanticClient {
     /// We need to set up the client with the API_KEY.
-    pub fn new_with_settings(url: Url, settlement_layer: SettlementLayer) -> Self {
-        Self { base_url: url, client: ClientBuilder::new().build().unwrap(), settlement_layer }
+    pub fn new_with_settings(mut url: Url, settlement_layer: SettlementLayer) -> Self {
+        let api_key = get_env_var_or_panic("ATLANTIC_API_KEY");
+        let mock_fact_hash =
+            get_env_var_or_panic("MOCK_FACT_HASH").parse::<bool>().expect("MOCK_FACT_HASH must be a boolean");
+        let prover_type =
+            get_env_var_or_panic("PROVER_TYPE").parse::<ProverType>().expect("PROVER_TYPE must be a valid prover type");
+
+        {
+            let mut pairs = url.query_pairs_mut();
+
+            let query_params = vec![("apiKey", api_key.as_str())];
+            for (key, value) in query_params {
+                pairs.append_pair(key, value);
+            }
+        }
+
+        Self {
+            base_url: url.clone(),
+            client: ClientBuilder::new().build().unwrap(),
+            settlement_layer,
+            api_key,
+            mock_fact_hash,
+            prover_type,
+        }
     }
 
-    pub async fn add_job(&self, pie_file: &Path) -> Result<AtlanticAddJobResponse, AtlanticError> {
+    pub async fn add_job(
+        &self,
+        pie_file: &Path,
+        proof_layout: LayoutName,
+    ) -> Result<AtlanticAddJobResponse, AtlanticError> {
         match self.settlement_layer {
-            SettlementLayer::Ethereum => submit_l2_proving_job(self, pie_file).await,
-            SettlementLayer::Starknet => submit_l3_proving_job(self, pie_file).await,
+            SettlementLayer::Ethereum => submit_l2_proving_job(self, pie_file, proof_layout).await,
+            SettlementLayer::Starknet => submit_l3_proving_job(self, pie_file, proof_layout).await,
         }
     }
 
@@ -55,6 +93,7 @@ impl AtlanticClient {
 async fn submit_l2_proving_job(
     atlantic_client: &AtlanticClient,
     pie_file: &Path,
+    proof_layout: LayoutName,
 ) -> Result<AtlanticAddJobResponse, AtlanticError> {
     let mut base_url = atlantic_client.base_url.clone();
     base_url
@@ -65,9 +104,7 @@ async fn submit_l2_proving_job(
         .push("proof_generation_verification");
 
     let api_key = get_env_var_or_panic("ATLANTIC_API_KEY");
-    let proof_layout = get_env_var_or_panic("SHARP_PROOF_LAYOUT");
     let mock_fact_hash = get_env_var_or_panic("MOCK_FACT_HASH");
-    log::trace!("Api key: {:?}, proof_layout: {:?}, mock_fact_hash: {:?}", api_key, proof_layout, mock_fact_hash);
 
     let query_params = vec![("apiKey", api_key.as_str())];
 
@@ -78,8 +115,10 @@ async fn submit_l2_proving_job(
     // make form part of file
     let pie_file_part = multipart::Part::stream(file_body).file_name("pie.zip");
 
-    let form =
-        Form::new().part("pieFile", pie_file_part).text("layout", proof_layout).text("mockFactHash", mock_fact_hash);
+    let form = Form::new()
+        .part("pieFile", pie_file_part)
+        .text("layout", proof_layout.to_str())
+        .text("mockFactHash", mock_fact_hash);
 
     // Adding params to the URL
     add_params_to_url(&mut base_url, query_params);
@@ -98,6 +137,7 @@ async fn submit_l2_proving_job(
 async fn submit_l3_proving_job(
     atlantic_client: &AtlanticClient,
     pie_file: &Path,
+    proof_layout: LayoutName,
 ) -> Result<AtlanticAddJobResponse, AtlanticError> {
     let mut base_url = atlantic_client.base_url.clone();
 
@@ -109,16 +149,9 @@ async fn submit_l3_proving_job(
         .push("from-proof-generation-to-proof-verification");
 
     let api_key = get_env_var_or_panic("ATLANTIC_API_KEY");
-    let proof_layout = get_env_var_or_panic("SHARP_PROOF_LAYOUT");
+    let proof_layout = get_env_var_or_panic("SNOS_PROOF_LAYOUT");
     let mock_fact_hash = get_env_var_or_panic("MOCK_FACT_HASH");
-    let prover = get_env_var_or_panic("PROVER_FOR_L3");
-    log::trace!(
-        "Api key: {:?}, proof_layout: {:?}, mock_fact_hash: {:?}, prover: {:?}",
-        api_key,
-        proof_layout,
-        mock_fact_hash,
-        prover
-    );
+    let prover = get_env_var_or_panic("PROVER_TYPE");
 
     let query_params = vec![("apiKey", api_key.as_str())];
 

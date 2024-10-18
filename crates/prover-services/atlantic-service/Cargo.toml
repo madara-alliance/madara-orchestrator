@@ -30,6 +30,8 @@ tokio-util = { version = "0.7.12", features = ["codec"] }
 url.workspace = true
 utils.workspace = true
 uuid.workspace = true
+strum_macros = { workspace = true }
+strum = { workspace = true }
 
 #Instrumentation
 opentelemetry = { workspace = true, features = ["metrics", "logs"] }

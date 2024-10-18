@@ -1,4 +1,5 @@
 use atlantic_service::AtlanticProverService;
+use cairo_vm::types::layout_name::LayoutName;
 use cairo_vm::vm::runners::cairo_pie::CairoPie;
 use prover_client_interface::{ProverClient, Task};
 use rstest::rstest;
@@ -18,7 +19,7 @@ async fn atlantic_client_submit_task_works() {
 
     let cairo_pie_path = env!("CARGO_MANIFEST_DIR").to_string() + CAIRO_PIE_PATH;
     let cairo_pie = CairoPie::read_zip_file(cairo_pie_path.as_ref()).expect("failed to read cairo pie zip");
-    let task_result = atlantic_service.submit_task(Task::CairoPie(Box::new(cairo_pie))).await;
+    let task_result = atlantic_service.submit_task(Task::CairoPie(Box::new(cairo_pie)), LayoutName::all_cairo).await;
     log::info!("Task result from atlantic service: {:?}", task_result);
     assert!(task_result.is_ok());
 

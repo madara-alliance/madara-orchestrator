@@ -1,3 +1,4 @@
+use cairo_vm::types::layout_name::LayoutName;
 use cairo_vm::vm::runners::cairo_pie::CairoPie;
 use httpmock::MockServer;
 use prover_client_interface::{ProverClient, Task, TaskStatus};
@@ -34,7 +35,7 @@ async fn prover_client_submit_task_works() {
     });
 
     let cairo_pie = Box::new(cairo_pie);
-    assert!(sharp_service.submit_task(Task::CairoPie(cairo_pie)).await.is_ok());
+    assert!(sharp_service.submit_task(Task::CairoPie(cairo_pie), LayoutName::all_cairo).await.is_ok());
 
     sharp_add_job_call.assert();
 }

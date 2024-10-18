@@ -2,6 +2,7 @@ use std::clone::Clone;
 
 use base64::engine::general_purpose;
 use base64::Engine;
+use cairo_vm::types::layout_name::LayoutName;
 use reqwest::{Certificate, ClientBuilder, Identity};
 use url::Url;
 use utils::env_utils::get_env_var_or_panic;
@@ -62,14 +63,17 @@ impl SharpClient {
         }
     }
 
-    pub async fn add_job(&self, encoded_pie: &str) -> Result<(SharpAddJobResponse, Uuid), SharpError> {
+    pub async fn add_job(
+        &self,
+        encoded_pie: &str,
+        proof_layout: LayoutName,
+    ) -> Result<(SharpAddJobResponse, Uuid), SharpError> {
         let mut base_url = self.base_url.clone();
 
         base_url.path_segments_mut().map_err(|_| SharpError::PathSegmentMutFailOnUrl)?.push("add_job");
 
         let cairo_key = Uuid::new_v4();
         let cairo_key_string = cairo_key.to_string();
-        let proof_layout = get_env_var_or_panic("SHARP_PROOF_LAYOUT");
 
         // Params for sending the PIE file to the prover
         // for temporary reference you can check this doc :
@@ -77,7 +81,7 @@ impl SharpClient {
         let params = vec![
             ("cairo_job_key", cairo_key_string.as_str()),
             ("offchain_proof", "true"),
-            ("proof_layout", proof_layout.as_str()),
+            ("proof_layout", proof_layout.to_str()),
         ];
 
         // Adding params to the URL
