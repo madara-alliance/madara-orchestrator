@@ -12,3 +12,6 @@ lcov.info
 **/*-SN.zip
 
 node_modules
+
+# env file created by makefile
+.makefile-env
