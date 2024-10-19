@@ -14,7 +14,7 @@ use opentelemetry_sdk::{runtime, Resource};
 use tracing::Level;
 use tracing_opentelemetry::OpenTelemetryLayer;
 use tracing_subscriber::layer::SubscriberExt as _;
-use tracing_subscriber::util::SubscriberInitExt as _;
+use tracing_subscriber::EnvFilter;
 use utils::env_utils::{get_env_var_optional, get_env_var_or_default, get_env_var_or_panic};
 
 lazy_static! {
