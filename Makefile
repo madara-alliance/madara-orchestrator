@@ -5,7 +5,7 @@ PATHFINDER_PATH := /Users/apoorvsadana/Documents/GitHub/pathfinder
 ORCHESTRATOR_PATH := /Users/apoorvsadana/Documents/GitHub/madara-orchestrator
 BOOTSTRAP_JSON_PATH := $(BOOTSTRAPPER_PATH)/bootstrap.json
 PATHFINDER_DATA_PATH := $(PATHFINDER_PATH)/test_db
-MADARA_BASE_PATH := ../madara_pathfinder_test_12
+MADARA_BASE_PATH := ../madara_pathfinder_test_15
 OPERATOR_ADDRESS := 0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266
 
 # Environment file
@@ -24,6 +24,8 @@ setup:
 	@echo "Madara started in background (PID: $$(cat .madara_pid))."
 	@make core-contract
 	@echo "Core contract setup completed."
+	@make udc
+	@echo "UDC deployed on chain."
 	@kill $$(cat .madara_pid) 2>/dev/null || true
 	@echo "Previous Madara instance terminated."
 	@echo "Please update core contract address"
@@ -70,6 +72,11 @@ eth-bridge:
 	. $(ENV_FILE) && \
 	RUST_LOG=debug cargo run --release -- --mode eth-bridge --core-contract-address $$CORE_CONTRACT_ADDRESS --core-contract-implementation-address $$CORE_CONTRACT_IMPLEMENTATION_ADDRESS  --output-file $(BOOTSTRAP_JSON_PATH) && \
 	echo "L1_BRIDGE_ADDRESS=$$(jq -r .eth_bridge_setup_outputs.l1_bridge_address $(BOOTSTRAP_JSON_PATH))" >> $(ENV_FILE)
+	echo "L2_ETH_TOKEN_ADDRESS=$$(jq -r .eth_bridge_setup_outputs.l2_eth_proxy_address $(BOOTSTRAP_JSON_PATH))" >> $(ENV_FILE)
+
+udc:
+	cd $(BOOTSTRAPPER_PATH) && \
+	RUST_LOG=debug cargo run --release -- --mode udc
 
 pathfinder:
 	cd $(PATHFINDER_PATH) && \
@@ -85,7 +92,7 @@ orchestrator-setup:
 	. $(ENV_FILE) && \
 	cd $(ORCHESTRATOR_PATH) && \
 	npm i && \
-	node scripts/init_state.js $$L1_BRIDGE_ADDRESS $$CORE_CONTRACT_ADDRESS
+	node scripts/init_state.js $$L1_BRIDGE_ADDRESS $$CORE_CONTRACT_ADDRESS $$L2_ETH_TOKEN_ADDRESS
 
 orchestrator: 
 	. $(ENV_FILE) 
