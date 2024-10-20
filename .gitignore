@@ -15,3 +15,8 @@ node_modules
 
 # env file created by makefile
 .makefile-env
+
+# venv setup when building snos
+orchestrator_venv/
+
+build/

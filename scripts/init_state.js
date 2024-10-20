@@ -723,7 +723,7 @@ async function testDeclareDeploy() {
 //   "0x4fe5eea46caa0a1f344fafce82b39d66b552f00d3cd12e89073ef4b4ab37860",
 // );
 
-setupMongoDb(3993);
+// setupMongoDb(3993);
 
 // async function doRandomTxs() {
 //   const account = new starknet.Account(

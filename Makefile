@@ -102,6 +102,14 @@ orchestrator:
 	cd $(ORCHESTRATOR_PATH) && \
 	cargo run --release --bin orchestrator
 
+snos:
+	python3 -m venv orchestrator_venv && \
+	source orchestrator_venv/bin/activate && \
+	pip install cairo-lang==0.13.2 "sympy<1.13.0" && \
+	mkdir -p build && \
+	git submodule update --init --recursive && \
+	cairo-compile cairo-lang/src/starkware/starknet/core/os/os.cairo --output build/os_latest.json --cairo_path cairo-lang/src
+
 cleanup:
 	@echo "Cleaning up processes..."
 	@-kill $$(cat .madara_pid 2>/dev/null) 2>/dev/null || true

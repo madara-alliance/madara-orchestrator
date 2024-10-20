@@ -3346,6 +3346,7 @@ dependencies = [
 [[package]]
 name = "cairo-type-derive"
 version = "0.1.0"
+source = "git+https://github.com/keep-starknet-strange/snos?rev=662d1706f5855044e52ebf688a18dd80016c8700#662d1706f5855044e52ebf688a18dd80016c8700"
 dependencies = [
  "proc-macro2",
  "quote",
@@ -5477,7 +5478,7 @@ dependencies = [
  "httpdate",
  "itoa",
  "pin-project-lite",
- "socket2 0.5.7",
+ "socket2 0.4.10",
  "tokio",
  "tower-service",
  "tracing",
@@ -7171,7 +7172,8 @@ dependencies = [
 
 [[package]]
 name = "pathfinder-common"
-version = "0.14.4"
+version = "0.14.3"
+source = "git+https://github.com/Moonsong-Labs/pathfinder?rev=9c19d9a37be8f447ec4548456c440ccbd0e44260#9c19d9a37be8f447ec4548456c440ccbd0e44260"
 dependencies = [
  "anyhow",
  "bitvec",
@@ -7194,7 +7196,8 @@ dependencies = [
 
 [[package]]
 name = "pathfinder-crypto"
-version = "0.14.4"
+version = "0.14.3"
+source = "git+https://github.com/Moonsong-Labs/pathfinder?rev=9c19d9a37be8f447ec4548456c440ccbd0e44260#9c19d9a37be8f447ec4548456c440ccbd0e44260"
 dependencies = [
  "bitvec",
  "fake",
@@ -7204,7 +7207,8 @@ dependencies = [
 
 [[package]]
 name = "pathfinder-serde"
-version = "0.14.4"
+version = "0.14.3"
+source = "git+https://github.com/Moonsong-Labs/pathfinder?rev=9c19d9a37be8f447ec4548456c440ccbd0e44260#9c19d9a37be8f447ec4548456c440ccbd0e44260"
 dependencies = [
  "anyhow",
  "num-bigint",
@@ -7727,6 +7731,7 @@ dependencies = [
 [[package]]
 name = "prove_block"
 version = "0.1.0"
+source = "git+https://github.com/keep-starknet-strange/snos?rev=662d1706f5855044e52ebf688a18dd80016c8700#662d1706f5855044e52ebf688a18dd80016c8700"
 dependencies = [
  "anyhow",
  "blockifier",
@@ -8186,6 +8191,7 @@ dependencies = [
 [[package]]
 name = "rpc-client"
 version = "0.1.0"
+source = "git+https://github.com/keep-starknet-strange/snos?rev=662d1706f5855044e52ebf688a18dd80016c8700#662d1706f5855044e52ebf688a18dd80016c8700"
 dependencies = [
  "log",
  "reqwest 0.11.27",
@@ -8200,6 +8206,7 @@ dependencies = [
 [[package]]
 name = "rpc-replay"
 version = "0.1.0"
+source = "git+https://github.com/keep-starknet-strange/snos?rev=662d1706f5855044e52ebf688a18dd80016c8700#662d1706f5855044e52ebf688a18dd80016c8700"
 dependencies = [
  "blockifier",
  "cairo-lang-starknet-classes",
@@ -9540,7 +9547,8 @@ dependencies = [
 
 [[package]]
 name = "starknet-gateway-types"
-version = "0.14.4"
+version = "0.14.3"
+source = "git+https://github.com/Moonsong-Labs/pathfinder?rev=9c19d9a37be8f447ec4548456c440ccbd0e44260#9c19d9a37be8f447ec4548456c440ccbd0e44260"
 dependencies = [
  "anyhow",
  "fake",
@@ -9572,6 +9580,7 @@ dependencies = [
 [[package]]
 name = "starknet-os"
 version = "0.1.0"
+source = "git+https://github.com/keep-starknet-strange/snos?rev=662d1706f5855044e52ebf688a18dd80016c8700#662d1706f5855044e52ebf688a18dd80016c8700"
 dependencies = [
  "anyhow",
  "ark-ec",
@@ -9620,6 +9629,7 @@ dependencies = [
 [[package]]
 name = "starknet-os-types"
 version = "0.1.0"
+source = "git+https://github.com/keep-starknet-strange/snos?rev=662d1706f5855044e52ebf688a18dd80016c8700#662d1706f5855044e52ebf688a18dd80016c8700"
 dependencies = [
  "blockifier",
  "cairo-lang-starknet-classes",
@@ -10036,14 +10046,16 @@ dependencies = [
 
 [[package]]
 name = "tagged"
-version = "0.14.4"
+version = "0.14.3"
+source = "git+https://github.com/Moonsong-Labs/pathfinder?rev=9c19d9a37be8f447ec4548456c440ccbd0e44260#9c19d9a37be8f447ec4548456c440ccbd0e44260"
 dependencies = [
  "fake",
 ]
 
 [[package]]
 name = "tagged-debug-derive"
-version = "0.14.4"
+version = "0.14.3"
+source = "git+https://github.com/Moonsong-Labs/pathfinder?rev=9c19d9a37be8f447ec4548456c440ccbd0e44260#9c19d9a37be8f447ec4548456c440ccbd0e44260"
 dependencies = [
  "proc-macro2",
  "quote",
