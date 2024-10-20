@@ -6,6 +6,7 @@ OPERATOR_ADDRESS := 0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266
 BOOTSTRAP_OUTPUT_PATH := $(shell pwd)/build/bootstrap.json
 BOOTSTRAPPER_COMMIT := 62e399078e1403bfce5a5550c2e860c3c55d9e63
 BOOTSTRAPPER_PATH := $(shell pwd)/madara-bootstrapper
+VERIFIER_ADDRESS := 0x4ed7c70F96B99c776995fB64377f0d4aB3B0e1C1
 
 # SNOS
 CAIRO_LANG_COMMIT := a86e92bfde9c171c0856d7b46580c66e004922f3
@@ -86,7 +87,7 @@ madara-bootstrap-mode:
 	cd $(MADARA_PATH) && \
 	git checkout $(MADARA_COMMIT) && \
 	rm -rf $(MADARA_DATA_PATH) && \
-	cargo run --release -- --name madara --base-path $(MADARA_DATA_PATH) --rpc-port 9944 --rpc-cors "*" --rpc-external --sequencer --chain-config-path configs/presets/devnet.yaml --feeder-gateway-enable --gateway-enable --gateway-external --gas-price 0 --blob-gas-price 0 --rpc-methods unsafe --no-l1-sync
+	cargo run --release -- --name madara --base-path $(MADARA_DATA_PATH) --rpc-port 9944 --rpc-cors "*" --rpc-external --sequencer --chain-config-path configs/presets/devnet.yaml --feeder-gateway-enable --gateway-enable --gateway-external --gas-price 0 --blob-gas-price 0 --rpc-methods unsafe --no-l1-sync --verifier-address $(VERIFIER_ADDRESS)
 
 core-contract:
 	cd $(BOOTSTRAPPER_PATH) && \
