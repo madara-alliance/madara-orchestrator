@@ -11,7 +11,7 @@ use url::Url;
 use utils::env_utils::get_env_var_or_default;
 
 use crate::queue::init_consumers;
-use crate::routes::app_router;
+use crate::routes::routes::app_router;
 use crate::tests::config::TestConfigBuilder;
 
 #[fixture]

@@ -1,7 +1,9 @@
+use axum::Router;
 use dotenvy::dotenv;
 use orchestrator::config::init_config;
 use orchestrator::queue::init_consumers;
-use orchestrator::routes::app_router;
+use orchestrator::routes::job_routes::job_routes;
+use orchestrator::routes::routes::{app_router, handler_404};
 use orchestrator::telemetry::{setup_analytics, shutdown_analytics};
 use utils::env_utils::get_env_var_or_default;
 
@@ -16,7 +18,7 @@ async fn main() {
     let meter_provider = setup_analytics();
     tracing::info!(service = "orchestrator", "Starting orchestrator service");
 
-    color_eyre::install().expect("Unable to isntall color_eyre");
+    color_eyre::install().expect("Unable to install color_eyre");
 
     // initial config setup
     let config = init_config().await.expect("Config instantiation failed");
@@ -27,7 +29,11 @@ async fn main() {
     let address = format!("{}:{}", host, port);
     let listener = tokio::net::TcpListener::bind(address.clone()).await.expect("Failed to get listener");
 
-    let app = app_router();
+    let job_routes = job_routes(config.clone());
+    let app_routes = app_router();
+
+    let app = Router::new().merge(app_routes).merge(job_routes).fallback(handler_404);
+
     tracing::debug!(service = "orchestrator", "Application router initialized");
 
     // init consumer
