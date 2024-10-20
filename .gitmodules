@@ -5,9 +5,12 @@
 [submodule "pathfinder"]
 	path = pathfinder
 	url = https://github.com/karnotxyz/pathfinder.git
+    ignore = all
 [submodule "madara"]
 	path = madara
 	url = https://github.com/madara-alliance/madara
+    ignore = all
 [submodule "madara-bootstrapper"]
 	path = madara-bootstrapper
 	url = https://github.com/madara-alliance/madara-bootstrapper
+    ignore = all
