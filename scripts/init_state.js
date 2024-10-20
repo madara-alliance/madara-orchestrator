@@ -185,6 +185,11 @@ async function deployStarknetAccount(
   });
 
   let receipt = await waitForTransactionSuccess(transaction_hash);
+  // if txn is pending, block_number won't be available
+  while (!receipt.block_number) {
+    receipt = await starknet_provider.getTransactionReceipt(transaction_hash);
+    await new Promise((resolve) => setTimeout(resolve, 200));
+  }
   return receipt.block_number;
 }
 
@@ -691,77 +696,4 @@ async function main() {
   await setupMongoDb(block_number - 1);
 }
 
-// main();
-
-async function testDeclareDeploy() {
-  const account = new starknet.Account(
-    starknet_provider,
-    "0x4fe5eea46caa0a1f344fafce82b39d66b552f00d3cd12e89073ef4b4ab37860",
-    "0xabcd",
-    "1",
-  );
-  let new_bridge_declare_deploy = await account.declareAndDeploy({
-    contract: require("./artifacts/new_eth_bridge.sierra.json"),
-    casm: require("./artifacts/new_eth_bridge.casm.json"),
-    constructorCalldata: ["0"],
-  });
-}
-// testDeclareDeploy();
-
-// bridgeToChain(
-//   "0x2279b7a0a67db372996a5fab50d91eaa73d2ebe6",
-//   "0x4fe5eea46caa0a1f344fafce82b39d66b552f00d3cd12e89073ef4b4ab37860",
-// );
-// upgradeETHToken(
-//   "0x49d36570d4e46f48e99674bd3fcc84644ddd6b96f7c741b1562b82f9e004dc7",
-//   "0xabcd",
-//   "0x4fe5eea46caa0a1f344fafce82b39d66b552f00d3cd12e89073ef4b4ab37860",
-// );
-// upgradeETHBridge(
-//   "0x190f2407f7040ef9a60d4df4d2eace6089419aa9ec42cda229a82a29b2d5b3e",
-//   "0xabcd",
-//   "0x4fe5eea46caa0a1f344fafce82b39d66b552f00d3cd12e89073ef4b4ab37860",
-// );
-
-// setupMongoDb(3993);
-
-// async function doRandomTxs() {
-//   const account = new starknet.Account(
-//     starknet_provider,
-//     "0x4fe5eea46caa0a1f344fafce82b39d66b552f00d3cd12e89073ef4b4ab37860",
-//     "0xabcd",
-//     "1",
-//   );
-//   let new_erc2_declare_deploy = await account.deployContract({
-//     contract: require("./artifacts/eic.sierra.json"),
-//     casm: require("./artifacts/eic.casm.json"),
-//     classHash:
-//       "0x5ffbcfeb50d200a0677c48a129a11245a3fc519d1d98d76882d1c9a1b19c6ed",
-//     unique: false,
-//     constructorCalldata: [
-//       "eee",
-//       "eeee",
-//       "6",
-//       "0",
-//       "0",
-//       "0x137e2eb39d5b20f7257425dbea0a97ab6a53941e7ccdc9168ba3b0f8b39d1ce",
-//       "0x137e2eb39d5b20f7257425dbea0a97ab6a53941e7ccdc9168ba3b0f8b39d1ce",
-//       "0x137e2eb39d5b20f7257425dbea0a97ab6a53941e7ccdc9168ba3b0f8b39d1ce",
-//       "0",
-//     ],
-//   });
-//   console.log(new_erc2_declare_deploy);
-// }
-
-// async function dummy() {
-//   for (let i = 0; i < 1000; i++) {
-//     let x = await transfer(
-//       "0xabcd",
-//       "0x4fe5eea46caa0a1f344fafce82b39d66b552f00d3cd12e89073ef4b4ab37860",
-//     );
-//     console.log(x);
-//   }
-// }
-// setupMongoDb(3859);
-// doRandomTxs();
-// dummy();
+main();

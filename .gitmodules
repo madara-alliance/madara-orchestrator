@@ -1,3 +1,13 @@
 [submodule "cairo-lang"]
 	path = cairo-lang
 	url = https://github.com/starkware-libs/cairo-lang.git
+	ignore = all
+[submodule "pathfinder"]
+	path = pathfinder
+	url = https://github.com/karnotxyz/pathfinder.git
+[submodule "madara"]
+	path = madara
+	url = https://github.com/madara-alliance/madara
+[submodule "madara-bootstrapper"]
+	path = madara-bootstrapper
+	url = https://github.com/madara-alliance/madara-bootstrapper
