@@ -72,7 +72,8 @@ eth-bridge:
 	. $(ENV_FILE) && \
 	RUST_LOG=debug cargo run --release -- --mode eth-bridge --core-contract-address $$CORE_CONTRACT_ADDRESS --core-contract-implementation-address $$CORE_CONTRACT_IMPLEMENTATION_ADDRESS  --output-file $(BOOTSTRAP_JSON_PATH) && \
 	echo "L1_BRIDGE_ADDRESS=$$(jq -r .eth_bridge_setup_outputs.l1_bridge_address $(BOOTSTRAP_JSON_PATH))" >> $(ENV_FILE)
-	echo "L2_ETH_TOKEN_ADDRESS=$$(jq -r .eth_bridge_setup_outputs.l2_eth_proxy_address $(BOOTSTRAP_JSON_PATH))" >> $(ENV_FILE)
+	echo "L2_ETH_TOKEN_ADDRESS=$$(jq -r .eth_bridge_setup_outputs.l2_eth_proxy_address $(BOOTSTRAP_JSON_PATH))" >> $(ENV_FILE) && \
+	echo "L2_ETH_BRIDGE_ADDRESS=$$(jq -r .eth_bridge_setup_outputs.l2_eth_bridge_proxy_address $(BOOTSTRAP_JSON_PATH))" >> $(ENV_FILE)
 
 udc:
 	cd $(BOOTSTRAPPER_PATH) && \
@@ -81,7 +82,7 @@ udc:
 pathfinder:
 	cd $(PATHFINDER_PATH) && \
 	rm -rf $(PATHFINDER_DATA_PATH) && \
-	cargo run --release --bin pathfinder -- --ethereum.url wss://eth-sepolia.g.alchemy.com/v2/WIUR5JUZXieEBkze6Xs3IOXWhsS840TX --chain-id MADARA_DEVNET --feeder-gateway-url http://0.0.0.0:8080/feeder_gateway --gateway-url  http://0.0.0.0:8080/gateway --network custom --storage.state-tries archive --data-directory $(PATHFINDER_DATA_PATH)
+	cargo run --release --bin pathfinder -- --ethereum.url wss://eth-sepolia.g.alchemy.com/v2/WIUR5JUZXieEBkze6Xs3IOXWhsS840TX --chain-id MADARA_DEVNET --feeder-gateway-url http://localhost:8080/feeder_gateway --gateway-url  http://localhost:8080/gateway --network custom --storage.state-tries archive --data-directory $(PATHFINDER_DATA_PATH)
 
 mongo-migrations:
 	cd $(ORCHESTRATOR_PATH) && \
@@ -92,7 +93,7 @@ orchestrator-setup:
 	. $(ENV_FILE) && \
 	cd $(ORCHESTRATOR_PATH) && \
 	npm i && \
-	node scripts/init_state.js $$L1_BRIDGE_ADDRESS $$CORE_CONTRACT_ADDRESS $$L2_ETH_TOKEN_ADDRESS
+	node scripts/init_state.js $$L1_BRIDGE_ADDRESS $$CORE_CONTRACT_ADDRESS $$L2_ETH_TOKEN_ADDRESS $$L2_ETH_BRIDGE_ADDRESS
 
 orchestrator: 
 	. $(ENV_FILE) 

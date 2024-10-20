@@ -393,10 +393,9 @@ async function upgradeETHToken(
   console.log(
     "ℹ️ Sending transaction to declare and deploy new ERC20 contract for ETH...",
   );
-  let new_erc2_declare_deploy = await account.declareAndDeploy({
+  let new_erc20_declare_deploy = await account.declareAndDeploy({
     contract: require("./artifacts/new_eth_token.sierra.json"),
     casm: require("./artifacts/new_eth_token.casm.json"),
-    unique: false,
     constructorCalldata: [
       "eee",
       "eeee",
@@ -408,7 +407,6 @@ async function upgradeETHToken(
       "0x137e2eb39d5b20f7257425dbea0a97ab6a53941e7ccdc9168ba3b0f8b39d1ce",
       "0",
     ],
-    salt: "0x1014f1067df1267305f34ef4f2fa582c3caeb6d0bb550479baad7d3845a2bea",
   });
   console.log("✅ Transaction successful.");
 
@@ -418,11 +416,9 @@ async function upgradeETHToken(
   // https://sepolia.starkscan.co/tx/0x03e50d969b41bc98e4da481ec7a48151bb0738137473f8f32f52fa317b9a9fe4
   console.log("ℹ️ Sending transaction to declare and deploy EIC contract...");
   let eic_declare_deploy = await account.declareAndDeploy({
-    contract: require("./artifacts/eic.sierra.json"),
-    casm: require("./artifacts/eic.casm.json"),
-    unique: false,
+    contract: require("./artifacts/eic_eth_token.sierra.json"),
+    casm: require("./artifacts/eic_eth_token.casm.json"),
     constructorCalldata: [],
-    salt: "0x2fd9fdd6f2fcffd8e37d1f63c2fcdce1c99ca228a64ce5d4f96b592b525bcee",
   });
   console.log("✅ Transaction successful.");
 
@@ -437,10 +433,8 @@ async function upgradeETHToken(
     account,
   );
   let add_implementation_calldata = eth_bridge.populate("add_implementation", [
-    "0x7eeb81585cf44eb70eda028d37a7cefb1ad88de985f89f999bcff42ecca6f25" ||
-      new_erc2_declare_deploy.deploy.address,
-    "0x1dee9c56b9e57191f3dc67cbb424ba157c29af5a1a075483e853b598043d081" ||
-      eic_declare_deploy.deploy.address,
+    new_erc20_declare_deploy.deploy.address,
+    eic_declare_deploy.deploy.address,
     [], // init vector
     0, // final
   ]);
@@ -470,7 +464,8 @@ async function upgradeETHToken(
       contractAddress: l2_eth_token_address,
       entrypoint: "add_new_implementation",
       calldata: [
-        "0x5ffbcfeb50d200a0677c48a129a11245a3fc519d1d98d76882d1c9a1b19c6ed",
+        // class hash of new_eth_token
+        new_erc20_declare_deploy.declare.class_hash,
         "0x1",
         "0x0",
       ],
@@ -490,7 +485,8 @@ async function upgradeETHToken(
       contractAddress: l2_eth_token_address,
       entrypoint: "replace_to",
       calldata: [
-        "0x5ffbcfeb50d200a0677c48a129a11245a3fc519d1d98d76882d1c9a1b19c6ed",
+        // class hash of new_eth_token
+        new_erc20_declare_deploy.declare.class_hash,
         "0x1",
         "0x0",
       ],
@@ -500,26 +496,140 @@ async function upgradeETHToken(
   console.log("✅ Transaction successful.");
 }
 
+// This function was created but studying Sepolia transactions
+// and relaying them. I am not sure what's exactly happening here
+// because the contracts we're working with arne't open source and are
+// fetched from Sepolia directly
+// TODO: we should move this to Madara bootstrapper
+async function upgradeETHBridge(
+  l2_eth_bridge_address,
+  starknet_account_private_key,
+  starnet_expected_account_address,
+) {
+  const account = new starknet.Account(
+    starknet_provider,
+    starnet_expected_account_address,
+    starknet_account_private_key,
+    "1",
+  );
+
+  // declare and deploy the new ETH bridge contract
+  // https://sepolia.starkscan.co/tx/0x05c266b9069c04f68752f5eb9652d7c0cd130c6d152d2267a8480273ec991de6
+  console.log(
+    "ℹ️ Sending transaction to declare and deploy new ETH bridge contract for ETH...",
+  );
+  let new_bridge_declare_deploy = await account.declareAndDeploy({
+    contract: require("./artifacts/new_eth_bridge.sierra.json"),
+    casm: require("./artifacts/new_eth_bridge.casm.json"),
+    constructorCalldata: ["0"],
+  });
+  console.log("✅ Transaction successful.");
+
+  // declare and deploy the EIC (external initializer contract)
+  // this is a method used to upgrade contracts in Starknet's proxy version'
+  // however, I couldn't find the code of this contract
+  // https://sepolia.starkscan.co/tx/0x02fde4be42ecb05b545f53adf9d4c1aed8392e6a3743e9f5b6b8333fc580e684
+  console.log("ℹ️ Sending transaction to declare and deploy EIC contract...");
+  let eic_declare_deploy = await account.declareAndDeploy({
+    contract: require("./artifacts/eic_eth_bridge.sierra.json"),
+    casm: require("./artifacts/eic_eth_bridge.casm.json"),
+    constructorCalldata: [],
+  });
+  console.log("✅ Transaction successful.");
+
+  // add_implementation to bridge contarct before we upgrade
+  // https://sepolia.starkscan.co/call/0x0721b02e1f4daa98ed8928966d66f345cb897f382274b22c89d86c00e755106d_1_1
+  console.log(
+    "ℹ️ Sending transaction to add implementation to bridge contract...",
+  );
+  let eth_bridge = new starknet.Contract(
+    require("./artifacts/bridge_proxy_legacy.json").abi,
+    l2_eth_bridge_address,
+    account,
+  );
+  let add_implementation_calldata = eth_bridge.populate("add_implementation", [
+    new_bridge_declare_deploy.deploy.address,
+    eic_declare_deploy.deploy.address,
+    [
+      "ETH",
+      "0x49d36570d4e46f48e99674bd3fcc84644ddd6b96f7c741b1562b82f9e004dc7",
+    ], // init vector
+    0, // final
+  ]);
+  let add_implementation_txn_hash = await eth_bridge.add_implementation(
+    add_implementation_calldata.calldata,
+  );
+  await waitForTransactionSuccess(add_implementation_txn_hash.transaction_hash);
+  console.log("✅ Transaction successful.");
+
+  // upgrade ETH token contract
+  // https://sepolia.starkscan.co/tx/0x02660d0b82cd88e28a420adf8b5a5139b1f6084af708d10a75269b757ff6367c
+  console.log("ℹ️ Sending transaction to upgrade ETH bridge contract...");
+  let upgrade_txn_hash = await eth_bridge.upgrade_to(
+    // the calldata is the same
+    add_implementation_calldata.calldata,
+  );
+  await waitForTransactionSuccess(upgrade_txn_hash.transaction_hash);
+  console.log("✅ Transaction successful.");
+
+  // now add a new implementation to the bridge contract for the bridge class hash
+  // https://sepolia.starkscan.co/tx/0x051cc24816ec349c601bbd4e9afc8e0a8c7a93061aba372045bbf7e5d35aff7a
+  console.log(
+    "ℹ️ Sending transaction to add new implementation to bridge contract...",
+  );
+  let add_new_implementation_txn_hash = await account.execute([
+    {
+      contractAddress: l2_eth_bridge_address,
+      entrypoint: "add_new_implementation",
+      calldata: [
+        // class hash of new_eth_bridge
+        new_bridge_declare_deploy.declare.class_hash,
+        "0x1",
+        "0x0",
+      ],
+    },
+  ]);
+  await waitForTransactionSuccess(
+    add_new_implementation_txn_hash.transaction_hash,
+  );
+  console.log("✅ Transaction successful.");
+
+  // finally replace the class hash on the ETH contract
+  console.log(
+    "ℹ️ Sending transaction to replace class hash on the ETH contract...",
+  );
+  let replace_to_txn_hash = await account.execute([
+    {
+      contractAddress: l2_eth_bridge_address,
+      entrypoint: "replace_to",
+      calldata: [new_bridge_declare_deploy.declare.class_hash, "0x1", "0x0"],
+    },
+  ]);
+  await waitForTransactionSuccess(replace_to_txn_hash.transaction_hash);
+  console.log("✅ Transaction successful.");
+}
+
 async function main() {
   // tage bridge address as an argument --bridge_address
-  const bridge_address = process.argv[2];
+  const l1_bridge_address = process.argv[2];
   const core_contract_address = process.argv[3];
   const l2_eth_token_address = process.argv[4];
+  const l2_eth_bridge_address = process.argv[5];
   const bootstrapper_address =
     "0x4fe5eea46caa0a1f344fafce82b39d66b552f00d3cd12e89073ef4b4ab37860" ||
-    process.argv[5];
-  const bootstrapper_private_key = "0xabcd" || process.argv[6];
+    process.argv[6];
+  const bootstrapper_private_key = "0xabcd" || process.argv[7];
 
   // add funds to boostrapper account
   let bootstrapper_address_balance =
     await getAppChainBalance(bootstrapper_address);
   if (bootstrapper_address_balance < 10n ** 17n) {
-    await bridgeToChain(bridge_address, bootstrapper_address);
+    await bridgeToChain(l1_bridge_address, bootstrapper_address);
   } else {
     console.log("ℹ️ Bootstrapping account has enough funds, proceeding");
   }
 
-  // upgrade ETH bridge to Cairo 1 as SNOS breaks otherwise
+  // upgrade ETH token to Cairo 1 as SNOS breaks otherwise
   const eth_token_class =
     await starknet_provider.getClassAt(l2_eth_token_address);
   if (eth_token_class.sierra_program) {
@@ -527,6 +637,20 @@ async function main() {
   } else {
     await upgradeETHToken(
       l2_eth_token_address,
+      bootstrapper_private_key,
+      bootstrapper_address,
+    );
+  }
+
+  // upgrade ETH bridge to Cairo 1 as well
+  const l2_eth_bridge_class = await starknet_provider.getClassAt(
+    l2_eth_bridge_address,
+  );
+  if (l2_eth_bridge_class.sierra_program) {
+    console.log("ℹ️ Eth bridge is already upgraded, proceeding");
+  } else {
+    await upgradeETHBridge(
+      l2_eth_bridge_address,
       bootstrapper_private_key,
       bootstrapper_address,
     );
@@ -542,7 +666,7 @@ async function main() {
     starnet_expected_account_address,
   );
 
-  await bridgeToChain(bridge_address, starnet_expected_account_address);
+  await bridgeToChain(l1_bridge_address, starnet_expected_account_address);
 
   let block_number = await deployStarknetAccount(
     starknet_account_private_key,
@@ -551,12 +675,12 @@ async function main() {
   );
 
   // SNOS doesn't seem to be able to run on deploy account block
-  // await starknet_provider.waitForBlock(block_number + 1);
+  await starknet_provider.waitForBlock(block_number + 1);
 
-  // block_number = await transfer(
-  //   starknet_account_private_key,
-  //   starnet_expected_account_address,
-  // );
+  block_number = await transfer(
+    starknet_account_private_key,
+    starnet_expected_account_address,
+  );
 
   await validateBlockPassesSnosChecks(block_number);
 
@@ -567,7 +691,39 @@ async function main() {
   await setupMongoDb(block_number - 1);
 }
 
-main();
+// main();
+
+async function testDeclareDeploy() {
+  const account = new starknet.Account(
+    starknet_provider,
+    "0x4fe5eea46caa0a1f344fafce82b39d66b552f00d3cd12e89073ef4b4ab37860",
+    "0xabcd",
+    "1",
+  );
+  let new_bridge_declare_deploy = await account.declareAndDeploy({
+    contract: require("./artifacts/new_eth_bridge.sierra.json"),
+    casm: require("./artifacts/new_eth_bridge.casm.json"),
+    constructorCalldata: ["0"],
+  });
+}
+// testDeclareDeploy();
+
+// bridgeToChain(
+//   "0x2279b7a0a67db372996a5fab50d91eaa73d2ebe6",
+//   "0x4fe5eea46caa0a1f344fafce82b39d66b552f00d3cd12e89073ef4b4ab37860",
+// );
+// upgradeETHToken(
+//   "0x49d36570d4e46f48e99674bd3fcc84644ddd6b96f7c741b1562b82f9e004dc7",
+//   "0xabcd",
+//   "0x4fe5eea46caa0a1f344fafce82b39d66b552f00d3cd12e89073ef4b4ab37860",
+// );
+// upgradeETHBridge(
+//   "0x190f2407f7040ef9a60d4df4d2eace6089419aa9ec42cda229a82a29b2d5b3e",
+//   "0xabcd",
+//   "0x4fe5eea46caa0a1f344fafce82b39d66b552f00d3cd12e89073ef4b4ab37860",
+// );
+
+setupMongoDb(3993);
 
 // async function doRandomTxs() {
 //   const account = new starknet.Account(
@@ -606,6 +762,6 @@ main();
 //     console.log(x);
 //   }
 // }
-// setupMongoDb(677);
+// setupMongoDb(3859);
 // doRandomTxs();
 // dummy();
