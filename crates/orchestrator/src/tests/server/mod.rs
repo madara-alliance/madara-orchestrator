@@ -1,3 +1,4 @@
+pub mod job_routes;
 use std::io::Read;
 use std::net::SocketAddr;
 
@@ -11,11 +12,11 @@ use url::Url;
 use utils::env_utils::get_env_var_or_default;
 
 use crate::queue::init_consumers;
-use crate::routes::app_router;
+use crate::routes::app_routes::app_router;
 use crate::tests::config::TestConfigBuilder;
 
 #[fixture]
-pub async fn setup_server() -> SocketAddr {
+pub async fn setup_app_server() -> SocketAddr {
     let provider = JsonRpcClient::new(HttpTransport::new(
         Url::parse("http://localhost:9944".to_string().as_str()).expect("Failed to parse URL"),
     ));
@@ -39,8 +40,8 @@ pub async fn setup_server() -> SocketAddr {
 
 #[rstest]
 #[tokio::test]
-async fn test_health_endpoint(#[future] setup_server: SocketAddr) {
-    let addr = setup_server.await;
+async fn test_health_endpoint(#[future] setup_app_server: SocketAddr) {
+    let addr = setup_app_server.await;
 
     let client = hyper::Client::new();
     let response = client
