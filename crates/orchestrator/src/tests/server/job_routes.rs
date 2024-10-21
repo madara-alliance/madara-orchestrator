@@ -60,7 +60,12 @@ async fn test_trigger_job_endpoint(#[future] setup_job_server: (SocketAddr, Arc<
 
     let client = hyper::Client::new();
     let response = client
-        .request(Request::builder().uri(format!("http://{}/trigger/{job_type}?id={job_id}", addr)).body(Body::empty()).unwrap())
+        .request(
+            Request::builder()
+                .uri(format!("http://{}/trigger/{job_type}?id={job_id}", addr))
+                .body(Body::empty())
+                .unwrap(),
+        )
         .await
         .unwrap();
 
@@ -83,15 +88,15 @@ async fn test_init_consumer() {
 // ==========================================
 
 pub fn build_job_item(job_type: JobType, job_status: JobStatus, internal_id: u64) -> JobItem {
-  JobItem {
-      id: Uuid::new_v4(),
-      internal_id: internal_id.to_string(),
-      job_type,
-      status: job_status,
-      external_id: ExternalId::Number(0),
-      metadata: Default::default(),
-      version: 0,
-      created_at: Utc::now().round_subsecs(0),
-      updated_at: Utc::now().round_subsecs(0),
-  }
+    JobItem {
+        id: Uuid::new_v4(),
+        internal_id: internal_id.to_string(),
+        job_type,
+        status: job_status,
+        external_id: ExternalId::Number(0),
+        metadata: Default::default(),
+        version: 0,
+        created_at: Utc::now().round_subsecs(0),
+        updated_at: Utc::now().round_subsecs(0),
+    }
 }

@@ -2,8 +2,8 @@ use axum::Router;
 use dotenvy::dotenv;
 use orchestrator::config::init_config;
 use orchestrator::queue::init_consumers;
+use orchestrator::routes::app_routes::{app_router, handler_404};
 use orchestrator::routes::job_routes::job_routes;
-use orchestrator::routes::routes::{app_router, handler_404};
 use orchestrator::telemetry::{setup_analytics, shutdown_analytics};
 use utils::env_utils::get_env_var_or_default;
 
