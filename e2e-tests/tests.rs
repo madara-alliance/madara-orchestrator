@@ -64,6 +64,7 @@ impl Setup {
         let localstack_instance = LocalStack::new().await;
         localstack_instance.setup_sqs().await.unwrap();
         localstack_instance.delete_event_bridge_rule("worker_trigger_scheduled").await.unwrap();
+        localstack_instance.setup_event_bridge(WorkerTriggerType::Snos).await.unwrap();
         localstack_instance.setup_event_bridge(WorkerTriggerType::Proving).await.unwrap();
         localstack_instance.setup_event_bridge(WorkerTriggerType::DataSubmission).await.unwrap();
         localstack_instance.setup_event_bridge(WorkerTriggerType::UpdateState).await.unwrap();
