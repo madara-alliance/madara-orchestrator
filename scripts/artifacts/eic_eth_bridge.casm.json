@@ -4197,10 +4197,7 @@
       {
         "selector": "0x3ea3b9a8522d36784cb325f9c7e2ec3c9f3e6d63031a6c6b8743cc22412f604",
         "offset": 0,
-        "builtins": [
-          "pedersen",
-          "range_check"
-        ]
+        "builtins": ["pedersen", "range_check"]
       }
     ],
     "L1_HANDLER": [],
