@@ -84,6 +84,7 @@ mod tests {
         assert_eq!(result, expected, "Failed case: {}", test_name);
     }
 
+    #[allow(clippy::needless_range_loop)]
     #[rstest]
     fn test_bytes_to_u128_ignores_first_16_bytes() {
         let mut bytes = [255u8; 32];
@@ -94,6 +95,7 @@ mod tests {
         assert_eq!(result, 0);
     }
 
+    #[allow(clippy::needless_range_loop)]
     #[rstest]
     fn test_bytes_to_u128_max_value() {
         let mut bytes = [0u8; 32];
