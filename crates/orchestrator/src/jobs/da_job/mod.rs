@@ -1,4 +1,4 @@
-use std::collections::{HashMap, HashSet};
+use std::collections::HashMap;
 use std::ops::{Add, Mul, Rem};
 use std::str::FromStr;
 use std::sync::Arc;
@@ -9,7 +9,9 @@ use color_eyre::eyre::WrapErr;
 use lazy_static::lazy_static;
 use num_bigint::{BigUint, ToBigUint};
 use num_traits::{Num, Zero};
-use starknet::core::types::{BlockId, ContractStorageDiffItem, DeclaredClassItem, Felt, MaybePendingStateUpdate, StateDiff, StateUpdate};
+use starknet::core::types::{
+    BlockId, ContractStorageDiffItem, DeclaredClassItem, Felt, MaybePendingStateUpdate, StateDiff, StateUpdate,
+};
 use starknet::providers::Provider;
 use thiserror::Error;
 use uuid::Uuid;
@@ -398,18 +400,19 @@ fn da_word(class_flag: bool, nonce_change: Option<Felt>, num_changes: u64) -> Fe
 
 fn refactor_state_update(state_update: &mut StateDiff) {
     let addresses_in_nonces: Vec<Felt> = state_update.nonces.clone().iter().map(|item| item.contract_address).collect();
-    let addresses_in_storage_diffs: Vec<Felt> = state_update.storage_diffs.clone().iter().map(|item| item.address).collect();
-    
+    let addresses_in_storage_diffs: Vec<Felt> =
+        state_update.storage_diffs.clone().iter().map(|item| item.address).collect();
+
     let address_to_insert = find_unique_addresses(addresses_in_nonces, addresses_in_storage_diffs);
-    
+
     for address in address_to_insert {
-        state_update.storage_diffs.push(ContractStorageDiffItem { address: address, storage_entries: vec![] })
+        state_update.storage_diffs.push(ContractStorageDiffItem { address, storage_entries: vec![] })
     }
 }
 
 fn find_unique_addresses(nonce_addresses: Vec<Felt>, storage_diff_addresses: Vec<Felt>) -> Vec<Felt> {
     let mut unique_addresses: Vec<Felt> = Vec::new();
-    
+
     for address in nonce_addresses {
         if !storage_diff_addresses.contains(&address) {
             unique_addresses.push(address);
