@@ -168,7 +168,7 @@ mod settlement_client_tests {
         let nonce = ethereum_settlement_client.get_nonce().await.expect("Unable to fetch nonce");
 
         // keeping 11 elements because the code accesses 10th index as program output
-        let program_output = vec![[0; 32]; 11];
+        let program_output = vec![[0; 32]; 16];
         // keeping one element as we've a check in build_proof
         let blob_data_vec = vec![vec![0; BYTES_PER_BLOB]];
 

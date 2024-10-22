@@ -42,3 +42,75 @@ pub fn bytes_to_u128(bytes: &[u8; 32]) -> u128 {
 
     result
 }
+
+#[cfg(test)]
+mod tests {
+    use rstest::*;
+
+    use super::*;
+
+    #[rstest]
+    #[case(0, 0, U256::from(0))]
+    #[case(12345, 0, U256::from(12345u128))]
+    #[case(0, 67890, U256::from(67890u128) << 128)]
+    #[case(u128::MAX, 1, (U256::from(1u128) << 128) + U256::from(u128::MAX))]
+    #[case(u128::MAX, u128::MAX, U256::MAX)]
+    fn test_convert_stark_bigint_to_u256(#[case] y_low: u128, #[case] y_high: u128, #[case] expected: U256) {
+        let result = convert_stark_bigint_to_u256(y_low, y_high);
+        assert_eq!(result, expected);
+    }
+
+    // Helper function to create test bytes
+    fn create_test_bytes(values: &[(usize, u8)]) -> [u8; 32] {
+        let mut bytes = [0u8; 32];
+        for &(index, value) in values {
+            bytes[index] = value;
+        }
+        bytes
+    }
+
+    #[rstest]
+    #[case(&[], 0u128, "all zeros")]
+    #[case(&[(31, 1)], 1u128, "last byte is 1")]
+    #[case(&[(31, 255)], 255u128, "last byte is 255")]
+    #[case(&[(30, 1), (31, 255)], 511u128, "last two bytes")]
+    fn test_bytes_to_u128_simple_cases(
+        #[case] byte_values: &[(usize, u8)],
+        #[case] expected: u128,
+        #[case] test_name: &str,
+    ) {
+        let bytes = create_test_bytes(byte_values);
+        let result = bytes_to_u128(&bytes);
+        assert_eq!(result, expected, "Failed case: {}", test_name);
+    }
+
+    #[rstest]
+    fn test_bytes_to_u128_ignores_first_16_bytes() {
+        let mut bytes = [255u8; 32];
+        for i in 16..32 {
+            bytes[i] = 0;
+        }
+        let result = bytes_to_u128(&bytes);
+        assert_eq!(result, 0);
+    }
+
+    #[rstest]
+    fn test_bytes_to_u128_max_value() {
+        let mut bytes = [0u8; 32];
+        for i in 16..32 {
+            bytes[i] = 255;
+        }
+        let result = bytes_to_u128(&bytes);
+        assert_eq!(result, u128::MAX);
+    }
+
+    #[rstest]
+    #[case(&[(20, 1), (25, 2), (31, 3)], (1u128 << 88) | (2u128 << 48) | 3u128)]
+    #[case(&[(16, 1)], 1u128 << 120)]
+    #[case(&[(31, 1), (30, 1), (29, 1)], 0x010101u128)]
+    fn test_bytes_to_u128_complex_cases(#[case] byte_values: &[(usize, u8)], #[case] expected: u128) {
+        let bytes = create_test_bytes(byte_values);
+        let result = bytes_to_u128(&bytes);
+        assert_eq!(result, expected);
+    }
+}

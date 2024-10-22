@@ -18,7 +18,7 @@ use alloy::signers::local::PrivateKeySigner;
 use alloy_primitives::Bytes;
 use async_trait::async_trait;
 use c_kzg::{Blob, Bytes32, KzgCommitment, KzgProof, KzgSettings};
-use color_eyre::eyre::{eyre, Ok};
+use color_eyre::eyre::{bail, eyre, Ok};
 use color_eyre::Result;
 use conversion::{get_input_data_for_eip_4844, prepare_sidecar};
 use settlement_client_interface::{SettlementClient, SettlementVerificationStatus};
@@ -135,9 +135,13 @@ impl EthereumSettlementClient {
         let commitment = KzgCommitment::blob_to_kzg_commitment(&blob, &KZG_SETTINGS)?;
         let (kzg_proof, y_0_value) = KzgProof::compute_kzg_proof(&blob, &x_0_value, &KZG_SETTINGS)?;
 
-        println!(">>> y val (build_proof) : {:?}", y_0_value);
-
-        assert_eq!(y_0_value, y_0_value_program_output, "ERROR : y_0 value is different than expected.");
+        if y_0_value != y_0_value_program_output {
+            bail!(
+                "ERROR : y_0 value is different than expected. Expected {:?}, got {:?}",
+                y_0_value,
+                y_0_value_program_output
+            );
+        }
 
         // Verifying the proof for double check
         let eval = KzgProof::verify_kzg_proof(

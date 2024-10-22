@@ -120,7 +120,6 @@ impl Job for DaJob {
             tracing::error!(job_id = ?job.id, error = ?e, "Failed to convert state update to blob data");
             JobError::Other(OtherError(e))
         })?;
-        println!("This is the blob data - {:?}", blob_data);
         // transforming the data so that we can apply FFT on this.
         // @note: we can skip this step if in the above step we return vec<BigUint> directly
         let blob_data_biguint = convert_to_biguint(blob_data.clone());
@@ -335,8 +334,6 @@ pub async fn state_update_to_blob_data(
         blob_data.push(class_hash);
         blob_data.push(compiled_class_hash);
     }
-
-    println!(">>> blob {:?}", blob_data);
 
     Ok(blob_data)
 }
