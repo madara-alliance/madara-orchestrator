@@ -38,6 +38,9 @@ jobs:
 
       - name: Build SNOS files
         run: |
+          python3 -m venv orchestrator_venv
+          source orchestrator_venv/bin/activate
+          pip install cairo-lang==0.13.2 "sympy<1.13.0"
           mkdir -p build
           git submodule update --init --recursive
           cd cairo-lang
