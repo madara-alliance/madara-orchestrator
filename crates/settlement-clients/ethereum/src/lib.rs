@@ -18,7 +18,7 @@ use alloy::signers::local::PrivateKeySigner;
 use alloy_primitives::Bytes;
 use async_trait::async_trait;
 use c_kzg::{Blob, Bytes32, KzgCommitment, KzgProof, KzgSettings};
-use color_eyre::eyre::{eyre, Ok};
+use color_eyre::eyre::{bail, eyre, Ok};
 use color_eyre::Result;
 use conversion::{get_input_data_for_eip_4844, prepare_sidecar};
 use settlement_client_interface::{SettlementClient, SettlementVerificationStatus};
@@ -42,7 +42,12 @@ use mockall::automock;
 use reqwest::Client;
 use utils::settings::Settings;
 
+use crate::types::{bytes_to_u128, convert_stark_bigint_to_u256};
+
 pub const ENV_PRIVATE_KEY: &str = "ETHEREUM_PRIVATE_KEY";
+const X_0_POINT_OFFSET: usize = 10;
+const Y_LOW_POINT_OFFSET: usize = 14;
+const Y_HIGH_POINT_OFFSET: usize = Y_LOW_POINT_OFFSET + 1;
 
 lazy_static! {
     pub static ref PROJECT_ROOT: PathBuf = PathBuf::from(format!("{}/../../../", env!("CARGO_MANIFEST_DIR")));
@@ -115,7 +120,11 @@ impl EthereumSettlementClient {
     }
 
     /// Build kzg proof for the x_0 point evaluation
-    pub fn build_proof(blob_data: Vec<Vec<u8>>, x_0_value: Bytes32) -> Result<KzgProof> {
+    pub fn build_proof(
+        blob_data: Vec<Vec<u8>>,
+        x_0_value: Bytes32,
+        y_0_value_program_output: Bytes32,
+    ) -> Result<KzgProof> {
         // Assuming that there is only one blob in the whole Vec<Vec<u8>> array for now.
         // Later we will add the support for multiple blob in single blob_data vec.
         assert_eq!(blob_data.len(), 1);
@@ -125,6 +134,14 @@ impl EthereumSettlementClient {
         let blob = Blob::new(fixed_size_blob);
         let commitment = KzgCommitment::blob_to_kzg_commitment(&blob, &KZG_SETTINGS)?;
         let (kzg_proof, y_0_value) = KzgProof::compute_kzg_proof(&blob, &x_0_value, &KZG_SETTINGS)?;
+
+        if y_0_value != y_0_value_program_output {
+            bail!(
+                "ERROR : y_0 value is different than expected. Expected {:?}, got {:?}",
+                y_0_value,
+                y_0_value_program_output
+            );
+        }
 
         // Verifying the proof for double check
         let eval = KzgProof::verify_kzg_proof(
@@ -198,11 +215,20 @@ impl SettlementClient for EthereumSettlementClient {
 
         let max_fee_per_blob_gas: u128 = self.provider.get_blob_base_fee().await?.to_string().parse()?;
 
+        // calculating y_0 point
+        let y_0_point_u256 = convert_stark_bigint_to_u256(
+            bytes_to_u128(&program_output[Y_LOW_POINT_OFFSET]),
+            bytes_to_u128(&program_output[Y_HIGH_POINT_OFFSET]),
+        );
+        let y_0_point_bytes_32 = Bytes32::from(y_0_point_u256.to_be_bytes());
+
         // x_0_value : program_output[10]
         // Updated with starknet 0.13.2 spec
         let kzg_proof = Self::build_proof(
             state_diff,
-            Bytes32::from_bytes(program_output[10].as_slice()).expect("Not able to get x_0 point params."),
+            Bytes32::from_bytes(program_output[X_0_POINT_OFFSET].as_slice())
+                .expect("Not able to get x_0 point params."),
+            y_0_point_bytes_32,
         )
         .expect("Unable to build KZG proof for given params.")
         .to_owned();

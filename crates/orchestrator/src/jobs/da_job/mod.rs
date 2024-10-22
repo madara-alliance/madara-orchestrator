@@ -10,7 +10,7 @@ use lazy_static::lazy_static;
 use num_bigint::{BigUint, ToBigUint};
 use num_traits::{Num, Zero};
 use starknet::core::types::{
-    BlockId, ContractStorageDiffItem, DeclaredClassItem, Felt, MaybePendingStateUpdate, StateUpdate,
+    BlockId, ContractStorageDiffItem, DeclaredClassItem, Felt, MaybePendingStateUpdate, StateDiff, StateUpdate,
 };
 use starknet::providers::Provider;
 use thiserror::Error;
@@ -120,7 +120,6 @@ impl Job for DaJob {
             tracing::error!(job_id = ?job.id, error = ?e, "Failed to convert state update to blob data");
             JobError::Other(OtherError(e))
         })?;
-        println!("This is the blob data - {:?}", blob_data);
         // transforming the data so that we can apply FFT on this.
         // @note: we can skip this step if in the above step we return vec<BigUint> directly
         let blob_data_biguint = convert_to_biguint(blob_data.clone());
@@ -279,6 +278,7 @@ pub async fn state_update_to_blob_data(
     config: Arc<Config>,
 ) -> color_eyre::Result<Vec<Felt>> {
     let mut state_diff = state_update.state_diff;
+    refactor_state_update(&mut state_diff);
 
     let mut blob_data: Vec<Felt> = vec![Felt::from(state_diff.storage_diffs.len())];
 
@@ -393,6 +393,30 @@ fn da_word(class_flag: bool, nonce_change: Option<Felt>, num_changes: u64) -> Fe
     let decimal_string = biguint.to_str_radix(10);
 
     Felt::from_dec_str(&decimal_string).expect("issue while converting to fieldElement")
+}
+
+fn refactor_state_update(state_update: &mut StateDiff) {
+    let addresses_in_nonces: Vec<Felt> = state_update.nonces.clone().iter().map(|item| item.contract_address).collect();
+    let addresses_in_storage_diffs: Vec<Felt> =
+        state_update.storage_diffs.clone().iter().map(|item| item.address).collect();
+
+    let address_to_insert = find_unique_addresses(addresses_in_nonces, addresses_in_storage_diffs);
+
+    for address in address_to_insert {
+        state_update.storage_diffs.push(ContractStorageDiffItem { address, storage_entries: vec![] })
+    }
+}
+
+fn find_unique_addresses(nonce_addresses: Vec<Felt>, storage_diff_addresses: Vec<Felt>) -> Vec<Felt> {
+    let mut unique_addresses: Vec<Felt> = Vec::new();
+
+    for address in nonce_addresses {
+        if !storage_diff_addresses.contains(&address) {
+            unique_addresses.push(address);
+        }
+    }
+
+    unique_addresses
 }
 
 #[cfg(test)]
