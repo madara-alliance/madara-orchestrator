@@ -6,7 +6,7 @@ OPERATOR_ADDRESS := 0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266
 BOOTSTRAP_OUTPUT_PATH := $(shell pwd)/build/bootstrap.json
 BOOTSTRAPPER_COMMIT := 62e399078e1403bfce5a5550c2e860c3c55d9e63
 BOOTSTRAPPER_PATH := $(shell pwd)/madara-bootstrapper
-VERIFIER_ADDRESS := 0x4ed7c70F96B99c776995fB64377f0d4aB3B0e1C1
+VERIFIER_ADDRESS := 0xe7f1725E7734CE288F8367e1Bb143E90bb3F0512
 
 # SNOS
 CAIRO_LANG_COMMIT := a86e92bfde9c171c0856d7b46580c66e004922f3
@@ -17,7 +17,7 @@ MADARA_COMMIT := ea23ca71cd057c1980e06c589eeb9e11dd0861de
 MADARA_DATA_PATH := $(shell pwd)/build/madara
 
 # Pathfinder
-PATHFINDER_COMMIT := abdaca397a3e63f565a17666e682ed2db3444a2d
+PATHFINDER_COMMIT := acea2acb6592fb508e11355ef485e9e0dc8c9213
 PATHFINDER_DATA_PATH := $(shell pwd)/build/pathfinder
 PATHFINDER_PATH := $(shell pwd)/pathfinder
 
@@ -93,7 +93,7 @@ core-contract:
 	cd $(BOOTSTRAPPER_PATH) && \
 	rm -f $(BOOTSTRAP_OUTPUT_PATH) && \
 	git checkout $(BOOTSTRAPPER_COMMIT) && \
-	RUST_LOG=debug cargo run --release -- --mode core --operator-address $(OPERATOR_ADDRESS) --output-file $(BOOTSTRAP_OUTPUT_PATH) && \
+	RUST_LOG=debug cargo run --release -- --mode core --operator-address $(OPERATOR_ADDRESS) --output-file $(BOOTSTRAP_OUTPUT_PATH) --verifier-address $(VERIFIER_ADDRESS) && \
 	echo "CORE_CONTRACT_ADDRESS=$$(jq -r .starknet_contract_address $(BOOTSTRAP_OUTPUT_PATH))" >> $(ENV_FILE) && \
 	echo "CORE_CONTRACT_IMPLEMENTATION_ADDRESS=$$(jq -r .starknet_contract_implementation_address $(BOOTSTRAP_OUTPUT_PATH))" >> $(ENV_FILE)
 
