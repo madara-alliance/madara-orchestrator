@@ -109,8 +109,8 @@ cairo-vm = { git = "https://github.com/Moonsong-Labs/cairo-vm", branch = "notles
 ] }
 
 # Snos & Sharp (Starkware)
-starknet-os = { git = "https://github.com/keep-starknet-strange/snos", rev = "662d1706f5855044e52ebf688a18dd80016c8700" }
-prove_block = { git = "https://github.com/keep-starknet-strange/snos", rev = "662d1706f5855044e52ebf688a18dd80016c8700" }
+starknet-os = { git = "https://github.com/keep-starknet-strange/snos", branch = "main" }
+prove_block = { git = "https://github.com/keep-starknet-strange/snos", branch = "main" }
 
 # Project
 da-client-interface = { path = "crates/da-clients/da-client-interface" }

@@ -87,7 +87,7 @@ madara-bootstrap-mode:
 	cd $(MADARA_PATH) && \
 	git checkout $(MADARA_COMMIT) && \
 	rm -rf $(MADARA_DATA_PATH) && \
-	cargo run --release -- --name madara --base-path $(MADARA_DATA_PATH) --rpc-port 9944 --rpc-cors "*" --rpc-external --sequencer --chain-config-path configs/presets/devnet.yaml --feeder-gateway-enable --gateway-enable --gateway-external --gas-price 0 --blob-gas-price 0 --rpc-methods unsafe --no-l1-sync --verifier-address $(VERIFIER_ADDRESS)
+	cargo run --release -- --name madara --base-path $(MADARA_DATA_PATH) --rpc-port 9944 --rpc-cors "*" --rpc-external --sequencer --chain-config-path configs/presets/devnet.yaml --feeder-gateway-enable --gateway-enable --gateway-external --gas-price 0 --blob-gas-price 0 --rpc-methods unsafe --no-l1-sync
 
 core-contract:
 	cd $(BOOTSTRAPPER_PATH) && \
