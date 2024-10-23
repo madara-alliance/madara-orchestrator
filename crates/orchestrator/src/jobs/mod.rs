@@ -160,7 +160,7 @@ pub async fn create_job(
         .await
         .map_err(|e| JobError::Other(OtherError(e)))?;
 
-    // this is technicaly a redundant check, we've another check inside `create_job`
+    // this is technically a redundant check, we've another check inside `create_job`
     if existing_job.is_some() {
         return Err(JobError::JobAlreadyExists { internal_id, job_type });
     }
@@ -188,7 +188,7 @@ pub async fn create_job(
 /// DB. It then adds the job to the verification queue.
 #[tracing::instrument(skip(config), fields(category = "general", job, job_type, internal_id), ret, err)]
 pub async fn process_job(id: Uuid, config: Arc<Config>) -> Result<(), JobError> {
-    let job = get_job(id, config.clone()).await?;
+    let job: JobItem = get_job(id, config.clone()).await?;
     let internal_id = job.internal_id.clone();
     tracing::info!(log_type = "starting", category = "general", function_type = "process_job", block_no = %internal_id, "General process job started for block");
 
