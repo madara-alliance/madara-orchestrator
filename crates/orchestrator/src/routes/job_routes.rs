@@ -53,23 +53,13 @@ async fn handle_verify_job_request(
 
 pub fn job_routes(config: Arc<Config>) -> Router {
     Router::new()
-        .nest(
-            "/trigger",
-            Router::new()
-                .route(
-                    "/process-job",
-                    get({
-                        let shared_state = config.clone();
-                        move |path| handle_process_job_request(path, State(shared_state))
-                    }),
-                )
-                .route(
-                    "/verify-job",
-                    get({
-                        let shared_state = config.clone();
-                        move |path| handle_verify_job_request(path, State(shared_state))
-                    }),
-                ),
-        )
+        .nest("/trigger", trigger_routes(config.clone()))
+        .with_state(config)
+}
+
+fn trigger_routes(config: Arc<Config>) -> Router {
+    Router::new()
+        .route("/process-job", get(handle_process_job_request))
+        .route("/verify-job", get(handle_verify_job_request))
         .with_state(config)
 }
