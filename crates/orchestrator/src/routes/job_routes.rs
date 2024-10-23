@@ -1,6 +1,6 @@
 use std::sync::Arc;
 
-use axum::extract::{Query, State};
+use axum::extract::{Path, State};
 use axum::http::StatusCode;
 use axum::response::{IntoResponse, Response};
 use axum::routing::get;
@@ -12,7 +12,7 @@ use crate::config::Config;
 use crate::jobs::{process_job, verify_job, JobError};
 
 #[derive(Deserialize)]
-struct JobParams {
+struct JobId {
     id: String,
 }
 
@@ -33,36 +33,36 @@ impl IntoResponse for JobResult {
 }
 
 async fn handle_process_job_request(
-    Query(params): Query<JobParams>,
+    Path(JobId { id }): Path<JobId>,
     State(config): State<Arc<Config>>,
 ) -> impl IntoResponse {
-    let id = match Uuid::parse_str(&params.id) {
+    let id = match Uuid::parse_str(&id) {
         Ok(id) => id,
-        Err(_) => return JobResult(Err(JobError::InvalidId { id: params.id })).into_response(),
+        Err(_) => return JobResult(Err(JobError::InvalidId { id })).into_response(),
     };
 
     JobResult(process_job(id, config).await).into_response()
 }
 
 async fn handle_verify_job_request(
-    Query(params): Query<JobParams>,
+    Path(JobId { id }): Path<JobId>,
     State(config): State<Arc<Config>>,
 ) -> impl IntoResponse {
-    let id = match Uuid::parse_str(&params.id) {
+    let id = match Uuid::parse_str(&id) {
         Ok(id) => id,
-        Err(_) => return JobResult(Err(JobError::InvalidId { id: params.id })).into_response(),
+        Err(_) => return JobResult(Err(JobError::InvalidId { id })).into_response(),
     };
 
     JobResult(verify_job(id, config).await).into_response()
 }
 
 pub fn job_routes(config: Arc<Config>) -> Router {
-    Router::new().nest("/trigger", trigger_routes(config.clone()))
+    Router::new().nest("/jobs", trigger_routes(config.clone()))
 }
 
 fn trigger_routes(config: Arc<Config>) -> Router {
     Router::new()
-        .route("/process-job", get(handle_process_job_request))
-        .route("/verify-job", get(handle_verify_job_request))
+        .route("/:id/process", get(handle_process_job_request))
+        .route("/:id/verify", get(handle_verify_job_request))
         .with_state(config)
 }

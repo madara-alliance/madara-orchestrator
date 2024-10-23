@@ -2,15 +2,10 @@ use core::panic;
 use std::net::SocketAddr;
 use std::sync::Arc;
 
-use axum::Router;
 use chrono::{SubsecRound as _, Utc};
 use hyper::{Body, Request};
 use mockall::predicate::eq;
 use rstest::*;
-use starknet::providers::jsonrpc::HttpTransport;
-use starknet::providers::JsonRpcClient;
-use url::Url;
-use utils::env_utils::{get_env_var_or_default, get_env_var_or_panic};
 use uuid::Uuid;
 
 use crate::config::Config;
@@ -18,51 +13,14 @@ use crate::jobs::job_handler_factory::mock_factory;
 use crate::jobs::types::{ExternalId, JobItem, JobStatus, JobType, JobVerificationStatus};
 use crate::jobs::{Job, MockJob};
 use crate::queue::init_consumers;
-use crate::routes::app_routes::{app_router, handler_404};
-use crate::routes::job_routes::job_routes;
-use crate::tests::config::{ConfigType, TestConfigBuilder};
-
-#[fixture]
-async fn setup_job_server() -> (SocketAddr, Arc<Config>) {
-    dotenvy::from_filename("../.env.test").expect("Failed to load the .env.test file");
-
-    let madara_url = get_env_var_or_panic("MADARA_RPC_URL");
-    let provider = JsonRpcClient::new(HttpTransport::new(
-        Url::parse(madara_url.as_str().to_string().as_str()).expect("Failed to parse URL"),
-    ));
-
-    let services = TestConfigBuilder::new()
-        .configure_database(ConfigType::Actual)
-        .configure_queue_client(ConfigType::Actual)
-        .configure_starknet_client(provider.into())
-        .build()
-        .await;
-
-    let host = get_env_var_or_default("HOST", "0.0.0.0");
-    let port = get_env_var_or_default("PORT", "3000").parse::<u16>().expect("PORT must be a u16");
-    let address = format!("{}:{}", host, port);
-
-    let listener = tokio::net::TcpListener::bind(address.clone()).await.expect("Failed to get listener");
-    let addr = listener.local_addr().expect("Unable to bind address to listener.");
-
-    let job_routes = job_routes(services.config.clone());
-    let app_routes = app_router();
-
-    let app = Router::new().merge(app_routes).merge(job_routes).fallback(handler_404);
-
-    tokio::spawn(async move {
-        axum::serve(listener, app).await.expect("Failed to start axum server");
-    });
-
-    (addr, services.config.clone())
-}
+use crate::tests::config::TestConfigBuilder;
+use crate::tests::server::setup_server;
 
 #[tokio::test]
 #[rstest]
-async fn test_trigger_process_job(#[future] setup_job_server: (SocketAddr, Arc<Config>)) {
-    let (addr, config) = setup_job_server.await;
+async fn test_trigger_process_job(#[future] setup_server: (SocketAddr, Arc<Config>)) {
+    let (addr, config) = setup_server.await;
 
-    let job_category = "process-job";
     let job_type = JobType::DataSubmission;
 
     let job_item = build_job_item(job_type.clone(), JobStatus::Created, 1);
@@ -82,10 +40,7 @@ async fn test_trigger_process_job(#[future] setup_job_server: (SocketAddr, Arc<C
     let client = hyper::Client::new();
     let response = client
         .request(
-            Request::builder()
-                .uri(format!("http://{}/trigger/{job_category}?id={job_id}", addr))
-                .body(Body::empty())
-                .unwrap(),
+            Request::builder().uri(format!("http://{}/jobs/{}/process", addr, job_id)).body(Body::empty()).unwrap(),
         )
         .await
         .unwrap();
@@ -102,11 +57,10 @@ async fn test_trigger_process_job(#[future] setup_job_server: (SocketAddr, Arc<C
 
 #[tokio::test]
 #[rstest]
-async fn test_trigger_verify_job(#[future] setup_job_server: (SocketAddr, Arc<Config>)) {
-    let (addr, config) = setup_job_server.await;
+async fn test_trigger_verify_job(#[future] setup_server: (SocketAddr, Arc<Config>)) {
+    let (addr, config) = setup_server.await;
 
     let job_type = JobType::DataSubmission;
-    let job_category = "verify-job";
 
     let job_item = build_job_item(job_type.clone(), JobStatus::PendingVerification, 1);
     let mut job_handler = MockJob::new();
@@ -124,12 +78,7 @@ async fn test_trigger_verify_job(#[future] setup_job_server: (SocketAddr, Arc<Co
 
     let client = hyper::Client::new();
     let response = client
-        .request(
-            Request::builder()
-                .uri(format!("http://{}/trigger/{job_category}?id={job_id}", addr))
-                .body(Body::empty())
-                .unwrap(),
-        )
+        .request(Request::builder().uri(format!("http://{}/jobs/{}/verify", addr, job_id)).body(Body::empty()).unwrap())
         .await
         .unwrap();
 
