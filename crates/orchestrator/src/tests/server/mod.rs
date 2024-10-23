@@ -3,13 +3,14 @@ use std::io::Read;
 use std::net::SocketAddr;
 
 use axum::http::StatusCode;
+use dotenvy::dotenv;
 use hyper::body::Buf;
 use hyper::{Body, Request};
 use rstest::*;
 use starknet::providers::jsonrpc::HttpTransport;
 use starknet::providers::JsonRpcClient;
 use url::Url;
-use utils::env_utils::get_env_var_or_default;
+use utils::env_utils::{get_env_var_or_default, get_env_var_or_panic};
 
 use crate::queue::init_consumers;
 use crate::routes::app_routes::app_router;
@@ -17,8 +18,10 @@ use crate::tests::config::TestConfigBuilder;
 
 #[fixture]
 pub async fn setup_app_server() -> SocketAddr {
+    dotenv().ok();
+    let madara_url = get_env_var_or_panic("MADARA_RPC_URL");
     let provider = JsonRpcClient::new(HttpTransport::new(
-        Url::parse("http://localhost:9944".to_string().as_str()).expect("Failed to parse URL"),
+        Url::parse(madara_url.as_str().to_string().as_str()).expect("Failed to parse URL"),
     ));
 
     TestConfigBuilder::new().configure_starknet_client(provider.into()).build().await;
@@ -28,7 +31,7 @@ pub async fn setup_app_server() -> SocketAddr {
     let address = format!("{}:{}", host, port);
 
     let listener = tokio::net::TcpListener::bind(address.clone()).await.expect("Failed to get listener");
-    let addr = listener.local_addr().unwrap();
+    let addr = listener.local_addr().expect("Unable to bind address to listener.");
     let app = app_router();
 
     tokio::spawn(async move {

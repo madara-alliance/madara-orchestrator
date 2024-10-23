@@ -52,9 +52,7 @@ async fn handle_verify_job_request(
 }
 
 pub fn job_routes(config: Arc<Config>) -> Router {
-    Router::new()
-        .nest("/trigger", trigger_routes(config.clone()))
-        .with_state(config)
+    Router::new().nest("/trigger", trigger_routes(config.clone()))
 }
 
 fn trigger_routes(config: Arc<Config>) -> Router {

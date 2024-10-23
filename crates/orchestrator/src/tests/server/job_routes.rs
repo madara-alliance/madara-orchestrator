@@ -4,13 +4,14 @@ use std::sync::Arc;
 
 use axum::http::StatusCode;
 use chrono::{SubsecRound as _, Utc};
+use dotenvy::dotenv;
 use hyper::body::Buf;
 use hyper::{Body, Request};
 use rstest::*;
 use starknet::providers::jsonrpc::HttpTransport;
 use starknet::providers::JsonRpcClient;
 use url::Url;
-use utils::env_utils::get_env_var_or_default;
+use utils::env_utils::{get_env_var_or_default, get_env_var_or_panic};
 use uuid::Uuid;
 
 use crate::config::{init_config, Config};
@@ -21,9 +22,10 @@ use crate::tests::config::TestConfigBuilder;
 
 #[fixture]
 pub async fn setup_job_server() -> (SocketAddr, Arc<Config>) {
-    let provider = JsonRpcClient::new(HttpTransport::new(
-        Url::parse("http://localhost:9944".to_string().as_str()).expect("Failed to parse URL"),
-    ));
+    dotenv().ok();
+    let madara_url = get_env_var_or_panic("MADARA_RPC_URL");
+    let provider =
+        JsonRpcClient::new(HttpTransport::new(Url::parse(madara_url.as_str()).expect("Failed to parse URL")));
 
     TestConfigBuilder::new().configure_starknet_client(provider.into()).build().await;
 
@@ -32,7 +34,7 @@ pub async fn setup_job_server() -> (SocketAddr, Arc<Config>) {
     let address = format!("{}:{}", host, port);
 
     let listener = tokio::net::TcpListener::bind(address.clone()).await.expect("Failed to get listener");
-    let addr = listener.local_addr().unwrap();
+    let addr = listener.local_addr().expect("Unable to bind address to listener.");
 
     let config = init_config().await.expect("Config instantiation failed");
     let job_routes = job_routes(config.clone());
