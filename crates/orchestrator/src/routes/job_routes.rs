@@ -7,9 +7,9 @@ use axum::Router;
 use serde::{Deserialize, Serialize};
 use uuid::Uuid;
 
+use super::ApiResponse;
 use crate::config::Config;
 use crate::jobs::{process_job, verify_job, JobError};
-use super::ApiResponse;
 
 #[derive(Deserialize)]
 struct JobId {
@@ -22,7 +22,6 @@ struct JobApiResponse {
     status: String,
 }
 
-
 async fn handle_process_job_request(
     Path(JobId { id }): Path<JobId>,
     State(config): State<Arc<Config>>,
@@ -31,22 +30,17 @@ async fn handle_process_job_request(
     let job_id = match Uuid::parse_str(&id) {
         Ok(id) => id,
         Err(_) => {
-            return ApiResponse::<JobApiResponse>::error(
-                (JobError::InvalidId { id }).to_string()
-            ).into_response()
+            return ApiResponse::<JobApiResponse>::error((JobError::InvalidId { id }).to_string()).into_response();
         }
     };
 
     // Process job
     match process_job(job_id, config).await {
         Ok(_) => {
-            let response = JobApiResponse {
-                job_id: job_id.to_string(),
-                status: "completed".to_string(),
-            };
+            let response = JobApiResponse { job_id: job_id.to_string(), status: "completed".to_string() };
             ApiResponse::success(response).into_response()
-        },
-        Err(e) => ApiResponse::<JobApiResponse>::error(e.to_string()).into_response()
+        }
+        Err(e) => ApiResponse::<JobApiResponse>::error(e.to_string()).into_response(),
     }
 }
 
@@ -58,22 +52,17 @@ async fn handle_verify_job_request(
     let job_id = match Uuid::parse_str(&id) {
         Ok(id) => id,
         Err(_) => {
-            return ApiResponse::<JobApiResponse>::error(
-                (JobError::InvalidId { id }).to_string()
-            ).into_response()
+            return ApiResponse::<JobApiResponse>::error((JobError::InvalidId { id }).to_string()).into_response();
         }
     };
 
     // Verify job
     match verify_job(job_id, config).await {
         Ok(_) => {
-            let response = JobApiResponse {
-                job_id: job_id.to_string(),
-                status: "verified".to_string(),
-            };
+            let response = JobApiResponse { job_id: job_id.to_string(), status: "verified".to_string() };
             ApiResponse::success(response).into_response()
-        },
-        Err(e) => ApiResponse::<JobApiResponse>::error(e.to_string()).into_response()
+        }
+        Err(e) => ApiResponse::<JobApiResponse>::error(e.to_string()).into_response(),
     }
 }
 pub fn job_routes(config: Arc<Config>) -> Router {
