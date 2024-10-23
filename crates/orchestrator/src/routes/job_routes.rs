@@ -22,7 +22,12 @@ impl IntoResponse for JobResult {
     fn into_response(self) -> Response {
         match self.0 {
             Ok(_) => (StatusCode::OK, "Job processing completed.").into_response(),
-            Err(e) => (StatusCode::INTERNAL_SERVER_ERROR, format!("Job processing failed: {:?}", e)).into_response(),
+            Err(e) => match e {
+                JobError::InvalidId { id } => {
+                    (StatusCode::BAD_REQUEST, (JobError::InvalidId { id }).to_string()).into_response()
+                }
+                other_error => (StatusCode::INTERNAL_SERVER_ERROR, other_error.to_string()).into_response(),
+            },
         }
     }
 }
@@ -33,7 +38,7 @@ async fn handle_process_job_request(
 ) -> impl IntoResponse {
     let id = match Uuid::parse_str(&params.id) {
         Ok(id) => id,
-        Err(_) => return (StatusCode::BAD_REQUEST, "Invalid UUID").into_response(),
+        Err(_) => return JobResult(Err(JobError::InvalidId { id: params.id })).into_response(),
     };
 
     JobResult(process_job(id, config).await).into_response()
@@ -45,7 +50,7 @@ async fn handle_verify_job_request(
 ) -> impl IntoResponse {
     let id = match Uuid::parse_str(&params.id) {
         Ok(id) => id,
-        Err(_) => return (StatusCode::BAD_REQUEST, "Invalid UUID").into_response(),
+        Err(_) => return JobResult(Err(JobError::InvalidId { id: params.id })).into_response(),
     };
 
     JobResult(verify_job(id, config).await).into_response()

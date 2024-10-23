@@ -3,7 +3,6 @@ use std::io::Read;
 use std::net::SocketAddr;
 
 use axum::http::StatusCode;
-use dotenvy::dotenv;
 use hyper::body::Buf;
 use hyper::{Body, Request};
 use rstest::*;

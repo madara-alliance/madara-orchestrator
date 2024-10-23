@@ -39,6 +39,9 @@ use thiserror::Error;
 
 #[derive(Error, Debug, PartialEq)]
 pub enum JobError {
+    #[error("Job id {id:?} is invalid.")]
+    InvalidId { id: String },
+
     #[error("Job already exists for internal_id {internal_id:?} and job_type {job_type:?}. Skipping!")]
     JobAlreadyExists { internal_id: String, job_type: JobType },
 
