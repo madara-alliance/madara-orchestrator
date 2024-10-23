@@ -1,6 +1,8 @@
 use core::panic;
+use std::net::SocketAddr;
 use std::sync::Arc;
 
+use axum::Router;
 use chrono::{SubsecRound as _, Utc};
 use hyper::{Body, Request};
 use mockall::predicate::eq;
@@ -11,6 +13,7 @@ use url::Url;
 use utils::env_utils::{get_env_var_or_default, get_env_var_or_panic};
 use uuid::Uuid;
 
+use crate::config::Config;
 use crate::jobs::job_handler_factory::mock_factory;
 use crate::jobs::types::{ExternalId, JobItem, JobStatus, JobType, JobVerificationStatus};
 use crate::jobs::{Job, MockJob};
@@ -19,13 +22,8 @@ use crate::routes::app_routes::{app_router, handler_404};
 use crate::routes::job_routes::job_routes;
 use crate::tests::config::{ConfigType, TestConfigBuilder};
 
-#[tokio::test]
-#[rstest]
-#[case("process-job")]
-#[case("verify-job")]
-async fn test_trigger_job_endpoint(#[case] job_type: &str) {
-    use axum::Router;
-
+#[fixture]
+async fn setup_job_server() -> (SocketAddr, Arc<Config>) {
     dotenvy::from_filename("../.env.test").expect("Failed to load the .env.test file");
 
     let madara_url = get_env_var_or_panic("MADARA_RPC_URL");
@@ -33,28 +31,12 @@ async fn test_trigger_job_endpoint(#[case] job_type: &str) {
         Url::parse(madara_url.as_str().to_string().as_str()).expect("Failed to parse URL"),
     ));
 
-    let mut job_handler = MockJob::new();
-
-    let mut job_item = build_job_item(JobType::DataSubmission, JobStatus::Created, 1);
-
-    if job_type == "process-job" {
-        // CHANGE
-        job_handler.expect_process_job().times(1).returning(move |_, _| Ok("0xbeef".to_string()));
-    } else {
-        job_item = build_job_item(JobType::DataSubmission, JobStatus::PendingVerification, 2);
-        job_handler.expect_verify_job().times(1).returning(move |_, _| Ok(JobVerificationStatus::Verified));
-    }
-
-    job_handler.expect_verification_polling_delay_seconds().return_const(1u64);
-
     let services = TestConfigBuilder::new()
         .configure_database(ConfigType::Actual)
         .configure_queue_client(ConfigType::Actual)
         .configure_starknet_client(provider.into())
         .build()
         .await;
-
-    services.config.database().create_job(job_item.clone()).await.unwrap();
 
     let host = get_env_var_or_default("HOST", "0.0.0.0");
     let port = get_env_var_or_default("PORT", "3000").parse::<u16>().expect("PORT must be a u16");
@@ -72,17 +54,36 @@ async fn test_trigger_job_endpoint(#[case] job_type: &str) {
         axum::serve(listener, app).await.expect("Failed to start axum server");
     });
 
+    (addr, services.config.clone())
+}
+
+#[tokio::test]
+#[rstest]
+async fn test_trigger_process_job(#[future] setup_job_server: (SocketAddr, Arc<Config>)) {
+    let (addr, config) = setup_job_server.await;
+
+    let job_category = "process-job";
+    let job_type = JobType::DataSubmission;
+
+    let job_item = build_job_item(job_type.clone(), JobStatus::Created, 1);
+    let mut job_handler = MockJob::new();
+
+    job_handler.expect_process_job().times(1).returning(move |_, _| Ok("0xbeef".to_string()));
+
+    config.database().create_job(job_item.clone()).await.unwrap();
     let job_id = job_item.clone().id;
+
+    job_handler.expect_verification_polling_delay_seconds().return_const(1u64);
 
     let job_handler: Arc<Box<dyn Job>> = Arc::new(Box::new(job_handler));
     let ctx = mock_factory::get_job_handler_context();
-    ctx.expect().times(1).with(eq(JobType::DataSubmission)).returning(move |_| Arc::clone(&job_handler));
+    ctx.expect().times(1).with(eq(job_type)).returning(move |_| Arc::clone(&job_handler));
 
     let client = hyper::Client::new();
     let response = client
         .request(
             Request::builder()
-                .uri(format!("http://{}/trigger/{job_type}?id={job_id}", addr))
+                .uri(format!("http://{}/trigger/{job_category}?id={job_id}", addr))
                 .body(Body::empty())
                 .unwrap(),
         )
@@ -90,14 +91,53 @@ async fn test_trigger_job_endpoint(#[case] job_type: &str) {
         .unwrap();
 
     // assertions
-    if let Some(job_fetched) = services.config.database().get_job_by_id(job_id).await.unwrap() {
+    if let Some(job_fetched) = config.database().get_job_by_id(job_id).await.unwrap() {
         assert_eq!(response.status(), 200);
         assert_eq!(job_fetched.id, job_item.id);
-        if job_type == "process-job" {
-            assert_eq!(job_fetched.version, 2);
-        } else {
-            assert_eq!(job_fetched.version, 1);
-        }
+        assert_eq!(job_fetched.version, 2);
+    } else {
+        panic!("Could not get job from database")
+    }
+}
+
+#[tokio::test]
+#[rstest]
+async fn test_trigger_verify_job(#[future] setup_job_server: (SocketAddr, Arc<Config>)) {
+    let (addr, config) = setup_job_server.await;
+
+    let job_type = JobType::DataSubmission;
+    let job_category = "verify-job";
+
+    let job_item = build_job_item(job_type.clone(), JobStatus::PendingVerification, 1);
+    let mut job_handler = MockJob::new();
+
+    job_handler.expect_verify_job().times(1).returning(move |_, _| Ok(JobVerificationStatus::Verified));
+
+    config.database().create_job(job_item.clone()).await.unwrap();
+    let job_id = job_item.clone().id;
+
+    job_handler.expect_verification_polling_delay_seconds().return_const(1u64);
+
+    let job_handler: Arc<Box<dyn Job>> = Arc::new(Box::new(job_handler));
+    let ctx = mock_factory::get_job_handler_context();
+    ctx.expect().times(1).with(eq(job_type)).returning(move |_| Arc::clone(&job_handler));
+
+    let client = hyper::Client::new();
+    let response = client
+        .request(
+            Request::builder()
+                .uri(format!("http://{}/trigger/{job_category}?id={job_id}", addr))
+                .body(Body::empty())
+                .unwrap(),
+        )
+        .await
+        .unwrap();
+
+    // assertions
+    if let Some(job_fetched) = config.database().get_job_by_id(job_id).await.unwrap() {
+        assert_eq!(response.status(), 200);
+        assert_eq!(job_fetched.id, job_item.id);
+        assert_eq!(job_fetched.version, 1);
     } else {
         panic!("Could not get job from database")
     }
