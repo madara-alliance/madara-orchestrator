@@ -35,9 +35,7 @@ async fn main() {
         }
     }
 
-    tokio::signal::ctrl_c()
-    .await
-    .expect("Failed to listen for ctrl+c");
+    tokio::signal::ctrl_c().await.expect("Failed to listen for ctrl+c");
 
     // Analytics Shutdown
     shutdown_analytics(meter_provider);
