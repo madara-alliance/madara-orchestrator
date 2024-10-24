@@ -56,10 +56,9 @@ pub async fn setup_server(config: Arc<Config>) -> SocketAddr {
     let app_routes = app_router();
     let app = Router::new().merge(app_routes).merge(job_routes).fallback(handler_404);
 
-    if let Err(e) = axum::serve(listener, app).await {
-        tracing::error!(service = "orchestrator", error = %e, "Server failed to start");
-        panic!("Failed to start axum server: {}", e);
-    }
+    tokio::spawn(async move {
+        axum::serve(listener, app).await.expect("Failed to start axum server");
+    });
 
     api_server_url
 }
