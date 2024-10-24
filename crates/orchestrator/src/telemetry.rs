@@ -25,7 +25,7 @@ lazy_static! {
 
 pub fn setup_analytics() -> Option<SdkMeterProvider> {
     let otel_endpoint = get_env_var_optional("OTEL_COLLECTOR_ENDPOINT").expect("Failed to get OTEL_COLLECTOR_ENDPOINT");
-    let log_level = get_env_var_or_default("RUST_LOG", "INFO");
+    let log_level = "DEBUG";
     let level = Level::from_str(&log_level).unwrap_or(Level::INFO);
 
     let tracing_subscriber = tracing_subscriber::registry()
