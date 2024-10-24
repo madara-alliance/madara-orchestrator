@@ -254,10 +254,10 @@ async fn implement_api_server(api_server_type: ConfigType, config: Arc<Config>) 
                 let (api_server_url, listener) = get_server_url().await;
                 let app = Router::new().merge(router);
 
-                if let Err(e) = axum::serve(listener, app).await {
-                    tracing::error!(service = "orchestrator", error = %e, "Server failed to start");
-                    panic!("Failed to start axum server: {}", e);
-                }
+                tokio::spawn(async move {
+                    axum::serve(listener, app).await.expect("Failed to start axum server");
+                });
+
                 Some(api_server_url)
             } else {
                 panic!(concat!("Mock client is not a ", stringify!($client_type)));

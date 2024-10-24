@@ -75,6 +75,7 @@ async fn test_trigger_process_job(#[future] setup_trigger: (SocketAddr, Arc<Conf
         assert_eq!(response.status(), 200);
         assert_eq!(job_fetched.id, job_item.id);
         assert_eq!(job_fetched.version, 2);
+        assert_eq!(job_fetched.status, JobStatus::PendingVerification);
     } else {
         panic!("Could not get job from database")
     }
@@ -112,6 +113,7 @@ async fn test_trigger_verify_job(#[future] setup_trigger: (SocketAddr, Arc<Confi
         assert_eq!(response.status(), 200);
         assert_eq!(job_fetched.id, job_item.id);
         assert_eq!(job_fetched.version, 1);
+        assert_eq!(job_fetched.status, JobStatus::Completed);
     } else {
         panic!("Could not get job from database")
     }

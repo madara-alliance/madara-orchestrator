@@ -191,7 +191,7 @@ pub async fn create_job(
 /// DB. It then adds the job to the verification queue.
 #[tracing::instrument(skip(config), fields(category = "general", job, job_type, internal_id), ret, err)]
 pub async fn process_job(id: Uuid, config: Arc<Config>) -> Result<(), JobError> {
-    let job: JobItem = get_job(id, config.clone()).await?;
+    let job = get_job(id, config.clone()).await?;
     let internal_id = job.internal_id.clone();
     tracing::info!(log_type = "starting", category = "general", function_type = "process_job", block_no = %internal_id, "General process job started for block");
 
