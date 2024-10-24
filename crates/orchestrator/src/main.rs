@@ -1,11 +1,8 @@
-use axum::Router;
 use dotenvy::dotenv;
 use orchestrator::config::init_config;
 use orchestrator::queue::init_consumers;
-use orchestrator::routes::app_routes::{app_router, handler_404};
-use orchestrator::routes::job_routes::job_routes;
+use orchestrator::routes::setup_server;
 use orchestrator::telemetry::{setup_analytics, shutdown_analytics};
-use utils::env_utils::get_env_var_or_default;
 
 /// Start the server
 #[tokio::main]
@@ -24,15 +21,8 @@ async fn main() {
     let config = init_config().await.expect("Config instantiation failed");
     tracing::debug!(service = "orchestrator", "Configuration initialized");
 
-    let host = get_env_var_or_default("HOST", "127.0.0.1");
-    let port = get_env_var_or_default("PORT", "3000").parse::<u16>().expect("PORT must be a u16");
-    let address = format!("{}:{}", host, port);
-    let listener = tokio::net::TcpListener::bind(address.clone()).await.expect("Failed to get listener");
-
-    let job_routes = job_routes(config.clone());
-    let app_routes = app_router();
-
-    let app = Router::new().merge(app_routes).merge(job_routes).fallback(handler_404);
+    // initialize the server
+    let _ = setup_server(config.clone()).await;
 
     tracing::debug!(service = "orchestrator", "Application router initialized");
 
@@ -43,11 +33,6 @@ async fn main() {
             tracing::error!(service = "orchestrator", error = %e, "Failed to initialize consumers");
             panic!("Failed to init consumers: {}", e);
         }
-    }
-
-    if let Err(e) = axum::serve(listener, app).await {
-        tracing::error!(service = "orchestrator", error = %e, "Server failed to start");
-        panic!("Failed to start axum server: {}", e);
     }
 
     // Analytics Shutdown

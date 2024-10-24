@@ -65,11 +65,11 @@ async fn handle_verify_job_request(
         Err(e) => ApiResponse::<JobApiResponse>::error(e.to_string()).into_response(),
     }
 }
-pub fn job_routes(config: Arc<Config>) -> Router {
-    Router::new().nest("/jobs", trigger_routes(config.clone()))
+pub fn job_router(config: Arc<Config>) -> Router {
+    Router::new().nest("/jobs", trigger_router(config.clone()))
 }
 
-fn trigger_routes(config: Arc<Config>) -> Router {
+fn trigger_router(config: Arc<Config>) -> Router {
     Router::new()
         .route("/:id/process", get(handle_process_job_request))
         .route("/:id/verify", get(handle_verify_job_request))

@@ -6,6 +6,10 @@ use chrono::{SubsecRound as _, Utc};
 use hyper::{Body, Request};
 use mockall::predicate::eq;
 use rstest::*;
+use starknet::providers::jsonrpc::HttpTransport;
+use starknet::providers::JsonRpcClient;
+use url::Url;
+use utils::env_utils::get_env_var_or_panic;
 use uuid::Uuid;
 
 use crate::config::Config;
@@ -13,13 +17,34 @@ use crate::jobs::job_handler_factory::mock_factory;
 use crate::jobs::types::{ExternalId, JobItem, JobStatus, JobType, JobVerificationStatus};
 use crate::jobs::{Job, MockJob};
 use crate::queue::init_consumers;
-use crate::tests::config::TestConfigBuilder;
-use crate::tests::server::setup_server;
+use crate::tests::config::{ConfigType, TestConfigBuilder};
+
+#[fixture]
+async fn setup_trigger() -> (SocketAddr, Arc<Config>) {
+    dotenvy::from_filename("../.env.test").expect("Failed to load the .env.test file");
+
+    let madara_url = get_env_var_or_panic("MADARA_RPC_URL");
+    let provider = JsonRpcClient::new(HttpTransport::new(
+        Url::parse(madara_url.as_str().to_string().as_str()).expect("Failed to parse URL"),
+    ));
+
+    let services = TestConfigBuilder::new()
+        .configure_database(ConfigType::Actual)
+        .configure_queue_client(ConfigType::Actual)
+        .configure_starknet_client(provider.into())
+        .configure_api_server(ConfigType::Actual)
+        .build()
+        .await;
+
+    let addr = services.api_server_address.unwrap();
+    let config = services.config;
+    (addr, config)
+}
 
 #[tokio::test]
 #[rstest]
-async fn test_trigger_process_job(#[future] setup_server: (SocketAddr, Arc<Config>)) {
-    let (addr, config) = setup_server.await;
+async fn test_trigger_process_job(#[future] setup_trigger: (SocketAddr, Arc<Config>)) {
+    let (addr, config) = setup_trigger.await;
 
     let job_type = JobType::DataSubmission;
 
@@ -57,8 +82,8 @@ async fn test_trigger_process_job(#[future] setup_server: (SocketAddr, Arc<Confi
 
 #[tokio::test]
 #[rstest]
-async fn test_trigger_verify_job(#[future] setup_server: (SocketAddr, Arc<Config>)) {
-    let (addr, config) = setup_server.await;
+async fn test_trigger_verify_job(#[future] setup_trigger: (SocketAddr, Arc<Config>)) {
+    let (addr, config) = setup_trigger.await;
 
     let job_type = JobType::DataSubmission;
 
