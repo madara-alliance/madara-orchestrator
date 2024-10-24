@@ -8,9 +8,9 @@
     ignore = all
 [submodule "madara"]
 	path = madara
-	url = https://github.com/madara-alliance/madara
+	url = https://github.com/madara-alliance/madara.git
     ignore = all
 [submodule "madara-bootstrapper"]
 	path = madara-bootstrapper
-	url = https://github.com/madara-alliance/madara-bootstrapper
+	url = https://github.com/madara-alliance/madara-bootstrapper.git
     ignore = all
