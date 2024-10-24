@@ -35,6 +35,10 @@ async fn main() {
         }
     }
 
+    tokio::signal::ctrl_c()
+    .await
+    .expect("Failed to listen for ctrl+c");
+
     // Analytics Shutdown
     shutdown_analytics(meter_provider);
     tracing::info!(service = "orchestrator", "Orchestrator service shutting down");
