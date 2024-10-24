@@ -4,7 +4,7 @@
 	ignore = all
 [submodule "pathfinder"]
 	path = pathfinder
-	url = https://github.com/karnotxyz/pathfinder.git
+	url = https://github.com/eqlabs/pathfinder.git
     ignore = all
 [submodule "madara"]
 	path = madara
