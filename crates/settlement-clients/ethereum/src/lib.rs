@@ -1,6 +1,7 @@
 use std::path::PathBuf;
 use std::str::FromStr;
 use std::sync::Arc;
+use std::time::Duration;
 
 use alloy::consensus::{
     BlobTransactionSidecar, SignableTransaction, TxEip4844, TxEip4844Variant, TxEip4844WithSidecar, TxEnvelope,
@@ -40,6 +41,7 @@ use alloy::transports::http::Http;
 use lazy_static::lazy_static;
 use mockall::automock;
 use reqwest::Client;
+use tokio::time::sleep;
 use utils::settings::Settings;
 
 use crate::types::{bytes_to_u128, convert_stark_bigint_to_u256};
@@ -289,11 +291,30 @@ impl SettlementClient for EthereumSettlementClient {
 
         log::warn!("⏳ Waiting for txn finality.......");
 
-        // Prod feature only (may cause issues while testing with anvil)
-        let txn_hash = pending_transaction.tx_hash().to_string();
-        self.wait_for_tx_finality(&txn_hash).await?;
+        let res = Self::wait_for_transaction_confirmation(
+            self.provider.clone(),
+            *pending_transaction.tx_hash(),
+            100,
+            Duration::from_secs(5),
+            3,
+        )
+        .await?;
 
-        Ok(txn_hash)
+        match res {
+            Some(_) => {
+                println!(">>>> txn hash : {:?} Finalized ✅", pending_transaction.tx_hash().to_string());
+            }
+            None => {
+                log::error!("Txn hash not finalised");
+            }
+        }
+        Ok(pending_transaction.tx_hash().to_string())
+
+        // Prod feature only (may cause issues while testing with anvil)
+        // let txn_hash = pending_transaction.tx_hash().to_string();
+        // self.wait_for_tx_finality(&txn_hash).await?;
+        //
+        // Ok(txn_hash)
     }
 
     /// Should verify the inclusion of a tx in the settlement layer
@@ -360,6 +381,30 @@ impl SettlementClient for EthereumSettlementClient {
     async fn get_nonce(&self) -> Result<u64> {
         let nonce = self.provider.get_transaction_count(self.wallet_address).await?.to_string().parse()?;
         Ok(nonce)
+    }
+}
+
+impl EthereumSettlementClient {
+    async fn wait_for_transaction_confirmation(
+        provider: Arc<RootProvider<Http<Client>>>,
+        tx_hash: B256,
+        max_attempts: u32,
+        delay: Duration,
+        required_confirmations: u64,
+    ) -> Result<Option<u64>> {
+        for _ in 0..max_attempts {
+            if let Some(receipt) = provider.get_transaction_receipt(tx_hash).await? {
+                if let Some(block_number) = receipt.block_number {
+                    let latest_block = provider.get_block_number().await?;
+                    let confirmations = latest_block.saturating_sub(block_number);
+                    if confirmations >= required_confirmations {
+                        return Ok(Some(block_number));
+                    }
+                }
+            }
+            sleep(delay).await;
+        }
+        Ok(None)
     }
 }
 
