@@ -36,15 +36,7 @@ jobs:
 
       - name: Build SNOS files
         run: |
-          python3 -m venv orchestrator_venv
-          source orchestrator_venv/bin/activate
-          pip install cairo-lang==0.13.2 "sympy<1.13.0"
-          mkdir -p build
-          git submodule update --init --recursive
-          cd cairo-lang
-          git checkout a86e92bfde9c171c0856d7b46580c66e004922f3
-          cd ..
-          cairo-compile cairo-lang/src/starkware/starknet/core/os/os.cairo --output build/os_latest.json --cairo_path cairo-lang/src
+          make snos
 
       - uses: Swatinem/rust-cache@v2
       - name: Format and clippy

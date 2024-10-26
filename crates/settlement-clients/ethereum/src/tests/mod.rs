@@ -142,7 +142,7 @@ mod settlement_client_tests {
         STARKNET_CORE_CONTRACT_ADDRESS, STARKNET_OPERATOR_ADDRESS,
     };
     use crate::types::{bytes_to_u128, convert_stark_bigint_to_u256};
-    use crate::EthereumSettlementClient;
+    use crate::{EthereumSettlementClient, Y_HIGH_POINT_OFFSET, Y_LOW_POINT_OFFSET};
 
     #[rstest]
     #[tokio::test]
@@ -299,13 +299,15 @@ mod settlement_client_tests {
         let blob_data_vec = get_blob_data(fork_block_no);
 
         let x_0_value_bytes32 = Bytes32::from(program_output[10]);
-        let y_0_value_low = Bytes32::from(program_output[14]);
-        let y_0_value_high = Bytes32::from(program_output[15]);
-        let y_0_value_u256 =
-            convert_stark_bigint_to_u256(bytes_to_u128(y_0_value_low.as_ref()), bytes_to_u128(y_0_value_high.as_ref()));
-        let y_0_value_bytes_32 = Bytes32::from(y_0_value_u256.to_be_bytes());
+        let y_0 = Bytes32::from(
+            convert_stark_bigint_to_u256(
+                bytes_to_u128(&program_output[Y_LOW_POINT_OFFSET]),
+                bytes_to_u128(&program_output[Y_HIGH_POINT_OFFSET]),
+            )
+            .to_be_bytes(),
+        );
 
-        let kzg_proof = EthereumSettlementClient::build_proof(blob_data_vec, x_0_value_bytes32, y_0_value_bytes_32)
+        let kzg_proof = EthereumSettlementClient::build_proof(blob_data_vec, x_0_value_bytes32, y_0)
             .expect("Unable to build KZG proof for given params.")
             .to_owned();
 

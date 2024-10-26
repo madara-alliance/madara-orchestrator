@@ -70,38 +70,28 @@ mod tests {
     }
 
     #[rstest]
-    #[case(&[], 0u128, "all zeros")]
-    #[case(&[(31, 1)], 1u128, "last byte is 1")]
-    #[case(&[(31, 255)], 255u128, "last byte is 255")]
-    #[case(&[(30, 1), (31, 255)], 511u128, "last two bytes")]
-    fn test_bytes_to_u128_simple_cases(
-        #[case] byte_values: &[(usize, u8)],
-        #[case] expected: u128,
-        #[case] test_name: &str,
-    ) {
+    #[case::all_zeros(&[], 0u128)]
+    #[case::last_byte_is_1(&[(31, 1)], 1u128)]
+    #[case::last_byte_is_255(&[(31, 255)], 255u128)]
+    #[case::last_two_bytes(&[(30, 1), (31, 255)], 511u128)]
+    fn test_bytes_to_u128_simple_cases(#[case] byte_values: &[(usize, u8)], #[case] expected: u128) {
         let bytes = create_test_bytes(byte_values);
         let result = bytes_to_u128(&bytes);
-        assert_eq!(result, expected, "Failed case: {}", test_name);
+        assert_eq!(result, expected);
     }
 
-    #[allow(clippy::needless_range_loop)]
     #[rstest]
     fn test_bytes_to_u128_ignores_first_16_bytes() {
         let mut bytes = [255u8; 32];
-        for i in 16..32 {
-            bytes[i] = 0;
-        }
+        bytes[16..32].fill(0);
         let result = bytes_to_u128(&bytes);
         assert_eq!(result, 0);
     }
 
-    #[allow(clippy::needless_range_loop)]
     #[rstest]
     fn test_bytes_to_u128_max_value() {
         let mut bytes = [0u8; 32];
-        for i in 16..32 {
-            bytes[i] = 255;
-        }
+        bytes[16..32].fill(255);
         let result = bytes_to_u128(&bytes);
         assert_eq!(result, u128::MAX);
     }

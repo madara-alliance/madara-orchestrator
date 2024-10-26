@@ -27,11 +27,11 @@ RUN wget https://bootstrap.pypa.io/get-pip.py \
     && rm get-pip.py
 
 # Set up Python environment and install Cairo
-RUN python3.9 -m venv /usr/local/cairo_venv
-RUN pip3.9 install ecdsa fastecdsa sympy
-RUN pip3.9 install cairo-lang
-
-RUN python3.9 --version && pip3.9 --version
+#RUN python3.9 -m venv /usr/local/cairo_venv
+#RUN pip3.9 install ecdsa fastecdsa sympy
+#RUN pip3.9 install cairo-lang
+#
+#RUN python3.9 --version && pip3.9 --version
 
 # Copy the current directory contents into the container
 COPY . .
@@ -44,11 +44,7 @@ RUN rustup show
 # TODO : remove this step after snos build is sorted
 # Build cairo lang
 RUN cargo fetch
-RUN bash -c "cd /usr/local/cargo/git/checkouts \
-    && cd snos-* \
-    && cd * \
-    && source /usr/local/cairo_venv/bin/activate \
-    && ./scripts/setup-tests.sh"
+RUN make snos
 # #############################################################
 
 WORKDIR /usr/src/madara-orchestrator

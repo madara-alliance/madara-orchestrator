@@ -13,7 +13,7 @@ use alloy::eips::eip4844::BYTES_PER_BLOB;
 use alloy::hex;
 use alloy::network::EthereumWallet;
 use alloy::primitives::{Address, B256, U256};
-use alloy::providers::{PendingTransactionConfig, Provider, ProviderBuilder};
+use alloy::providers::{Provider, ProviderBuilder};
 use alloy::rpc::types::TransactionReceipt;
 use alloy::signers::local::PrivateKeySigner;
 use alloy_primitives::Bytes;
@@ -50,6 +50,11 @@ pub const ENV_PRIVATE_KEY: &str = "ETHEREUM_PRIVATE_KEY";
 const X_0_POINT_OFFSET: usize = 10;
 const Y_LOW_POINT_OFFSET: usize = 14;
 const Y_HIGH_POINT_OFFSET: usize = Y_LOW_POINT_OFFSET + 1;
+
+// Ethereum Transaction Finality
+const MAX_ATTEMPTS: usize = 100;
+const REQUIRED_BLOCK_CONFIRMATIONS: u64 = 3;
+const SLEEP_DELAY_SECS: u64 = 5;
 
 lazy_static! {
     pub static ref PROJECT_ROOT: PathBuf = PathBuf::from(format!("{}/../../../", env!("CARGO_MANIFEST_DIR")));
@@ -218,11 +223,13 @@ impl SettlementClient for EthereumSettlementClient {
         let max_fee_per_blob_gas: u128 = self.provider.get_blob_base_fee().await?.to_string().parse()?;
 
         // calculating y_0 point
-        let y_0_point_u256 = convert_stark_bigint_to_u256(
-            bytes_to_u128(&program_output[Y_LOW_POINT_OFFSET]),
-            bytes_to_u128(&program_output[Y_HIGH_POINT_OFFSET]),
+        let y_0 = Bytes32::from(
+            convert_stark_bigint_to_u256(
+                bytes_to_u128(&program_output[Y_LOW_POINT_OFFSET]),
+                bytes_to_u128(&program_output[Y_HIGH_POINT_OFFSET]),
+            )
+            .to_be_bytes(),
         );
-        let y_0_point_bytes_32 = Bytes32::from(y_0_point_u256.to_be_bytes());
 
         // x_0_value : program_output[10]
         // Updated with starknet 0.13.2 spec
@@ -230,7 +237,7 @@ impl SettlementClient for EthereumSettlementClient {
             state_diff,
             Bytes32::from_bytes(program_output[X_0_POINT_OFFSET].as_slice())
                 .expect("Not able to get x_0 point params."),
-            y_0_point_bytes_32,
+            y_0,
         )
         .expect("Unable to build KZG proof for given params.")
         .to_owned();
@@ -291,30 +298,17 @@ impl SettlementClient for EthereumSettlementClient {
 
         log::warn!("⏳ Waiting for txn finality.......");
 
-        let res = Self::wait_for_transaction_confirmation(
-            self.provider.clone(),
-            *pending_transaction.tx_hash(),
-            100,
-            Duration::from_secs(5),
-            3,
-        )
-        .await?;
+        let res = self.wait_for_tx_finality(&pending_transaction.tx_hash().to_string()).await?;
 
         match res {
             Some(_) => {
-                println!(">>>> txn hash : {:?} Finalized ✅", pending_transaction.tx_hash().to_string());
+                log::info!(">>>> txn hash : {:?} Finalized ✅", pending_transaction.tx_hash().to_string());
             }
             None => {
                 log::error!("Txn hash not finalised");
             }
         }
         Ok(pending_transaction.tx_hash().to_string())
-
-        // Prod feature only (may cause issues while testing with anvil)
-        // let txn_hash = pending_transaction.tx_hash().to_string();
-        // self.wait_for_tx_finality(&txn_hash).await?;
-        //
-        // Ok(txn_hash)
     }
 
     /// Should verify the inclusion of a tx in the settlement layer
@@ -364,12 +358,22 @@ impl SettlementClient for EthereumSettlementClient {
     }
 
     /// Wait for a pending tx to achieve finality
-    async fn wait_for_tx_finality(&self, tx_hash: &str) -> Result<()> {
-        let tx_hash = B256::from_str(tx_hash)?;
-        self.provider
-            .watch_pending_transaction(PendingTransactionConfig::new(tx_hash).with_required_confirmations(1))
-            .await?;
-        Ok(())
+    async fn wait_for_tx_finality(&self, tx_hash: &str) -> Result<Option<u64>> {
+        for _ in 0..MAX_ATTEMPTS {
+            if let Some(receipt) =
+                self.provider.get_transaction_receipt(B256::from_str(tx_hash).expect("Unable to form")).await?
+            {
+                if let Some(block_number) = receipt.block_number {
+                    let latest_block = self.provider.get_block_number().await?;
+                    let confirmations = latest_block.saturating_sub(block_number);
+                    if confirmations >= REQUIRED_BLOCK_CONFIRMATIONS {
+                        return Ok(Some(block_number));
+                    }
+                }
+            }
+            sleep(Duration::from_secs(SLEEP_DELAY_SECS)).await;
+        }
+        Ok(None)
     }
 
     /// Get the last block settled through the core contract
@@ -381,30 +385,6 @@ impl SettlementClient for EthereumSettlementClient {
     async fn get_nonce(&self) -> Result<u64> {
         let nonce = self.provider.get_transaction_count(self.wallet_address).await?.to_string().parse()?;
         Ok(nonce)
-    }
-}
-
-impl EthereumSettlementClient {
-    async fn wait_for_transaction_confirmation(
-        provider: Arc<RootProvider<Http<Client>>>,
-        tx_hash: B256,
-        max_attempts: u32,
-        delay: Duration,
-        required_confirmations: u64,
-    ) -> Result<Option<u64>> {
-        for _ in 0..max_attempts {
-            if let Some(receipt) = provider.get_transaction_receipt(tx_hash).await? {
-                if let Some(block_number) = receipt.block_number {
-                    let latest_block = provider.get_block_number().await?;
-                    let confirmations = latest_block.saturating_sub(block_number);
-                    if confirmations >= required_confirmations {
-                        return Ok(Some(block_number));
-                    }
-                }
-            }
-            sleep(delay).await;
-        }
-        Ok(None)
     }
 }
 
