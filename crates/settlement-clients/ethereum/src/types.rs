@@ -74,7 +74,10 @@ mod tests {
     #[case::last_byte_is_1(&[(31, 1)], 1u128)]
     #[case::last_byte_is_255(&[(31, 255)], 255u128)]
     #[case::last_two_bytes(&[(30, 1), (31, 255)], 511u128)]
-    fn test_bytes_to_u128_simple_cases(#[case] byte_values: &[(usize, u8)], #[case] expected: u128) {
+    #[case(&[(20, 1), (25, 2), (31, 3)], (1u128 << 88) | (2u128 << 48) | 3u128)]
+    #[case(&[(16, 1)], 1u128 << 120)]
+    #[case(&[(31, 1), (30, 1), (29, 1)], 0x010101u128)]
+    fn test_bytes_to_u128(#[case] byte_values: &[(usize, u8)], #[case] expected: u128) {
         let bytes = create_test_bytes(byte_values);
         let result = bytes_to_u128(&bytes);
         assert_eq!(result, expected);
@@ -94,15 +97,5 @@ mod tests {
         bytes[16..32].fill(255);
         let result = bytes_to_u128(&bytes);
         assert_eq!(result, u128::MAX);
-    }
-
-    #[rstest]
-    #[case(&[(20, 1), (25, 2), (31, 3)], (1u128 << 88) | (2u128 << 48) | 3u128)]
-    #[case(&[(16, 1)], 1u128 << 120)]
-    #[case(&[(31, 1), (30, 1), (29, 1)], 0x010101u128)]
-    fn test_bytes_to_u128_complex_cases(#[case] byte_values: &[(usize, u8)], #[case] expected: u128) {
-        let bytes = create_test_bytes(byte_values);
-        let result = bytes_to_u128(&bytes);
-        assert_eq!(result, expected);
     }
 }
