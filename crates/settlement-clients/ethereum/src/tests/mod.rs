@@ -141,7 +141,7 @@ mod settlement_client_tests {
         DummyCoreContract, EthereumTestBuilder, Pipe, CURRENT_PATH, STARKNET_CORE_CONTRACT,
         STARKNET_CORE_CONTRACT_ADDRESS, STARKNET_OPERATOR_ADDRESS,
     };
-    use crate::types::{bytes_to_u128, convert_stark_bigint_to_u256};
+    use crate::types::{bytes_to_u128_be, convert_stark_bigint_to_u256};
     use crate::{EthereumSettlementClient, Y_HIGH_POINT_OFFSET, Y_LOW_POINT_OFFSET};
 
     #[rstest]
@@ -301,8 +301,8 @@ mod settlement_client_tests {
         let x_0_value_bytes32 = Bytes32::from(program_output[10]);
         let y_0 = Bytes32::from(
             convert_stark_bigint_to_u256(
-                bytes_to_u128(&program_output[Y_LOW_POINT_OFFSET]),
-                bytes_to_u128(&program_output[Y_HIGH_POINT_OFFSET]),
+                bytes_to_u128_be(&program_output[Y_LOW_POINT_OFFSET]),
+                bytes_to_u128_be(&program_output[Y_HIGH_POINT_OFFSET]),
             )
             .to_be_bytes(),
         );
