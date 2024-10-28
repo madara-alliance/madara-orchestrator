@@ -27,48 +27,72 @@ PID_FILE := $(shell pwd)/.pids.json
 
 .PHONY: all anvil madara core-contract update-madara eth-bridge pathfinder orchestrator cleanup
 
+# JSON update functions
+
 define save_pid
-	if [ ! -f "$(PID_FILE)" ]; then echo '{}' > $(PID_FILE); fi && \
-	jq --arg key "$(1)" --arg value "$(2)" '. + {($key): ($value)}' $(PID_FILE) > $(PID_FILE).tmp && \
-	mv $(PID_FILE).tmp $(PID_FILE)
+	./scripts/save_pid.sh $1 $2
 endef
 
 define get_pid
-	jq -r '.$(1) // empty' $(PID_FILE)
+	./scripts/get_pid.sh $1
+endef
+
+define kill_pid
+	./scripts/kill_pid.sh $1
+endef
+
+define save_json
+	echo "saving json\n"
+	sh ./scripts/save_json.sh $1 $2
 endef
 
 setup:
 	@echo "Starting setup process..."
 	@make cleanup
 	@trap 'make cleanup' EXIT INT TERM
+
+	@echo "Starting Anvil..."
 	@make anvil & $(call save_pid,anvil,$$!)
-	@echo "Anvil started in background (PID: $$($(call get_pid,anvil)))."
-	@echo "Starting setup process..."
+	@echo "Anvil started in background (PID: $$($(call get_pid,anvil)))"
+
+	@echo "Starting Madara in bootstrap mode..."
 	@make madara-bootstrap-mode & $(call save_pid,madara,$$!)
-	@echo "Madara started in background (PID: $$($(call get_pid,madara)))."
+	@echo "Madara started in background (PID: $$($(call get_pid,madara)))"
+
 	@make core-contract
 	@echo "Core contract setup completed."
+
 	@make udc
 	@echo "UDC deployed on chain."
-	@kill $$($(call get_pid,madara)) 2>/dev/null || true
-	@echo "Previous Madara instance terminated."
-	@echo "ETH Bridge setup completed."
+
+	@echo "Terminating previous Madara instance..."
+	$(call kill_pid,madara)
+
+	@echo "Starting updated Madara..."
 	@make madara & $(call save_pid,madara,$$!)
-	@echo "Updated Madara started in background (PID: $$($(call get_pid,madara)))."
+	@echo "Updated Madara started in background (PID: $$($(call get_pid,madara)))"
+
 	@echo "Starting ETH Bridge setup..."
 	@make eth-bridge
+
+	@echo "Starting Pathfinder..."
 	@make pathfinder & $(call save_pid,pathfinder,$$!)
-	@echo "Pathfinder started in background (PID: $$($(call get_pid,pathfinder)))."
+	@echo "Pathfinder started in background (PID: $$($(call get_pid,pathfinder)))"
+
 	@echo "Setting up Madara orchestrator"
 	@make orchestrator-setup
 	@echo "Madara orchestrator setup completed."
+
 	@echo "Adding indexes to MongoDB"
 	@make mongo-migrations
 	@echo "Indexes added to MongoDB"
+
 	@echo "Starting orchestrator"
 	@make orchestrator
 	@echo "Setup completed."
+
 	@make cleanup
+
 
 anvil:
 	anvil --block-time 6
@@ -91,7 +115,6 @@ define update_core_contract_address
 endef
 
 madara-bootstrap-mode:
-	$(call update_core_contract_address) && \
 	cd $(MADARA_PATH) && \
 	git checkout $(MADARA_COMMIT) && \
 	rm -rf $(MADARA_DATA_PATH) && \
@@ -102,8 +125,8 @@ core-contract:
 	rm -f $(BOOTSTRAP_OUTPUT_PATH) && \
 	git checkout $(BOOTSTRAPPER_COMMIT) && \
 	RUST_LOG=debug cargo run --release -- --mode core --operator-address $(OPERATOR_ADDRESS) --output-file $(BOOTSTRAP_OUTPUT_PATH) --verifier-address $(VERIFIER_ADDRESS) && \
-	echo "{\"CORE_CONTRACT_ADDRESS\": \"$$(jq -r .starknet_contract_address $(BOOTSTRAP_OUTPUT_PATH))\", \
-	\"CORE_CONTRACT_IMPLEMENTATION_ADDRESS\": \"$$(jq -r .starknet_contract_implementation_address $(BOOTSTRAP_OUTPUT_PATH))\"}" > $(ENV_FILE)
+    $(call save_json,"CORE_CONTRACT_ADDRESS","$(shell jq -r .starknet_contract_address $(BOOTSTRAP_OUTPUT_PATH))") && \
+    $(call save_json,"CORE_CONTRACT_IMPLEMENTATION_ADDRESS","$(shell jq -r .starknet_contract_implementation_address $(BOOTSTRAP_OUTPUT_PATH))")
 
 madara:
 	$(call update_core_contract_address) && \
@@ -118,9 +141,9 @@ eth-bridge:
 	export CORE_CONTRACT_IMPLEMENTATION_ADDRESS=$$(jq -r '.CORE_CONTRACT_IMPLEMENTATION_ADDRESS' $(ENV_FILE)) && \
 	echo "TODO: set core contract address" && \
 	RUST_LOG=debug cargo run --release -- --mode eth-bridge --core-contract-address $$CORE_CONTRACT_ADDRESS --core-contract-implementation-address $$CORE_CONTRACT_IMPLEMENTATION_ADDRESS  --output-file $(BOOTSTRAP_OUTPUT_PATH) && \
-	jq '. += {"L1_BRIDGE_ADDRESS": "'$$(jq -r .eth_bridge_setup_outputs.l1_bridge_address $(BOOTSTRAP_OUTPUT_PATH))'", \
-	"L2_ETH_TOKEN_ADDRESS": "'$$(jq -r .eth_bridge_setup_outputs.l2_eth_proxy_address $(BOOTSTRAP_OUTPUT_PATH))'", \
-	"L2_ETH_BRIDGE_ADDRESS": "'$$(jq -r .eth_bridge_setup_outputs.l2_eth_bridge_proxy_address $(BOOTSTRAP_OUTPUT_PATH))'"} ' $(ENV_FILE) > $(ENV_FILE).tmp && mv $(ENV_FILE).tmp $(ENV_FILE)
+	$(call save_json,"L1_BRIDGE_ADDRESS","$$(jq -r .eth_bridge_setup_outputs.l1_bridge_address $(BOOTSTRAP_OUTPUT_PATH))") && \
+    $(call save_json,"L2_ETH_TOKEN_ADDRESS","$$(jq -r .eth_bridge_setup_outputs.l2_eth_proxy_address $(BOOTSTRAP_OUTPUT_PATH))") && \
+    $(call save_json,"L2_ETH_BRIDGE_ADDRESS","$$(jq -r .eth_bridge_setup_outputs.l2_eth_bridge_proxy_address $(BOOTSTRAP_OUTPUT_PATH))") && \
 
 udc:
 	cd $(BOOTSTRAPPER_PATH) && \
@@ -166,12 +189,10 @@ snos:
 cleanup:
 	@echo "Cleaning up processes..."
 	@if [ -f "$(PID_FILE)" ]; then \
-		for pid in $$(jq -r 'to_entries | .[] | .value' $(PID_FILE)); do \
+		for pid in $$(jq -r 'values[]' "$(PID_FILE)"); do \
 			kill $$pid 2>/dev/null || true; \
 		done; \
-		rm -f $(PID_FILE); \
+		rm -f "$(PID_FILE)"; \
 	fi
-	@-pkill -f "cargo run --release -- --name madara" 2>/dev/null || true
-	@-pkill -f "cargo run --release --bin pathfinder" 2>/dev/null || true
 	@rm -f $(ENV_FILE)
 	@echo "Cleanup completed."

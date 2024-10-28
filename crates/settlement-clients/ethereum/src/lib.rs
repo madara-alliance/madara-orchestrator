@@ -52,9 +52,9 @@ const Y_LOW_POINT_OFFSET: usize = 14;
 const Y_HIGH_POINT_OFFSET: usize = Y_LOW_POINT_OFFSET + 1;
 
 // Ethereum Transaction Finality
-const MAX_ATTEMPTS: usize = 100;
+const MAX_TX_FINALISATION_ATTEMPTS: usize = 100;
 const REQUIRED_BLOCK_CONFIRMATIONS: u64 = 3;
-const SLEEP_DELAY_SECS: u64 = 5;
+const TX_WAIT_SLEEP_DELAY_SECS: u64 = 5;
 
 lazy_static! {
     pub static ref PROJECT_ROOT: PathBuf = PathBuf::from(format!("{}/../../../", env!("CARGO_MANIFEST_DIR")));
@@ -302,7 +302,7 @@ impl SettlementClient for EthereumSettlementClient {
 
         match res {
             Some(_) => {
-                log::info!(">>>> txn hash : {:?} Finalized ✅", pending_transaction.tx_hash().to_string());
+                log::info!("txn hash : {:?} Finalized ✅", pending_transaction.tx_hash().to_string());
             }
             None => {
                 log::error!("Txn hash not finalised");
@@ -359,7 +359,7 @@ impl SettlementClient for EthereumSettlementClient {
 
     /// Wait for a pending tx to achieve finality
     async fn wait_for_tx_finality(&self, tx_hash: &str) -> Result<Option<u64>> {
-        for _ in 0..MAX_ATTEMPTS {
+        for _ in 0..MAX_TX_FINALISATION_ATTEMPTS {
             if let Some(receipt) =
                 self.provider.get_transaction_receipt(B256::from_str(tx_hash).expect("Unable to form")).await?
             {
@@ -371,7 +371,7 @@ impl SettlementClient for EthereumSettlementClient {
                     }
                 }
             }
-            sleep(Duration::from_secs(SLEEP_DELAY_SECS)).await;
+            sleep(Duration::from_secs(TX_WAIT_SLEEP_DELAY_SECS)).await;
         }
         Ok(None)
     }
