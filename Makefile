@@ -176,7 +176,7 @@ orchestrator:
 	cargo run --release --bin orchestrator
 
 snos:
-	python3 -m venv orchestrator_venv && \
+	python3.9 -m venv orchestrator_venv && \
 	. ./orchestrator_venv/bin/activate && \
 	pip install cairo-lang==0.13.2 "sympy<1.13.0" && \
 	mkdir -p build && \

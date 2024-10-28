@@ -21,10 +21,11 @@ RUN wget https://www.python.org/ftp/python/3.9.16/Python-3.9.16.tgz \
     && cd .. \
     && rm -rf Python-3.9.16 Python-3.9.16.tgz
 
-# Install pip
+# Install pip and venv for Python 3.9
 RUN wget https://bootstrap.pypa.io/get-pip.py \
     && python3.9 get-pip.py \
-    && rm get-pip.py
+    && rm get-pip.py \
+    && python3.9 -m pip install virtualenv
 
 # Copy the current directory contents into the container
 COPY . .
@@ -37,7 +38,14 @@ RUN rustup show
 # TODO : remove this step after snos build is sorted
 # Build cairo lang
 RUN cargo fetch
-RUN make snos
+RUN python3.9 -m venv orchestrator_venv
+RUN . ./orchestrator_venv/bin/activate
+RUN pip install cairo-lang==0.13.2 "sympy<1.13.0"
+RUN mkdir -p build
+RUN git submodule update --init --recursive
+RUN cd cairo-lang
+RUN cd ..
+RUN cairo-compile cairo-lang/src/starkware/starknet/core/os/os.cairo --output build/os_latest.json --cairo_path cairo-lang/src
 # #############################################################
 
 WORKDIR /usr/src/madara-orchestrator
