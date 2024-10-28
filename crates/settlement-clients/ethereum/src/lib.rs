@@ -44,7 +44,7 @@ use reqwest::Client;
 use tokio::time::sleep;
 use utils::settings::Settings;
 
-use crate::types::{bytes_to_u128, convert_stark_bigint_to_u256};
+use crate::types::{bytes_to_u128_be, convert_stark_bigint_to_u256};
 
 pub const ENV_PRIVATE_KEY: &str = "ETHEREUM_PRIVATE_KEY";
 const X_0_POINT_OFFSET: usize = 10;
@@ -225,8 +225,8 @@ impl SettlementClient for EthereumSettlementClient {
         // calculating y_0 point
         let y_0 = Bytes32::from(
             convert_stark_bigint_to_u256(
-                bytes_to_u128(&program_output[Y_LOW_POINT_OFFSET]),
-                bytes_to_u128(&program_output[Y_HIGH_POINT_OFFSET]),
+                bytes_to_u128_be(&program_output[Y_LOW_POINT_OFFSET]),
+                bytes_to_u128_be(&program_output[Y_HIGH_POINT_OFFSET]),
             )
             .to_be_bytes(),
         );
@@ -302,7 +302,7 @@ impl SettlementClient for EthereumSettlementClient {
 
         match res {
             Some(_) => {
-                log::info!("txn hash : {:?} Finalized ✅", pending_transaction.tx_hash().to_string());
+                log::info!("Txn hash : {:?} Finalized ✅", pending_transaction.tx_hash().to_string());
             }
             None => {
                 log::error!("Txn hash not finalised");

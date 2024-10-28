@@ -31,7 +31,7 @@ pub fn convert_stark_bigint_to_u256(y_low: u128, y_high: u128) -> U256 {
     shifted + y_low_u256
 }
 
-pub fn bytes_to_u128(bytes: &[u8; 32]) -> u128 {
+pub fn bytes_to_u128_be(bytes: &[u8; 32]) -> u128 {
     let mut result: u128 = 0;
 
     // Since u128 is 16 bytes, we'll use the last 16 bytes of the input array
@@ -79,7 +79,7 @@ mod tests {
     #[case(&[(31, 1), (30, 1), (29, 1)], 0x010101u128)]
     fn test_bytes_to_u128(#[case] byte_values: &[(usize, u8)], #[case] expected: u128) {
         let bytes = create_test_bytes(byte_values);
-        let result = bytes_to_u128(&bytes);
+        let result = bytes_to_u128_be(&bytes);
         assert_eq!(result, expected);
     }
 
@@ -87,7 +87,7 @@ mod tests {
     fn test_bytes_to_u128_ignores_first_16_bytes() {
         let mut bytes = [255u8; 32];
         bytes[16..32].fill(0);
-        let result = bytes_to_u128(&bytes);
+        let result = bytes_to_u128_be(&bytes);
         assert_eq!(result, 0);
     }
 
@@ -95,7 +95,7 @@ mod tests {
     fn test_bytes_to_u128_max_value() {
         let mut bytes = [0u8; 32];
         bytes[16..32].fill(255);
-        let result = bytes_to_u128(&bytes);
+        let result = bytes_to_u128_be(&bytes);
         assert_eq!(result, u128::MAX);
     }
 }

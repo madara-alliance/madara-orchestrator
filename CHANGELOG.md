@@ -66,6 +66,8 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ## Fixed
 
+- wait for transaction logic in ethereum settlement client
+- y_0 point evaluation in build kzg proof for ethereum settlement
 - fixes logs based on RUST_LOG
 - fixes after sepolia testing
 - all failed jobs should move to failed state
