@@ -13,7 +13,7 @@ CAIRO_LANG_COMMIT := a86e92bfde9c171c0856d7b46580c66e004922f3
 
 # Madara
 MADARA_PATH := $(shell pwd)/madara
-MADARA_COMMIT := ad0ec8cdfcde03a8e2feef76d64a7fba7a9fb792
+MADARA_COMMIT := 93d57632e7a56707d74ab63eb0ca8558df9f0d8e
 MADARA_DATA_PATH := $(shell pwd)/build/madara
 
 # Pathfinder
@@ -51,32 +51,38 @@ setup:
 	@make cleanup
 	@trap 'make cleanup' EXIT INT TERM
 
-	@echo "Starting Anvil..."
-	@make anvil & $(call save_pid,anvil,$$!)
-	@echo "Anvil started in background (PID: $$($(call get_pid,anvil)))"
-
-	@echo "Starting Madara in bootstrap mode..."
-	@make madara-bootstrap-mode & $(call save_pid,madara,$$!)
-	@echo "Madara started in background (PID: $$($(call get_pid,madara)))"
+	# @echo "Starting Anvil..."
+	# @make anvil & $(call save_pid,anvil,$$!)
+	# @echo "Anvil started in background (PID: $$($(call get_pid,anvil)))"
 
 	@make core-contract
 	@echo "Core contract setup completed."
 
+	@echo "Starting Madara in bootstrap mode..."
+	@make madara-bootstrap-mode & $(call save_pid,madara,$$!)
+	@echo "Waiting for Madara to start..."
+	@while ! curl -s -o /dev/null -w '%{http_code}' http://localhost:9944/health | grep -q '200'; do sleep 1; done
+	@echo "Madara started in background (PID: $$($(call get_pid,madara)))"
+
 	@make udc
 	@echo "UDC deployed on chain."
+
+	@echo "Starting ETH Bridge setup..."
+	@make eth-bridge
 
 	@echo "Terminating previous Madara instance..."
 	$(call kill_pid,madara)
 
 	@echo "Starting updated Madara..."
 	@make madara & $(call save_pid,madara,$$!)
+	@echo "Waiting for Madara to start..."
+	@while ! curl -s -o /dev/null -w '%{http_code}' http://localhost:9944/health | grep -q '200'; do sleep 1; done
 	@echo "Updated Madara started in background (PID: $$($(call get_pid,madara)))"
-
-	@echo "Starting ETH Bridge setup..."
-	@make eth-bridge
 
 	@echo "Starting Pathfinder..."
 	@make pathfinder & $(call save_pid,pathfinder,$$!)
+	@echo "Waiting for Pathfinder to start..."
+	@while ! curl -s -o /dev/null -w '%{http_code}' http://localhost:9545 | grep -q '200'; do sleep 1; done
 	@echo "Pathfinder started in background (PID: $$($(call get_pid,pathfinder)))"
 
 	@echo "Setting up Madara orchestrator"
@@ -87,6 +93,12 @@ setup:
 	@make mongo-migrations
 	@echo "Indexes added to MongoDB"
 
+	@echo "Building Starknet OS"
+	@if [ ! -f build/os_latest.json ]; then \
+		make snos; \
+	fi
+	@echo "Starknet OS built"
+
 	@echo "Starting orchestrator"
 	@make orchestrator
 	@echo "Setup completed."
@@ -95,14 +107,14 @@ setup:
 
 
 anvil:
-	anvil --block-time 6
+	anvil --block-time 1
 
 define update_core_contract_address
 	echo "Updating core contract address in YAML..."
 	if [ -f "$(ENV_FILE)" ]; then \
 		export CORE_CONTRACT_ADDRESS=$$(jq -r '.CORE_CONTRACT_ADDRESS' $(ENV_FILE)) && \
 		if [ -n "$$CORE_CONTRACT_ADDRESS" ]; then \
-			yq e '.eth_core_contract_address = env(CORE_CONTRACT_ADDRESS)' -i $(MADARA_PATH)/configs/presets/devnet.yaml; \
+			yq e '.eth_core_contract_address = strenv(CORE_CONTRACT_ADDRESS)' -i $(MADARA_PATH)/configs/presets/devnet.yaml; \
 			echo "Core contract address updated in YAML."; \
 		else \
 			echo "Error: CORE_CONTRACT_ADDRESS not found in $(ENV_FILE)"; \
@@ -125,14 +137,15 @@ core-contract:
 	rm -f $(BOOTSTRAP_OUTPUT_PATH) && \
 	git checkout $(BOOTSTRAPPER_COMMIT) && \
 	RUST_LOG=debug cargo run --release -- --mode core --operator-address $(OPERATOR_ADDRESS) --output-file $(BOOTSTRAP_OUTPUT_PATH) --verifier-address $(VERIFIER_ADDRESS) && \
-    $(call save_json,"CORE_CONTRACT_ADDRESS","$(shell jq -r .starknet_contract_address $(BOOTSTRAP_OUTPUT_PATH))") && \
-    $(call save_json,"CORE_CONTRACT_IMPLEMENTATION_ADDRESS","$(shell jq -r .starknet_contract_implementation_address $(BOOTSTRAP_OUTPUT_PATH))")
+	cat $(BOOTSTRAP_OUTPUT_PATH) && \
+    $(call save_json,"CORE_CONTRACT_ADDRESS",$$(jq -r .starknet_contract_address $(BOOTSTRAP_OUTPUT_PATH))) && \
+    $(call save_json,"CORE_CONTRACT_IMPLEMENTATION_ADDRESS",$$(jq -r .starknet_contract_implementation_address $(BOOTSTRAP_OUTPUT_PATH)))
 
 madara:
 	$(call update_core_contract_address) && \
 	cd $(MADARA_PATH) && \
 	git checkout $(MADARA_COMMIT) && \
-	cargo run --release -- --name madara --base-path $(MADARA_DATA_PATH) --rpc-port 9944 --rpc-cors "*" --rpc-external --sequencer --chain-config-path configs/presets/devnet.yaml --feeder-gateway-enable --gateway-enable --gateway-external --gas-price 2 --blob-gas-price 2 --rpc-methods unsafe --l1-endpoint http://0.0.0.0:8545
+	cargo run --release -- --name madara --base-path $(MADARA_DATA_PATH) --rpc-port 9944 --rpc-cors "*" --rpc-external --sequencer --chain-config-path configs/presets/devnet.yaml --feeder-gateway-enable --gateway-enable --gateway-external --gas-price 2 --blob-gas-price 2 --strk-gas-price 2 --strk-blob-gas-price 2 --rpc-methods unsafe --l1-endpoint http://0.0.0.0:8545
 
 eth-bridge:
 	cd $(BOOTSTRAPPER_PATH) && \
@@ -143,7 +156,7 @@ eth-bridge:
 	RUST_LOG=debug cargo run --release -- --mode eth-bridge --core-contract-address $$CORE_CONTRACT_ADDRESS --core-contract-implementation-address $$CORE_CONTRACT_IMPLEMENTATION_ADDRESS  --output-file $(BOOTSTRAP_OUTPUT_PATH) && \
 	$(call save_json,"L1_BRIDGE_ADDRESS","$$(jq -r .eth_bridge_setup_outputs.l1_bridge_address $(BOOTSTRAP_OUTPUT_PATH))") && \
     $(call save_json,"L2_ETH_TOKEN_ADDRESS","$$(jq -r .eth_bridge_setup_outputs.l2_eth_proxy_address $(BOOTSTRAP_OUTPUT_PATH))") && \
-    $(call save_json,"L2_ETH_BRIDGE_ADDRESS","$$(jq -r .eth_bridge_setup_outputs.l2_eth_bridge_proxy_address $(BOOTSTRAP_OUTPUT_PATH))") && \
+    $(call save_json,"L2_ETH_BRIDGE_ADDRESS","$$(jq -r .eth_bridge_setup_outputs.l2_eth_bridge_proxy_address $(BOOTSTRAP_OUTPUT_PATH))")
 
 udc:
 	cd $(BOOTSTRAPPER_PATH) && \

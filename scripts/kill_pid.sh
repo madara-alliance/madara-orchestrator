@@ -1,7 +1,7 @@
 #!/bin/bash
 
 get_pid() {
-  pgrep -f "$1"
+  pgrep "$1"
 }
 
 pid=$(get_pid "$1")

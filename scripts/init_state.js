@@ -697,4 +697,3 @@ async function main() {
 }
 
 main();
-// setupMongoDb(108);
