@@ -409,11 +409,8 @@ fn refactor_state_update(state_update: &mut StateDiff) {
 
 fn find_unique_addresses(nonce_addresses: Vec<Felt>, storage_diff_addresses: Vec<Felt>) -> Vec<Felt> {
     let storage_set: HashSet<_> = storage_diff_addresses.into_iter().collect();
-   
-    nonce_addresses
-        .into_iter()
-        .filter(|addr| !storage_set.contains(addr))
-        .collect()
+
+    nonce_addresses.into_iter().filter(|addr| !storage_set.contains(addr)).collect()
 }
 
 #[cfg(test)]
