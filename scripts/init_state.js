@@ -11,6 +11,7 @@ const starknet = require("starknet");
 const ethers = require("ethers");
 const { MongoClient } = require("mongodb");
 const { v4 } = require("uuid");
+const fs  = require("fs");
 
 // using default anvil key which has funds
 const ETHEREUM_PRIVATE_KEY =
@@ -61,7 +62,7 @@ async function getAppChainBalance(address) {
   return balance.balance;
 }
 
-async function bridgeToChain(bridge_address, starnet_expected_account_address) {
+async function bridgeToChain(bridge_address, starknet_expected_account_address) {
   // call deposit function with 10 as argument and also send 10 eth to the contract
   const contract = new ethers.Contract(
     bridge_address,
@@ -70,12 +71,12 @@ async function bridgeToChain(bridge_address, starnet_expected_account_address) {
   );
 
   const initial_app_chain_balance = await getAppChainBalance(
-    starnet_expected_account_address,
+    starknet_expected_account_address,
   );
   const tx = await contract.deposit(
     ethers.parseEther("1"),
-    starnet_expected_account_address,
-    { value: ethers.parseEther("2") },
+    starknet_expected_account_address,
+    { value: ethers.parseEther("1.01") },
   );
 
   tx.wait();
@@ -85,7 +86,7 @@ async function bridgeToChain(bridge_address, starnet_expected_account_address) {
   let counter = 10;
   while (counter--) {
     const final_app_chain_balance = await getAppChainBalance(
-      starnet_expected_account_address,
+      starknet_expected_account_address,
     );
     if (final_app_chain_balance > initial_app_chain_balance) {
       console.log(
@@ -168,13 +169,13 @@ async function validateBlockPassesSnosChecks(block_number) {
 
 async function deployStarknetAccount(
   starknet_private_key,
-  starnet_expected_account_address,
+  starknet_expected_account_address,
   starknet_account_public_key,
 ) {
   console.log("⏳ Deploying Starknet account...");
   const account = new starknet.Account(
     starknet_provider,
-    starnet_expected_account_address,
+    starknet_expected_account_address,
     starknet_private_key,
     "1",
   );
@@ -293,11 +294,11 @@ async function setupMongoDb(block_number) {
 
 async function transfer(
   starknet_account_private_key,
-  starnet_expected_account_address,
+  starknet_expected_account_address,
 ) {
   const account = new starknet.Account(
     starknet_provider,
-    starnet_expected_account_address,
+    starknet_expected_account_address,
     starknet_account_private_key,
     "1",
   );
@@ -384,11 +385,11 @@ async function transfer(
 async function upgradeETHToken(
   l2_eth_token_address,
   starknet_account_private_key,
-  starnet_expected_account_address,
+  starknet_expected_account_address,
 ) {
   const account = new starknet.Account(
     starknet_provider,
-    starnet_expected_account_address,
+    starknet_expected_account_address,
     starknet_account_private_key,
     "1",
   );
@@ -509,11 +510,11 @@ async function upgradeETHToken(
 async function upgradeETHBridge(
   l2_eth_bridge_address,
   starknet_account_private_key,
-  starnet_expected_account_address,
+  starknet_expected_account_address,
 ) {
   const account = new starknet.Account(
     starknet_provider,
-    starnet_expected_account_address,
+    starknet_expected_account_address,
     starknet_account_private_key,
     "1",
   );
@@ -614,6 +615,97 @@ async function upgradeETHBridge(
   console.log("✅ Transaction successful.");
 }
 
+async function deployEthL1UpdatedBridge() {
+  const contract_artifact = JSON.parse(fs.readFileSync("./scripts/artifacts/eth_bridge_upgraded.json").toString());
+  const contract = new ethers.ContractFactory(contract_artifact.abi, contract_artifact.bytecode, wallet);
+
+  const txn = await contract.deploy();
+  await txn.waitForDeployment();
+  return await txn.getAddress();
+}
+
+async function upgradeEthBridgeL1(l1_eth_bridge_proxy_address, manager_address, messaging_contract_address, implementation_address) {
+  const contract = new ethers.Contract(
+      l1_eth_bridge_proxy_address,
+      [
+        {
+          "type": "function",
+          "name": "addImplementation",
+          "inputs": [
+            {
+              "name": "newImplementation",
+              "type": "address",
+              "internalType": "address"
+            },
+            {
+              "name": "data",
+              "type": "bytes",
+              "internalType": "bytes"
+            },
+            {
+              "name": "finalize",
+              "type": "bool",
+              "internalType": "bool"
+            }
+          ],
+          "outputs": [],
+          "stateMutability": "nonpayable"
+        },
+          {
+              "type": "function",
+              "name": "upgradeTo",
+              "inputs": [
+                  {
+                      "name": "newImplementation",
+                      "type": "address",
+                      "internalType": "address"
+                  },
+                  {
+                      "name": "data",
+                      "type": "bytes",
+                      "internalType": "bytes"
+                  },
+                  {
+                      "name": "finalize",
+                      "type": "bool",
+                      "internalType": "bool"
+                  }
+              ],
+              "outputs": [],
+              "stateMutability": "payable"
+          }
+      ],
+      wallet,
+  );
+
+  const abiCoder = new ethers.AbiCoder();
+
+  // Encode the initialization parameters
+  const initData = abiCoder.encode(
+      ['address'],  // types of parameters
+      ["0x0000000000000000000000000000000000000000"]  // actual values
+  );
+
+  console.log(">>>> call data : ", initData);
+
+  // add implementation :
+  const txn1 = await contract.addImplementation(implementation_address, initData, false);
+  const receipt_1 = await txn1.wait();
+  console.log("Implementation added for ETH bridge.", receipt_1);
+
+  // upgrade to
+  const txn2 = await contract.upgradeTo(implementation_address, initData, false);
+  const receipt_2 = await txn2.wait();
+  console.log("Upgrade To for ETH bridge.", receipt_2);
+
+  const contract_artifact = JSON.parse(fs.readFileSync("./scripts/artifacts/eth_bridge_upgraded.json").toString());
+  let contract2 = new ethers.Contract(l1_eth_bridge_proxy_address, contract_artifact.abi, wallet);
+  // setup bridge
+  const txn3 = await contract2.setMaxTotalBalance("0x0000000000000000000000000000000000455448", ethers.parseEther("10000000"));
+  const receipt_3 = await txn3.wait();
+  console.log("ETH bridge setup", receipt_3);
+}
+
 async function main() {
   // tage bridge address as an argument --bridge_address
   const l1_bridge_address = process.argv[2];
@@ -625,57 +717,68 @@ async function main() {
     process.argv[6];
   const bootstrapper_private_key = "0xabcd" || process.argv[7];
 
-  // add funds to boostrapper account
-  let bootstrapper_address_balance =
-    await getAppChainBalance(bootstrapper_address);
-  if (bootstrapper_address_balance < 10n ** 17n) {
-    await bridgeToChain(l1_bridge_address, bootstrapper_address);
-  } else {
-    console.log("ℹ️ Bootstrapping account has enough funds, proceeding");
-  }
-
-  // upgrade ETH token to Cairo 1 as SNOS breaks otherwise
-  const eth_token_class =
-    await starknet_provider.getClassAt(l2_eth_token_address);
-  if (eth_token_class.sierra_program) {
-    console.log("ℹ️ Eth token is already upgraded, proceeding");
-  } else {
-    await upgradeETHToken(
-      l2_eth_token_address,
-      bootstrapper_private_key,
-      bootstrapper_address,
-    );
-  }
-
-  // upgrade ETH bridge to Cairo 1 as well
-  const l2_eth_bridge_class = await starknet_provider.getClassAt(
-    l2_eth_bridge_address,
-  );
-  if (l2_eth_bridge_class.sierra_program) {
-    console.log("ℹ️ Eth bridge is already upgraded, proceeding");
-  } else {
-    await upgradeETHBridge(
-      l2_eth_bridge_address,
-      bootstrapper_private_key,
-      bootstrapper_address,
-    );
-  }
-
+  // // add funds to boostrapper account
+  // let bootstrapper_address_balance =
+  //   await getAppChainBalance(bootstrapper_address);
+  // if (bootstrapper_address_balance < 10n ** 17n) {
+  //   await bridgeToChain(l1_bridge_address, bootstrapper_address);
+  // } else {
+  //   console.log("ℹ️ Bootstrapping account has enough funds, proceeding");
+  // }
+  //
+  // // upgrade ETH token to Cairo 1 as SNOS breaks otherwise
+  // const eth_token_class =
+  //   await starknet_provider.getClassAt(l2_eth_token_address);
+  // if (eth_token_class.sierra_program) {
+  //   console.log("ℹ️ Eth token is already upgraded, proceeding");
+  // } else {
+  //   await upgradeETHToken(
+  //     l2_eth_token_address,
+  //     bootstrapper_private_key,
+  //     bootstrapper_address,
+  //   );
+  // }
+  //
+  // // upgrade ETH bridge to Cairo 1 as well
+  // const l2_eth_bridge_class = await starknet_provider.getClassAt(
+  //   l2_eth_bridge_address,
+  // );
+  // if (l2_eth_bridge_class.sierra_program) {
+  //   console.log("ℹ️ Eth bridge is already upgraded, proceeding");
+  // } else {
+  //   await upgradeETHBridge(
+  //     l2_eth_bridge_address,
+  //     bootstrapper_private_key,
+  //     bootstrapper_address,
+  //   );
+  // }
+  //
   const {
-    address: starnet_expected_account_address,
+    address: starknet_expected_account_address,
     private_key: starknet_account_private_key,
     public_key: starknet_account_public_key,
   } = calculatePrefactualAccountAddress();
   console.log(
     "🏦 Starknet expected account address:",
-    starnet_expected_account_address,
+    starknet_expected_account_address,
   );
 
-  await bridgeToChain(l1_bridge_address, starnet_expected_account_address);
+  // ==============================================================================
+  // upgrading ETH Bridge L1 contract :
+  const eth_bridge_implementation_address = await deployEthL1UpdatedBridge();
+  await upgradeEthBridgeL1(
+      l1_bridge_address,
+      "0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266", 
+      core_contract_address, 
+      eth_bridge_implementation_address
+  );
+  // ==============================================================================
+
+  await bridgeToChain(l1_bridge_address, starknet_expected_account_address);
 
   let block_number = await deployStarknetAccount(
     starknet_account_private_key,
-    starnet_expected_account_address,
+    starknet_expected_account_address,
     starknet_account_public_key,
   );
 
@@ -684,7 +787,7 @@ async function main() {
 
   block_number = await transfer(
     starknet_account_private_key,
-    starnet_expected_account_address,
+    starknet_expected_account_address,
   );
 
   await validateBlockPassesSnosChecks(block_number);

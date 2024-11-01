@@ -13,7 +13,7 @@ CAIRO_LANG_COMMIT := a86e92bfde9c171c0856d7b46580c66e004922f3
 
 # Madara
 MADARA_PATH := $(shell pwd)/madara
-MADARA_COMMIT := ad0ec8cdfcde03a8e2feef76d64a7fba7a9fb792
+MADARA_COMMIT := 93d57632e7a56707d74ab63eb0ca8558df9f0d8e
 MADARA_DATA_PATH := $(shell pwd)/build/madara
 
 # Pathfinder
@@ -125,14 +125,14 @@ core-contract:
 	rm -f $(BOOTSTRAP_OUTPUT_PATH) && \
 	git checkout $(BOOTSTRAPPER_COMMIT) && \
 	RUST_LOG=debug cargo run --release -- --mode core --operator-address $(OPERATOR_ADDRESS) --output-file $(BOOTSTRAP_OUTPUT_PATH) --verifier-address $(VERIFIER_ADDRESS) && \
-    $(call save_json,"CORE_CONTRACT_ADDRESS","$(shell jq -r .starknet_contract_address $(BOOTSTRAP_OUTPUT_PATH))") && \
-    $(call save_json,"CORE_CONTRACT_IMPLEMENTATION_ADDRESS","$(shell jq -r .starknet_contract_implementation_address $(BOOTSTRAP_OUTPUT_PATH))")
+    $(call save_json,"CORE_CONTRACT_ADDRESS","$$(jq -r .starknet_contract_address $(BOOTSTRAP_OUTPUT_PATH))") && \
+    $(call save_json,"CORE_CONTRACT_IMPLEMENTATION_ADDRESS","$$(jq -r .starknet_contract_implementation_address $(BOOTSTRAP_OUTPUT_PATH))")
 
 madara:
 	$(call update_core_contract_address) && \
 	cd $(MADARA_PATH) && \
 	git checkout $(MADARA_COMMIT) && \
-	cargo run --release -- --name madara --base-path $(MADARA_DATA_PATH) --rpc-port 9944 --rpc-cors "*" --rpc-external --sequencer --chain-config-path configs/presets/devnet.yaml --feeder-gateway-enable --gateway-enable --gateway-external --gas-price 2 --blob-gas-price 2 --rpc-methods unsafe --l1-endpoint http://0.0.0.0:8545
+	cargo run --release -- --name madara --base-path $(MADARA_DATA_PATH) --rpc-port 9944 --rpc-cors "*" --rpc-external --sequencer --chain-config-path configs/presets/devnet.yaml --feeder-gateway-enable --gateway-enable --gateway-external --gas-price 2 --blob-gas-price 2 --strk-gas-price 2 --strk-blob-gas-price 2 --rpc-methods unsafe --l1-endpoint http://0.0.0.0:8545
 
 eth-bridge:
 	cd $(BOOTSTRAPPER_PATH) && \
@@ -152,7 +152,6 @@ udc:
 
 pathfinder:
 	cd $(PATHFINDER_PATH) && \
-	git checkout $(PATHFINDER_COMMIT) && \
 	rm -rf $(PATHFINDER_DATA_PATH) && \
 	cargo run --release --bin pathfinder -- --ethereum.url wss://eth-sepolia.g.alchemy.com/v2/WIUR5JUZXieEBkze6Xs3IOXWhsS840TX --chain-id MADARA_DEVNET --feeder-gateway-url http://localhost:8080/feeder_gateway --gateway-url  http://localhost:8080/gateway --network custom --storage.state-tries archive --data-directory $(PATHFINDER_DATA_PATH)
 
