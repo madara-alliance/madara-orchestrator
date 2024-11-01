@@ -20,6 +20,7 @@ MADARA_DATA_PATH := $(shell pwd)/build/madara
 PATHFINDER_COMMIT := 138140e5fd967ede92806fd62de47c2e6b65712a
 PATHFINDER_DATA_PATH := $(shell pwd)/build/pathfinder
 PATHFINDER_PATH := $(shell pwd)/pathfinder
+ETHEREUM_WSS_RPC_URL := wss://eth-sepolia.g.alchemy.com/v2/<api_key>
 
 # Environment file
 ENV_FILE := $(shell pwd)/.makefile.json
@@ -50,10 +51,6 @@ setup:
 	@echo "Starting setup process..."
 	@make cleanup
 	@trap 'make cleanup' EXIT INT TERM
-
-	# @echo "Starting Anvil..."
-	# @make anvil & $(call save_pid,anvil,$$!)
-	# @echo "Anvil started in background (PID: $$($(call get_pid,anvil)))"
 
 	@make core-contract
 	@echo "Core contract setup completed."
@@ -167,7 +164,7 @@ pathfinder:
 	cd $(PATHFINDER_PATH) && \
 	git checkout $(PATHFINDER_COMMIT) && \
 	rm -rf $(PATHFINDER_DATA_PATH) && \
-	cargo run --release --bin pathfinder -- --ethereum.url wss://eth-sepolia.g.alchemy.com/v2/WIUR5JUZXieEBkze6Xs3IOXWhsS840TX --chain-id MADARA_DEVNET --feeder-gateway-url http://localhost:8080/feeder_gateway --gateway-url  http://localhost:8080/gateway --network custom --storage.state-tries archive --data-directory $(PATHFINDER_DATA_PATH)
+	cargo run --release --bin pathfinder -- --ethereum.url $(ETHEREUM_WSS_RPC_URL) --chain-id MADARA_DEVNET --feeder-gateway-url http://localhost:8080/feeder_gateway --gateway-url  http://localhost:8080/gateway --network custom --storage.state-tries archive --data-directory $(PATHFINDER_DATA_PATH)
 
 mongo-migrations:
 	cd $(ORCHESTRATOR_PATH) && \
