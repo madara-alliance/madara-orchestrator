@@ -4,7 +4,7 @@ ORCHESTRATOR_PATH := $(shell pwd)
 # Bootstrapper
 OPERATOR_ADDRESS := 0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266
 BOOTSTRAP_OUTPUT_PATH := $(shell pwd)/build/bootstrap.json
-BOOTSTRAPPER_COMMIT := b0b647500c2ae3e3b0d99e345fa652989bca4726
+BOOTSTRAPPER_COMMIT := c98c84a5e8937dd6372c6a68ec155f39be59b7dc
 BOOTSTRAPPER_PATH := $(shell pwd)/madara-bootstrapper
 VERIFIER_ADDRESS := 0xe7f1725E7734CE288F8367e1Bb143E90bb3F0512
 
@@ -133,7 +133,7 @@ core-contract:
 	cd $(BOOTSTRAPPER_PATH) && \
 	rm -f $(BOOTSTRAP_OUTPUT_PATH) && \
 	git checkout $(BOOTSTRAPPER_COMMIT) && \
-	RUST_LOG=debug cargo run --release -- --mode core --operator-address $(OPERATOR_ADDRESS) --output-file $(BOOTSTRAP_OUTPUT_PATH) --verifier-address $(VERIFIER_ADDRESS) && \
+	RUST_LOG=debug cargo run --release -- --mode core --operator-address $(OPERATOR_ADDRESS) --output-file $(BOOTSTRAP_OUTPUT_PATH) --verifier-address $(VERIFIER_ADDRESS) --config-hash-version "StarknetOsConfig2" && \
 	cat $(BOOTSTRAP_OUTPUT_PATH) && \
     $(call save_json,"CORE_CONTRACT_ADDRESS",$$(jq -r .starknet_contract_address $(BOOTSTRAP_OUTPUT_PATH))) && \
     $(call save_json,"CORE_CONTRACT_IMPLEMENTATION_ADDRESS",$$(jq -r .starknet_contract_implementation_address $(BOOTSTRAP_OUTPUT_PATH)))
