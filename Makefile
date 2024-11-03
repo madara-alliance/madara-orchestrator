@@ -67,8 +67,8 @@ setup:
 	@echo "Starting ETH Bridge setup..."
 	@make eth-bridge
 
-	# we need to sleep for a little as it's possible the tick hasn't been processed yet
-	@sleep 2
+	# we need to sleep for a little as it's possible the block hasn't been sealed yet
+	@sleep 10
 
 	@echo "Terminating previous Madara instance..."
 	$(call kill_pid,madara)
