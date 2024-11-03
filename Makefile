@@ -4,7 +4,7 @@ ORCHESTRATOR_PATH := $(shell pwd)
 # Bootstrapper
 OPERATOR_ADDRESS := 0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266
 BOOTSTRAP_OUTPUT_PATH := $(shell pwd)/build/bootstrap.json
-BOOTSTRAPPER_COMMIT := c98c84a5e8937dd6372c6a68ec155f39be59b7dc
+BOOTSTRAPPER_COMMIT := 98c8cf5e80ebbb32f0a56c421055adaefae0b871
 BOOTSTRAPPER_PATH := $(shell pwd)/madara-bootstrapper
 VERIFIER_ADDRESS := 0xe7f1725E7734CE288F8367e1Bb143E90bb3F0512
 
@@ -20,7 +20,7 @@ MADARA_DATA_PATH := $(shell pwd)/build/madara
 PATHFINDER_COMMIT := 138140e5fd967ede92806fd62de47c2e6b65712a
 PATHFINDER_DATA_PATH := $(shell pwd)/build/pathfinder
 PATHFINDER_PATH := $(shell pwd)/pathfinder
-ETHEREUM_WSS_RPC_URL := wss://eth-sepolia.g.alchemy.com/v2/<api_key>
+ETHEREUM_WSS_RPC_URL := wss://eth-sepolia.g.alchemy.com/v2/${ETHEREUM_API_KEY}
 
 # Environment file
 ENV_FILE := $(shell pwd)/.makefile.json
@@ -67,6 +67,9 @@ setup:
 	@echo "Starting ETH Bridge setup..."
 	@make eth-bridge
 
+	# we need to sleep for a little as it's possible the tick hasn't been processed yet
+	@sleep 2
+
 	@echo "Terminating previous Madara instance..."
 	$(call kill_pid,madara)
 
@@ -95,10 +98,6 @@ setup:
 		make snos; \
 	fi
 	@echo "Starknet OS built"
-
-	@echo "Starting orchestrator"
-	@make orchestrator
-	@echo "Setup completed."
 
 	@make cleanup
 
@@ -149,7 +148,6 @@ eth-bridge:
 	git checkout $(BOOTSTRAPPER_COMMIT) && \
 	export CORE_CONTRACT_ADDRESS=$$(jq -r '.CORE_CONTRACT_ADDRESS' $(ENV_FILE)) && \
 	export CORE_CONTRACT_IMPLEMENTATION_ADDRESS=$$(jq -r '.CORE_CONTRACT_IMPLEMENTATION_ADDRESS' $(ENV_FILE)) && \
-	echo "TODO: set core contract address" && \
 	RUST_LOG=debug cargo run --release -- --mode eth-bridge --core-contract-address $$CORE_CONTRACT_ADDRESS --core-contract-implementation-address $$CORE_CONTRACT_IMPLEMENTATION_ADDRESS  --output-file $(BOOTSTRAP_OUTPUT_PATH) && \
 	$(call save_json,"L1_BRIDGE_ADDRESS","$$(jq -r .eth_bridge_setup_outputs.l1_bridge_address $(BOOTSTRAP_OUTPUT_PATH))") && \
     $(call save_json,"L2_ETH_TOKEN_ADDRESS","$$(jq -r .eth_bridge_setup_outputs.l2_eth_proxy_address $(BOOTSTRAP_OUTPUT_PATH))") && \

@@ -747,9 +747,13 @@ function chainHexesToBytes(hexes) {
 async function main() {
   // tage bridge address as an argument --bridge_address
   const l1_bridge_address = process.argv[2];
+  console.log("ℹ️ L1 bridge address:", l1_bridge_address);
   const core_contract_address = process.argv[3];
+  console.log("ℹ️ Core contract address:", core_contract_address);
   const l2_eth_token_address = process.argv[4];
+  console.log("ℹ️ L2 ETH token address:", l2_eth_token_address);
   const l2_eth_bridge_address = process.argv[5];
+  console.log("ℹ️ L2 ETH bridge address:", l2_eth_bridge_address);
   const bootstrapper_address =
     "0x4fe5eea46caa0a1f344fafce82b39d66b552f00d3cd12e89073ef4b4ab37860" ||
     process.argv[6];
@@ -845,88 +849,4 @@ async function main() {
   await setupMongoDb(block_number - 1);
 }
 
-async function updateConfigHash() {
-  let abi = [
-    {
-      type: "function",
-      name: "setConfigHash",
-      inputs: [
-        {
-          name: "newConfigHash",
-          type: "uint256",
-          internalType: "uint256",
-        },
-      ],
-      outputs: [],
-      stateMutability: "nonpayable",
-    },
-  ];
-
-  const contract = new ethers.Contract(
-    "0x99bba657f2bbc93c02d617f8ba121cb8fc104acf",
-    abi,
-    wallet,
-  );
-  const tx = await contract.setConfigHash(
-    "0x3ebcaa0cab0f8640a41ef3296b83af23086a4d215ea7bf26652181fb0ad24c3",
-  );
-  const receipt = await tx.wait();
-  if (!receipt.status) {
-    console.log("❌ Failed to override state on core contract");
-    process.exit(1);
-  }
-  console.log("✅ Successfully overridden state on core contract");
-}
-
-async function withdrawOnL1() {
-  let abi = [
-    {
-      type: "function",
-      name: "withdraw",
-      inputs: [
-        {
-          name: "amount",
-          type: "uint256",
-          internalType: "uint256",
-        },
-        {
-          name: "recipient",
-          type: "address",
-          internalType: "address",
-        },
-      ],
-      outputs: [],
-      stateMutability: "nonpayable",
-    },
-  ];
-
-  const contract = new ethers.Contract(
-    "0x4c5859f0f772848b2d91f1d83e2fe57935348029",
-    abi,
-    wallet,
-  );
-  const tx = await contract.withdraw(
-    1000,
-    "0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266",
-  );
-  const receipt = await tx.wait();
-  if (!receipt.status) {
-    console.log("❌ Failed to override state on core contract");
-    process.exit(1);
-  }
-  console.log("✅ Successfully overridden state on core contract");
-}
-
-// setupMongoDb(55);
-// overrideStateOnCoreContract(55, "0x99bba657f2bbc93c02d617f8ba121cb8fc104acf");
-// main();
-// upgradeL1EthBridge("0x2279b7a0a67db372996a5fab50d91eaa73d2ebe6");
-// console.log(
-//   chainHexesToBytes([
-//     "0x84eA74d481Ee0A5332c457a4d796187F6Ba67fEB",
-//     "0x0",
-//     "0x0",
-//   ]),
-// );
-// updateConfigHash();
-withdrawOnL1();
+main();
