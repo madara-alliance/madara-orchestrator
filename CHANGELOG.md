@@ -6,6 +6,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ## Added
 
+- upgrade ETH L1 bridge for withdrawals to work
 - added makefile and submodules
 - Endpoints for triggering processing and verification jobs
 - Add multiple queues for processing and verification based on job type
@@ -68,6 +69,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ## Fixed
 
+- indexing for get_jobs_without_successor
 - wait for transaction logic in ethereum settlement client
 - y_0 point evaluation in build kzg proof for ethereum settlement
 - fixed metrics name, signoz dashboard.
