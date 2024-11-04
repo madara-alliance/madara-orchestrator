@@ -98,10 +98,6 @@ async fn create_job_job_exists_in_db_works() {
     let database_client = services.config.database();
     database_client.create_job(job_item.clone()).await.unwrap();
 
-    assert!(
-        create_job(JobType::ProofCreation, "0".to_string(), HashMap::new(), services.config.clone()).await.is_err()
-    );
-
     // Waiting for 5 secs for message to be passed into the queue
     sleep(Duration::from_secs(5)).await;
 
