@@ -165,7 +165,8 @@ pub async fn create_job(
 
     // this is technically a redundant check, we've another check inside `create_job`
     if existing_job.is_some() {
-        return Err(JobError::JobAlreadyExists { internal_id, job_type });
+        log::warn!("Job already exists for internal_id {internal_id:?} and job_type {job_type:?}. Skipping!");
+        return Ok(());
     }
 
     let job_handler = factory::get_job_handler(&job_type).await;
