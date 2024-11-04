@@ -165,7 +165,7 @@ pub async fn create_job(
 
     // this is technically a redundant check, we've another check inside `create_job`
     if existing_job.is_some() {
-        log::warn!("Job already exists for internal_id {internal_id:?} and job_type {job_type:?}. Skipping!");
+        tracing::warn!("{}", JobError::JobAlreadyExists { internal_id, job_type });
         return Ok(());
     }
 
