@@ -8,7 +8,6 @@ module.exports = {
       { key: { status: 1 } },
       // primarily for get_jobs_without_successor
       { key: { job_type: 1, status: 1 } },
-      { key: { job_type: 1, internal_id: 1 } },
     ]);
   },
 
@@ -19,6 +18,5 @@ module.exports = {
     await db.collection("jobs").dropIndex("job_type_1_status_1_internal_id_-1");
     await db.collection("jobs").dropIndex("status_1");
     await db.collection("jobs").dropIndex("job_type_1_status_1");
-    await db.collection("jobs").dropIndex("job_type_1_internal_id_1");
   },
 };
