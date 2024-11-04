@@ -400,9 +400,17 @@ fn refactor_state_update(state_update: &mut StateDiff) {
     let addresses_in_storage_diffs: Vec<Felt> =
         state_update.storage_diffs.clone().iter().map(|item| item.address).collect();
 
-    let address_to_insert = find_unique_addresses(addresses_in_nonces, addresses_in_storage_diffs);
+    let address_to_insert = find_unique_addresses(addresses_in_nonces, addresses_in_storage_diffs.clone());
 
     for address in address_to_insert {
+        state_update.storage_diffs.push(ContractStorageDiffItem { address, storage_entries: vec![] })
+    }
+
+    let addresses_in_deployed_contracts =
+        state_update.deployed_contracts.clone().iter().map(|item| item.address).collect();
+    let addresses_to_insert = find_unique_addresses(addresses_in_deployed_contracts, addresses_in_storage_diffs);
+
+    for address in addresses_to_insert {
         state_update.storage_diffs.push(ContractStorageDiffItem { address, storage_entries: vec![] })
     }
 }
@@ -485,6 +493,12 @@ pub mod test {
         "src/tests/jobs/da_job/test_data/state_update/671070.txt",
         "src/tests/jobs/da_job/test_data/test_blob/671070.txt",
         "src/tests/jobs/da_job/test_data/nonces/671070.txt"
+    )]
+    #[case(
+        178, // Block from pragma madara and orch test run
+        "src/tests/jobs/da_job/test_data/state_update/178.txt",
+        "src/tests/jobs/da_job/test_data/test_blob/178.txt",
+        "src/tests/jobs/da_job/test_data/nonces/178.txt"
     )]
     #[tokio::test]
     async fn test_state_update_to_blob_data(
