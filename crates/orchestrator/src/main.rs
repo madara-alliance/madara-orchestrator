@@ -3,6 +3,7 @@ use orchestrator::config::init_config;
 use orchestrator::queue::init_consumers;
 use orchestrator::routes::setup_server;
 use orchestrator::telemetry::{setup_analytics, shutdown_analytics};
+use orchestrator::cli::RunCmd;
 
 /// Start the server
 #[tokio::main]

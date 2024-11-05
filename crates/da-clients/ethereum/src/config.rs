@@ -16,7 +16,7 @@ pub struct EthereumDaConfig {
 
 impl EthereumDaConfig {
     pub fn new_with_settings(settings: &impl Settings) -> color_eyre::Result<Self> {
-        Ok(Self { rpc_url: settings.get_settings_or_panic("SETTLEMENT_RPC_URL") })
+        Ok(Self { rpc_url: settings.get_settings_or_panic("DA_RPC_URL") })
     }
 
     pub async fn build_client(&self) -> EthereumDaClient {

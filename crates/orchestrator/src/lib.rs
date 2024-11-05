@@ -26,3 +26,6 @@ pub mod telemetry;
 pub mod tests;
 /// Contains workers which act like cron jobs
 pub mod workers;
+
+// Contains CLI arguments
+pub mod cli;

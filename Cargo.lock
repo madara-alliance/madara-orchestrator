@@ -6946,6 +6946,7 @@ dependencies = [
  "c-kzg",
  "cairo-vm 1.0.1 (git+https://github.com/Moonsong-Labs/cairo-vm?branch=notlesh%2Fsegment-arena-relocation-fix)",
  "chrono",
+ "clap",
  "color-eyre",
  "da-client-interface",
  "dotenvy",
