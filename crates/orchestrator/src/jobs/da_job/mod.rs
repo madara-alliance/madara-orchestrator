@@ -396,28 +396,23 @@ fn da_word(class_flag: bool, nonce_change: Option<Felt>, num_changes: u64) -> Fe
 }
 
 fn refactor_state_update(state_update: &mut StateDiff) {
-    // Create set of all addresses that need storage diffs
-    let mut required_addresses: HashSet<Felt> = HashSet::new();
+    let existing_storage: HashSet<_> = state_update.storage_diffs.iter().map(|item| item.address).collect();
 
-    // First add all existing storage addresses
-    required_addresses.extend(state_update.storage_diffs.iter().map(|item| item.address));
+    let required_addresses: HashSet<_> = Iterator::chain(
+        state_update.nonces.iter().map(|item| item.contract_address),
+        Iterator::chain(
+            state_update.deployed_contracts.iter().map(|item| item.address),
+            existing_storage.iter().copied(),
+        ),
+    )
+    .collect();
 
-    // Add addresses from nonces
-    required_addresses.extend(state_update.nonces.iter().map(|item| item.contract_address));
-
-    // Add addresses from deployed contracts
-    required_addresses.extend(state_update.deployed_contracts.iter().map(|item| item.address));
-
-    // Create a set of existing storage addresses for quick lookup
-    let existing_storage_addresses: HashSet<Felt> =
-        state_update.storage_diffs.iter().map(|item| item.address).collect();
-
-    // Add storage diffs only for addresses that don't already have them
-    for address in required_addresses {
-        if !existing_storage_addresses.contains(&address) {
-            state_update.storage_diffs.push(ContractStorageDiffItem { address, storage_entries: Vec::new() });
-        }
-    }
+    // Add missing storage diffs in one batch
+    state_update.storage_diffs.extend(
+        required_addresses
+            .difference(&existing_storage)
+            .map(|&address| ContractStorageDiffItem { address, storage_entries: Vec::new() }),
+    );
 }
 
 #[cfg(test)]
@@ -591,68 +586,45 @@ pub mod test {
     }
 
     #[rstest]
-    #[case(vec![], vec![], vec![], 0)] // Empty case
-    #[case(
+    #[case::empty_case(vec![], vec![], vec![], 0)]
+    #[case::only_nonces(
         vec![(Felt::from(1), Felt::from(10)), (Felt::from(2), Felt::from(20))],
         vec![],
         vec![],
         2
-    )] // Only nonces
-    #[case(
+    )]
+    #[case::only_deployed(
         vec![],
         vec![],
         vec![(Felt::from(1), vec![1]), (Felt::from(2), vec![2])],
         2
-    )] // Only deployed
-    #[case(
+    )]
+    #[case::overlapping_addresses(
         vec![(Felt::from(1), Felt::from(10))],
         vec![(Felt::from(1), vec![(Felt::from(1), Felt::from(100))])],
         vec![(Felt::from(1), vec![1])],
         1
-    )] // Overlapping addresses
-    #[case(
+    )]
+    #[case::duplicate_addresses(
         vec![(Felt::from(1), Felt::from(10)), (Felt::from(1), Felt::from(20))],
         vec![],
         vec![(Felt::from(1), vec![1]), (Felt::from(1), vec![2])],
         1
-    )] // Duplicate addresses
+    )]
     fn test_refactor_state_update(
         #[case] nonces: Vec<(Felt, Felt)>,
         #[case] storage_diffs: Vec<(Felt, Vec<(Felt, Felt)>)>,
         #[case] deployed_contracts: Vec<(Felt, Vec<u8>)>,
         #[case] expected_storage_count: usize,
     ) {
-        // Create initial state
         let mut state_diff = create_state_diff(nonces, storage_diffs.clone(), deployed_contracts);
         let initial_storage = state_diff.storage_diffs.clone();
 
-        // Run the function
         refactor_state_update(&mut state_diff);
 
-        // Verify results
         assert!(verify_addresses_have_storage_diffs(&state_diff));
-
-        // Verify no duplicate addresses in storage_diffs
-        let unique_addresses: HashSet<_> = state_diff.storage_diffs.iter().map(|item| &item.address).collect();
-        assert_eq!(
-            unique_addresses.len(),
-            state_diff.storage_diffs.len(),
-            "Number of unique addresses should match number of storage diffs"
-        );
-        assert_eq!(
-            unique_addresses.len(),
-            expected_storage_count,
-            "Number of storage diffs should match expected count"
-        );
-
-        // Verify storage preservation for existing entries
-        for orig_storage in initial_storage {
-            if let Some(current_storage) =
-                state_diff.storage_diffs.iter().find(|item| item.address == orig_storage.address)
-            {
-                assert_eq!(orig_storage.storage_entries, current_storage.storage_entries);
-            }
-        }
+        verify_unique_addresses(&state_diff, expected_storage_count);
+        verify_storage_preservation(&state_diff, &initial_storage);
     }
 
     pub(crate) fn read_state_update_from_file(file_path: &str) -> Result<StateUpdate> {
@@ -723,6 +695,26 @@ pub mod test {
                 .map(|(addr, _code)| DeployedContractItem { address: addr, class_hash: Default::default() })
                 .collect(),
             replaced_classes: vec![],
+        }
+    }
+
+    fn verify_unique_addresses(state_diff: &StateDiff, expected_count: usize) {
+        let unique_addresses: HashSet<_> = state_diff.storage_diffs.iter().map(|item| &item.address).collect();
+
+        assert_eq!(unique_addresses.len(), state_diff.storage_diffs.len(), "Storage diffs contain duplicate addresses");
+        assert_eq!(unique_addresses.len(), expected_count, "Unexpected number of storage diffs");
+    }
+
+    fn verify_storage_preservation(state_diff: &StateDiff, initial_storage: &Vec<ContractStorageDiffItem>) {
+        for orig_storage in initial_storage {
+            if let Some(current_storage) =
+                state_diff.storage_diffs.iter().find(|item| item.address == orig_storage.address)
+            {
+                assert_eq!(
+                    orig_storage.storage_entries, current_storage.storage_entries,
+                    "Storage entries changed unexpectedly"
+                );
+            }
         }
     }
 
