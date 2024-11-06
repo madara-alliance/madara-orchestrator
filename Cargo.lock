@@ -4264,6 +4264,7 @@ dependencies = [
  "aws-sdk-sqs",
  "bytes",
  "chrono",
+ "clap",
  "color-eyre",
  "dotenvy",
  "ethereum-settlement-client",

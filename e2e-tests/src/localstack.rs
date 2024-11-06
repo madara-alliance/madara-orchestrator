@@ -12,8 +12,10 @@ use orchestrator::config::ProviderConfig;
 use orchestrator::data_storage::aws_s3::AWSS3;
 use orchestrator::data_storage::DataStorage;
 
-use utils::env_utils::get_env_var_or_panic;
-use utils::settings::env::EnvSettingsProvider;
+use orchestrator::queue::job_queue::{JobQueueMessage, WorkerTriggerMessage, WorkerTriggerType};
+use utils::cli::aws_config::AWSConfigParams;
+use utils::cli::queue::aws_sqs::{AWSSQSParams, QueueType};
+use utils::cli::storage::aws_s3::AWSS3Params;
 
 /// LocalStack struct
 pub struct LocalStack {
@@ -23,8 +25,8 @@ pub struct LocalStack {
 }
 
 impl LocalStack {
-    pub async fn new() -> Self {
-        let region_provider = Region::new(get_env_var_or_panic("AWS_REGION"));
+    pub async fn new(aws_config: AWSConfigParams, s3_config: &AWSS3Params) -> Self {
+        let region_provider = Region::new(aws_config.region);
 
         let creds = EnvironmentVariableCredentialsProvider::new().provide_credentials().await.unwrap();
         let config = from_env().region(region_provider).credentials_provider(creds).load().await;
@@ -32,7 +34,7 @@ impl LocalStack {
 
         Self {
             sqs_client: aws_sdk_sqs::Client::new(&config),
-            s3_client: Box::new(AWSS3::new_with_settings(&EnvSettingsProvider {}, provider_config).await),
+            s3_client: Box::new(AWSS3::new_with_settings(s3_config, provider_config).await),
             event_bridge_client: aws_sdk_eventbridge::Client::new(&config),
         }
     }
@@ -43,7 +45,7 @@ impl LocalStack {
     }
 
     /// To set up SQS on localstack instance
-    pub async fn setup_sqs(&self) -> color_eyre::Result<()> {
+    pub async fn setup_sqs(&self, sqs_config: &AWSSQSParams) -> color_eyre::Result<()> {
         let list_queues_output = self.sqs_client.list_queues().send().await?;
         let queue_urls = list_queues_output.queue_urls();
         println!("Found {} queues", queue_urls.len());
@@ -58,22 +60,8 @@ impl LocalStack {
         let mut queue_attributes = HashMap::new();
         queue_attributes.insert(VisibilityTimeout, "10000".into());
 
-        let queue_names = vec![
-            DATA_SUBMISSION_JOB_PROCESSING_QUEUE,
-            DATA_SUBMISSION_JOB_VERIFICATION_QUEUE,
-            PROOF_REGISTRATION_JOB_PROCESSING_QUEUE,
-            PROOF_REGISTRATION_JOB_VERIFICATION_QUEUE,
-            PROVING_JOB_PROCESSING_QUEUE,
-            PROVING_JOB_VERIFICATION_QUEUE,
-            SNOS_JOB_PROCESSING_QUEUE,
-            SNOS_JOB_VERIFICATION_QUEUE,
-            UPDATE_STATE_JOB_PROCESSING_QUEUE,
-            UPDATE_STATE_JOB_VERIFICATION_QUEUE,
-            JOB_HANDLE_FAILURE_QUEUE,
-            WORKER_TRIGGER_QUEUE,
-        ];
-
-        for queue_name in queue_names {
+        for queue_type in QueueType::iter() {
+            let queue_name = sqs_config.get_queue_name(queue_type);
             self.sqs_client
                 .create_queue()
                 .queue_name(queue_name)
@@ -88,7 +76,7 @@ impl LocalStack {
     }
 
     /// Event Bridge setup
-    pub async fn setup_event_bridge(&self, worker_trigger_type: WorkerTriggerType) -> color_eyre::Result<()> {
+    pub async fn setup_event_bridge(&self, worker_trigger_type: WorkerTriggerType, sqs_config: &AWSSQSParams) -> color_eyre::Result<()> {
         let rule_name = "worker_trigger_scheduled";
 
         self.event_bridge_client
@@ -98,7 +86,7 @@ impl LocalStack {
             .state(RuleState::Enabled)
             .send()
             .await?;
-        let queue_url = self.sqs_client.get_queue_url().queue_name(WORKER_TRIGGER_QUEUE).send().await?;
+        let queue_url = self.sqs_client.get_queue_url().queue_name(sqs_config.get_queue_name(QueueType::WorkerTrigger)).send().await?;
 
         let queue_attributes = self
             .sqs_client

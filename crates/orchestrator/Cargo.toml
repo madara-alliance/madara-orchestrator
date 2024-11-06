@@ -36,7 +36,7 @@ axum = { workspace = true, features = ["macros"] }
 axum-macros = { workspace = true }
 bincode = { workspace = true }
 bytes.workspace = true
-clap = { version = "4.4", features = ["derive", "env"] }
+clap.workspace = true
 c-kzg = { workspace = true }
 cairo-vm = { workspace = true }
 chrono = { workspace = true }

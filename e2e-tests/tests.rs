@@ -2,6 +2,7 @@ use std::collections::HashMap;
 use std::fs::File;
 use std::io::Read;
 use std::time::{Duration, Instant};
+use clap::Parser as _;
 
 use chrono::{SubsecRound, Utc};
 use e2e_tests::anvil::AnvilSetup;
@@ -20,6 +21,7 @@ use rstest::rstest;
 use serde::{Deserialize, Serialize};
 use serde_json::json;
 use starknet::core::types::{Felt, MaybePendingStateUpdate};
+use utils::cli::RunCmd;
 use utils::env_utils::get_env_var_or_panic;
 use uuid::Uuid;
 
@@ -46,8 +48,10 @@ struct Setup {
 
 impl Setup {
     /// Initialise a new setup
-    pub async fn new(l2_block_number: String) -> Self {
-        let mongo_db_instance = MongoDbServer::run().await;
+    pub async fn new(l2_block_number: String, run_cmd: RunCmd) -> Self {
+
+        let mongodb_params = run_cmd.mongodb_params;
+        let mongo_db_instance = MongoDbServer::run(mongodb_params);
         println!("✅ Mongo DB setup completed");
 
         let starknet_client = StarknetClient::new();
@@ -61,13 +65,16 @@ impl Setup {
         println!("✅ Anvil setup completed");
 
         // Setting up LocalStack
-        let localstack_instance = LocalStack::new().await;
-        localstack_instance.setup_sqs().await.unwrap();
+        let aws_config = run_cmd.aws_config;
+        let s3_config = run_cmd.aws_s3_params;
+        let sqs_config = run_cmd.aws_sqs_params;
+        let localstack_instance = LocalStack::new(aws_config, &s3_config).await;
+        localstack_instance.setup_sqs(&sqs_config).await.unwrap();
         localstack_instance.delete_event_bridge_rule("worker_trigger_scheduled").await.unwrap();
-        localstack_instance.setup_event_bridge(WorkerTriggerType::Snos).await.unwrap();
-        localstack_instance.setup_event_bridge(WorkerTriggerType::Proving).await.unwrap();
-        localstack_instance.setup_event_bridge(WorkerTriggerType::DataSubmission).await.unwrap();
-        localstack_instance.setup_event_bridge(WorkerTriggerType::UpdateState).await.unwrap();
+        localstack_instance.setup_event_bridge(WorkerTriggerType::Snos, &sqs_config).await.unwrap();
+        localstack_instance.setup_event_bridge(WorkerTriggerType::Proving, &sqs_config).await.unwrap();
+        localstack_instance.setup_event_bridge(WorkerTriggerType::DataSubmission, &sqs_config).await.unwrap();
+        localstack_instance.setup_event_bridge(WorkerTriggerType::UpdateState, &sqs_config).await.unwrap();
 
         println!("✅ Localstack instance setup completed");
 
@@ -125,11 +132,14 @@ impl Setup {
 #[case("66645".to_string())]
 #[tokio::test]
 async fn test_orchestrator_workflow(#[case] l2_block_number: String) {
+    
     // Fetching the env vars from the test env file as these will be used in
     // setting up of the test and during orchestrator run too.
     dotenvy::from_filename(".env.test").expect("Failed to load the .env file");
 
-    let mut setup_config = Setup::new(l2_block_number.clone()).await;
+    let run_cmd = RunCmd::parse();
+
+    let mut setup_config = Setup::new(l2_block_number.clone(), run_cmd).await;
     // Setup S3
     setup_s3(setup_config.localstack().s3_client()).await.unwrap();
 
