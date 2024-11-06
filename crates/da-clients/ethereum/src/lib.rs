@@ -23,7 +23,7 @@ pub const DA_SETTINGS_NAME: &str = "ethereum";
 pub mod config;
 pub struct EthereumDaClient {
     #[allow(dead_code)]
-    provider: RootProvider<Ethereum, Http<Client>>,
+    pub provider: RootProvider<Ethereum, Http<Client>>,
 }
 
 #[automock]

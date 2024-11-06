@@ -4,13 +4,9 @@ use std::sync::Arc;
 
 use async_trait::async_trait;
 use aws_sdk_sns::Client;
-use utils::settings::Settings;
-
-use crate::alerts::aws_sns::config::AWSSNSConfig;
+use utils::cli::alert::aws_sns::AWSSNSParams;
 use crate::alerts::Alerts;
 use crate::config::ProviderConfig;
-
-pub const AWS_SNS_SETTINGS_NAME: &str = "sns";
 
 pub struct AWSSNS {
     client: Client,
@@ -18,11 +14,9 @@ pub struct AWSSNS {
 }
 
 impl AWSSNS {
-    pub async fn new_with_settings(settings: &impl Settings, provider_config: Arc<ProviderConfig>) -> Self {
-        let sns_config =
-            AWSSNSConfig::new_with_settings(settings).expect("Not able to get Aws sns config from provided settings");
+    pub async fn new_with_settings(aws_sns_params: &AWSSNSParams, provider_config: Arc<ProviderConfig>) -> Self {
         let config = provider_config.get_aws_client_or_panic();
-        Self { client: Client::new(config), topic_arn: sns_config.sns_arn }
+        Self { client: Client::new(config), topic_arn: aws_sns_params.sns_arn.clone() }
     }
 }
 

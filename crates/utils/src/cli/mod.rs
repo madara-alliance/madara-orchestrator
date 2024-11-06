@@ -1,4 +1,7 @@
+use alert::AlertParams;
 use clap::ArgGroup;
+use da::DaParams;
+use database::DatabaseParams;
 use queue::QueueParams;
 use settlement::SettlementParams;
 use storage::StorageParams;
@@ -40,12 +43,12 @@ pub mod snos;
           .multiple(false)
     ),
 
-    // group(
-    //   ArgGroup::new("alert")
-    //       .args(&["aws_sns"])
-    //       .required(true)
-    //       .multiple(false)
-    // ),
+    group(
+      ArgGroup::new("alert")
+          .args(&["aws_sns"])
+          .required(true)
+          .multiple(false)
+    ),
 
     // group(
     //     ArgGroup::new("prover")
@@ -56,16 +59,17 @@ pub mod snos;
 
    
 
-    // group(
-    //     ArgGroup::new("da_layer")
-    //         .args(&["ethereum"])
-    //         .required(true)
-    //         .multiple(false)
-    // ),
+    group(
+        ArgGroup::new("da_layer")
+            .args(&["da_on_ethereum"])
+            .required(true)
+            .multiple(false)
+    ),
 )]
 
 pub struct RunCmd {
 
+    // AWS Config
     #[clap(flatten)]
     pub aws_config: aws_config::AWSConfigParams,
 
@@ -100,22 +104,27 @@ pub struct RunCmd {
     #[clap(flatten)]
     pub server: server::ServerParams,
 
-   
-    // // part of storage
-    
-    // // part of queue
-    // #[clap(flatten)]  
-    // pub aws_sqs: queue::aws_sqs::AWSSQSParams,
+    // Alert
+    #[clap(long, group = "alert")]
+    pub aws_sns: bool,
 
-    // // part of alert
-    // #[clap(flatten)]
-    // pub aws_sns: alert::aws_sns::AWSSNSParams,
+    #[clap(flatten)]
+    pub aws_sns_params: alert::aws_sns::AWSSNSParams,
 
+    // Database
+    #[clap(long, group = "database")]
+    pub mongodb: bool,
 
-    // // part of database
-    // #[clap(flatten)]
-    // pub mongodb: database::mongodb::MongoDBParams,
+    #[clap(flatten)]
+    pub mongodb_params: database::mongodb::MongoDBParams,
 
+    // Data Availability Layer
+    #[clap(long, group = "da_layer")]
+    pub da_on_ethereum: bool,
+
+    #[clap(flatten)]
+    pub ethereum_da_params: da::ethereum::EthereumParams,
+  
     // // part of prover
     // #[clap(flatten)]
     // pub sharp: prover::sharp::SharpParams,
@@ -123,13 +132,6 @@ pub struct RunCmd {
     // // part of da_layer
     // #[clap(flatten)]
     // pub ethereum_da: da::ethereum::EthereumParams,
-
-
-    // #[clap(flatten)]
-    // pub starknet_settlement: settlement::starknet::StarknetSettlementParams,
-
-    // #[clap(flatten)]
-    // pub ethereum_settlement: settlement::ethereum::EthereumSettlementParams,
 
     // #[clap(flatten)]
     // pub snos: snos::SNOSParams,
@@ -184,6 +186,30 @@ impl RunCmd {
             Ok(QueueParams::AWSSQS(self.aws_sqs_params))
         } else {
             Err("Only AWS SQS is supported as of now".to_string())
+        }
+    }
+
+    pub fn validate_alert_params(self) -> Result<AlertParams, String> {
+        if self.aws_sns {
+            Ok(AlertParams::AWSSNS(self.aws_sns_params))
+        } else {
+            Err("Only AWS SNS is supported as of now".to_string())
+        }
+    }
+
+    pub fn validate_database_params(self) -> Result<DatabaseParams, String> {
+        if self.mongodb {
+            Ok(DatabaseParams::MongoDB(self.mongodb_params))
+        } else {
+            Err("Only MongoDB is supported as of now".to_string())
+        }
+    }
+
+    pub fn validate_da_params(self) -> Result<DaParams, String> {
+        if self.da_on_ethereum {
+            Ok(DaParams::Ethereum(self.ethereum_da_params))
+        } else {
+            Err("Only Ethereum is supported as of now".to_string())
         }
     }
 

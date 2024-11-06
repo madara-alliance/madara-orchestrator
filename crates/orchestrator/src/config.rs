@@ -13,6 +13,7 @@ use color_eyre::eyre::eyre;
 use da_client_interface::DaClient;
 use dotenvy::dotenv;
 use ethereum_da_client::config::EthereumDaConfig;
+use ethereum_da_client::EthereumDaClient;
 use ethereum_settlement_client::EthereumSettlementClient;
 use prover_client_interface::ProverClient;
 use settlement_client_interface::SettlementClient;
@@ -20,7 +21,11 @@ use sharp_service::SharpProverService;
 use starknet::providers::jsonrpc::HttpTransport;
 use starknet::providers::{JsonRpcClient, Url};
 use starknet_settlement_client::StarknetSettlementClient;
+use utils::cli::alert::aws_sns::AWSSNSParams;
+use utils::cli::alert::AlertParams;
 use utils::cli::aws_config::AWSConfigParams;
+use utils::cli::da::DaParams;
+use utils::cli::database::DatabaseParams;
 use utils::cli::queue::QueueParams;
 use utils::cli::settlement::SettlementParams;
 use utils::cli::storage::StorageParams;
@@ -110,8 +115,12 @@ pub async fn init_config(run_cmd: &RunCmd) -> color_eyre::Result<Arc<Config>> {
     let provider = JsonRpcClient::new(HttpTransport::new(rpc_url.clone()));
 
     // init database
-    let database = build_database_client(&settings_provider).await;
-    let da_client = build_da_client(&settings_provider).await;
+    let database_params = run_cmd.clone().validate_database_params().map_err(|e| eyre!("Failed to validate database params: {e}"))?;
+    let database = build_database_client(&database_params).await;
+
+    // init DA client
+    let da_params = run_cmd.clone().validate_da_params().map_err(|e| eyre!("Failed to validate DA params: {e}"))?;
+    let da_client = build_da_client(&da_params).await;
 
     // init settlement
     let settlement_params = run_cmd.clone().validate_settlement_params().map_err(|e| eyre!("Failed to validate settlement params: {e}"))?;
@@ -123,7 +132,9 @@ pub async fn init_config(run_cmd: &RunCmd) -> color_eyre::Result<Arc<Config>> {
     let data_storage_params = run_cmd.clone().validate_storage_params().map_err(|e| eyre!("Failed to validate storage params: {e}"))?;
     let storage_client = build_storage_client(&data_storage_params, provider_config.clone()).await;
     
-    let alerts_client = build_alert_client(&settings_provider, provider_config.clone()).await;
+    // init alerts
+    let alert_params = run_cmd.clone().validate_alert_params().map_err(|e| eyre!("Failed to validate alert params: {e}"))?;
+    let alerts_client = build_alert_client(&alert_params, provider_config.clone()).await;
 
     // init the queue
     // TODO: we use omniqueue for now which doesn't support loading AWS config
@@ -227,15 +238,20 @@ impl Config {
     }
 }
 
+use std::str::FromStr;
+
+use alloy::network::Ethereum;
+use alloy::providers::ProviderBuilder;
+use alloy::rpc::client::RpcClient;
+
 /// Builds the DA client based on the environment variable DA_LAYER
-pub async fn build_da_client(settings_provider: &impl Settings) -> Box<dyn DaClient + Send + Sync> {
-    match get_env_var_or_panic("DA_LAYER").as_str() {
-        "ethereum" => {
-            let config = EthereumDaConfig::new_with_settings(settings_provider)
-                .expect("Not able to build config from the given settings provider.");
-            Box::new(config.build_client().await)
+pub async fn build_da_client(da_params: &DaParams) -> Box<dyn DaClient + Send + Sync> {
+    match da_params {
+        DaParams::Ethereum(ethereum_da_params) => {
+            let client = RpcClient::new_http(Url::from_str(ethereum_da_params.rpc_url.as_str()).expect("Failed to parse SETTLEMENT_RPC_URL"));
+            let provider = ProviderBuilder::<_, Ethereum>::new().on_client(client);
+            Box::new(EthereumDaClient { provider })
         }
-        _ => panic!("Unsupported DA layer"),
     }
 }
 
@@ -298,12 +314,11 @@ pub async fn build_storage_client(
 }
 
 pub async fn build_alert_client(
-    settings_provider: &impl Settings,
+    alert_params: &AlertParams,
     provider_config: Arc<ProviderConfig>,
 ) -> Box<dyn Alerts + Send + Sync> {
-    match get_env_var_or_panic("ALERTS").as_str() {
-        "sns" => Box::new(AWSSNS::new_with_settings(settings_provider, provider_config).await),
-        _ => panic!("Unsupported Alert Client"),
+    match alert_params {
+        AlertParams::AWSSNS(aws_sns_params) => Box::new(AWSSNS::new_with_settings(aws_sns_params, provider_config).await),
     }
 }
 
@@ -313,9 +328,8 @@ pub fn build_queue_client(queue_params: &QueueParams) -> Box<dyn QueueProvider +
     }
 }
 
-pub async fn build_database_client(settings_provider: &impl Settings) -> Box<dyn Database + Send + Sync> {
-    match get_env_var_or_panic("DATABASE").as_str() {
-        "mongodb" => Box::new(MongoDb::new_with_settings(settings_provider).await),
-        _ => panic!("Unsupported Database Client"),
+pub async fn build_database_client(database_params: &DatabaseParams) -> Box<dyn Database + Send + Sync> {
+    match database_params {
+        DatabaseParams::MongoDB(mongodb_params) => Box::new(MongoDb::new_with_settings(mongodb_params).await),
     }
 }
