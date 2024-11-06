@@ -20,6 +20,8 @@ use sharp_service::SharpProverService;
 use starknet::providers::jsonrpc::HttpTransport;
 use starknet::providers::{JsonRpcClient, Url};
 use starknet_settlement_client::StarknetSettlementClient;
+use utils::cli::aws_config::AWSConfigParams;
+use utils::cli::queue::QueueParams;
 use utils::cli::settlement::SettlementParams;
 use utils::cli::storage::StorageParams;
 use utils::cli::RunCmd;
@@ -82,12 +84,12 @@ impl ProviderConfig {
 }
 
 /// To build a `SdkConfig` for AWS provider.
-pub async fn get_aws_config(settings_provider: &impl Settings) -> SdkConfig {
-    let region = settings_provider.get_settings_or_panic("AWS_REGION");
+pub async fn get_aws_config(aws_config: &AWSConfigParams) -> SdkConfig {
+    let region = aws_config.region.clone();
     let region_provider = RegionProviderChain::first_try(Region::new(region)).or_default_provider();
     let credentials = Credentials::from_keys(
-        settings_provider.get_settings_or_panic("AWS_ACCESS_KEY_ID"),
-        settings_provider.get_settings_or_panic("AWS_SECRET_ACCESS_KEY"),
+        aws_config.access_key_id.clone(),
+        aws_config.secret_access_key.clone(),
         None,
     );
     aws_config::from_env().credentials_provider(credentials).region(region_provider).load().await
@@ -98,7 +100,9 @@ pub async fn init_config(run_cmd: &RunCmd) -> color_eyre::Result<Arc<Config>> {
     dotenv().ok();
 
     let settings_provider = EnvSettingsProvider {};
-    let provider_config = Arc::new(ProviderConfig::AWS(Box::new(get_aws_config(&settings_provider).await)));
+
+    let aws_config = &run_cmd.aws_config;
+    let provider_config = Arc::new(ProviderConfig::AWS(Box::new(get_aws_config(aws_config).await)));
 
     // init starknet client
     let rpc_url = Url::parse(&settings_provider.get_settings_or_panic("MADARA_RPC_URL")).expect("Failed to parse URL");
@@ -109,20 +113,25 @@ pub async fn init_config(run_cmd: &RunCmd) -> color_eyre::Result<Arc<Config>> {
     let database = build_database_client(&settings_provider).await;
     let da_client = build_da_client(&settings_provider).await;
 
+    // init settlement
     let settlement_params = run_cmd.clone().validate_settlement_params().map_err(|e| eyre!("Failed to validate settlement params: {e}"))?;
     let settlement_client = build_settlement_client(&settlement_params).await?;
 
     let prover_client = build_prover_service(&settings_provider);
 
+    // init storage
     let data_storage_params = run_cmd.clone().validate_storage_params().map_err(|e| eyre!("Failed to validate storage params: {e}"))?;
     let storage_client = build_storage_client(&data_storage_params, provider_config.clone()).await;
+    
     let alerts_client = build_alert_client(&settings_provider, provider_config.clone()).await;
 
     // init the queue
     // TODO: we use omniqueue for now which doesn't support loading AWS config
     // from `SdkConfig`. We can later move to using `aws_sdk_sqs`. This would require
     // us stop using the generic omniqueue abstractions for message ack/nack
-    let queue = build_queue_client();
+    // init queue
+    let queue_params = run_cmd.clone().validate_queue_params().map_err(|e| eyre!("Failed to validate queue params: {e}"))?;
+    let queue = build_queue_client(&queue_params);
 
     Ok(Arc::new(Config::new(
         rpc_url,
@@ -298,10 +307,9 @@ pub async fn build_alert_client(
     }
 }
 
-pub fn build_queue_client() -> Box<dyn QueueProvider + Send + Sync> {
-    match get_env_var_or_panic("QUEUE_PROVIDER").as_str() {
-        "sqs" => Box::new(SqsQueue {}),
-        _ => panic!("Unsupported Queue Client"),
+pub fn build_queue_client(queue_params: &QueueParams) -> Box<dyn QueueProvider + Send + Sync> {
+    match queue_params {
+        QueueParams::AWSSQS(aws_sqs_params) => Box::new(SqsQueue { params: aws_sqs_params.clone() }),
     }
 }
 

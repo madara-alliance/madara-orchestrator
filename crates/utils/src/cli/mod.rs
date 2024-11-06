@@ -1,4 +1,5 @@
 use clap::ArgGroup;
+use queue::QueueParams;
 use settlement::SettlementParams;
 use storage::StorageParams;
 
@@ -32,12 +33,12 @@ pub mod snos;
             .multiple(false)
     ),
      
-    // group(
-    //   ArgGroup::new("queue")
-    //       .args(&["aws_sqs"])
-    //       .required(true)
-    //       .multiple(false)
-    // ),
+    group(
+      ArgGroup::new("queue")
+          .args(&["aws_sqs"])
+          .required(true)
+          .multiple(false)
+    ),
 
     // group(
     //   ArgGroup::new("alert")
@@ -65,6 +66,9 @@ pub mod snos;
 
 pub struct RunCmd {
 
+    #[clap(flatten)]
+    pub aws_config: aws_config::AWSConfigParams,
+
     // Settlement Layer
     #[clap(long, group = "settlement_layer")]
     pub settle_on_ethereum: bool,
@@ -85,15 +89,20 @@ pub struct RunCmd {
     #[clap(flatten)]
     pub aws_s3_params: storage::aws_s3::AWSS3Params,
 
-    // #[clap(flatten)]
-    // pub server: server::ServerParams,
+    // Queue
+    #[clap(long, group = "queue")]
+    pub aws_sqs: bool,
 
-    // #[clap(flatten)]
-    // pub aws_config: aws_config::AWSConfigParams,
+    #[clap(flatten)]
+    pub aws_sqs_params: queue::aws_sqs::AWSSQSParams,
 
+    // Server
+    #[clap(flatten)]
+    pub server: server::ServerParams,
+
+   
     // // part of storage
     
-
     // // part of queue
     // #[clap(flatten)]  
     // pub aws_sqs: queue::aws_sqs::AWSSQSParams,
@@ -167,6 +176,14 @@ impl RunCmd {
             Ok(StorageParams::AWSS3(self.aws_s3_params))
         } else {
             Err("Only AWS S3 is supported as of now".to_string())
+        }
+    }
+
+    pub fn validate_queue_params(self) -> Result<QueueParams, String> {
+        if self.aws_sqs {
+            Ok(QueueParams::AWSSQS(self.aws_sqs_params))
+        } else {
+            Err("Only AWS SQS is supported as of now".to_string())
         }
     }
 

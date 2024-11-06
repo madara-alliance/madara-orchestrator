@@ -11,7 +11,7 @@ use omniqueue::{Delivery, QueueError};
 
 use crate::config::Config;
 use crate::jobs::JobError;
-
+use utils::cli::queue::aws_sqs::QueueType;
 /// Queue Provider Trait
 ///
 /// The QueueProvider trait is used to define the methods that a queue
@@ -20,8 +20,8 @@ use crate::jobs::JobError;
 #[automock]
 #[async_trait]
 pub trait QueueProvider: Send + Sync {
-    async fn send_message_to_queue(&self, queue: String, payload: String, delay: Option<Duration>) -> EyreResult<()>;
-    async fn consume_message_from_queue(&self, queue: String) -> std::result::Result<Delivery, QueueError>;
+    async fn send_message_to_queue(&self, queue: QueueType, payload: String, delay: Option<Duration>) -> EyreResult<()>;
+    async fn consume_message_from_queue(&self, queue: QueueType) -> std::result::Result<Delivery, QueueError>;
 }
 
 pub async fn init_consumers(config: Arc<Config>) -> Result<(), JobError> {

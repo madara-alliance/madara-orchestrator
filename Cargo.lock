@@ -10879,6 +10879,7 @@ dependencies = [
  "opentelemetry-stdout",
  "opentelemetry_sdk",
  "serde",
+ "serde_json",
  "thiserror",
  "tracing",
  "tracing-core",
