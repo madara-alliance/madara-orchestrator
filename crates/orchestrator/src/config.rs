@@ -119,8 +119,7 @@ pub async fn init_config(run_cmd: &RunCmd) -> color_eyre::Result<Arc<Config>> {
     let provider_config = Arc::new(ProviderConfig::AWS(Box::new(get_aws_config(aws_config).await)));
 
     // init starknet client
-    let rpc_url = Url::parse(&settings_provider.get_settings_or_panic("MADARA_RPC_URL")).expect("Failed to parse URL");
-
+    let rpc_url = run_cmd.madara_rpc_url;
 
     // init snos url
     let snos_config = SnosConfig {

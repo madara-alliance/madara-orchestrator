@@ -6,6 +6,7 @@ use prover::ProverParams;
 use queue::QueueParams;
 use settlement::SettlementParams;
 use storage::StorageParams;
+use url::Url;
 
 pub mod aws_config;
 pub mod database;
@@ -134,7 +135,8 @@ pub struct RunCmd {
     #[clap(flatten)]
     pub snos: snos::SNOSParams,
 
-    // pub madara_rpc_url: Url,
+    #[arg(env = "MADARA_RPC_URL", long, required = true)]
+    pub madara_rpc_url: Url,
 
     #[clap(flatten)]
     pub instrumentation: instrumentation::InstrumentationParams,
