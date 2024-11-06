@@ -5,6 +5,7 @@ use std::sync::Arc;
 use async_trait::async_trait;
 use aws_sdk_sns::Client;
 use utils::cli::alert::aws_sns::AWSSNSParams;
+
 use crate::alerts::Alerts;
 use crate::config::ProviderConfig;
 

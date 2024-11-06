@@ -23,9 +23,7 @@ use starknet::providers::{JsonRpcClient, Provider};
 use starknet::signers::{LocalWallet, SigningKey};
 use tokio::time::{sleep, Duration};
 use utils::cli::settlement::starknet::StarknetSettlementParams;
-use utils::settings::Settings;
 
-use crate::config::StarknetSettlementConfig;
 use crate::conversion::{slice_slice_u8_to_vec_field, slice_u8_to_field, u64_from_felt};
 
 pub type LocalWalletSignerMiddleware = Arc<SingleOwnerAccount<Arc<JsonRpcClient<HttpTransport>>, LocalWallet>>;
@@ -58,8 +56,8 @@ impl StarknetSettlementClient {
         let signer = Felt::from_hex(&private_key).expect("Invalid private key");
         let signer = LocalWallet::from(SigningKey::from_secret_scalar(signer));
 
-        let core_contract_address =
-            Felt::from_hex(&settlement_cfg.starknet_cairo_core_contract_address).expect("Invalid core contract address");
+        let core_contract_address = Felt::from_hex(&settlement_cfg.starknet_cairo_core_contract_address)
+            .expect("Invalid core contract address");
 
         let account: Arc<SingleOwnerAccount<Arc<JsonRpcClient<HttpTransport>>, LocalWallet>> =
             Arc::new(SingleOwnerAccount::new(

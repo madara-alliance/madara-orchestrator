@@ -2,9 +2,9 @@ use std::collections::HashMap;
 use std::fs::File;
 use std::io::Read;
 use std::time::{Duration, Instant};
-use clap::Parser as _;
 
 use chrono::{SubsecRound, Utc};
+use clap::Parser as _;
 use e2e_tests::anvil::AnvilSetup;
 use e2e_tests::localstack::LocalStack;
 use e2e_tests::mock_server::MockResponseBodyType;
@@ -49,7 +49,6 @@ struct Setup {
 impl Setup {
     /// Initialise a new setup
     pub async fn new(l2_block_number: String, run_cmd: RunCmd) -> Self {
-
         let mongodb_params = run_cmd.mongodb_params;
         let mongo_db_instance = MongoDbServer::run(mongodb_params);
         println!("✅ Mongo DB setup completed");
@@ -132,7 +131,6 @@ impl Setup {
 #[case("66645".to_string())]
 #[tokio::test]
 async fn test_orchestrator_workflow(#[case] l2_block_number: String) {
-    
     // Fetching the env vars from the test env file as these will be used in
     // setting up of the test and during orchestrator run too.
     dotenvy::from_filename(".env.test").expect("Failed to load the .env file");

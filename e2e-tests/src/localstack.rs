@@ -11,7 +11,6 @@ use aws_sdk_sqs::types::QueueAttributeName::VisibilityTimeout;
 use orchestrator::config::ProviderConfig;
 use orchestrator::data_storage::aws_s3::AWSS3;
 use orchestrator::data_storage::DataStorage;
-
 use orchestrator::queue::job_queue::{JobQueueMessage, WorkerTriggerMessage, WorkerTriggerType};
 use utils::cli::aws_config::AWSConfigParams;
 use utils::cli::queue::aws_sqs::{AWSSQSParams, QueueType};
@@ -76,7 +75,11 @@ impl LocalStack {
     }
 
     /// Event Bridge setup
-    pub async fn setup_event_bridge(&self, worker_trigger_type: WorkerTriggerType, sqs_config: &AWSSQSParams) -> color_eyre::Result<()> {
+    pub async fn setup_event_bridge(
+        &self,
+        worker_trigger_type: WorkerTriggerType,
+        sqs_config: &AWSSQSParams,
+    ) -> color_eyre::Result<()> {
         let rule_name = "worker_trigger_scheduled";
 
         self.event_bridge_client
@@ -86,7 +89,12 @@ impl LocalStack {
             .state(RuleState::Enabled)
             .send()
             .await?;
-        let queue_url = self.sqs_client.get_queue_url().queue_name(sqs_config.get_queue_name(QueueType::WorkerTrigger)).send().await?;
+        let queue_url = self
+            .sqs_client
+            .get_queue_url()
+            .queue_name(sqs_config.get_queue_name(QueueType::WorkerTrigger))
+            .send()
+            .await?;
 
         let queue_attributes = self
             .sqs_client

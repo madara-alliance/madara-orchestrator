@@ -11,4 +11,3 @@ pub struct ServerParams {
     #[arg(env = "PORT", long, default_value = "3000")]
     pub port: u16,
 }
-  

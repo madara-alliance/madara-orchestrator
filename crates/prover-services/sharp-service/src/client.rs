@@ -6,7 +6,6 @@ use reqwest::{Certificate, ClientBuilder, Identity};
 use url::Url;
 use utils::cli::prover::sharp::SharpParams;
 use utils::env_utils::get_env_var_or_panic;
-use utils::settings::Settings;
 use uuid::Uuid;
 
 use crate::error::SharpError;
@@ -31,7 +30,7 @@ impl SharpClient {
     /// `cat <file_name> | base64`
     pub fn new_with_settings(url: Url, sharp_params: &SharpParams) -> Self {
         // Getting the cert files from the .env and then decoding it from base64
-        
+
         let cert = general_purpose::STANDARD
             .decode(sharp_params.sharp_user_crt.clone())
             .expect("Failed to decode certificate");

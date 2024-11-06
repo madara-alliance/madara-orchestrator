@@ -323,7 +323,10 @@ fn get_worker_handler_from_worker_trigger_type(worker_trigger_type: WorkerTrigge
 }
 
 /// To get the delivery from the message queue using the queue name
-async fn get_delivery_from_queue(queue: QueueType, config: Arc<Config>) -> Result<DeliveryReturnType, ConsumptionError> {
+async fn get_delivery_from_queue(
+    queue: QueueType,
+    config: Arc<Config>,
+) -> Result<DeliveryReturnType, ConsumptionError> {
     match config.queue().consume_message_from_queue(queue).await {
         Ok(d) => Ok(DeliveryReturnType::Message(d)),
         Err(QueueError::NoData) => Ok(DeliveryReturnType::NoMessage),

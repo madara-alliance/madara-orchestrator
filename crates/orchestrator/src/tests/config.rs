@@ -190,11 +190,11 @@ impl TestConfigBuilder {
         let server_config = run_cmd_clone.server;
 
         let snos_config = SnosConfig {
-            rpc_url : run_cmd_clone.snos.rpc_for_snos.clone(),
-            max_block_to_process : run_cmd_clone.snos.max_block_to_process,
-            min_block_to_process : run_cmd_clone.snos.min_block_to_process,
+            rpc_url: run_cmd_clone.snos.rpc_for_snos.clone(),
+            max_block_to_process: run_cmd_clone.snos.max_block_to_process,
+            min_block_to_process: run_cmd_clone.snos.min_block_to_process,
         };
-        
+
         use std::sync::Arc;
 
         let TestConfigBuilder {
@@ -214,7 +214,8 @@ impl TestConfigBuilder {
             implement_client::init_starknet_client(starknet_rpc_url_type, starknet_client_type).await;
 
         // init alerts
-        let alert_params = run_cmd.clone().validate_alert_params().map_err(|e| eyre!("Failed to validate alert params: {e}")).unwrap();
+        let alert_params =
+            run_cmd.clone().validate_alert_params().map_err(|e| eyre!("Failed to validate alert params: {e}")).unwrap();
         let alerts = implement_client::init_alerts(alerts_type, &alert_params, provider_config.clone()).await;
 
         let da_params = run_cmd.clone().validate_da_params().unwrap();
@@ -222,21 +223,33 @@ impl TestConfigBuilder {
 
         let settlement_params = run_cmd.clone().validate_settlement_params().unwrap();
         let settlement_client =
-            implement_client::init_settlement_client(settlement_client_type, &settlement_params
-            ).await;
+            implement_client::init_settlement_client(settlement_client_type, &settlement_params).await;
 
-        let prover_params = run_cmd.clone().validate_prover_params().map_err(|e| eyre!("Failed to validate prover params: {e}")).unwrap();
-        let prover_client = implement_client::init_prover_client(prover_client_type, &prover_params).await  ;
+        let prover_params = run_cmd
+            .clone()
+            .validate_prover_params()
+            .map_err(|e| eyre!("Failed to validate prover params: {e}"))
+            .unwrap();
+        let prover_client = implement_client::init_prover_client(prover_client_type, &prover_params).await;
 
-        
         // External Dependencies
-        let data_storage_params = run_cmd.clone().validate_storage_params().map_err(|e| eyre!("Failed to validate storage params: {e}")).unwrap();
-        let storage = implement_client::init_storage_client(storage_type, &data_storage_params, provider_config.clone()).await;
+        let data_storage_params = run_cmd
+            .clone()
+            .validate_storage_params()
+            .map_err(|e| eyre!("Failed to validate storage params: {e}"))
+            .unwrap();
+        let storage =
+            implement_client::init_storage_client(storage_type, &data_storage_params, provider_config.clone()).await;
 
-        let database_params = run_cmd.clone().validate_database_params().map_err(|e| eyre!("Failed to validate database params: {e}")).unwrap();
+        let database_params = run_cmd
+            .clone()
+            .validate_database_params()
+            .map_err(|e| eyre!("Failed to validate database params: {e}"))
+            .unwrap();
         let database = implement_client::init_database(database_type, &database_params).await;
 
-        let queue_params = run_cmd.clone().validate_queue_params().map_err(|e| eyre!("Failed to validate queue params: {e}")).unwrap();
+        let queue_params =
+            run_cmd.clone().validate_queue_params().map_err(|e| eyre!("Failed to validate queue params: {e}")).unwrap();
         let queue = implement_client::init_queue_client(queue_type, queue_params.clone()).await;
         // Deleting and Creating the queues in sqs.
 
@@ -352,7 +365,7 @@ pub mod implement_client {
 
     pub(crate) async fn init_settlement_client(
         service: ConfigType,
-        settlement_cfg : &SettlementParams
+        settlement_cfg: &SettlementParams,
     ) -> Box<dyn SettlementClient> {
         match service {
             ConfigType::Mock(client) => client.into(),
@@ -363,10 +376,7 @@ pub mod implement_client {
         }
     }
 
-    pub(crate) async fn init_prover_client(
-        service: ConfigType,
-        prover_params: &ProverParams,
-    ) -> Box<dyn ProverClient> {
+    pub(crate) async fn init_prover_client(service: ConfigType, prover_params: &ProverParams) -> Box<dyn ProverClient> {
         match service {
             ConfigType::Mock(client) => client.into(),
             ConfigType::Actual => build_prover_service(prover_params),
@@ -388,20 +398,18 @@ pub mod implement_client {
 
     pub(crate) async fn init_storage_client(
         service: ConfigType,
-        storage_cfg : &StorageParams,
+        storage_cfg: &StorageParams,
         provider_config: Arc<ProviderConfig>,
     ) -> Box<dyn DataStorage> {
         match service {
             ConfigType::Mock(client) => client.into(),
-            ConfigType::Actual => {
-                match storage_cfg {
-                    StorageParams::AWSS3(aws_s3_params) => {
-                        let storage = get_storage_client(aws_s3_params, provider_config).await;
-                        storage.as_ref().build_test_bucket(&aws_s3_params.bucket_name).await.unwrap();  
-                        storage
-                    }
+            ConfigType::Actual => match storage_cfg {
+                StorageParams::AWSS3(aws_s3_params) => {
+                    let storage = get_storage_client(aws_s3_params, provider_config).await;
+                    storage.as_ref().build_test_bucket(&aws_s3_params.bucket_name).await.unwrap();
+                    storage
                 }
-            }
+            },
             ConfigType::Dummy => Box::new(MockDataStorage::new()),
         }
     }
@@ -414,13 +422,10 @@ pub mod implement_client {
         }
     }
 
-    pub(crate) async fn init_database(
-        service: ConfigType,
-        database_params: &DatabaseParams,
-    ) -> Box<dyn Database> {
+    pub(crate) async fn init_database(service: ConfigType, database_params: &DatabaseParams) -> Box<dyn Database> {
         match service {
             ConfigType::Mock(client) => client.into(),
-            ConfigType::Actual => build_database_client(&database_params).await,
+            ConfigType::Actual => build_database_client(database_params).await,
             ConfigType::Dummy => Box::new(MockDatabase::new()),
         }
     }

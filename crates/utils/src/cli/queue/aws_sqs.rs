@@ -61,22 +61,19 @@ impl QueueType {
             QueueType::UpdateStateJobVerification,
             QueueType::JobHandleFailure,
             QueueType::WorkerTrigger,
-        ].iter().cloned()
+        ]
+        .iter()
+        .cloned()
     }
 }
-
 
 impl fmt::Display for QueueType {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        match self {
-            _ => write!(f, "{}", serde_json::to_string(self).unwrap()),
-        }
+        write!(f, "{}", serde_json::to_string(self).unwrap())
     }
 }
 
-
 impl AWSSQSParams {
-    
     pub fn get_queue_url(&self, queue_type: QueueType) -> String {
         format!("{}/{}", self.queue_base_url, self.get_queue_name(queue_type))
     }
@@ -86,5 +83,4 @@ impl AWSSQSParams {
         let queue_name = serde_json::to_string(&queue_type).unwrap();
         format!("{}_{}_{}", self.sqs_prefix, queue_name, self.sqs_suffix)
     }
-
 }

@@ -26,11 +26,9 @@ use settlement_client_interface::{SettlementClient, SettlementVerificationStatus
 #[cfg(feature = "testing")]
 use url::Url;
 use utils::cli::settlement::ethereum::EthereumSettlementParams;
-use utils::env_utils::get_env_var_or_panic;
 
 use crate::clients::interfaces::validity_interface::StarknetValidityContractTrait;
 use crate::clients::StarknetValidityContractClient;
-use crate::config::EthereumSettlementConfig;
 use crate::conversion::{slice_u8_to_u256, vec_u8_32_to_vec_u256};
 pub mod clients;
 pub mod config;
@@ -43,7 +41,6 @@ use lazy_static::lazy_static;
 use mockall::automock;
 use reqwest::Client;
 use tokio::time::sleep;
-use utils::settings::Settings;
 
 use crate::types::{bytes_be_to_u128, convert_stark_bigint_to_u256};
 
@@ -88,10 +85,12 @@ impl EthereumSettlementClient {
 
         // provider with wallet
         let filler_provider = Arc::new(
-            ProviderBuilder::new().with_recommended_fillers().wallet(wallet.clone()).on_http(settlement_cfg.ethereum_rpc_url.clone()),
+            ProviderBuilder::new()
+                .with_recommended_fillers()
+                .wallet(wallet.clone())
+                .on_http(settlement_cfg.ethereum_rpc_url.clone()),
         );
 
-        
         let core_contract_client = StarknetValidityContractClient::new(
             Address::from_str(&settlement_cfg.l1_core_contract_address)
                 .expect("Failed to convert the validity contract address.")
@@ -104,9 +103,7 @@ impl EthereumSettlementClient {
     }
 
     #[cfg(feature = "testing")]
-    pub fn with_test_settings(
-        settlement_cfg: &EthereumSettlementParams,
-    ) -> Self {
+    pub fn with_test_settings(settlement_cfg: &EthereumSettlementParams) -> Self {
         let root_provider = RootProvider::new_http(settlement_cfg.ethereum_rpc_url.clone().as_str().parse()?);
         let core_contract_address = Address::from_str(&settlement_cfg.l1_core_contract_address.clone())?;
         let settlement_rpc_url = &settlement_cfg.ethereum_rpc_url.clone()?;
@@ -115,8 +112,9 @@ impl EthereumSettlementClient {
         let wallet_address = signer.address();
         let wallet = EthereumWallet::from(signer);
 
-        let fill_provider =
-            Arc::new(ProviderBuilder::new().with_recommended_fillers().wallet(wallet.clone()).on_http(settlement_rpc_url));
+        let fill_provider = Arc::new(
+            ProviderBuilder::new().with_recommended_fillers().wallet(wallet.clone()).on_http(settlement_rpc_url),
+        );
 
         let core_contract_client = StarknetValidityContractClient::new(core_contract_address, fill_provider);
 

@@ -69,12 +69,11 @@ pub struct Config {
     alerts: Box<dyn Alerts>,
 }
 
-
 #[derive(Debug, Clone)]
 pub struct SnosConfig {
-    pub rpc_url : Url,
-    pub max_block_to_process : u64,
-    pub min_block_to_process : u64,
+    pub rpc_url: Url,
+    pub max_block_to_process: u64,
+    pub min_block_to_process: u64,
 }
 
 /// `ProviderConfig` is an enum used to represent the global config built
@@ -99,11 +98,8 @@ impl ProviderConfig {
 pub async fn get_aws_config(aws_config: &AWSConfigParams) -> SdkConfig {
     let region = aws_config.region.clone();
     let region_provider = RegionProviderChain::first_try(Region::new(region)).or_default_provider();
-    let credentials = Credentials::from_keys(
-        aws_config.access_key_id.clone(),
-        aws_config.secret_access_key.clone(),
-        None,
-    );
+    let credentials =
+        Credentials::from_keys(aws_config.access_key_id.clone(), aws_config.secret_access_key.clone(), None);
     aws_config::from_env().credentials_provider(credentials).region(region_provider).load().await
 }
 
@@ -119,16 +115,17 @@ pub async fn init_config(run_cmd: &RunCmd) -> color_eyre::Result<Arc<Config>> {
 
     // init snos url
     let snos_config = SnosConfig {
-        rpc_url : run_cmd.snos.rpc_for_snos.clone(),
-        max_block_to_process : run_cmd.snos.max_block_to_process,
-        min_block_to_process : run_cmd.snos.min_block_to_process,
+        rpc_url: run_cmd.snos.rpc_for_snos.clone(),
+        max_block_to_process: run_cmd.snos.max_block_to_process,
+        min_block_to_process: run_cmd.snos.min_block_to_process,
     };
-    
+
     let server_config = run_cmd.server.clone();
     let provider = JsonRpcClient::new(HttpTransport::new(rpc_url.clone()));
 
     // init database
-    let database_params = run_cmd.clone().validate_database_params().map_err(|e| eyre!("Failed to validate database params: {e}"))?;
+    let database_params =
+        run_cmd.clone().validate_database_params().map_err(|e| eyre!("Failed to validate database params: {e}"))?;
     let database = build_database_client(&database_params).await;
 
     // init DA client
@@ -136,19 +133,23 @@ pub async fn init_config(run_cmd: &RunCmd) -> color_eyre::Result<Arc<Config>> {
     let da_client = build_da_client(&da_params).await;
 
     // init settlement
-    let settlement_params = run_cmd.clone().validate_settlement_params().map_err(|e| eyre!("Failed to validate settlement params: {e}"))?;
+    let settlement_params =
+        run_cmd.clone().validate_settlement_params().map_err(|e| eyre!("Failed to validate settlement params: {e}"))?;
     let settlement_client = build_settlement_client(&settlement_params).await?;
 
     // init prover
-    let prover_params = run_cmd.clone().validate_prover_params().map_err(|e| eyre!("Failed to validate prover params: {e}"))?;
+    let prover_params =
+        run_cmd.clone().validate_prover_params().map_err(|e| eyre!("Failed to validate prover params: {e}"))?;
     let prover_client = build_prover_service(&prover_params);
 
     // init storage
-    let data_storage_params = run_cmd.clone().validate_storage_params().map_err(|e| eyre!("Failed to validate storage params: {e}"))?;
+    let data_storage_params =
+        run_cmd.clone().validate_storage_params().map_err(|e| eyre!("Failed to validate storage params: {e}"))?;
     let storage_client = build_storage_client(&data_storage_params, provider_config.clone()).await;
-    
+
     // init alerts
-    let alert_params = run_cmd.clone().validate_alert_params().map_err(|e| eyre!("Failed to validate alert params: {e}"))?;
+    let alert_params =
+        run_cmd.clone().validate_alert_params().map_err(|e| eyre!("Failed to validate alert params: {e}"))?;
     let alerts_client = build_alert_client(&alert_params, provider_config.clone()).await;
 
     // init the queue
@@ -156,7 +157,8 @@ pub async fn init_config(run_cmd: &RunCmd) -> color_eyre::Result<Arc<Config>> {
     // from `SdkConfig`. We can later move to using `aws_sdk_sqs`. This would require
     // us stop using the generic omniqueue abstractions for message ack/nack
     // init queue
-    let queue_params = run_cmd.clone().validate_queue_params().map_err(|e| eyre!("Failed to validate queue params: {e}"))?;
+    let queue_params =
+        run_cmd.clone().validate_queue_params().map_err(|e| eyre!("Failed to validate queue params: {e}"))?;
     let queue = build_queue_client(&queue_params);
 
     Ok(Arc::new(Config::new(
@@ -271,7 +273,9 @@ use alloy::rpc::client::RpcClient;
 pub async fn build_da_client(da_params: &DaParams) -> Box<dyn DaClient + Send + Sync> {
     match da_params {
         DaParams::Ethereum(ethereum_da_params) => {
-            let client = RpcClient::new_http(Url::from_str(ethereum_da_params.rpc_url.as_str()).expect("Failed to parse SETTLEMENT_RPC_URL"));
+            let client = RpcClient::new_http(
+                Url::from_str(ethereum_da_params.rpc_url.as_str()).expect("Failed to parse SETTLEMENT_RPC_URL"),
+            );
             let provider = ProviderBuilder::<_, Ethereum>::new().on_client(client);
             Box::new(EthereumDaClient { provider })
         }
@@ -293,16 +297,16 @@ pub async fn build_settlement_client(
         SettlementParams::Ethereum(ethereum_settlement_params) => {
             #[cfg(not(feature = "testing"))]
             {
-                Ok(Box::new(EthereumSettlementClient::new_with_settings(&ethereum_settlement_params)))
+                Ok(Box::new(EthereumSettlementClient::new_with_settings(ethereum_settlement_params)))
             }
             #[cfg(feature = "testing")]
             {
-                Ok(Box::new(EthereumSettlementClient::with_test_settings(
-                    &ethereum_settlement_params
-                )))
+                Ok(Box::new(EthereumSettlementClient::with_test_settings(&ethereum_settlement_params)))
             }
         }
-        SettlementParams::Starknet(starknet_settlement_params) => Ok(Box::new(StarknetSettlementClient::new_with_settings(&starknet_settlement_params).await)),
+        SettlementParams::Starknet(starknet_settlement_params) => {
+            Ok(Box::new(StarknetSettlementClient::new_with_settings(starknet_settlement_params).await))
+        }
     }
 
     // match settlement_params {
@@ -314,16 +318,18 @@ pub async fn build_settlement_client(
     //         #[cfg(feature = "testing")]
     //         {
     //             Ok(Box::new(EthereumSettlementClient::with_test_settings(
-    //                 RootProvider::new_http(get_env_var_or_panic("SETTLEMENT_RPC_URL").as_str().parse()?),
+    //
+    // RootProvider::new_http(get_env_var_or_panic("SETTLEMENT_RPC_URL").as_str().parse()?),
     //                 Address::from_str(&get_env_var_or_panic("L1_CORE_CONTRACT_ADDRESS"))?,
     //                 Url::from_str(get_env_var_or_panic("SETTLEMENT_RPC_URL").as_str())?,
-    //                 Some(Address::from_str(get_env_var_or_panic("STARKNET_OPERATOR_ADDRESS").as_str())?),
+    //
+    // Some(Address::from_str(get_env_var_or_panic("STARKNET_OPERATOR_ADDRESS").as_str())?),
     //             )))
     //         }
     //     }
-    //     "starknet" => Ok(Box::new(StarknetSettlementClient::new_with_settings(settings_provider).await)),
-    //     _ => panic!("Unsupported Settlement layer"),
-    // }
+    //     "starknet" =>
+    // Ok(Box::new(StarknetSettlementClient::new_with_settings(settings_provider).await)),     _
+    // => panic!("Unsupported Settlement layer"), }
 }
 
 pub async fn build_storage_client(
@@ -340,7 +346,9 @@ pub async fn build_alert_client(
     provider_config: Arc<ProviderConfig>,
 ) -> Box<dyn Alerts + Send + Sync> {
     match alert_params {
-        AlertParams::AWSSNS(aws_sns_params) => Box::new(AWSSNS::new_with_settings(aws_sns_params, provider_config).await),
+        AlertParams::AWSSNS(aws_sns_params) => {
+            Box::new(AWSSNS::new_with_settings(aws_sns_params, provider_config).await)
+        }
     }
 }
 

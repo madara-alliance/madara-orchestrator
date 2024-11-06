@@ -140,7 +140,6 @@ impl SharpProverService {
     }
 
     pub fn with_test_settings(port: u16, sharp_params: &SharpParams) -> Self {
-        
         let sharp_client = SharpClient::new_with_settings(
             format!("http://127.0.0.1:{}", port).parse().expect("Failed to create sharp client with the given params"),
             sharp_params,

@@ -1,5 +1,4 @@
 use std::env;
-use std::path::Path;
 use std::sync::Arc;
 use std::time::Duration;
 
@@ -7,13 +6,7 @@ use color_eyre::eyre::eyre;
 use rstest::{fixture, rstest};
 use settlement_client_interface::SettlementClient;
 use starknet::accounts::{Account, ConnectedAccount, ExecutionEncoding, SingleOwnerAccount};
-use starknet::contract::ContractFactory;
-use starknet::core::types::contract::{CompiledClass, SierraClass};
-use starknet::core::types::{
-    BlockId, BlockTag, DeclareTransactionResult, Felt, FunctionCall, InvokeTransactionResult, StarknetError,
-    TransactionExecutionStatus, TransactionStatus,
-};
-use starknet::macros::{felt, selector};
+use starknet::core::types::{BlockId, BlockTag, Felt, StarknetError, TransactionExecutionStatus, TransactionStatus};
 use starknet::providers::jsonrpc::HttpTransport;
 use starknet::providers::{JsonRpcClient, Provider, ProviderError, Url};
 use starknet::signers::{LocalWallet, SigningKey};
@@ -21,7 +14,7 @@ use utils::settings::env::EnvSettingsProvider;
 use utils::settings::Settings;
 
 use super::setup::{wait_for_cond, MadaraCmd, MadaraCmdBuilder};
-use crate::{LocalWalletSignerMiddleware, StarknetSettlementClient};
+use crate::LocalWalletSignerMiddleware;
 
 #[fixture]
 pub async fn spin_up_madara() -> MadaraCmd {
@@ -106,7 +99,8 @@ async fn setup(#[future] spin_up_madara: MadaraCmd) -> (LocalWalletSignerMiddlew
 //     let (account, _madara_process) = setup.await;
 
 //     let project_root = Path::new(env!("CARGO_MANIFEST_DIR")).ancestors().nth(3).unwrap();
-//     let contract_path = project_root.join("crates/settlement-clients/starknet/src/tests/mock_contracts/target/dev");
+//     let contract_path =
+// project_root.join("crates/settlement-clients/starknet/src/tests/mock_contracts/target/dev");
 //     let sierra_class: SierraClass = serde_json::from_reader(
 //         std::fs::File::open(contract_path.join("mock_contracts_Piltover.contract_class.json"))
 //             .expect("Could not open sierra class file"),
@@ -114,8 +108,8 @@ async fn setup(#[future] spin_up_madara: MadaraCmd) -> (LocalWalletSignerMiddlew
 //     .expect("Failed to parse SierraClass");
 
 //     let compiled_class: CompiledClass = serde_json::from_reader(
-//         std::fs::File::open(contract_path.join("mock_contracts_Piltover.compiled_contract_class.json"))
-//             .expect("Could not open compiled class file"),
+//         std::fs::File::open(contract_path.join("mock_contracts_Piltover.compiled_contract_class.
+// json"))             .expect("Could not open compiled class file"),
 //     )
 //     .expect("Failed to parse CompiledClass");
 
@@ -123,8 +117,9 @@ async fn setup(#[future] spin_up_madara: MadaraCmd) -> (LocalWalletSignerMiddlew
 //     let compiled_class_hash = compiled_class.class_hash().unwrap();
 
 //     let DeclareTransactionResult { transaction_hash: declare_tx_hash, class_hash: _ } =
-//         account.declare_v2(Arc::new(flattened_class.clone()), compiled_class_hash).send().await.unwrap();
-//     tracing::debug!("declare tx hash {:?}", declare_tx_hash);
+//         account.declare_v2(Arc::new(flattened_class.clone()),
+// compiled_class_hash).send().await.unwrap();     tracing::debug!("declare tx hash {:?}",
+// declare_tx_hash);
 
 //     let is_success = wait_for_tx(&account, declare_tx_hash, Duration::from_secs(2)).await;
 //     assert!(is_success, "Declare trasactiion failed");
@@ -143,9 +138,9 @@ async fn setup(#[future] spin_up_madara: MadaraCmd) -> (LocalWalletSignerMiddlew
 //     let env_settings = EnvSettingsProvider {};
 //     let settlement_params = run_cmd.clone().validate_settlement_params().unwrap();
 
-//     let settlement_client = StarknetSettlementClient::new_with_settings(&settlement_params).await;
-//     let onchain_data_hash = [1; 32];
-//     let mut program_output = Vec::with_capacity(32);
+//     let settlement_client =
+// StarknetSettlementClient::new_with_settings(&settlement_params).await;     let onchain_data_hash
+// = [1; 32];     let mut program_output = Vec::with_capacity(32);
 //     program_output.fill(onchain_data_hash);
 //     let update_state_tx_hash = settlement_client
 //         .update_state_calldata(program_output, onchain_data_hash, [1; 32])

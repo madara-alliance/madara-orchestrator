@@ -8,57 +8,50 @@ use settlement::SettlementParams;
 use storage::StorageParams;
 use url::Url;
 
+pub mod alert;
 pub mod aws_config;
+pub mod da;
 pub mod database;
 pub mod instrumentation;
-pub mod server;
-pub mod storage;
-pub mod queue;
-pub mod alert;
 pub mod prover;
-pub mod da;
+pub mod queue;
+pub mod server;
 pub mod settlement;
 pub mod snos;
+pub mod storage;
 
 #[derive(Clone, Debug, clap::Parser)]
 #[clap(
-
-    // Mutual Exclusion Solved 
     group(
         ArgGroup::new("settlement_layer")
             .args(&["settle_on_ethereum", "settle_on_starknet"])
             .required(true)
             .multiple(false)
     ),
-
     group(
         ArgGroup::new("storage")
             .args(&["aws_s3"])
             .required(true)
             .multiple(false)
     ),
-     
     group(
       ArgGroup::new("queue")
           .args(&["aws_sqs"])
           .required(true)
           .multiple(false)
     ),
-
     group(
       ArgGroup::new("alert")
           .args(&["aws_sns"])
           .required(true)
           .multiple(false)
     ),
-
     group(
         ArgGroup::new("prover")
             .args(&["sharp"])
             .required(true)
             .multiple(false)
     ),
-
     group(
         ArgGroup::new("da_layer")
             .args(&["da_on_ethereum"])
@@ -68,7 +61,6 @@ pub mod snos;
 )]
 
 pub struct RunCmd {
-
     // AWS Config
     #[clap(flatten)]
     pub aws_config: aws_config::AWSConfigParams,
@@ -89,7 +81,7 @@ pub struct RunCmd {
     // Storage
     #[clap(long, group = "storage")]
     pub aws_s3: bool,
-    
+
     #[clap(flatten)]
     pub aws_s3_params: storage::aws_s3::AWSS3Params,
 
@@ -124,7 +116,7 @@ pub struct RunCmd {
 
     #[clap(flatten)]
     pub ethereum_da_params: da::ethereum::EthereumParams,
-  
+
     // Prover
     #[clap(long, group = "prover")]
     pub sharp: bool,
@@ -148,28 +140,30 @@ impl RunCmd {
             (true, false) => {
                 // Ensure Starknet params are not provided
                 if self.starknet_settlement_params.is_some() {
-                    return Err("Starknet parameters cannot be specified when Ethereum settlement is selected".to_string());
+                    return Err(
+                        "Starknet parameters cannot be specified when Ethereum settlement is selected".to_string()
+                    );
                 }
-                
+
                 // Get Ethereum params or error if none provided
-                self.ethereum_settlement_params
-                    .map(SettlementParams::Ethereum)
-                    .ok_or_else(|| "Ethereum parameters must be provided when Ethereum settlement is selected".to_string())
+                self.ethereum_settlement_params.map(SettlementParams::Ethereum).ok_or_else(|| {
+                    "Ethereum parameters must be provided when Ethereum settlement is selected".to_string()
+                })
             }
             (false, true) => {
                 // Ensure Ethereum params are not provided
                 if self.ethereum_settlement_params.is_some() {
-                    return Err("Ethereum parameters cannot be specified when Starknet settlement is selected".to_string());
+                    return Err(
+                        "Ethereum parameters cannot be specified when Starknet settlement is selected".to_string()
+                    );
                 }
-                
+
                 // Get Starknet params or error if none provided
-                self.starknet_settlement_params
-                    .map(SettlementParams::Starknet)
-                    .ok_or_else(|| "Starknet parameters must be provided when Starknet settlement is selected".to_string())
+                self.starknet_settlement_params.map(SettlementParams::Starknet).ok_or_else(|| {
+                    "Starknet parameters must be provided when Starknet settlement is selected".to_string()
+                })
             }
-            (true, true) | (false, false) => {
-                Err("Exactly one settlement layer must be selected".to_string())
-            }
+            (true, true) | (false, false) => Err("Exactly one settlement layer must be selected".to_string()),
         }
     }
 
@@ -220,5 +214,4 @@ impl RunCmd {
             Err("Only Sharp is supported as of now".to_string())
         }
     }
-
 }

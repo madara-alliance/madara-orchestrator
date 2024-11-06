@@ -7,7 +7,7 @@ use omniqueue::{Delivery, QueueError};
 use utils::cli::queue::aws_sqs::{AWSSQSParams, QueueType};
 
 use crate::queue::QueueProvider;
-pub struct SqsQueue{
+pub struct SqsQueue {
     pub params: AWSSQSParams,
 }
 

@@ -8,7 +8,6 @@ use axum::{Json, Router};
 use job_routes::job_router;
 use serde::Serialize;
 use utils::cli::server::ServerParams;
-use utils::env_utils::get_env_var_or_default;
 
 use crate::config::Config;
 

@@ -1,3 +1,4 @@
+use ::utils::cli::database::mongodb::MongoDBParams;
 use async_std::stream::StreamExt;
 use async_trait::async_trait;
 use chrono::{SubsecRound, Utc};
@@ -10,7 +11,6 @@ use mongodb::options::{
     UpdateOptions,
 };
 use mongodb::{bson, Client, Collection};
-use ::utils::cli::database::mongodb::MongoDBParams;
 use utils::ToDocument;
 use uuid::Uuid;
 

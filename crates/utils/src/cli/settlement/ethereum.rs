@@ -6,7 +6,6 @@ use url::Url;
 // L1_CORE_CONTRACT_ADDRESS="0xE2Bb56ee936fd6433DC0F6e7e3b8365C906AA057"
 // STARKNET_OPERATOR_ADDRESS="0x5b98B836969A60FEC50Fa925905Dd1D382a7db43"
 
-
 #[derive(Debug, Clone, Args)]
 pub struct EthereumSettlementParams {
     /// The URL of the Ethereum RPC node.

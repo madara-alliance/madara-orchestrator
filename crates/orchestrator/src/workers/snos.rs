@@ -3,7 +3,6 @@ use std::sync::Arc;
 
 use async_trait::async_trait;
 use starknet::providers::Provider;
-use utils::env_utils::get_env_var_or_default;
 
 use crate::config::Config;
 use crate::jobs::create_job;
@@ -49,4 +48,3 @@ impl Worker for SnosWorker {
         Ok(())
     }
 }
-

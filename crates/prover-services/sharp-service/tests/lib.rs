@@ -1,14 +1,8 @@
-use cairo_vm::vm::runners::cairo_pie::CairoPie;
-use httpmock::MockServer;
-use prover_client_interface::{ProverClient, Task, TaskStatus};
-use rstest::rstest;
+use prover_client_interface::TaskStatus;
 use serde_json::json;
-use sharp_service::SharpProverService;
 use starknet_os::sharp::CairoJobStatus;
-use utils::{cli::RunCmd, env_utils::get_env_var_or_panic};
-use utils::settings::env::EnvSettingsProvider;
 
-use crate::constants::{CAIRO_PIE_PATH, TEST_FACT};
+use crate::constants::TEST_FACT;
 
 mod constants;
 
@@ -18,8 +12,8 @@ mod constants;
 //     dotenvy::from_filename("../.env.test").expect("Failed to load the .env file");
 
 //     let server = MockServer::start();
-//     let sharp_service = SharpProverService::with_test_settings(&EnvSettingsProvider {}, server.port());
-//     let cairo_pie_path = env!("CARGO_MANIFEST_DIR").to_string() + CAIRO_PIE_PATH;
+//     let sharp_service = SharpProverService::with_test_settings(&EnvSettingsProvider {},
+// server.port());     let cairo_pie_path = env!("CARGO_MANIFEST_DIR").to_string() + CAIRO_PIE_PATH;
 //     let cairo_pie = CairoPie::read_zip_file(cairo_pie_path.as_ref()).unwrap();
 
 //     let sharp_response = json!(
@@ -52,16 +46,17 @@ mod constants;
 //     dotenvy::from_filename("../.env.test").expect("Failed to load the .env file");
 
 //     let server = MockServer::start();
-//     let sharp_service = SharpProverService::with_test_settings(&EnvSettingsProvider {}, server.port());
-//     let customer_id = get_env_var_or_panic("SHARP_CUSTOMER_ID");
+//     let sharp_service = SharpProverService::with_test_settings(&EnvSettingsProvider {},
+// server.port());     let customer_id = get_env_var_or_panic("SHARP_CUSTOMER_ID");
 
 //     let sharp_add_job_call = server.mock(|when, then| {
 //         when.path_contains("/get_status").query_param("customer_id", customer_id.as_str());
-//         then.status(200).body(serde_json::to_vec(&get_task_status_sharp_response(&cairo_job_status)).unwrap());
-//     });
+//         then.status(200).body(serde_json::to_vec(&get_task_status_sharp_response(&
+// cairo_job_status)).unwrap());     });
 
-//     let task_status = sharp_service.get_task_status("c31381bf-4739-4667-b5b8-b08af1c6b1c7", TEST_FACT).await.unwrap();
-//     assert_eq!(task_status, get_task_status_expectation(&cairo_job_status), "Cairo Job Status assertion failed");
+//     let task_status = sharp_service.get_task_status("c31381bf-4739-4667-b5b8-b08af1c6b1c7",
+// TEST_FACT).await.unwrap();     assert_eq!(task_status,
+// get_task_status_expectation(&cairo_job_status), "Cairo Job Status assertion failed");
 
 //     sharp_add_job_call.assert();
 // }

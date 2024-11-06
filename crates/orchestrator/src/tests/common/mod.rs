@@ -3,10 +3,6 @@ pub mod constants;
 use std::collections::HashMap;
 use std::sync::Arc;
 
-use utils::cli::database::DatabaseParams;
-use utils::cli::queue::aws_sqs::QueueType;
-use utils::cli::queue::QueueParams;
-use utils::cli::storage::aws_s3::AWSS3Params;
 use ::uuid::Uuid;
 use aws_config::SdkConfig;
 use aws_sdk_sns::error::SdkError;
@@ -15,6 +11,10 @@ use chrono::{SubsecRound, Utc};
 use mongodb::Client;
 use rstest::*;
 use serde::Deserialize;
+use utils::cli::database::DatabaseParams;
+use utils::cli::queue::aws_sqs::QueueType;
+use utils::cli::queue::QueueParams;
+use utils::cli::storage::aws_s3::AWSS3Params;
 use utils::env_utils::get_env_var_or_panic;
 
 use crate::config::ProviderConfig;
@@ -24,7 +24,6 @@ use crate::database::mongodb::MongoDb;
 use crate::jobs::types::JobStatus::Created;
 use crate::jobs::types::JobType::DataSubmission;
 use crate::jobs::types::{ExternalId, JobItem};
-
 
 #[fixture]
 pub fn default_job_item() -> JobItem {
@@ -59,12 +58,10 @@ pub async fn get_sns_client(aws_config: &SdkConfig) -> aws_sdk_sns::client::Clie
     aws_sdk_sns::Client::new(aws_config)
 }
 
-pub async fn drop_database(
-    database_params: &DatabaseParams,
-) -> color_eyre::Result<()> {
+pub async fn drop_database(database_params: &DatabaseParams) -> color_eyre::Result<()> {
     match database_params {
         DatabaseParams::MongoDB(mongodb_params) => {
-            let db_client: Client = MongoDb::new_with_settings(&mongodb_params).await.client();
+            let db_client: Client = MongoDb::new_with_settings(mongodb_params).await.client();
             // dropping all the collection.
             // use .collection::<JobItem>("<collection_name>")
             // if only particular collection is to be dropped
@@ -77,10 +74,8 @@ pub async fn drop_database(
 // SQS structs & functions
 
 pub async fn create_queues(provider_config: Arc<ProviderConfig>, queue_params: &QueueParams) -> color_eyre::Result<()> {
-
     match queue_params {
         QueueParams::AWSSQS(aws_sqs_params) => {
-
             let sqs_client = get_sqs_client(provider_config).await;
 
             // Dropping sqs queues
@@ -114,6 +109,9 @@ pub struct MessagePayloadType {
     pub(crate) id: Uuid,
 }
 
-pub async fn get_storage_client(storage_cfg: &AWSS3Params, provider_config: Arc<ProviderConfig>) -> Box<dyn DataStorage + Send + Sync> {
+pub async fn get_storage_client(
+    storage_cfg: &AWSS3Params,
+    provider_config: Arc<ProviderConfig>,
+) -> Box<dyn DataStorage + Send + Sync> {
     Box::new(AWSS3::new_with_settings(storage_cfg, provider_config).await)
 }

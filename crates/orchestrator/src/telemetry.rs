@@ -9,7 +9,6 @@ use opentelemetry_sdk::metrics::reader::{DefaultAggregationSelector, DefaultTemp
 use opentelemetry_sdk::metrics::{PeriodicReader, SdkMeterProvider};
 use opentelemetry_sdk::trace::{BatchConfigBuilder, Config, Tracer};
 use opentelemetry_sdk::{runtime, Resource};
-use tracing::Level;
 use tracing_opentelemetry::OpenTelemetryLayer;
 use tracing_subscriber::layer::SubscriberExt as _;
 use tracing_subscriber::util::SubscriberInitExt as _;
@@ -143,14 +142,9 @@ mod tests {
     use std::env;
 
     use clap::Parser as _;
-    use once_cell::sync::Lazy;
     use utils::cli::RunCmd;
-    use utils::metrics::lib::Metrics;
-    use utils::register_metric;
 
     use super::*;
-    use crate::metrics::OrchestratorMetrics;
-    
 
     #[tokio::test]
     #[allow(clippy::needless_return)]
