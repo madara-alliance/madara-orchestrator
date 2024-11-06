@@ -3,8 +3,10 @@ pub mod constants;
 use std::collections::HashMap;
 use std::sync::Arc;
 
+use utils::cli::database::DatabaseParams;
+use utils::cli::queue::aws_sqs::QueueType;
+use utils::cli::queue::QueueParams;
 use utils::cli::storage::aws_s3::AWSS3Params;
-use utils::cli::storage::StorageParams;
 use ::uuid::Uuid;
 use aws_config::SdkConfig;
 use aws_sdk_sns::error::SdkError;
@@ -14,7 +16,6 @@ use mongodb::Client;
 use rstest::*;
 use serde::Deserialize;
 use utils::env_utils::get_env_var_or_panic;
-use utils::settings::env::EnvSettingsProvider;
 
 use crate::config::ProviderConfig;
 use crate::data_storage::aws_s3::AWSS3;
@@ -23,12 +24,7 @@ use crate::database::mongodb::MongoDb;
 use crate::jobs::types::JobStatus::Created;
 use crate::jobs::types::JobType::DataSubmission;
 use crate::jobs::types::{ExternalId, JobItem};
-use crate::queue::job_queue::{
-    DATA_SUBMISSION_JOB_PROCESSING_QUEUE, DATA_SUBMISSION_JOB_VERIFICATION_QUEUE,
-    PROOF_REGISTRATION_JOB_PROCESSING_QUEUE, PROOF_REGISTRATION_JOB_VERIFICATION_QUEUE, PROVING_JOB_PROCESSING_QUEUE,
-    PROVING_JOB_VERIFICATION_QUEUE, SNOS_JOB_PROCESSING_QUEUE, SNOS_JOB_VERIFICATION_QUEUE,
-    UPDATE_STATE_JOB_PROCESSING_QUEUE, UPDATE_STATE_JOB_VERIFICATION_QUEUE,
-};
+
 
 #[fixture]
 pub fn default_job_item() -> JobItem {
@@ -63,43 +59,47 @@ pub async fn get_sns_client(aws_config: &SdkConfig) -> aws_sdk_sns::client::Clie
     aws_sdk_sns::Client::new(aws_config)
 }
 
-pub async fn drop_database() -> color_eyre::Result<()> {
-    let db_client: Client = MongoDb::new_with_settings(&EnvSettingsProvider {}).await.client();
-    // dropping all the collection.
-    // use .collection::<JobItem>("<collection_name>")
-    // if only particular collection is to be dropped
-    db_client.database("orchestrator").drop(None).await?;
+pub async fn drop_database(
+    database_params: &DatabaseParams,
+) -> color_eyre::Result<()> {
+    match database_params {
+        DatabaseParams::MongoDB(mongodb_params) => {
+            let db_client: Client = MongoDb::new_with_settings(&mongodb_params).await.client();
+            // dropping all the collection.
+            // use .collection::<JobItem>("<collection_name>")
+            // if only particular collection is to be dropped
+            db_client.database(&mongodb_params.database_name).drop(None).await?;
+        }
+    }
     Ok(())
 }
 
 // SQS structs & functions
 
-pub async fn create_sqs_queues(provider_config: Arc<ProviderConfig>) -> color_eyre::Result<()> {
-    let sqs_client = get_sqs_client(provider_config).await;
+pub async fn create_queues(provider_config: Arc<ProviderConfig>, queue_params: &QueueParams) -> color_eyre::Result<()> {
 
-    // Dropping sqs queues
-    let list_queues_output = sqs_client.list_queues().send().await?;
-    let queue_urls = list_queues_output.queue_urls();
-    tracing::debug!("Found {} queues", queue_urls.len());
-    for queue_url in queue_urls {
-        match sqs_client.delete_queue().queue_url(queue_url).send().await {
-            Ok(_) => tracing::debug!("Successfully deleted queue: {}", queue_url),
-            Err(e) => tracing::error!("Error deleting queue {}: {:?}", queue_url, e),
+    match queue_params {
+        QueueParams::AWSSQS(aws_sqs_params) => {
+
+            let sqs_client = get_sqs_client(provider_config).await;
+
+            // Dropping sqs queues
+            let list_queues_output = sqs_client.list_queues().send().await?;
+            let queue_urls = list_queues_output.queue_urls();
+            tracing::debug!("Found {} queues", queue_urls.len());
+            for queue_url in queue_urls {
+                match sqs_client.delete_queue().queue_url(queue_url).send().await {
+                    Ok(_) => tracing::debug!("Successfully deleted queue: {}", queue_url),
+                    Err(e) => tracing::error!("Error deleting queue {}: {:?}", queue_url, e),
+                }
+            }
+
+            for queue_type in QueueType::iter() {
+                let queue_name = aws_sqs_params.get_queue_name(queue_type);
+                sqs_client.create_queue().queue_name(queue_name).send().await?;
+            }
         }
     }
-
-    // Creating SQS queues
-    sqs_client.create_queue().queue_name(DATA_SUBMISSION_JOB_PROCESSING_QUEUE).send().await?;
-    sqs_client.create_queue().queue_name(DATA_SUBMISSION_JOB_VERIFICATION_QUEUE).send().await?;
-    sqs_client.create_queue().queue_name(SNOS_JOB_PROCESSING_QUEUE).send().await?;
-    sqs_client.create_queue().queue_name(SNOS_JOB_VERIFICATION_QUEUE).send().await?;
-    sqs_client.create_queue().queue_name(PROVING_JOB_PROCESSING_QUEUE).send().await?;
-    sqs_client.create_queue().queue_name(PROVING_JOB_VERIFICATION_QUEUE).send().await?;
-    sqs_client.create_queue().queue_name(PROOF_REGISTRATION_JOB_PROCESSING_QUEUE).send().await?;
-    sqs_client.create_queue().queue_name(PROOF_REGISTRATION_JOB_VERIFICATION_QUEUE).send().await?;
-    sqs_client.create_queue().queue_name(UPDATE_STATE_JOB_PROCESSING_QUEUE).send().await?;
-    sqs_client.create_queue().queue_name(UPDATE_STATE_JOB_VERIFICATION_QUEUE).send().await?;
-
     Ok(())
 }
 

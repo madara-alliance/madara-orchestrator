@@ -11,11 +11,9 @@ use gps_fact_checker::FactChecker;
 use prover_client_interface::{ProverClient, ProverClientError, Task, TaskStatus};
 use starknet_os::sharp::CairoJobStatus;
 use utils::cli::prover::sharp::SharpParams;
-use utils::settings::Settings;
 use uuid::Uuid;
 
 use crate::client::SharpClient;
-use crate::config::SharpConfig;
 
 pub const SHARP_SETTINGS_NAME: &str = "sharp";
 
@@ -141,14 +139,13 @@ impl SharpProverService {
         Self::new(sharp_client, fact_checker)
     }
 
-    pub fn with_test_settings(settings: &impl Settings, port: u16) -> Self {
-        let sharp_config = SharpConfig::new_with_settings(settings)
-            .expect("Not able to create SharpProverService from given settings.");
+    pub fn with_test_settings(port: u16, sharp_params: &SharpParams) -> Self {
+        
         let sharp_client = SharpClient::new_with_settings(
             format!("http://127.0.0.1:{}", port).parse().expect("Failed to create sharp client with the given params"),
-            settings,
+            sharp_params,
         );
-        let fact_checker = FactChecker::new(sharp_config.rpc_node_url, sharp_config.verifier_address);
+        let fact_checker = FactChecker::new(sharp_params);
         Self::new(sharp_client, fact_checker)
     }
 }

@@ -12,16 +12,14 @@ use starknet::providers::jsonrpc::HttpTransport;
 use starknet::providers::JsonRpcClient;
 use url::Url;
 use utils::cli::RunCmd;
-use utils::settings::env::EnvSettingsProvider;
-use utils::settings::Settings;
 
 use crate::alerts::Alerts;
-use crate::config::{get_aws_config, Config, ProviderConfig};
+use crate::config::{get_aws_config, Config, ProviderConfig, SnosConfig};
 use crate::data_storage::{DataStorage, MockDataStorage};
 use crate::database::{Database, MockDatabase};
 use crate::queue::{MockQueueProvider, QueueProvider};
 use crate::routes::{get_server_url, setup_server};
-use crate::tests::common::{create_sns_arn, create_sqs_queues, drop_database};
+use crate::tests::common::{create_queues, create_sns_arn, drop_database};
 
 // Inspiration : https://rust-unofficial.github.io/patterns/patterns/creational/builder.html
 // TestConfigBuilder allows to heavily customise the global configs based on the test's requirement.
@@ -183,11 +181,20 @@ impl TestConfigBuilder {
 
     pub async fn build(self) -> TestConfigBuilderReturns {
         dotenvy::from_filename("../.env.test").expect("Failed to load the .env.test file");
-        let mut run_cmd: RunCmd = RunCmd::parse();
+        let run_cmd: RunCmd = RunCmd::parse();
 
-        let settings_provider = EnvSettingsProvider {};
-        let provider_config = Arc::new(ProviderConfig::AWS(Box::new(get_aws_config(&settings_provider).await)));
+        let run_cmd_clone = run_cmd.clone();
 
+        let aws_config = &run_cmd_clone.aws_config;
+        let provider_config = Arc::new(ProviderConfig::AWS(Box::new(get_aws_config(aws_config).await)));
+        let server_config = run_cmd_clone.server;
+
+        let snos_config = SnosConfig {
+            rpc_url : run_cmd_clone.snos.rpc_for_snos.clone(),
+            max_block_to_process : run_cmd_clone.snos.max_block_to_process,
+            min_block_to_process : run_cmd_clone.snos.min_block_to_process,
+        };
+        
         use std::sync::Arc;
 
         let TestConfigBuilder {
@@ -205,34 +212,44 @@ impl TestConfigBuilder {
 
         let (starknet_rpc_url, starknet_client, starknet_server) =
             implement_client::init_starknet_client(starknet_rpc_url_type, starknet_client_type).await;
-        let alerts = implement_client::init_alerts(alerts_type, &settings_provider, provider_config.clone()).await;
-        let da_client = implement_client::init_da_client(da_client_type, &settings_provider).await;
+
+        // init alerts
+        let alert_params = run_cmd.clone().validate_alert_params().map_err(|e| eyre!("Failed to validate alert params: {e}")).unwrap();
+        let alerts = implement_client::init_alerts(alerts_type, &alert_params, provider_config.clone()).await;
+
+        let da_params = run_cmd.clone().validate_da_params().unwrap();
+        let da_client = implement_client::init_da_client(da_client_type, &da_params).await;
 
         let settlement_params = run_cmd.clone().validate_settlement_params().unwrap();
         let settlement_client =
             implement_client::init_settlement_client(settlement_client_type, &settlement_params
             ).await;
 
-        let prover_client = implement_client::init_prover_client(prover_client_type, &settings_provider).await;
+        let prover_params = run_cmd.clone().validate_prover_params().map_err(|e| eyre!("Failed to validate prover params: {e}")).unwrap();
+        let prover_client = implement_client::init_prover_client(prover_client_type, &prover_params).await  ;
 
-        let snos_url =
-            Url::parse(&settings_provider.get_settings_or_panic("RPC_FOR_SNOS")).expect("Failed to parse URL");
-
+        
         // External Dependencies
         let data_storage_params = run_cmd.clone().validate_storage_params().map_err(|e| eyre!("Failed to validate storage params: {e}")).unwrap();
         let storage = implement_client::init_storage_client(storage_type, &data_storage_params, provider_config.clone()).await;
-        let database = implement_client::init_database(database_type, settings_provider).await;
-        let queue = implement_client::init_queue_client(queue_type).await;
+
+        let database_params = run_cmd.clone().validate_database_params().map_err(|e| eyre!("Failed to validate database params: {e}")).unwrap();
+        let database = implement_client::init_database(database_type, &database_params).await;
+
+        let queue_params = run_cmd.clone().validate_queue_params().map_err(|e| eyre!("Failed to validate queue params: {e}")).unwrap();
+        let queue = implement_client::init_queue_client(queue_type, queue_params.clone()).await;
         // Deleting and Creating the queues in sqs.
-        create_sqs_queues(provider_config.clone()).await.expect("Not able to delete and create the queues.");
+
+        create_queues(provider_config.clone(), &queue_params).await.expect("Not able to delete and create the queues.");
         // Deleting the database
-        drop_database().await.expect("Unable to drop the database.");
+        drop_database(&database_params).await.expect("Unable to drop the database.");
         // Creating the SNS ARN
         create_sns_arn(provider_config.clone()).await.expect("Unable to create the sns arn");
 
         let config = Arc::new(Config::new(
             starknet_rpc_url,
-            snos_url,
+            server_config,
+            snos_config,
             starknet_client,
             da_client,
             prover_client,
@@ -258,7 +275,7 @@ async fn implement_api_server(api_server_type: ConfigType, config: Arc<Config>) 
     match api_server_type {
         ConfigType::Mock(client) => {
             if let MockType::Server(router) = client {
-                let (api_server_url, listener) = get_server_url().await;
+                let (api_server_url, listener) = get_server_url(config.server_config()).await;
                 let app = Router::new().merge(router);
 
                 tokio::spawn(async move {
@@ -284,11 +301,13 @@ pub mod implement_client {
     use settlement_client_interface::{MockSettlementClient, SettlementClient};
     use starknet::providers::jsonrpc::HttpTransport;
     use starknet::providers::{JsonRpcClient, Url};
+    use utils::cli::alert::AlertParams;
+    use utils::cli::da::DaParams;
+    use utils::cli::database::DatabaseParams;
+    use utils::cli::prover::ProverParams;
+    use utils::cli::queue::QueueParams;
     use utils::cli::settlement::SettlementParams;
     use utils::cli::storage::StorageParams;
-    use utils::env_utils::get_env_var_or_panic;
-    use utils::settings::env::EnvSettingsProvider;
-    use utils::settings::Settings;
 
     use super::{ConfigType, MockType};
     use crate::alerts::{Alerts, MockAlerts};
@@ -323,10 +342,10 @@ pub mod implement_client {
     implement_mock_client_conversion!(SettlementClient, SettlementClient);
     implement_mock_client_conversion!(DaClient, DaClient);
 
-    pub(crate) async fn init_da_client(service: ConfigType, settings_provider: &impl Settings) -> Box<dyn DaClient> {
+    pub(crate) async fn init_da_client(service: ConfigType, da_params: &DaParams) -> Box<dyn DaClient> {
         match service {
             ConfigType::Mock(client) => client.into(),
-            ConfigType::Actual => build_da_client(settings_provider).await,
+            ConfigType::Actual => build_da_client(da_params).await,
             ConfigType::Dummy => Box::new(MockDaClient::new()),
         }
     }
@@ -346,23 +365,23 @@ pub mod implement_client {
 
     pub(crate) async fn init_prover_client(
         service: ConfigType,
-        settings_provider: &impl Settings,
+        prover_params: &ProverParams,
     ) -> Box<dyn ProverClient> {
         match service {
             ConfigType::Mock(client) => client.into(),
-            ConfigType::Actual => build_prover_service(settings_provider),
+            ConfigType::Actual => build_prover_service(prover_params),
             ConfigType::Dummy => Box::new(MockProverClient::new()),
         }
     }
 
     pub(crate) async fn init_alerts(
         service: ConfigType,
-        settings_provider: &impl Settings,
+        alert_params: &AlertParams,
         provider_config: Arc<ProviderConfig>,
     ) -> Box<dyn Alerts> {
         match service {
             ConfigType::Mock(client) => client.into(),
-            ConfigType::Actual => build_alert_client(settings_provider, provider_config).await,
+            ConfigType::Actual => build_alert_client(alert_params, provider_config).await,
             ConfigType::Dummy => Box::new(MockAlerts::new()),
         }
     }
@@ -387,21 +406,21 @@ pub mod implement_client {
         }
     }
 
-    pub(crate) async fn init_queue_client(service: ConfigType) -> Box<dyn QueueProvider> {
+    pub(crate) async fn init_queue_client(service: ConfigType, queue_params: QueueParams) -> Box<dyn QueueProvider> {
         match service {
             ConfigType::Mock(client) => client.into(),
-            ConfigType::Actual => build_queue_client(),
+            ConfigType::Actual => build_queue_client(&queue_params),
             ConfigType::Dummy => Box::new(MockQueueProvider::new()),
         }
     }
 
     pub(crate) async fn init_database(
         service: ConfigType,
-        settings_provider: EnvSettingsProvider,
+        database_params: &DatabaseParams,
     ) -> Box<dyn Database> {
         match service {
             ConfigType::Mock(client) => client.into(),
-            ConfigType::Actual => build_database_client(&settings_provider).await,
+            ConfigType::Actual => build_database_client(&database_params).await,
             ConfigType::Dummy => Box::new(MockDatabase::new()),
         }
     }

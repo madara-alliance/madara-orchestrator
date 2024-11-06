@@ -50,8 +50,8 @@ where
     }
 }
 
-pub async fn setup_server(config: Arc<Config>, server_params: ServerParams) -> SocketAddr {
-    let (api_server_url, listener) = get_server_url(server_params).await;
+pub async fn setup_server(config: Arc<Config>) -> SocketAddr {
+    let (api_server_url, listener) = get_server_url(config.server_config()).await;
 
     let job_routes = job_router(config.clone());
     let app_routes = app_router();
@@ -64,7 +64,7 @@ pub async fn setup_server(config: Arc<Config>, server_params: ServerParams) -> S
     api_server_url
 }
 
-pub async fn get_server_url(server_params: ServerParams) -> (SocketAddr, tokio::net::TcpListener) {
+pub async fn get_server_url(server_params: &ServerParams) -> (SocketAddr, tokio::net::TcpListener) {
     let address = format!("{}:{}", server_params.host, server_params.port);
     let listener = tokio::net::TcpListener::bind(address.clone()).await.expect("Failed to get listener");
     let api_server_url = listener.local_addr().expect("Unable to bind address to listener.");

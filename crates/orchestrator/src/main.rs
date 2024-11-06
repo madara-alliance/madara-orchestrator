@@ -27,7 +27,7 @@ async fn main() {
     tracing::debug!(service = "orchestrator", "Configuration initialized");
 
     // initialize the server
-    let _ = setup_server(config.clone(), run_cmd.server).await;
+    let _ = setup_server(config.clone()).await;
 
     tracing::debug!(service = "orchestrator", "Application router initialized");
 

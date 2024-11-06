@@ -7,6 +7,7 @@ use mongodb::bson::doc;
 use omniqueue::QueueError;
 use rstest::rstest;
 use tokio::time::sleep;
+use utils::cli::queue::aws_sqs::QueueType;
 use uuid::Uuid;
 
 use super::database::build_job_item;
@@ -18,9 +19,8 @@ use crate::jobs::types::{ExternalId, JobItem, JobStatus, JobType, JobVerificatio
 use crate::jobs::{
     create_job, handle_job_failure, increment_key_in_metadata, process_job, verify_job, Job, JobError, MockJob,
 };
-use crate::queue::job_queue::{
-    QueueNameForJobType, DATA_SUBMISSION_JOB_PROCESSING_QUEUE, DATA_SUBMISSION_JOB_VERIFICATION_QUEUE,
-};
+
+use crate::queue::job_queue::QueueNameForJobType;
 use crate::tests::common::MessagePayloadType;
 use crate::tests::config::{ConfigType, TestConfigBuilder};
 
@@ -385,14 +385,14 @@ async fn verify_job_with_verified_status_works() {
     let consumed_messages_verification_queue = services
         .config
         .queue()
-        .consume_message_from_queue(DATA_SUBMISSION_JOB_VERIFICATION_QUEUE.to_string())
+        .consume_message_from_queue(QueueType::DataSubmissionJobVerification)
         .await
         .unwrap_err();
     assert_matches!(consumed_messages_verification_queue, QueueError::NoData);
     let consumed_messages_processing_queue = services
         .config
         .queue()
-        .consume_message_from_queue(DATA_SUBMISSION_JOB_PROCESSING_QUEUE.to_string())
+        .consume_message_from_queue(QueueType::DataSubmissionJobProcessing)
         .await
         .unwrap_err();
     assert_matches!(consumed_messages_processing_queue, QueueError::NoData);
@@ -439,7 +439,7 @@ async fn verify_job_with_rejected_status_adds_to_queue_works() {
     let consumed_messages = services
         .config
         .queue()
-        .consume_message_from_queue(DATA_SUBMISSION_JOB_PROCESSING_QUEUE.to_string())
+        .consume_message_from_queue(QueueType::DataSubmissionJobProcessing)
         .await
         .unwrap();
     let consumed_message_payload: MessagePayloadType = consumed_messages.payload_serde_json().unwrap().unwrap();

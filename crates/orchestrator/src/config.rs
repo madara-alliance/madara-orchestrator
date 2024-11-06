@@ -12,7 +12,6 @@ use aws_credential_types::Credentials;
 use color_eyre::eyre::eyre;
 use da_client_interface::DaClient;
 use dotenvy::dotenv;
-use ethereum_da_client::config::EthereumDaConfig;
 use ethereum_da_client::EthereumDaClient;
 use ethereum_settlement_client::EthereumSettlementClient;
 use prover_client_interface::ProverClient;
@@ -21,19 +20,16 @@ use sharp_service::SharpProverService;
 use starknet::providers::jsonrpc::HttpTransport;
 use starknet::providers::{JsonRpcClient, Url};
 use starknet_settlement_client::StarknetSettlementClient;
-use utils::cli::alert::aws_sns::AWSSNSParams;
 use utils::cli::alert::AlertParams;
 use utils::cli::aws_config::AWSConfigParams;
 use utils::cli::da::DaParams;
 use utils::cli::database::DatabaseParams;
 use utils::cli::prover::ProverParams;
 use utils::cli::queue::QueueParams;
+use utils::cli::server::ServerParams;
 use utils::cli::settlement::SettlementParams;
 use utils::cli::storage::StorageParams;
 use utils::cli::RunCmd;
-use utils::env_utils::get_env_var_or_panic;
-use utils::settings::env::EnvSettingsProvider;
-use utils::settings::Settings;
 
 use crate::alerts::aws_sns::AWSSNS;
 use crate::alerts::Alerts;
@@ -49,6 +45,8 @@ use crate::queue::QueueProvider;
 pub struct Config {
     /// The RPC url used by the [starknet_client]
     starknet_rpc_url: Url,
+
+    server_config: ServerParams,
     /// The RPC url to be used when running SNOS
     /// When Madara supports getProof, we can re use
     /// starknet_rpc_url for SNOS as well
@@ -113,21 +111,20 @@ pub async fn get_aws_config(aws_config: &AWSConfigParams) -> SdkConfig {
 pub async fn init_config(run_cmd: &RunCmd) -> color_eyre::Result<Arc<Config>> {
     dotenv().ok();
 
-    let settings_provider = EnvSettingsProvider {};
-
     let aws_config = &run_cmd.aws_config;
     let provider_config = Arc::new(ProviderConfig::AWS(Box::new(get_aws_config(aws_config).await)));
 
     // init starknet client
-    let rpc_url = run_cmd.madara_rpc_url;
+    let rpc_url = run_cmd.madara_rpc_url.clone();
 
     // init snos url
     let snos_config = SnosConfig {
-        rpc_url : run_cmd.snos.rpc_for_snos,
+        rpc_url : run_cmd.snos.rpc_for_snos.clone(),
         max_block_to_process : run_cmd.snos.max_block_to_process,
         min_block_to_process : run_cmd.snos.min_block_to_process,
     };
     
+    let server_config = run_cmd.server.clone();
     let provider = JsonRpcClient::new(HttpTransport::new(rpc_url.clone()));
 
     // init database
@@ -164,6 +161,7 @@ pub async fn init_config(run_cmd: &RunCmd) -> color_eyre::Result<Arc<Config>> {
 
     Ok(Arc::new(Config::new(
         rpc_url,
+        server_config,
         snos_config,
         Arc::new(provider),
         da_client,
@@ -181,6 +179,7 @@ impl Config {
     #[allow(clippy::too_many_arguments)]
     pub fn new(
         starknet_rpc_url: Url,
+        server_config: ServerParams,
         snos_config: SnosConfig,
         starknet_client: Arc<JsonRpcClient<HttpTransport>>,
         da_client: Box<dyn DaClient>,
@@ -193,6 +192,7 @@ impl Config {
     ) -> Self {
         Self {
             starknet_rpc_url,
+            server_config,
             snos_config,
             starknet_client,
             da_client,
@@ -208,6 +208,11 @@ impl Config {
     /// Returns the starknet rpc url
     pub fn starknet_rpc_url(&self) -> &Url {
         &self.starknet_rpc_url
+    }
+
+    /// Returns the server config
+    pub fn server_config(&self) -> &ServerParams {
+        &self.server_config
     }
 
     /// Returns the snos rpc url
@@ -277,7 +282,6 @@ pub async fn build_da_client(da_params: &DaParams) -> Box<dyn DaClient + Send + 
 pub fn build_prover_service(prover_params: &ProverParams) -> Box<dyn ProverClient> {
     match prover_params {
         ProverParams::Sharp(sharp_params) => Box::new(SharpProverService::new_with_settings(sharp_params)),
-        _ => panic!("Unsupported prover service"),
     }
 }
 
