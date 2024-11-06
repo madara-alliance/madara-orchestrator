@@ -3,6 +3,8 @@ pub mod constants;
 use std::collections::HashMap;
 use std::sync::Arc;
 
+use utils::cli::storage::aws_s3::AWSS3Params;
+use utils::cli::storage::StorageParams;
 use ::uuid::Uuid;
 use aws_config::SdkConfig;
 use aws_sdk_sns::error::SdkError;
@@ -112,6 +114,6 @@ pub struct MessagePayloadType {
     pub(crate) id: Uuid,
 }
 
-pub async fn get_storage_client(provider_config: Arc<ProviderConfig>) -> Box<dyn DataStorage + Send + Sync> {
-    Box::new(AWSS3::new_with_settings(&EnvSettingsProvider {}, provider_config).await)
+pub async fn get_storage_client(storage_cfg: &AWSS3Params, provider_config: Arc<ProviderConfig>) -> Box<dyn DataStorage + Send + Sync> {
+    Box::new(AWSS3::new_with_settings(storage_cfg, provider_config).await)
 }

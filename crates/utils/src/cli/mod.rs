@@ -1,5 +1,6 @@
 use clap::ArgGroup;
 use settlement::SettlementParams;
+use storage::StorageParams;
 
 pub mod aws_config;
 pub mod database;
@@ -24,14 +25,12 @@ pub mod snos;
             .multiple(false)
     ),
 
-    // Solving 
-
-    // group(
-    //     ArgGroup::new("storage")
-    //         .args(&["aws_s3"])
-    //         .required(true)
-    //         .multiple(false)
-    // ),
+    group(
+        ArgGroup::new("storage")
+            .args(&["aws_s3"])
+            .required(true)
+            .multiple(false)
+    ),
      
     // group(
     //   ArgGroup::new("queue")
@@ -66,6 +65,7 @@ pub mod snos;
 
 pub struct RunCmd {
 
+    // Settlement Layer
     #[clap(long, group = "settlement_layer")]
     pub settle_on_ethereum: bool,
 
@@ -78,6 +78,13 @@ pub struct RunCmd {
     #[clap(flatten)]
     starknet_settlement_params: Option<settlement::starknet::StarknetSettlementParams>,
 
+    // Storage
+    #[clap(long, group = "storage")]
+    pub aws_s3: bool,
+    
+    #[clap(flatten)]
+    pub aws_s3_params: storage::aws_s3::AWSS3Params,
+
     // #[clap(flatten)]
     // pub server: server::ServerParams,
 
@@ -85,8 +92,7 @@ pub struct RunCmd {
     // pub aws_config: aws_config::AWSConfigParams,
 
     // // part of storage
-    // #[clap(flatten)]
-    // pub aws_s3: storage::aws_s3::AWSS3Params,
+    
 
     // // part of queue
     // #[clap(flatten)]  
@@ -155,4 +161,13 @@ impl RunCmd {
             }
         }
     }
+
+    pub fn validate_storage_params(self) -> Result<StorageParams, String> {
+        if self.aws_s3 {
+            Ok(StorageParams::AWSS3(self.aws_s3_params))
+        } else {
+            Err("Only AWS S3 is supported as of now".to_string())
+        }
+    }
+
 }

@@ -109,7 +109,7 @@ impl EthereumSettlementClient {
     ) -> Self {
         let root_provider = RootProvider::new_http(settlement_cfg.ethereum_rpc_url.clone().as_str().parse()?);
         let core_contract_address = Address::from_str(&settlement_cfg.l1_core_contract_address.clone())?;
-        let settlement_rpc_url = Url::from_str(&settlement_cfg.ethereum_rpc_url.clone())?;
+        let settlement_rpc_url = &settlement_cfg.ethereum_rpc_url.clone()?;
         let private_key = &settlement_cfg.ethereum_private_key.clone();
         let signer: PrivateKeySigner = private_key.parse().expect("Failed to parse private key");
         let wallet_address = signer.address();

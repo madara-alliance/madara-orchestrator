@@ -182,6 +182,7 @@ impl TestConfigBuilder {
     }
 
     pub async fn build(self) -> TestConfigBuilderReturns {
+        dotenvy::from_filename("../.env.test").expect("Failed to load the .env.test file");
         let mut run_cmd: RunCmd = RunCmd::parse();
 
         let settings_provider = EnvSettingsProvider {};
@@ -218,7 +219,8 @@ impl TestConfigBuilder {
             Url::parse(&settings_provider.get_settings_or_panic("RPC_FOR_SNOS")).expect("Failed to parse URL");
 
         // External Dependencies
-        let storage = implement_client::init_storage_client(storage_type, provider_config.clone()).await;
+        let data_storage_params = run_cmd.clone().validate_storage_params().map_err(|e| eyre!("Failed to validate storage params: {e}")).unwrap();
+        let storage = implement_client::init_storage_client(storage_type, &data_storage_params, provider_config.clone()).await;
         let database = implement_client::init_database(database_type, settings_provider).await;
         let queue = implement_client::init_queue_client(queue_type).await;
         // Deleting and Creating the queues in sqs.
@@ -283,6 +285,7 @@ pub mod implement_client {
     use starknet::providers::jsonrpc::HttpTransport;
     use starknet::providers::{JsonRpcClient, Url};
     use utils::cli::settlement::SettlementParams;
+    use utils::cli::storage::StorageParams;
     use utils::env_utils::get_env_var_or_panic;
     use utils::settings::env::EnvSettingsProvider;
     use utils::settings::Settings;
@@ -366,19 +369,19 @@ pub mod implement_client {
 
     pub(crate) async fn init_storage_client(
         service: ConfigType,
+        storage_cfg : &StorageParams,
         provider_config: Arc<ProviderConfig>,
     ) -> Box<dyn DataStorage> {
         match service {
             ConfigType::Mock(client) => client.into(),
             ConfigType::Actual => {
-                let storage = get_storage_client(provider_config).await;
-                match get_env_var_or_panic("DATA_STORAGE").as_str() {
-                    "s3" => {
-                        storage.as_ref().build_test_bucket(&get_env_var_or_panic("AWS_S3_BUCKET_NAME")).await.unwrap()
+                match storage_cfg {
+                    StorageParams::AWSS3(aws_s3_params) => {
+                        let storage = get_storage_client(aws_s3_params, provider_config).await;
+                        storage.as_ref().build_test_bucket(&aws_s3_params.bucket_name).await.unwrap();  
+                        storage
                     }
-                    _ => panic!("Unsupported Storage Client"),
                 }
-                storage
             }
             ConfigType::Dummy => Box::new(MockDataStorage::new()),
         }

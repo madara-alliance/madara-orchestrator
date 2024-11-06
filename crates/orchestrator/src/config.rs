@@ -21,6 +21,7 @@ use starknet::providers::jsonrpc::HttpTransport;
 use starknet::providers::{JsonRpcClient, Url};
 use starknet_settlement_client::StarknetSettlementClient;
 use utils::cli::settlement::SettlementParams;
+use utils::cli::storage::StorageParams;
 use utils::cli::RunCmd;
 use utils::env_utils::get_env_var_or_panic;
 use utils::settings::env::EnvSettingsProvider;
@@ -112,7 +113,9 @@ pub async fn init_config(run_cmd: &RunCmd) -> color_eyre::Result<Arc<Config>> {
     let settlement_client = build_settlement_client(&settlement_params).await?;
 
     let prover_client = build_prover_service(&settings_provider);
-    let storage_client = build_storage_client(&settings_provider, provider_config.clone()).await;
+
+    let data_storage_params = run_cmd.clone().validate_storage_params().map_err(|e| eyre!("Failed to validate storage params: {e}"))?;
+    let storage_client = build_storage_client(&data_storage_params, provider_config.clone()).await;
     let alerts_client = build_alert_client(&settings_provider, provider_config.clone()).await;
 
     // init the queue
@@ -277,12 +280,11 @@ pub async fn build_settlement_client(
 }
 
 pub async fn build_storage_client(
-    settings_provider: &impl Settings,
+    data_storage_params: &StorageParams,
     provider_config: Arc<ProviderConfig>,
 ) -> Box<dyn DataStorage + Send + Sync> {
-    match get_env_var_or_panic("DATA_STORAGE").as_str() {
-        "s3" => Box::new(AWSS3::new_with_settings(settings_provider, provider_config).await),
-        _ => panic!("Unsupported Storage Client"),
+    match data_storage_params {
+        StorageParams::AWSS3(aws_s3_params) => Box::new(AWSS3::new_with_settings(aws_s3_params, provider_config).await),
     }
 }
 
