@@ -20,6 +20,8 @@ pub mod metrics;
 pub mod queue;
 /// Contains the routes for the service
 pub mod routes;
+/// Contains setup functions to set up db and cloud.
+pub mod setup;
 /// Contains telemetry collection services. (Metrics/Logs/Traces)
 pub mod telemetry;
 #[cfg(test)]

@@ -21,7 +21,10 @@ use utils::settings::Settings;
 pub trait DataStorage: Send + Sync {
     async fn get_data(&self, key: &str) -> Result<Bytes>;
     async fn put_data(&self, data: Bytes, key: &str) -> Result<()>;
-    async fn build_test_bucket(&self, bucket_name: &str) -> Result<()>;
+    async fn build_bucket(&self, bucket_name: &str) -> Result<()>;
+    async fn setup(&self, bucket_name: &str) -> Result<()> {
+        self.build_bucket(bucket_name).await
+    }
 }
 
 /// **DataStorageConfig** : Trait method to represent the config struct needed for

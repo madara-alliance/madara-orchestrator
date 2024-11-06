@@ -4,6 +4,7 @@ use std::sync::Arc;
 
 use async_trait::async_trait;
 use aws_sdk_sns::Client;
+use utils::settings::env::EnvSettingsProvider;
 use utils::settings::Settings;
 
 use crate::alerts::aws_sns::config::AWSSNSConfig;
@@ -30,6 +31,15 @@ impl AWSSNS {
 impl Alerts for AWSSNS {
     async fn send_alert_message(&self, message_body: String) -> color_eyre::Result<()> {
         self.client.publish().topic_arn(self.topic_arn.clone()).message(message_body).send().await?;
+        Ok(())
+    }
+
+    async fn setup_alerts(&self) -> color_eyre::Result<()> {
+        let settings_provider = EnvSettingsProvider {};
+        let response =
+            self.client.create_topic().name(settings_provider.get_settings_or_panic("SNS_TOPIC_NAME")).send().await?;
+        let topic_arn = response.topic_arn().unwrap_or_default();
+        log::debug!("SNS topic created. Topic ARN: {}", topic_arn);
         Ok(())
     }
 }

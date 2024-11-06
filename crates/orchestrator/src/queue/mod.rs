@@ -22,6 +22,11 @@ use crate::jobs::JobError;
 pub trait QueueProvider: Send + Sync {
     async fn send_message_to_queue(&self, queue: String, payload: String, delay: Option<Duration>) -> EyreResult<()>;
     async fn consume_message_from_queue(&self, queue: String) -> std::result::Result<Delivery, QueueError>;
+    async fn create_and_setup_queues(&self) -> EyreResult<()>;
+    async fn setup(&self) -> EyreResult<()> {
+        self.create_and_setup_queues().await?;
+        Ok(())
+    }
 }
 
 pub async fn init_consumers(config: Arc<Config>) -> Result<(), JobError> {
