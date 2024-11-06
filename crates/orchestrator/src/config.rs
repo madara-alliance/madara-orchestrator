@@ -26,6 +26,7 @@ use utils::cli::alert::AlertParams;
 use utils::cli::aws_config::AWSConfigParams;
 use utils::cli::da::DaParams;
 use utils::cli::database::DatabaseParams;
+use utils::cli::prover::ProverParams;
 use utils::cli::queue::QueueParams;
 use utils::cli::settlement::SettlementParams;
 use utils::cli::storage::StorageParams;
@@ -51,7 +52,7 @@ pub struct Config {
     /// The RPC url to be used when running SNOS
     /// When Madara supports getProof, we can re use
     /// starknet_rpc_url for SNOS as well
-    snos_url: Url,
+    snos_config: SnosConfig,
     /// The starknet client to get data from the node
     starknet_client: Arc<JsonRpcClient<HttpTransport>>,
     /// The DA client to interact with the DA layer
@@ -68,6 +69,14 @@ pub struct Config {
     storage: Box<dyn DataStorage>,
     /// Alerts client
     alerts: Box<dyn Alerts>,
+}
+
+
+#[derive(Debug, Clone)]
+pub struct SnosConfig {
+    pub rpc_url : Url,
+    pub max_block_to_process : u64,
+    pub min_block_to_process : u64,
 }
 
 /// `ProviderConfig` is an enum used to represent the global config built
@@ -111,7 +120,15 @@ pub async fn init_config(run_cmd: &RunCmd) -> color_eyre::Result<Arc<Config>> {
 
     // init starknet client
     let rpc_url = Url::parse(&settings_provider.get_settings_or_panic("MADARA_RPC_URL")).expect("Failed to parse URL");
-    let snos_url = Url::parse(&settings_provider.get_settings_or_panic("RPC_FOR_SNOS")).expect("Failed to parse URL");
+
+
+    // init snos url
+    let snos_config = SnosConfig {
+        rpc_url : run_cmd.snos.rpc_for_snos,
+        max_block_to_process : run_cmd.snos.max_block_to_process,
+        min_block_to_process : run_cmd.snos.min_block_to_process,
+    };
+    
     let provider = JsonRpcClient::new(HttpTransport::new(rpc_url.clone()));
 
     // init database
@@ -126,7 +143,9 @@ pub async fn init_config(run_cmd: &RunCmd) -> color_eyre::Result<Arc<Config>> {
     let settlement_params = run_cmd.clone().validate_settlement_params().map_err(|e| eyre!("Failed to validate settlement params: {e}"))?;
     let settlement_client = build_settlement_client(&settlement_params).await?;
 
-    let prover_client = build_prover_service(&settings_provider);
+    // init prover
+    let prover_params = run_cmd.clone().validate_prover_params().map_err(|e| eyre!("Failed to validate prover params: {e}"))?;
+    let prover_client = build_prover_service(&prover_params);
 
     // init storage
     let data_storage_params = run_cmd.clone().validate_storage_params().map_err(|e| eyre!("Failed to validate storage params: {e}"))?;
@@ -146,7 +165,7 @@ pub async fn init_config(run_cmd: &RunCmd) -> color_eyre::Result<Arc<Config>> {
 
     Ok(Arc::new(Config::new(
         rpc_url,
-        snos_url,
+        snos_config,
         Arc::new(provider),
         da_client,
         prover_client,
@@ -163,7 +182,7 @@ impl Config {
     #[allow(clippy::too_many_arguments)]
     pub fn new(
         starknet_rpc_url: Url,
-        snos_url: Url,
+        snos_config: SnosConfig,
         starknet_client: Arc<JsonRpcClient<HttpTransport>>,
         da_client: Box<dyn DaClient>,
         prover_client: Box<dyn ProverClient>,
@@ -175,7 +194,7 @@ impl Config {
     ) -> Self {
         Self {
             starknet_rpc_url,
-            snos_url,
+            snos_config,
             starknet_client,
             da_client,
             prover_client,
@@ -193,8 +212,8 @@ impl Config {
     }
 
     /// Returns the snos rpc url
-    pub fn snos_url(&self) -> &Url {
-        &self.snos_url
+    pub fn snos_config(&self) -> &SnosConfig {
+        &self.snos_config
     }
 
     /// Returns the starknet client
@@ -256,9 +275,9 @@ pub async fn build_da_client(da_params: &DaParams) -> Box<dyn DaClient + Send + 
 }
 
 /// Builds the prover service based on the environment variable PROVER_SERVICE
-pub fn build_prover_service(settings_provider: &impl Settings) -> Box<dyn ProverClient> {
-    match get_env_var_or_panic("PROVER_SERVICE").as_str() {
-        "sharp" => Box::new(SharpProverService::new_with_settings(settings_provider)),
+pub fn build_prover_service(prover_params: &ProverParams) -> Box<dyn ProverClient> {
+    match prover_params {
+        ProverParams::Sharp(sharp_params) => Box::new(SharpProverService::new_with_settings(sharp_params)),
         _ => panic!("Unsupported prover service"),
     }
 }

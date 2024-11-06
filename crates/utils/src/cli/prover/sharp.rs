@@ -1,4 +1,5 @@
 use clap::Args;
+use url::Url;
 
 /// Parameters used to config Sharp.
 #[derive(Debug, Clone, Args)]
@@ -10,7 +11,7 @@ pub struct SharpParams {
 
   /// The URL of the Sharp server.
   #[arg(env = "SHARP_URL", long)]
-  pub sharp_url: String,
+  pub sharp_url: Url,
 
   /// The user certificate for Sharp.
   #[arg(env = "SHARP_USER_CRT", long)]
@@ -19,6 +20,10 @@ pub struct SharpParams {
   /// The user key for Sharp.
   #[arg(env = "SHARP_USER_KEY", long)]
   pub sharp_user_key: String,
+
+  /// The RPC node URL for Sharp.
+  #[arg(env = "SHARP_RPC_NODE_URL", long)]
+  pub sharp_rpc_node_url: Url,
 
   /// The server certificate for Sharp.
   #[arg(env = "SHARP_SERVER_CRT", long)]

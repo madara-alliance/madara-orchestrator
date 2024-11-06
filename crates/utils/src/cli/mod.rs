@@ -2,6 +2,7 @@ use alert::AlertParams;
 use clap::ArgGroup;
 use da::DaParams;
 use database::DatabaseParams;
+use prover::ProverParams;
 use queue::QueueParams;
 use settlement::SettlementParams;
 use storage::StorageParams;
@@ -50,14 +51,12 @@ pub mod snos;
           .multiple(false)
     ),
 
-    // group(
-    //     ArgGroup::new("prover")
-    //         .args(&["sharp"])
-    //         .required(true)
-    //         .multiple(false)
-    // ),
-
-   
+    group(
+        ArgGroup::new("prover")
+            .args(&["sharp"])
+            .required(true)
+            .multiple(false)
+    ),
 
     group(
         ArgGroup::new("da_layer")
@@ -125,16 +124,15 @@ pub struct RunCmd {
     #[clap(flatten)]
     pub ethereum_da_params: da::ethereum::EthereumParams,
   
-    // // part of prover
-    // #[clap(flatten)]
-    // pub sharp: prover::sharp::SharpParams,
+    // Prover
+    #[clap(long, group = "prover")]
+    pub sharp: bool,
 
-    // // part of da_layer
-    // #[clap(flatten)]
-    // pub ethereum_da: da::ethereum::EthereumParams,
+    #[clap(flatten)]
+    pub sharp_params: prover::sharp::SharpParams,
 
-    // #[clap(flatten)]
-    // pub snos: snos::SNOSParams,
+    #[clap(flatten)]
+    pub snos: snos::SNOSParams,
 
     // pub madara_rpc_url: Url,
 
@@ -210,6 +208,14 @@ impl RunCmd {
             Ok(DaParams::Ethereum(self.ethereum_da_params))
         } else {
             Err("Only Ethereum is supported as of now".to_string())
+        }
+    }
+
+    pub fn validate_prover_params(self) -> Result<ProverParams, String> {
+        if self.sharp {
+            Ok(ProverParams::Sharp(self.sharp_params))
+        } else {
+            Err("Only Sharp is supported as of now".to_string())
         }
     }
 

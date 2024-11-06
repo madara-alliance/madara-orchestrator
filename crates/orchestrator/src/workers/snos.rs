@@ -23,8 +23,8 @@ impl Worker for SnosWorker {
         let provider = config.starknet_client();
         let block_number_provider = &provider.block_number().await?;
 
-        let latest_block_number =
-            get_env_var_or_default_block_number("MAX_BLOCK_TO_PROCESS", &block_number_provider.to_string())?;
+        let snos_config = config.snos_config();
+        let latest_block_number = snos_config.max_block_to_process;
         tracing::debug!(latest_block_number = %latest_block_number, "Fetched latest block number from starknet");
 
         let latest_job_in_db = config.database().get_latest_job_by_type(JobType::SnosRun).await?;
@@ -35,7 +35,7 @@ impl Worker for SnosWorker {
         };
 
         // To be used when testing in specific block range
-        let block_start = get_env_var_or_default_block_number("MIN_BLOCK_TO_PROCESS", &latest_job_id)?;
+        let block_start = snos_config.min_block_to_process;
 
         for block_num in block_start..latest_block_number + 1 {
             match create_job(JobType::SnosRun, block_num.to_string(), HashMap::new(), config.clone()).await {
@@ -50,10 +50,3 @@ impl Worker for SnosWorker {
     }
 }
 
-fn get_env_var_or_default_block_number(env_var_name: &str, default_block_number: &str) -> color_eyre::Result<u64> {
-    if get_env_var_or_default(env_var_name, default_block_number) == *"" {
-        Ok(default_block_number.to_string().parse::<u64>()?)
-    } else {
-        Ok(get_env_var_or_default(env_var_name, default_block_number).parse::<u64>()?)
-    }
-}

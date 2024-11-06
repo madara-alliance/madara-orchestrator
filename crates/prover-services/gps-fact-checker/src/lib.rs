@@ -1,8 +1,10 @@
+use std::str::FromStr as _;
+
 use alloy::primitives::{Address, B256};
 use alloy::providers::{ProviderBuilder, RootProvider};
 use alloy::sol;
 use alloy::transports::http::{Client, Http};
-use url::Url;
+use utils::cli::prover::sharp::SharpParams;
 
 sol!(
     #[allow(missing_docs)]
@@ -25,9 +27,9 @@ type TransportT = Http<Client>;
 type ProviderT = RootProvider<TransportT>;
 
 impl FactChecker {
-    pub fn new(rpc_node_url: Url, verifier_address: Address) -> Self {
-        let provider = ProviderBuilder::new().on_http(rpc_node_url);
-        let fact_registry = FactRegistry::new(verifier_address, provider);
+    pub fn new(sharp_params: &SharpParams) -> Self {
+        let provider = ProviderBuilder::new().on_http(sharp_params.sharp_rpc_node_url.clone());
+        let fact_registry = FactRegistry::new(Address::from_str(sharp_params.gps_verifier_contract_address.as_str()).unwrap() , provider);
         Self { fact_registry }
     }
 

@@ -10,6 +10,7 @@ use async_trait::async_trait;
 use gps_fact_checker::FactChecker;
 use prover_client_interface::{ProverClient, ProverClientError, Task, TaskStatus};
 use starknet_os::sharp::CairoJobStatus;
+use utils::cli::prover::sharp::SharpParams;
 use utils::settings::Settings;
 use uuid::Uuid;
 
@@ -134,11 +135,9 @@ impl SharpProverService {
         Self { sharp_client, fact_checker }
     }
 
-    pub fn new_with_settings(settings: &impl Settings) -> Self {
-        let sharp_config = SharpConfig::new_with_settings(settings)
-            .expect("Not able to create SharpProverService from given settings.");
-        let sharp_client = SharpClient::new_with_settings(sharp_config.service_url, settings);
-        let fact_checker = FactChecker::new(sharp_config.rpc_node_url, sharp_config.verifier_address);
+    pub fn new_with_settings(sharp_params: &SharpParams) -> Self {
+        let sharp_client = SharpClient::new_with_settings(sharp_params.sharp_url.clone(), sharp_params);
+        let fact_checker = FactChecker::new(sharp_params);
         Self::new(sharp_client, fact_checker)
     }
 
