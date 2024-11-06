@@ -13,11 +13,11 @@ use utils::cli::RunCmd;
 #[allow(clippy::needless_return)]
 async fn main() {
     dotenv().ok();
-
-    let mut run_cmd: RunCmd = RunCmd::parse();
+    // TODO: could this be an ARC ?
+    let run_cmd: RunCmd = RunCmd::parse();
 
     // Analytics Setup
-    let meter_provider = setup_analytics();
+    let meter_provider = setup_analytics(&run_cmd.instrumentation);
     tracing::info!(service = "orchestrator", "Starting orchestrator service");
 
     color_eyre::install().expect("Unable to install color_eyre");
@@ -43,6 +43,6 @@ async fn main() {
     tokio::signal::ctrl_c().await.expect("Failed to listen for ctrl+c");
 
     // Analytics Shutdown
-    shutdown_analytics(meter_provider);
+    shutdown_analytics(meter_provider, &run_cmd.instrumentation);
     tracing::info!(service = "orchestrator", "Orchestrator service shutting down");
 }

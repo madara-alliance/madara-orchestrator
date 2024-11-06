@@ -19,7 +19,7 @@ pub mod snos;
     // Mutual Exclusion Solved 
     group(
         ArgGroup::new("settlement_layer")
-            .args(&["ethereum", "starknet"])
+            .args(&["settle_on_ethereum", "settle_on_starknet"])
             .required(true)
             .multiple(false)
     ),
@@ -67,10 +67,10 @@ pub mod snos;
 pub struct RunCmd {
 
     #[clap(long, group = "settlement_layer")]
-    pub ethereum: bool,
+    pub settle_on_ethereum: bool,
 
     #[clap(long, group = "settlement_layer")]
-    pub starknet: bool,
+    pub settle_on_starknet: bool,
 
     #[clap(flatten)]
     ethereum_settlement_params: Option<settlement::ethereum::EthereumSettlementParams>,
@@ -121,13 +121,13 @@ pub struct RunCmd {
 
     // pub madara_rpc_url: Url,
 
-    // #[clap(flatten)]
-    // pub instrumentation: instrumentation::InstrumentationParams,
+    #[clap(flatten)]
+    pub instrumentation: instrumentation::InstrumentationParams,
 }
 
 impl RunCmd {
     pub fn validate_settlement_params(self) -> Result<SettlementParams, String> {
-        match (self.ethereum, self.starknet) {
+        match (self.settle_on_ethereum, self.settle_on_starknet) {
             (true, false) => {
                 // Ensure Starknet params are not provided
                 if self.starknet_settlement_params.is_some() {
