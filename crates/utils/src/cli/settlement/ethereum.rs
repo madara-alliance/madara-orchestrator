@@ -33,5 +33,5 @@ pub struct EthereumSettlementParams {
 
     pub l1_core_contract_address: String,
 
-    pub starknet_operator_address: String
+    pub starknet_operator_address: String,
 }

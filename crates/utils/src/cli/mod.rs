@@ -4,7 +4,9 @@ use da::DaParams;
 use database::DatabaseParams;
 use prover::ProverParams;
 use queue::QueueParams;
-use settlement::{ethereum::EthereumSettlementParams, starknet::StarknetSettlementParams, SettlementParams};
+use settlement::ethereum::EthereumSettlementParams;
+use settlement::starknet::StarknetSettlementParams;
+use settlement::SettlementParams;
 use storage::StorageParams;
 use url::Url;
 
@@ -19,7 +21,6 @@ pub mod server;
 pub mod settlement;
 pub mod snos;
 pub mod storage;
-
 
 #[derive(Parser, Debug)]
 #[command(author, version, about, long_about = None)]
@@ -136,7 +137,7 @@ impl RunCmd {
                 // TODO: Ensure Starknet params are not provided
 
                 // Get Ethereum params or error if none provided
-                // Either all the values are provided or panic 
+                // Either all the values are provided or panic
                 let ethereum_params = EthereumSettlementParams {
                     ethereum_rpc_url: self.ethereum_args.ethereum_rpc_url.clone().unwrap(),
                     ethereum_private_key: self.ethereum_args.ethereum_private_key.clone().unwrap(),
@@ -149,17 +150,23 @@ impl RunCmd {
                 // TODO: Ensure Ethereum params are not provided
 
                 // Get Starknet params or error if none provided
-                // Either all the values are provided or panic 
+                // Either all the values are provided or panic
                 let starknet_params = StarknetSettlementParams {
                     starknet_rpc_url: self.starknet_args.starknet_rpc_url.clone().unwrap(),
                     starknet_private_key: self.starknet_args.starknet_private_key.clone().unwrap(),
                     starknet_account_address: self.starknet_args.starknet_account_address.clone().unwrap(),
-                    starknet_cairo_core_contract_address: self.starknet_args.starknet_cairo_core_contract_address.clone().unwrap(),
-                    starknet_finality_retry_wait_in_secs: self.starknet_args.starknet_finality_retry_wait_in_secs.clone().unwrap(),
+                    starknet_cairo_core_contract_address: self
+                        .starknet_args
+                        .starknet_cairo_core_contract_address
+                        .clone()
+                        .unwrap(),
+                    starknet_finality_retry_wait_in_secs: self
+                        .starknet_args
+                        .starknet_finality_retry_wait_in_secs
+                        .unwrap(),
                     madara_binary_path: self.starknet_args.madara_binary_path.clone().unwrap(),
                 };
                 Ok(SettlementParams::Starknet(starknet_params))
-               
             }
             (true, true) | (false, false) => Err("Exactly one settlement layer must be selected".to_string()),
         }

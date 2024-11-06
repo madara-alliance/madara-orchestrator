@@ -15,7 +15,7 @@ async fn main() {
     dotenv().ok();
     // TODO: could this be an ARC ?
     let run_cmd: RunCmd = RunCmd::parse();
-    
+
     // print the run cmd
     println!("{:?}", run_cmd);
 

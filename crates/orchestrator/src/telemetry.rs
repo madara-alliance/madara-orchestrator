@@ -139,23 +139,25 @@ fn init_logs(otel_config: &OTELConfig) -> Result<LoggerProvider, opentelemetry::
 
 #[cfg(test)]
 mod tests {
-    use std::env;
-
-    use clap::Parser as _;
-    use utils::cli::RunCmd;
+    use once_cell::sync::Lazy;
+    use tracing::Level;
+    use utils::metrics::lib::Metrics;
+    use utils::register_metric;
 
     use super::*;
+    use crate::metrics::OrchestratorMetrics;
 
     #[tokio::test]
     #[allow(clippy::needless_return)]
     async fn test_init_metric_provider() {
         // Set up necessary environment variables
-        env::set_var("OTEL_COLLECTOR_ENDPOINT", "http://localhost:4317");
-        env::set_var("OTEL_SERVICE_NAME", "test_service");
+        let instrumentation_params = InstrumentationParams {
+            otel_collector_endpoint: Some(Url::parse("http://localhost:4317").unwrap()),
+            otel_service_name: "test_service".to_string(),
+            log_level: Level::INFO,
+        };
 
-        let run_cmd = RunCmd::parse();
-
-        let otel_config = get_otel_config(&run_cmd.instrumentation).unwrap();
+        let otel_config = get_otel_config(&instrumentation_params).unwrap();
 
         // Call the function and check if it doesn't panic
         let result = std::panic::catch_unwind(|| {
@@ -167,45 +169,54 @@ mod tests {
         assert!(result.is_ok(), "init_metric_provider() panicked")
     }
 
-    // #[tokio::test]
-    // #[allow(clippy::needless_return)]
-    // async fn test_init_tracer_provider() {
-    //     // Set up necessary environment variables
-    //     env::set_var("OTEL_COLLECTOR_ENDPOINT", "http://localhost:4317");
-    //     env::set_var("OTEL_SERVICE_NAME", "test_service");
-    //     let otel_config = get_otel_config().unwrap();
+    #[tokio::test]
+    #[allow(clippy::needless_return)]
+    async fn test_init_tracer_provider() {
+        // Set up necessary environment variables
+        let instrumentation_params = InstrumentationParams {
+            otel_collector_endpoint: Some(Url::parse("http://localhost:4317").unwrap()),
+            otel_service_name: "test_service".to_string(),
+            log_level: Level::INFO,
+        };
 
-    //     // Call the function and check if it doesn't panic
-    //     let result = std::panic::catch_unwind(|| {
-    //         let _tracer = init_tracer_provider(&otel_config);
-    //     });
+        let otel_config = get_otel_config(&instrumentation_params).unwrap();
 
-    //     assert!(result.is_ok(), "init_tracer_provider() panicked");
-    // }
+        // Call the function and check if it doesn't panic
+        let result = std::panic::catch_unwind(|| {
+            let _tracer = init_tracer_provider(&otel_config);
+        });
 
-    // #[tokio::test]
-    // #[allow(clippy::needless_return)]
-    // async fn test_init_analytics() {
-    //     // This test just ensures that the function doesn't panic
+        assert!(result.is_ok(), "init_tracer_provider() panicked");
+    }
 
-    //     env::set_var("OTEL_COLLECTOR_ENDPOINT", "http://localhost:4317");
-    //     env::set_var("OTEL_SERVICE_NAME", "test_service");
+    #[tokio::test]
+    #[allow(clippy::needless_return)]
+    async fn test_init_analytics() {
+        // This test just ensures that the function doesn't panic
+        let instrumentation_params = InstrumentationParams {
+            otel_collector_endpoint: Some(Url::parse("http://localhost:4317").unwrap()),
+            otel_service_name: "test_service".to_string(),
+            log_level: Level::INFO,
+        };
 
-    //     let analytics = setup_analytics();
+        let analytics = setup_analytics(&instrumentation_params);
 
-    //     assert!(analytics.is_some(), " Unable to set analytics")
-    // }
+        assert!(analytics.is_some(), " Unable to set analytics")
+    }
 
-    // #[tokio::test]
-    // #[allow(clippy::needless_return)]
-    // async fn test_gauge_setter() {
-    //     // This test just ensures that the function doesn't panic
+    #[tokio::test]
+    #[allow(clippy::needless_return)]
+    async fn test_gauge_setter() {
+        // This test just ensures that the function doesn't panic
 
-    //     env::set_var("OTEL_COLLECTOR_ENDPOINT", "http://localhost:4317");
-    //     env::set_var("OTEL_SERVICE_NAME", "test_service");
+        let instrumentation_params = InstrumentationParams {
+            otel_collector_endpoint: Some(Url::parse("http://localhost:4317").unwrap()),
+            otel_service_name: "test_service".to_string(),
+            log_level: Level::INFO,
+        };
 
-    //     setup_analytics();
+        setup_analytics(&instrumentation_params);
 
-    //     register_metric!(ORCHESTRATOR_METRICS, OrchestratorMetrics);
-    // }
+        register_metric!(ORCHESTRATOR_METRICS, OrchestratorMetrics);
+    }
 }

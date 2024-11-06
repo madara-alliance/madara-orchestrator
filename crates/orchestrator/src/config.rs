@@ -138,8 +138,7 @@ pub async fn init_config(run_cmd: &RunCmd) -> color_eyre::Result<Arc<Config>> {
     let settlement_client = build_settlement_client(&settlement_params).await?;
 
     // init prover
-    let prover_params =
-        run_cmd.validate_prover_params().map_err(|e| eyre!("Failed to validate prover params: {e}"))?;
+    let prover_params = run_cmd.validate_prover_params().map_err(|e| eyre!("Failed to validate prover params: {e}"))?;
     let prover_client = build_prover_service(&prover_params);
 
     // init storage
@@ -148,8 +147,7 @@ pub async fn init_config(run_cmd: &RunCmd) -> color_eyre::Result<Arc<Config>> {
     let storage_client = build_storage_client(&data_storage_params, provider_config.clone()).await;
 
     // init alerts
-    let alert_params =
-        run_cmd.validate_alert_params().map_err(|e| eyre!("Failed to validate alert params: {e}"))?;
+    let alert_params = run_cmd.validate_alert_params().map_err(|e| eyre!("Failed to validate alert params: {e}"))?;
     let alerts_client = build_alert_client(&alert_params, provider_config.clone()).await;
 
     // init the queue
@@ -157,8 +155,7 @@ pub async fn init_config(run_cmd: &RunCmd) -> color_eyre::Result<Arc<Config>> {
     // from `SdkConfig`. We can later move to using `aws_sdk_sqs`. This would require
     // us stop using the generic omniqueue abstractions for message ack/nack
     // init queue
-    let queue_params =
-        run_cmd.validate_queue_params().map_err(|e| eyre!("Failed to validate queue params: {e}"))?;
+    let queue_params = run_cmd.validate_queue_params().map_err(|e| eyre!("Failed to validate queue params: {e}"))?;
     let queue = build_queue_client(&queue_params);
 
     Ok(Arc::new(Config::new(
