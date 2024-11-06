@@ -1,10 +1,10 @@
 use alert::AlertParams;
-use clap::ArgGroup;
+use clap::{command, ArgGroup, Parser};
 use da::DaParams;
 use database::DatabaseParams;
 use prover::ProverParams;
 use queue::QueueParams;
-use settlement::SettlementParams;
+use settlement::{ethereum::EthereumSettlementParams, starknet::StarknetSettlementParams, SettlementParams};
 use storage::StorageParams;
 use url::Url;
 
@@ -20,7 +20,9 @@ pub mod settlement;
 pub mod snos;
 pub mod storage;
 
-#[derive(Clone, Debug, clap::Parser)]
+
+#[derive(Parser, Debug)]
+#[command(author, version, about, long_about = None)]
 #[clap(
     group(
         ArgGroup::new("settlement_layer")
@@ -59,24 +61,17 @@ pub mod storage;
             .multiple(false)
     ),
 )]
-
 pub struct RunCmd {
     // AWS Config
     #[clap(flatten)]
     pub aws_config: aws_config::AWSConfigParams,
 
     // Settlement Layer
-    #[clap(long, group = "settlement_layer")]
-    pub settle_on_ethereum: bool,
+    #[command(flatten)]
+    ethereum_args: settlement::ethereum::EthereumSettlementArgs,
 
-    #[clap(long, group = "settlement_layer")]
-    pub settle_on_starknet: bool,
-
-    #[clap(flatten)]
-    ethereum_settlement_params: Option<settlement::ethereum::EthereumSettlementParams>,
-
-    #[clap(flatten)]
-    starknet_settlement_params: Option<settlement::starknet::StarknetSettlementParams>,
+    #[command(flatten)]
+    starknet_args: settlement::starknet::StarknetSettlementArgs,
 
     // Storage
     #[clap(long, group = "storage")]
@@ -135,81 +130,84 @@ pub struct RunCmd {
 }
 
 impl RunCmd {
-    pub fn validate_settlement_params(self) -> Result<SettlementParams, String> {
-        match (self.settle_on_ethereum, self.settle_on_starknet) {
+    pub fn validate_settlement_params(&self) -> Result<SettlementParams, String> {
+        match (self.ethereum_args.settle_on_ethereum, self.starknet_args.settle_on_starknet) {
             (true, false) => {
-                // Ensure Starknet params are not provided
-                if self.starknet_settlement_params.is_some() {
-                    return Err(
-                        "Starknet parameters cannot be specified when Ethereum settlement is selected".to_string()
-                    );
-                }
+                // TODO: Ensure Starknet params are not provided
 
                 // Get Ethereum params or error if none provided
-                self.ethereum_settlement_params.map(SettlementParams::Ethereum).ok_or_else(|| {
-                    "Ethereum parameters must be provided when Ethereum settlement is selected".to_string()
-                })
+                // Either all the values are provided or panic 
+                let ethereum_params = EthereumSettlementParams {
+                    ethereum_rpc_url: self.ethereum_args.ethereum_rpc_url.clone().unwrap(),
+                    ethereum_private_key: self.ethereum_args.ethereum_private_key.clone().unwrap(),
+                    l1_core_contract_address: self.ethereum_args.l1_core_contract_address.clone().unwrap(),
+                    starknet_operator_address: self.ethereum_args.starknet_operator_address.clone().unwrap(),
+                };
+                Ok(SettlementParams::Ethereum(ethereum_params))
             }
             (false, true) => {
-                // Ensure Ethereum params are not provided
-                if self.ethereum_settlement_params.is_some() {
-                    return Err(
-                        "Ethereum parameters cannot be specified when Starknet settlement is selected".to_string()
-                    );
-                }
+                // TODO: Ensure Ethereum params are not provided
 
                 // Get Starknet params or error if none provided
-                self.starknet_settlement_params.map(SettlementParams::Starknet).ok_or_else(|| {
-                    "Starknet parameters must be provided when Starknet settlement is selected".to_string()
-                })
+                // Either all the values are provided or panic 
+                let starknet_params = StarknetSettlementParams {
+                    starknet_rpc_url: self.starknet_args.starknet_rpc_url.clone().unwrap(),
+                    starknet_private_key: self.starknet_args.starknet_private_key.clone().unwrap(),
+                    starknet_account_address: self.starknet_args.starknet_account_address.clone().unwrap(),
+                    starknet_cairo_core_contract_address: self.starknet_args.starknet_cairo_core_contract_address.clone().unwrap(),
+                    starknet_finality_retry_wait_in_secs: self.starknet_args.starknet_finality_retry_wait_in_secs.clone().unwrap(),
+                    madara_binary_path: self.starknet_args.madara_binary_path.clone().unwrap(),
+                };
+                Ok(SettlementParams::Starknet(starknet_params))
+               
             }
             (true, true) | (false, false) => Err("Exactly one settlement layer must be selected".to_string()),
         }
     }
 
-    pub fn validate_storage_params(self) -> Result<StorageParams, String> {
+    pub fn validate_storage_params(&self) -> Result<StorageParams, String> {
         if self.aws_s3 {
-            Ok(StorageParams::AWSS3(self.aws_s3_params))
+            Ok(StorageParams::AWSS3(self.aws_s3_params.clone()))
         } else {
             Err("Only AWS S3 is supported as of now".to_string())
         }
     }
 
-    pub fn validate_queue_params(self) -> Result<QueueParams, String> {
+    pub fn validate_queue_params(&self) -> Result<QueueParams, String> {
         if self.aws_sqs {
-            Ok(QueueParams::AWSSQS(self.aws_sqs_params))
+            Ok(QueueParams::AWSSQS(self.aws_sqs_params.clone()))
         } else {
             Err("Only AWS SQS is supported as of now".to_string())
         }
     }
 
-    pub fn validate_alert_params(self) -> Result<AlertParams, String> {
+    pub fn validate_alert_params(&self) -> Result<AlertParams, String> {
         if self.aws_sns {
-            Ok(AlertParams::AWSSNS(self.aws_sns_params))
+            Ok(AlertParams::AWSSNS(self.aws_sns_params.clone()))
         } else {
             Err("Only AWS SNS is supported as of now".to_string())
         }
     }
 
-    pub fn validate_database_params(self) -> Result<DatabaseParams, String> {
+    pub fn validate_database_params(&self) -> Result<DatabaseParams, String> {
         if self.mongodb {
-            Ok(DatabaseParams::MongoDB(self.mongodb_params))
+            Ok(DatabaseParams::MongoDB(self.mongodb_params.clone()))
         } else {
             Err("Only MongoDB is supported as of now".to_string())
         }
     }
 
-    pub fn validate_da_params(self) -> Result<DaParams, String> {
+    pub fn validate_da_params(&self) -> Result<DaParams, String> {
         if self.da_on_ethereum {
-            Ok(DaParams::Ethereum(self.ethereum_da_params))
+            Ok(DaParams::Ethereum(self.ethereum_da_params.clone()))
         } else {
             Err("Only Ethereum is supported as of now".to_string())
         }
     }
 
-    pub fn validate_prover_params(self) -> Result<ProverParams, String> {
+    pub fn validate_prover_params(&self) -> Result<ProverParams, String> {
         if self.sharp {
-            Ok(ProverParams::Sharp(self.sharp_params))
+            Ok(ProverParams::Sharp(self.sharp_params.clone()))
         } else {
             Err("Only Sharp is supported as of now".to_string())
         }

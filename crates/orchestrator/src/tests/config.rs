@@ -181,21 +181,17 @@ impl TestConfigBuilder {
 
     pub async fn build(self) -> TestConfigBuilderReturns {
         dotenvy::from_filename("../.env.test").expect("Failed to load the .env.test file");
-        let run_cmd: RunCmd = RunCmd::parse();
+        let run_cmd = RunCmd::parse();
 
-        let run_cmd_clone = run_cmd.clone();
-
-        let aws_config = &run_cmd_clone.aws_config;
+        let aws_config = &run_cmd.aws_config;
         let provider_config = Arc::new(ProviderConfig::AWS(Box::new(get_aws_config(aws_config).await)));
-        let server_config = run_cmd_clone.server;
+        let server_config = run_cmd.server.clone();
 
         let snos_config = SnosConfig {
-            rpc_url: run_cmd_clone.snos.rpc_for_snos.clone(),
-            max_block_to_process: run_cmd_clone.snos.max_block_to_process,
-            min_block_to_process: run_cmd_clone.snos.min_block_to_process,
+            rpc_url: run_cmd.snos.rpc_for_snos.clone(),
+            max_block_to_process: run_cmd.snos.max_block_to_process,
+            min_block_to_process: run_cmd.snos.min_block_to_process,
         };
-
-        use std::sync::Arc;
 
         let TestConfigBuilder {
             starknet_rpc_url_type,
@@ -215,41 +211,28 @@ impl TestConfigBuilder {
 
         // init alerts
         let alert_params =
-            run_cmd.clone().validate_alert_params().map_err(|e| eyre!("Failed to validate alert params: {e}")).unwrap();
+            run_cmd.validate_alert_params().map_err(|e| eyre!("Failed to validate alert params: {e}")).unwrap();
         let alerts = implement_client::init_alerts(alerts_type, &alert_params, provider_config.clone()).await;
 
-        let da_params = run_cmd.clone().validate_da_params().unwrap();
+        let da_params = run_cmd.validate_da_params().unwrap();
         let da_client = implement_client::init_da_client(da_client_type, &da_params).await;
 
-        let settlement_params = run_cmd.clone().validate_settlement_params().unwrap();
+        let settlement_params = run_cmd.validate_settlement_params().unwrap();
         let settlement_client =
             implement_client::init_settlement_client(settlement_client_type, &settlement_params).await;
 
-        let prover_params = run_cmd
-            .clone()
-            .validate_prover_params()
-            .map_err(|e| eyre!("Failed to validate prover params: {e}"))
-            .unwrap();
+        let prover_params = run_cmd.validate_prover_params().unwrap();
         let prover_client = implement_client::init_prover_client(prover_client_type, &prover_params).await;
 
         // External Dependencies
-        let data_storage_params = run_cmd
-            .clone()
-            .validate_storage_params()
-            .map_err(|e| eyre!("Failed to validate storage params: {e}"))
-            .unwrap();
+        let data_storage_params = run_cmd.validate_storage_params().unwrap();
         let storage =
             implement_client::init_storage_client(storage_type, &data_storage_params, provider_config.clone()).await;
 
-        let database_params = run_cmd
-            .clone()
-            .validate_database_params()
-            .map_err(|e| eyre!("Failed to validate database params: {e}"))
-            .unwrap();
+        let database_params = run_cmd.validate_database_params().unwrap();
         let database = implement_client::init_database(database_type, &database_params).await;
 
-        let queue_params =
-            run_cmd.clone().validate_queue_params().map_err(|e| eyre!("Failed to validate queue params: {e}")).unwrap();
+        let queue_params = run_cmd.validate_queue_params().unwrap();
         let queue = implement_client::init_queue_client(queue_type, queue_params.clone()).await;
         // Deleting and Creating the queues in sqs.
 
