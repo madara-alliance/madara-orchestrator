@@ -42,6 +42,9 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ## Changed
 
+- refactor: update json made generic to update any json file
+- refactor: makefile updated as per bootstraper changes
+- removed error return in case of JobAlreadyExists in `create_job` function
 - update_job returns the updated job item
 - made create_job atomic to avoid race conditions
 - handle jobs in tokio tasks
@@ -68,6 +71,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ## Fixed
 
+- blob data formation process from state update
 - OTEL config refactor
 - indexing for get_jobs_without_successor
 - wait for transaction logic in ethereum settlement client
