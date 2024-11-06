@@ -1,4 +1,5 @@
 use clap::Args;
+use url::Url;
 
 
 // STARKNET_RPC_URL="https://starknet-sepolia.public.blastapi.io"
@@ -13,7 +14,7 @@ use clap::Args;
 pub struct StarknetSettlementParams {
     /// The URL of the Ethereum RPC node.
     #[arg(env = "STARKNET_RPC_URL", long)]
-    pub starknet_rpc_url: String,
+    pub starknet_rpc_url: Url,
   
     /// The private key of the Ethereum account.
     #[arg(env = "STARKNET_PRIVATE_KEY", long)]
@@ -29,7 +30,7 @@ pub struct StarknetSettlementParams {
 
     /// The number of seconds to wait for finality.
     #[arg(env = "STARKNET_FINALITY_RETRY_WAIT_IN_SECS", long)]
-    pub starknet_finality_retry_wait_in_secs: String,
+    pub starknet_finality_retry_wait_in_secs: u64,
 
     /// The path to the Madara binary.
     #[arg(env = "MADARA_BINARY_PATH", long)]

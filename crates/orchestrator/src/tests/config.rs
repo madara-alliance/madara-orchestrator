@@ -2,6 +2,8 @@ use std::net::SocketAddr;
 use std::sync::Arc;
 
 use axum::Router;
+use clap::Parser;
+use color_eyre::eyre::eyre;
 use da_client_interface::{DaClient, MockDaClient};
 use httpmock::MockServer;
 use prover_client_interface::{MockProverClient, ProverClient};
@@ -9,6 +11,7 @@ use settlement_client_interface::{MockSettlementClient, SettlementClient};
 use starknet::providers::jsonrpc::HttpTransport;
 use starknet::providers::JsonRpcClient;
 use url::Url;
+use utils::cli::RunCmd;
 use utils::settings::env::EnvSettingsProvider;
 use utils::settings::Settings;
 
@@ -179,7 +182,7 @@ impl TestConfigBuilder {
     }
 
     pub async fn build(self) -> TestConfigBuilderReturns {
-        dotenvy::from_filename("../.env.test").expect("Failed to load the .env.test file");
+        let mut run_cmd: RunCmd = RunCmd::parse();
 
         let settings_provider = EnvSettingsProvider {};
         let provider_config = Arc::new(ProviderConfig::AWS(Box::new(get_aws_config(&settings_provider).await)));
@@ -204,8 +207,10 @@ impl TestConfigBuilder {
         let alerts = implement_client::init_alerts(alerts_type, &settings_provider, provider_config.clone()).await;
         let da_client = implement_client::init_da_client(da_client_type, &settings_provider).await;
 
+        let settlement_params = run_cmd.clone().validate_settlement_params().unwrap();
         let settlement_client =
-            implement_client::init_settlement_client(settlement_client_type, &settings_provider).await;
+            implement_client::init_settlement_client(settlement_client_type, &settlement_params
+            ).await;
 
         let prover_client = implement_client::init_prover_client(prover_client_type, &settings_provider).await;
 
@@ -277,6 +282,7 @@ pub mod implement_client {
     use settlement_client_interface::{MockSettlementClient, SettlementClient};
     use starknet::providers::jsonrpc::HttpTransport;
     use starknet::providers::{JsonRpcClient, Url};
+    use utils::cli::settlement::SettlementParams;
     use utils::env_utils::get_env_var_or_panic;
     use utils::settings::env::EnvSettingsProvider;
     use utils::settings::Settings;
@@ -324,12 +330,12 @@ pub mod implement_client {
 
     pub(crate) async fn init_settlement_client(
         service: ConfigType,
-        settings_provider: &impl Settings,
+        settlement_cfg : &SettlementParams
     ) -> Box<dyn SettlementClient> {
         match service {
             ConfigType::Mock(client) => client.into(),
             ConfigType::Actual => {
-                build_settlement_client(settings_provider).await.expect("Failed to initialise settlement_client")
+                build_settlement_client(settlement_cfg).await.expect("Failed to initialise settlement_client")
             }
             ConfigType::Dummy => Box::new(MockSettlementClient::new()),
         }

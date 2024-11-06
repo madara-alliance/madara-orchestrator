@@ -9,6 +9,8 @@ edition.workspace = true
 color-eyre = { workspace = true }
 serde.workspace = true
 thiserror.workspace = true
+clap = { version = "4.4", features = ["derive", "env"] }
+url = { workspace = true }
 
 #Instrumentation
 opentelemetry = { workspace = true, features = ["metrics", "logs"] }

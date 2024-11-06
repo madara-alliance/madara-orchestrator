@@ -25,6 +25,7 @@ use conversion::{get_input_data_for_eip_4844, prepare_sidecar};
 use settlement_client_interface::{SettlementClient, SettlementVerificationStatus};
 #[cfg(feature = "testing")]
 use url::Url;
+use utils::cli::settlement::ethereum::EthereumSettlementParams;
 use utils::env_utils::get_env_var_or_panic;
 
 use crate::clients::interfaces::validity_interface::StarknetValidityContractTrait;
@@ -74,23 +75,25 @@ pub struct EthereumSettlementClient {
 }
 
 impl EthereumSettlementClient {
-    pub fn new_with_settings(settings: &impl Settings) -> Self {
-        let settlement_cfg = EthereumSettlementConfig::new_with_settings(settings);
-        let private_key = get_env_var_or_panic(ENV_PRIVATE_KEY);
+    pub fn new_with_settings(settlement_cfg: &EthereumSettlementParams) -> Self {
+        // let settlement_cfg = EthereumSettlementConfig::new_with_settings(settings);3
+        // TODO: can pass the actual struct here no ned for reference
+        let private_key = settlement_cfg.ethereum_private_key.clone();
         let signer: PrivateKeySigner = private_key.parse().expect("Failed to parse private key");
         let wallet_address = signer.address();
         let wallet = EthereumWallet::from(signer);
 
         // provider without wallet
-        let provider = Arc::new(ProviderBuilder::new().on_http(settlement_cfg.rpc_url.clone()));
+        let provider = Arc::new(ProviderBuilder::new().on_http(settlement_cfg.ethereum_rpc_url.clone()));
 
         // provider with wallet
         let filler_provider = Arc::new(
-            ProviderBuilder::new().with_recommended_fillers().wallet(wallet.clone()).on_http(settlement_cfg.rpc_url),
+            ProviderBuilder::new().with_recommended_fillers().wallet(wallet.clone()).on_http(settlement_cfg.ethereum_rpc_url.clone()),
         );
 
+        
         let core_contract_client = StarknetValidityContractClient::new(
-            Address::from_str(&settlement_cfg.core_contract_address)
+            Address::from_str(&settlement_cfg.l1_core_contract_address)
                 .expect("Failed to convert the validity contract address.")
                 .0
                 .into(),
@@ -102,18 +105,18 @@ impl EthereumSettlementClient {
 
     #[cfg(feature = "testing")]
     pub fn with_test_settings(
-        provider: RootProvider<Http<Client>>,
-        core_contract_address: Address,
-        rpc_url: Url,
-        impersonate_account: Option<Address>,
+        settlement_cfg: &EthereumSettlementParams,
     ) -> Self {
-        let private_key = get_env_var_or_panic(ENV_PRIVATE_KEY);
+        let root_provider = RootProvider::new_http(settlement_cfg.ethereum_rpc_url.clone().as_str().parse()?);
+        let core_contract_address = Address::from_str(&settlement_cfg.l1_core_contract_address.clone())?;
+        let settlement_rpc_url = Url::from_str(&settlement_cfg.ethereum_rpc_url.clone())?;
+        let private_key = &settlement_cfg.ethereum_private_key.clone();
         let signer: PrivateKeySigner = private_key.parse().expect("Failed to parse private key");
         let wallet_address = signer.address();
         let wallet = EthereumWallet::from(signer);
 
         let fill_provider =
-            Arc::new(ProviderBuilder::new().with_recommended_fillers().wallet(wallet.clone()).on_http(rpc_url));
+            Arc::new(ProviderBuilder::new().with_recommended_fillers().wallet(wallet.clone()).on_http(settlement_rpc_url));
 
         let core_contract_client = StarknetValidityContractClient::new(core_contract_address, fill_provider);
 

@@ -1,9 +1,10 @@
+use clap::Parser as _;
 use dotenvy::dotenv;
 use orchestrator::config::init_config;
 use orchestrator::queue::init_consumers;
 use orchestrator::routes::setup_server;
 use orchestrator::telemetry::{setup_analytics, shutdown_analytics};
-use orchestrator::cli::RunCmd;
+use utils::cli::RunCmd;
 
 /// Start the server
 #[tokio::main]
@@ -12,6 +13,9 @@ use orchestrator::cli::RunCmd;
 #[allow(clippy::needless_return)]
 async fn main() {
     dotenv().ok();
+
+    let mut run_cmd: RunCmd = RunCmd::parse();
+
     // Analytics Setup
     let meter_provider = setup_analytics();
     tracing::info!(service = "orchestrator", "Starting orchestrator service");
@@ -19,7 +23,7 @@ async fn main() {
     color_eyre::install().expect("Unable to install color_eyre");
 
     // initial config setup
-    let config = init_config().await.expect("Config instantiation failed");
+    let config = init_config(&run_cmd).await.expect("Config instantiation failed");
     tracing::debug!(service = "orchestrator", "Configuration initialized");
 
     // initialize the server

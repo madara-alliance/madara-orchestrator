@@ -2,6 +2,7 @@ pub mod collections;
 pub mod env_utils;
 pub mod metrics;
 pub mod settings;
+pub mod cli;
 
 /// Evaluate `$x:expr` and if not true return `Err($y:expr)`.
 ///

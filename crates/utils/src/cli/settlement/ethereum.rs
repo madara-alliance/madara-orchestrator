@@ -1,5 +1,5 @@
 use clap::Args;
-
+use url::Url;
 
 // SETTLEMENT_RPC_URL="https://eth-sepolia.public.blastapi.io"
 // ETHEREUM_PRIVATE_KEY="0xac0974bec39a17e36ba4a6b4d238ff944bacb478cbed5efcae784d7bf4f2ff80"
@@ -11,7 +11,7 @@ use clap::Args;
 pub struct EthereumSettlementParams {
     /// The URL of the Ethereum RPC node.
     #[arg(env = "ETHEREUM_SETTLEMENT_RPC_URL", long)]
-    pub ethereum_rpc_url: String,
+    pub ethereum_rpc_url: Url,
 
     /// The private key of the Ethereum account.
     #[arg(env = "ETHEREUM_PRIVATE_KEY", long)]
