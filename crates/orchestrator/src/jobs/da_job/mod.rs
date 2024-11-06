@@ -619,9 +619,8 @@ pub mod test {
 
         refactor_state_update(&mut state_diff);
 
-        assert!(verify_addresses_have_storage_diffs(&state_diff));
+        assert!(verify_addresses_have_storage_diffs(&state_diff, &initial_storage));
         verify_unique_addresses(&state_diff, expected_storage_count);
-        verify_storage_preservation(&state_diff, &initial_storage);
     }
 
     pub(crate) fn read_state_update_from_file(file_path: &str) -> Result<StateUpdate> {
@@ -702,7 +701,10 @@ pub mod test {
         assert_eq!(unique_addresses.len(), expected_count, "Unexpected number of storage diffs");
     }
 
-    fn verify_storage_preservation(state_diff: &StateDiff, initial_storage: &Vec<ContractStorageDiffItem>) {
+    fn verify_addresses_have_storage_diffs(
+        state_diff: &StateDiff,
+        initial_storage: &Vec<ContractStorageDiffItem>,
+    ) -> bool {
         for orig_storage in initial_storage {
             if let Some(current_storage) =
                 state_diff.storage_diffs.iter().find(|item| item.address == orig_storage.address)
@@ -713,9 +715,7 @@ pub mod test {
                 );
             }
         }
-    }
 
-    fn verify_addresses_have_storage_diffs(state_diff: &StateDiff) -> bool {
         let storage_addresses: HashSet<_> = state_diff.storage_diffs.iter().map(|item| &item.address).collect();
 
         state_diff.nonces.iter().all(|item| storage_addresses.contains(&item.contract_address))
