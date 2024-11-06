@@ -398,20 +398,17 @@ fn da_word(class_flag: bool, nonce_change: Option<Felt>, num_changes: u64) -> Fe
 fn refactor_state_update(state_update: &mut StateDiff) {
     let existing_storage: HashSet<_> = state_update.storage_diffs.iter().map(|item| item.address).collect();
 
-    let required_addresses: HashSet<_> = Iterator::chain(
+    // Collect new addresses, using a HashSet for deduplication
+    let new_addresses: HashSet<_> = Iterator::chain(
         state_update.nonces.iter().map(|item| item.contract_address),
-        Iterator::chain(
-            state_update.deployed_contracts.iter().map(|item| item.address),
-            existing_storage.iter().copied(),
-        ),
+        state_update.deployed_contracts.iter().map(|item| item.address),
     )
+    .filter(|address| !existing_storage.contains(address))
     .collect();
 
-    // Add missing storage diffs in one batch
+    // Add new storage diffs in batch
     state_update.storage_diffs.extend(
-        required_addresses
-            .difference(&existing_storage)
-            .map(|&address| ContractStorageDiffItem { address, storage_entries: Vec::new() }),
+        new_addresses.into_iter().map(|address| ContractStorageDiffItem { address, storage_entries: Vec::new() }),
     );
 }
 
@@ -692,7 +689,7 @@ pub mod test {
             declared_classes: vec![],
             deployed_contracts: deployed_contracts
                 .into_iter()
-                .map(|(addr, _code)| DeployedContractItem { address: addr, class_hash: Default::default() })
+                .map(|(addr, _class_hash)| DeployedContractItem { address: addr, class_hash: Default::default() })
                 .collect(),
             replaced_classes: vec![],
         }
