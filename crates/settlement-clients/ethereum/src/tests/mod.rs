@@ -294,7 +294,7 @@ mod settlement_client_tests {
             starknet_operator_address: get_env_var_or_panic("STARKNET_OPERATOR_ADDRESS"),
         };
 
-        let setup = EthereumTestBuilder::new().with_fork_block(fork_block_no).build().await;
+        let _setup = EthereumTestBuilder::new().with_fork_block(fork_block_no).build().await;
         let ethereum_settlement_client = EthereumSettlementClient::with_test_settings(&ethereum_settlement_params);
 
         assert_eq!(

@@ -23,8 +23,6 @@ use color_eyre::eyre::{bail, eyre, Ok};
 use color_eyre::Result;
 use conversion::{get_input_data_for_eip_4844, prepare_sidecar};
 use settlement_client_interface::{SettlementClient, SettlementVerificationStatus};
-#[cfg(feature = "testing")]
-use url::Url;
 use utils::cli::settlement::ethereum::EthereumSettlementParams;
 
 use crate::clients::interfaces::validity_interface::StarknetValidityContractTrait;

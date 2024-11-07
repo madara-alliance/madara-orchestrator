@@ -1,9 +1,5 @@
 use std::sync::Arc;
 
-#[cfg(feature = "testing")]
-use alloy::primitives::Address;
-#[cfg(feature = "testing")]
-use alloy::providers::RootProvider;
 use aws_config::meta::region::RegionProviderChain;
 use aws_config::{Region, SdkConfig};
 use aws_credential_types::Credentials;
@@ -296,7 +292,7 @@ pub async fn build_settlement_client(
             }
             #[cfg(feature = "testing")]
             {
-                Ok(Box::new(EthereumSettlementClient::with_test_settings(&ethereum_settlement_params)))
+                Ok(Box::new(EthereumSettlementClient::with_test_settings(ethereum_settlement_params)))
             }
         }
         SettlementParams::Starknet(starknet_settlement_params) => {
