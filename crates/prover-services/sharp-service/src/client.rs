@@ -1,4 +1,3 @@
-
 use base64::engine::general_purpose;
 use base64::Engine;
 use cairo_vm::types::layout_name::LayoutName;

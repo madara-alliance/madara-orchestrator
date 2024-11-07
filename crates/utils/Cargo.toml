@@ -8,8 +8,8 @@ edition.workspace = true
 [dependencies]
 color-eyre = { workspace = true }
 serde.workspace = true
-thiserror.workspace = true
 serde_json.workspace = true
+thiserror.workspace = true
 
 #Instrumentation
 opentelemetry = { workspace = true, features = ["metrics", "logs"] }
@@ -22,9 +22,9 @@ opentelemetry-otlp = { workspace = true, features = [
 opentelemetry-semantic-conventions = { workspace = true }
 opentelemetry-stdout = { workspace = true }
 opentelemetry_sdk = { workspace = true, features = ["rt-tokio", "logs"] }
+reqwest = { workspace = true }
 tracing = { workspace = true }
 tracing-core = { workspace = true, default-features = false }
 tracing-opentelemetry = "0.26.0"
 tracing-subscriber = { workspace = true, features = ["env-filter"] }
-reqwest = { workspace = true }
 url = { workspace = true }
