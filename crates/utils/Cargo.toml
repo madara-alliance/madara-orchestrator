@@ -6,12 +6,12 @@ edition.workspace = true
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
+clap = { version = "4.4", features = ["derive", "env"] }
 color-eyre = { workspace = true }
 serde.workspace = true
-thiserror.workspace = true
-clap = { version = "4.4", features = ["derive", "env"] }
-url = { workspace = true }
 serde_json = { workspace = true }
+thiserror.workspace = true
+url = { workspace = true }
 #Instrumentation
 opentelemetry = { workspace = true, features = ["metrics", "logs"] }
 opentelemetry-appender-tracing = { workspace = true, default-features = false }
