@@ -50,7 +50,7 @@ pub struct Config {
     /// The RPC url to be used when running SNOS
     /// When Madara supports getProof, we can re use
     /// starknet_rpc_url for SNOS as well
-    snos_config: SnosConfig,
+    pub snos_config: SnosConfig,
     /// The starknet client to get data from the node
     starknet_client: Arc<JsonRpcClient<HttpTransport>>,
     /// The DA client to interact with the DA layer
@@ -72,8 +72,8 @@ pub struct Config {
 #[derive(Debug, Clone)]
 pub struct SnosConfig {
     pub rpc_url: Url,
-    pub max_block_to_process: u64,
-    pub min_block_to_process: u64,
+    pub max_block_to_process: Option<u64>,
+    pub min_block_to_process: Option<u64>,
 }
 
 /// `ProviderConfig` is an enum used to represent the global config built

@@ -20,21 +20,31 @@ impl Worker for SnosWorker {
         tracing::trace!(log_type = "starting", category = "SnosWorker", "SnosWorker started.");
 
         let provider = config.starknet_client();
-        let block_number_provider = &provider.block_number().await?;
+        let block_number_provider = provider.block_number().await?;
 
-        let snos_config = config.snos_config();
-        let latest_block_number = snos_config.max_block_to_process;
+        let latest_block_number = if let Some(max_block_to_process) = config.snos_config.max_block_to_process {
+            max_block_to_process
+        } else {
+            block_number_provider
+        };
+
         tracing::debug!(latest_block_number = %latest_block_number, "Fetched latest block number from starknet");
 
         let latest_job_in_db = config.database().get_latest_job_by_type(JobType::SnosRun).await?;
 
-        let latest_job_id = match latest_job_in_db {
+        let latest_job_id: u64 = match latest_job_in_db {
             Some(job) => job.internal_id,
             None => "0".to_string(),
-        };
+        }
+        .parse::<u64>()
+        .unwrap();
 
         // To be used when testing in specific block range
-        let block_start = snos_config.min_block_to_process;
+        let block_start = if let Some(min_block_to_process) = config.snos_config.min_block_to_process {
+            min_block_to_process
+        } else {
+            latest_job_id
+        };
 
         for block_num in block_start..latest_block_number + 1 {
             match create_job(JobType::SnosRun, block_num.to_string(), HashMap::new(), config.clone()).await {
