@@ -4,7 +4,6 @@ use std::io::Read;
 use std::time::{Duration, Instant};
 
 use chrono::{SubsecRound, Utc};
-use clap::Parser as _;
 use e2e_tests::anvil::AnvilSetup;
 use e2e_tests::localstack::LocalStack;
 use e2e_tests::mock_server::MockResponseBodyType;
@@ -13,14 +12,17 @@ use e2e_tests::starknet_client::StarknetClient;
 use e2e_tests::utils::{get_mongo_db_client, read_state_update_from_file, vec_u8_to_hex_string};
 use e2e_tests::{MongoDbServer, Orchestrator};
 use mongodb::bson::doc;
+use orchestrator::cli::aws_config::AWSConfigParams;
 use orchestrator::cli::database::DatabaseParams;
 use orchestrator::cli::queue::QueueParams;
 use orchestrator::cli::storage::StorageParams;
-use orchestrator::cli::RunCmd;
+use orchestrator::data_storage::aws_s3::config::AWSS3Params;
 use orchestrator::data_storage::DataStorage;
+use orchestrator::database::mongodb::config::MongoDBParams;
 use orchestrator::jobs::constants::{JOB_METADATA_SNOS_BLOCK, JOB_METADATA_STATE_UPDATE_BLOCKS_TO_SETTLE_KEY};
 use orchestrator::jobs::types::{ExternalId, JobItem, JobStatus, JobType};
-use orchestrator::queue::job_queue::{JobQueueMessage, WorkerTriggerType};
+use orchestrator::queue::job_queue::{JobQueueMessage, QueueType, WorkerTriggerType};
+use orchestrator::queue::sqs::AWSSQSParams;
 use rstest::rstest;
 use serde::{Deserialize, Serialize};
 use serde_json::json;
@@ -51,10 +53,28 @@ struct Setup {
 
 impl Setup {
     /// Initialise a new setup
-    pub async fn new(l2_block_number: String, run_cmd: RunCmd) -> Self {
-        let db_params = run_cmd.validate_database_params().expect("Invalid database params");
-        let storage_params = run_cmd.validate_storage_params().expect("Invalid storage params");
-        let queue_params = run_cmd.validate_queue_params().expect("Invalid queue params");
+    pub async fn new(l2_block_number: String) -> Self {
+        let db_params = DatabaseParams::MongoDB(MongoDBParams {
+            connection_url: get_env_var_or_panic("MADARA_ORCHESTRATOR_MONGODB_CONNECTION_URL"),
+            database_name: get_env_var_or_panic("MADARA_ORCHESTRATOR_DATABASE_NAME"),
+        });
+
+        let storage_params = StorageParams::AWSS3(AWSS3Params {
+            bucket_name: get_env_var_or_panic("MADARA_ORCHESTRATOR_AWS_S3_BUCKET_NAME"),
+        });
+        let queue_params = QueueParams::AWSSQS(AWSSQSParams {
+            queue_base_url: get_env_var_or_panic("MADARA_ORCHESTRATOR_SQS_BASE_QUEUE_URL"),
+            sqs_prefix: get_env_var_or_panic("MADARA_ORCHESTRATOR_SQS_PREFIX"),
+            sqs_suffix: get_env_var_or_panic("MADARA_ORCHESTRATOR_SQS_SUFFIX"),
+        });
+
+        let aws_config = AWSConfigParams {
+            aws_access_key_id: get_env_var_or_panic("AWS_ACCESS_KEY_ID"),
+            aws_secret_access_key: get_env_var_or_panic("AWS_SECRET_ACCESS_KEY"),
+            aws_region: get_env_var_or_panic("AWS_REGION"),
+            aws_endpoint_url: get_env_var_or_panic("AWS_ENDPOINT_URL"),
+            aws_default_region: get_env_var_or_panic("AWS_DEFAULT_REGION"),
+        };
 
         let DatabaseParams::MongoDB(mongodb_params) = db_params;
 
@@ -72,7 +92,6 @@ impl Setup {
         println!("✅ Anvil setup completed");
 
         // Setting up LocalStack
-        let aws_config = run_cmd.aws_config_args;
         let StorageParams::AWSS3(s3_params) = storage_params;
         let QueueParams::AWSSQS(sqs_params) = queue_params;
         let localstack_instance = LocalStack::new(aws_config, &s3_params).await;
@@ -83,32 +102,34 @@ impl Setup {
         localstack_instance.setup_event_bridge(WorkerTriggerType::DataSubmission, &sqs_params).await.unwrap();
         localstack_instance.setup_event_bridge(WorkerTriggerType::UpdateState, &sqs_params).await.unwrap();
 
-        println!("✅ Localstack instance setup completed");
-
         let mut env_vec: Vec<(String, String)> =
-            vec![("MONGODB_CONNECTION_STRING".to_string(), mongo_db_instance.endpoint().to_string())];
+            vec![("MADARA_ORCHESTRATOR_MONGODB_CONNECTION_URL".to_string(), mongo_db_instance.endpoint().to_string())];
 
         // Adding other values to the environment variables vector
-        env_vec.push(("MADARA_RPC_URL".to_string(), get_env_var_or_panic("RPC_FOR_SNOS")));
-        env_vec.push(("SETTLEMENT_RPC_URL".to_string(), anvil_setup.rpc_url.to_string()));
-        env_vec.push(("SHARP_URL".to_string(), sharp_client.url()));
-
-        // Sharp envs
-        env_vec.push(("SHARP_CUSTOMER_ID".to_string(), get_env_var_or_panic("SHARP_CUSTOMER_ID")));
-        env_vec.push(("SHARP_USER_CRT".to_string(), get_env_var_or_panic("SHARP_USER_CRT")));
-        env_vec.push(("SHARP_USER_KEY".to_string(), get_env_var_or_panic("SHARP_USER_KEY")));
-        env_vec.push(("SHARP_SERVER_CRT".to_string(), get_env_var_or_panic("SHARP_SERVER_CRT")));
+        env_vec.push(("MADARA_ORCHESTRATOR_ETHEREUM_SETTLEMENT_RPC_URL".to_string(), anvil_setup.rpc_url.to_string()));
+        env_vec.push(("MADARA_ORCHESTRATOR_SHARP_URL".to_string(), sharp_client.url()));
 
         // Adding impersonation for operator as our own address here.
         // As we are using test contracts thus we don't need any impersonation.
         // But that logic is being used in integration tests so to keep that. We
         // add this address here.
         // Anvil.addresses[0]
-        env_vec
-            .push(("STARKNET_OPERATOR_ADDRESS".to_string(), "0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266".to_string()));
-        env_vec.push(("GPS_VERIFIER_CONTRACT_ADDRESS".to_string(), verifier_contract_address.to_string()));
-        env_vec.push(("L1_CORE_CONTRACT_ADDRESS".to_string(), starknet_core_contract_address.to_string()));
-        env_vec.push(("MAX_BLOCK_TO_PROCESS".to_string(), l2_block_number));
+        env_vec.push((
+            "MADARA_ORCHESTRATOR_STARKNET_OPERATOR_ADDRESS".to_string(),
+            "0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266".to_string(),
+        ));
+        env_vec.push((
+            "MADARA_ORCHESTRATOR_GPS_VERIFIER_CONTRACT_ADDRESS".to_string(),
+            verifier_contract_address.to_string(),
+        ));
+        env_vec.push((
+            "MADARA_ORCHESTRATOR_L1_CORE_CONTRACT_ADDRESS".to_string(),
+            starknet_core_contract_address.to_string(),
+        ));
+        env_vec.push(("MADARA_ORCHESTRATOR_MAX_BLOCK_NO_TO_PROCESS".to_string(), l2_block_number));
+
+        let env_vec_2: Vec<(String, String)> = set_env_vars();
+        env_vec.extend(env_vec_2);
 
         Self { mongo_db_instance, starknet_client, sharp_client, env_vector: env_vec, localstack_instance }
     }
@@ -143,16 +164,20 @@ async fn test_orchestrator_workflow(#[case] l2_block_number: String) {
     // setting up of the test and during orchestrator run too.
     dotenvy::from_filename(".env.test").expect("Failed to load the .env file");
 
-    let run_cmd = RunCmd::parse();
+    let queue_params = AWSSQSParams {
+        queue_base_url: get_env_var_or_panic("MADARA_ORCHESTRATOR_SQS_BASE_QUEUE_URL"),
+        sqs_prefix: get_env_var_or_panic("MADARA_ORCHESTRATOR_SQS_PREFIX"),
+        sqs_suffix: get_env_var_or_panic("MADARA_ORCHESTRATOR_SQS_SUFFIX"),
+    };
 
-    let mut setup_config = Setup::new(l2_block_number.clone(), run_cmd).await;
+    let mut setup_config = Setup::new(l2_block_number.clone()).await;
     // Setup S3
     setup_s3(setup_config.localstack().s3_client()).await.unwrap();
 
     // Step 1 : SNOS job runs =========================================
     // Updates the job in the db
     let job_id = put_job_data_in_db_snos(setup_config.mongo_db_instance(), l2_block_number.clone()).await;
-    put_snos_job_in_processing_queue(setup_config.localstack(), job_id).await.unwrap();
+    put_snos_job_in_processing_queue(setup_config.localstack(), job_id, queue_params).await.unwrap();
 
     // Step 2: Proving Job ============================================
     // Mocking the endpoint
@@ -171,6 +196,8 @@ async fn test_orchestrator_workflow(#[case] l2_block_number: String) {
     // Run orchestrator
     let mut orchestrator = Orchestrator::run(setup_config.envs());
     orchestrator.wait_till_started().await;
+
+    println!("✅ Orchestrator started");
 
     // Adding State checks in DB for validation of tests
 
@@ -295,9 +322,13 @@ pub async fn put_job_data_in_db_snos(mongo_db: &MongoDbServer, l2_block_number: 
 
 /// Adding SNOS job in JOB_PROCESSING_QUEUE so that the job is triggered
 /// as soon as it is picked up by orchestrator
-pub async fn put_snos_job_in_processing_queue(local_stack: &LocalStack, id: Uuid) -> color_eyre::Result<()> {
+pub async fn put_snos_job_in_processing_queue(
+    local_stack: &LocalStack,
+    id: Uuid,
+    queue_params: AWSSQSParams,
+) -> color_eyre::Result<()> {
     let message = JobQueueMessage { id };
-    local_stack.put_message_in_queue(message, get_env_var_or_panic("SQS_SNOS_JOB_PROCESSING_QUEUE_URL")).await?;
+    local_stack.put_message_in_queue(message, queue_params.get_queue_url(QueueType::SnosJobProcessing)).await?;
     Ok(())
 }
 
@@ -453,6 +484,122 @@ pub async fn put_job_data_in_db_proving(mongo_db: &MongoDbServer, l2_block_numbe
 /// To set up s3 files needed for e2e test (test_orchestrator_workflow)
 #[allow(clippy::borrowed_box)]
 pub async fn setup_s3(s3_client: &Box<dyn DataStorage + Send + Sync>) -> color_eyre::Result<()> {
-    s3_client.build_test_bucket(&get_env_var_or_panic("AWS_S3_BUCKET_NAME")).await.unwrap();
+    s3_client.build_test_bucket(&get_env_var_or_panic("MADARA_ORCHESTRATOR_AWS_S3_BUCKET_NAME")).await.unwrap();
     Ok(())
+}
+
+fn set_env_vars() -> Vec<(String, String)> {
+    let env_vec: Vec<(String, String)> = vec![
+        // AWS Config
+        ("AWS_ACCESS_KEY_ID".to_string(), get_env_var_or_panic("AWS_ACCESS_KEY_ID")),
+        ("AWS_SECRET_ACCESS_KEY".to_string(), get_env_var_or_panic("AWS_SECRET_ACCESS_KEY")),
+        ("AWS_REGION".to_string(), get_env_var_or_panic("AWS_REGION")),
+        ("AWS_ENDPOINT_URL".to_string(), get_env_var_or_panic("AWS_ENDPOINT_URL")),
+        ("AWS_DEFAULT_REGION".to_string(), get_env_var_or_panic("AWS_DEFAULT_REGION")),
+        // Alerts
+        ("MADARA_ORCHESTRATOR_AWS_SNS_ARN".to_string(), get_env_var_or_panic("MADARA_ORCHESTRATOR_AWS_SNS_ARN")),
+        // Data Availability
+        (
+            "MADARA_ORCHESTRATOR_ETHEREUM_DA_RPC_URL".to_string(),
+            get_env_var_or_panic("MADARA_ORCHESTRATOR_ETHEREUM_DA_RPC_URL"),
+        ),
+        // Database
+        // ("MADARA_ORCHESTRATOR_MONGODB_CONNECTION_URL".to_string(),
+        // get_env_var_or_panic("MADARA_ORCHESTRATOR_MONGODB_CONNECTION_URL")),
+        ("MADARA_ORCHESTRATOR_DATABASE_NAME".to_string(), get_env_var_or_panic("MADARA_ORCHESTRATOR_DATABASE_NAME")),
+        // Prover
+        (
+            "MADARA_ORCHESTRATOR_SHARP_CUSTOMER_ID".to_string(),
+            get_env_var_or_panic("MADARA_ORCHESTRATOR_SHARP_CUSTOMER_ID"),
+        ),
+        // ("MADARA_ORCHESTRATOR_SHARP_URL".to_string(), get_env_var_or_panic("MADARA_ORCHESTRATOR_SHARP_URL")),
+        ("MADARA_ORCHESTRATOR_SHARP_USER_CRT".to_string(), get_env_var_or_panic("MADARA_ORCHESTRATOR_SHARP_USER_CRT")),
+        ("MADARA_ORCHESTRATOR_SHARP_USER_KEY".to_string(), get_env_var_or_panic("MADARA_ORCHESTRATOR_SHARP_USER_KEY")),
+        (
+            "MADARA_ORCHESTRATOR_SHARP_SERVER_CRT".to_string(),
+            get_env_var_or_panic("MADARA_ORCHESTRATOR_SHARP_SERVER_CRT"),
+        ),
+        (
+            "MADARA_ORCHESTRATOR_SHARP_RPC_NODE_URL".to_string(),
+            get_env_var_or_panic("MADARA_ORCHESTRATOR_SHARP_RPC_NODE_URL"),
+        ),
+        (
+            "MADARA_ORCHESTRATOR_SHARP_PROOF_LAYOUT".to_string(),
+            get_env_var_or_panic("MADARA_ORCHESTRATOR_SHARP_PROOF_LAYOUT"),
+        ),
+        // ("MADARA_ORCHESTRATOR_GPS_VERIFIER_CONTRACT_ADDRESS".to_string(),
+        // get_env_var_or_panic("MADARA_ORCHESTRATOR_GPS_VERIFIER_CONTRACT_ADDRESS")),
+
+        // Queue
+        ("MADARA_ORCHESTRATOR_SQS_PREFIX".to_string(), get_env_var_or_panic("MADARA_ORCHESTRATOR_SQS_PREFIX")),
+        ("MADARA_ORCHESTRATOR_SQS_SUFFIX".to_string(), get_env_var_or_panic("MADARA_ORCHESTRATOR_SQS_SUFFIX")),
+        (
+            "MADARA_ORCHESTRATOR_SQS_BASE_QUEUE_URL".to_string(),
+            get_env_var_or_panic("MADARA_ORCHESTRATOR_SQS_BASE_QUEUE_URL"),
+        ),
+        // Settlement - Ethereum
+        // ("MADARA_ORCHESTRATOR_ETHEREUM_SETTLEMENT_RPC_URL".to_string(),
+        // get_env_var_or_panic("MADARA_ORCHESTRATOR_ETHEREUM_SETTLEMENT_RPC_URL")),
+        (
+            "MADARA_ORCHESTRATOR_ETHEREUM_PRIVATE_KEY".to_string(),
+            get_env_var_or_panic("MADARA_ORCHESTRATOR_ETHEREUM_PRIVATE_KEY"),
+        ),
+        // ("MADARA_ORCHESTRATOR_L1_CORE_CONTRACT_ADDRESS".to_string(),
+        // get_env_var_or_panic("MADARA_ORCHESTRATOR_L1_CORE_CONTRACT_ADDRESS")),
+        // ("MADARA_ORCHESTRATOR_STARKNET_OPERATOR_ADDRESS".to_string(),
+        // get_env_var_or_panic("MADARA_ORCHESTRATOR_STARKNET_OPERATOR_ADDRESS")),
+
+        // Settlement - Starknet
+        (
+            "MADARA_ORCHESTRATOR_STARKNET_SETTLEMENT_RPC_URL".to_string(),
+            get_env_var_or_panic("MADARA_ORCHESTRATOR_STARKNET_SETTLEMENT_RPC_URL"),
+        ),
+        (
+            "MADARA_ORCHESTRATOR_STARKNET_PRIVATE_KEY".to_string(),
+            get_env_var_or_panic("MADARA_ORCHESTRATOR_STARKNET_PRIVATE_KEY"),
+        ),
+        (
+            "MADARA_ORCHESTRATOR_STARKNET_ACCOUNT_ADDRESS".to_string(),
+            get_env_var_or_panic("MADARA_ORCHESTRATOR_STARKNET_ACCOUNT_ADDRESS"),
+        ),
+        (
+            "MADARA_ORCHESTRATOR_STARKNET_CAIRO_CORE_CONTRACT_ADDRESS".to_string(),
+            get_env_var_or_panic("MADARA_ORCHESTRATOR_STARKNET_CAIRO_CORE_CONTRACT_ADDRESS"),
+        ),
+        (
+            "MADARA_ORCHESTRATOR_STARKNET_FINALITY_RETRY_WAIT_IN_SECS".to_string(),
+            get_env_var_or_panic("MADARA_ORCHESTRATOR_STARKNET_FINALITY_RETRY_WAIT_IN_SECS"),
+        ),
+        (
+            "MADARA_ORCHESTRATOR_MADARA_BINARY_PATH".to_string(),
+            get_env_var_or_panic("MADARA_ORCHESTRATOR_MADARA_BINARY_PATH"),
+        ),
+        // Storage
+        (
+            "MADARA_ORCHESTRATOR_AWS_S3_BUCKET_NAME".to_string(),
+            get_env_var_or_panic("MADARA_ORCHESTRATOR_AWS_S3_BUCKET_NAME"),
+        ),
+        // Instrumentation
+        (
+            "MADARA_ORCHESTRATOR_OTEL_SERVICE_NAME".to_string(),
+            get_env_var_or_panic("MADARA_ORCHESTRATOR_OTEL_SERVICE_NAME"),
+        ),
+        (
+            "MADARA_ORCHESTRATOR_OTEL_COLLECTOR_ENDPOINT".to_string(),
+            get_env_var_or_panic("MADARA_ORCHESTRATOR_OTEL_COLLECTOR_ENDPOINT"),
+        ),
+        // Server
+        ("MADARA_ORCHESTRATOR_HOST".to_string(), get_env_var_or_panic("MADARA_ORCHESTRATOR_HOST")),
+        ("MADARA_ORCHESTRATOR_PORT".to_string(), get_env_var_or_panic("MADARA_ORCHESTRATOR_PORT")),
+        // Service
+        // ("MADARA_ORCHESTRATOR_MAX_BLOCK_NO_TO_PROCESS".to_string(),
+        // get_env_var_or_panic("MADARA_ORCHESTRATOR_MAX_BLOCK_NO_TO_PROCESS")),
+        (
+            "MADARA_ORCHESTRATOR_MIN_BLOCK_NO_TO_PROCESS".to_string(),
+            get_env_var_or_panic("MADARA_ORCHESTRATOR_MIN_BLOCK_NO_TO_PROCESS"),
+        ),
+        // SNOS
+        ("MADARA_ORCHESTRATOR_RPC_FOR_SNOS".to_string(), get_env_var_or_panic("MADARA_ORCHESTRATOR_RPC_FOR_SNOS")),
+    ];
+    env_vec
 }

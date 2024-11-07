@@ -82,12 +82,16 @@ async fn setup(#[future] spin_up_madara: MadaraCmd) -> (LocalWalletSignerMiddlew
 
     let starknet_settlement_params: StarknetSettlementParams = StarknetSettlementParams {
         starknet_rpc_url: Url::parse(madara_process.rpc_url.as_ref()).unwrap(),
-        starknet_private_key: get_env_var_or_panic("STARKNET_PRIVATE_KEY"),
-        starknet_account_address: get_env_var_or_panic("STARKNET_ACCOUNT_ADDRESS"),
-        starknet_cairo_core_contract_address: get_env_var_or_panic("STARKNET_CAIRO_CORE_CONTRACT_ADDRESS"),
-        starknet_finality_retry_wait_in_secs: get_env_var_or_panic("STARKNET_FINALITY_RETRY_WAIT_IN_SECS")
-            .parse::<u64>()
-            .unwrap(),
+        starknet_private_key: get_env_var_or_panic("MADARA_ORCHESTRATOR_STARKNET_PRIVATE_KEY"),
+        starknet_account_address: get_env_var_or_panic("MADARA_ORCHESTRATOR_STARKNET_ACCOUNT_ADDRESS"),
+        starknet_cairo_core_contract_address: get_env_var_or_panic(
+            "MADARA_ORCHESTRATOR_STARKNET_CAIRO_CORE_CONTRACT_ADDRESS",
+        ),
+        starknet_finality_retry_wait_in_secs: get_env_var_or_panic(
+            "MADARA_ORCHESTRATOR_STARKNET_FINALITY_RETRY_WAIT_IN_SECS",
+        )
+        .parse::<u64>()
+        .unwrap(),
         madara_binary_path: get_env_var_or_panic("MADARA_BINARY_PATH"),
     };
 
@@ -114,13 +118,17 @@ async fn test_settle(#[future] setup: (LocalWalletSignerMiddleware, MadaraCmd)) 
     dotenvy::from_filename_override(".env.test").expect("Failed to load the .env file");
 
     let starknet_settlement_params: StarknetSettlementParams = StarknetSettlementParams {
-        starknet_rpc_url: Url::parse(&get_env_var_or_panic("STARKNET_RPC_URL")).unwrap(),
-        starknet_private_key: get_env_var_or_panic("STARKNET_PRIVATE_KEY"),
-        starknet_account_address: get_env_var_or_panic("STARKNET_ACCOUNT_ADDRESS"),
-        starknet_cairo_core_contract_address: get_env_var_or_panic("STARKNET_CAIRO_CORE_CONTRACT_ADDRESS"),
-        starknet_finality_retry_wait_in_secs: get_env_var_or_panic("STARKNET_FINALITY_RETRY_WAIT_IN_SECS")
-            .parse::<u64>()
-            .unwrap(),
+        starknet_rpc_url: Url::parse(&get_env_var_or_panic("MADARA_ORCHESTRATOR_STARKNET_SETTLEMENT_RPC_URL")).unwrap(),
+        starknet_private_key: get_env_var_or_panic("MADARA_ORCHESTRATOR_STARKNET_PRIVATE_KEY"),
+        starknet_account_address: get_env_var_or_panic("MADARA_ORCHESTRATOR_STARKNET_ACCOUNT_ADDRESS"),
+        starknet_cairo_core_contract_address: get_env_var_or_panic(
+            "MADARA_ORCHESTRATOR_STARKNET_CAIRO_CORE_CONTRACT_ADDRESS",
+        ),
+        starknet_finality_retry_wait_in_secs: get_env_var_or_panic(
+            "MADARA_ORCHESTRATOR_STARKNET_FINALITY_RETRY_WAIT_IN_SECS",
+        )
+        .parse::<u64>()
+        .unwrap(),
         madara_binary_path: get_env_var_or_panic("MADARA_BINARY_PATH"),
     };
 

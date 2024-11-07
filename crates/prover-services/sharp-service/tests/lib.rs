@@ -22,14 +22,14 @@ async fn prover_client_submit_task_works() {
     dotenvy::from_filename("../.env.test").expect("Failed to load the .env file");
 
     let sharp_params = SharpParams {
-        sharp_customer_id: get_env_var_or_panic("SHARP_CUSTOMER_ID"),
-        sharp_url: Url::parse(&get_env_var_or_panic("SHARP_URL")).unwrap(),
-        sharp_user_crt: get_env_var_or_panic("SHARP_USER_CRT"),
-        sharp_user_key: get_env_var_or_panic("SHARP_USER_KEY"),
-        sharp_rpc_node_url: Url::parse(&get_env_var_or_panic("SHARP_RPC_NODE_URL")).unwrap(),
-        sharp_server_crt: get_env_var_or_panic("SHARP_SERVER_CRT"),
-        sharp_proof_layout: get_env_var_or_panic("SHARP_PROOF_LAYOUT"),
-        gps_verifier_contract_address: get_env_var_or_panic("GPS_VERIFIER_CONTRACT_ADDRESS"),
+        sharp_customer_id: get_env_var_or_panic("MADARA_ORCHESTRATOR_SHARP_CUSTOMER_ID"),
+        sharp_url: Url::parse(&get_env_var_or_panic("MADARA_ORCHESTRATOR_SHARP_URL")).unwrap(),
+        sharp_user_crt: get_env_var_or_panic("MADARA_ORCHESTRATOR_SHARP_USER_CRT"),
+        sharp_user_key: get_env_var_or_panic("MADARA_ORCHESTRATOR_SHARP_USER_KEY"),
+        sharp_rpc_node_url: Url::parse(&get_env_var_or_panic("MADARA_ORCHESTRATOR_SHARP_RPC_NODE_URL")).unwrap(),
+        sharp_server_crt: get_env_var_or_panic("MADARA_ORCHESTRATOR_SHARP_SERVER_CRT"),
+        sharp_proof_layout: get_env_var_or_panic("MADARA_ORCHESTRATOR_SHARP_PROOF_LAYOUT"),
+        gps_verifier_contract_address: get_env_var_or_panic("MADARA_ORCHESTRATOR_GPS_VERIFIER_CONTRACT_ADDRESS"),
     };
 
     let server = MockServer::start();
@@ -42,7 +42,7 @@ async fn prover_client_submit_task_works() {
                 "code" : "JOB_RECEIVED_SUCCESSFULLY"
             }
     );
-    let customer_id = get_env_var_or_panic("SHARP_CUSTOMER_ID");
+    let customer_id = get_env_var_or_panic("MADARA_ORCHESTRATOR_SHARP_CUSTOMER_ID");
     let sharp_add_job_call = server.mock(|when, then| {
         when.path_contains("/add_job").query_param("customer_id", customer_id.as_str());
         then.status(200).body(serde_json::to_vec(&sharp_response).unwrap());
@@ -67,19 +67,19 @@ async fn prover_client_get_task_status_works(#[case] cairo_job_status: CairoJobS
     dotenvy::from_filename("../.env.test").expect("Failed to load the .env file");
 
     let sharp_params = SharpParams {
-        sharp_customer_id: get_env_var_or_panic("SHARP_CUSTOMER_ID"),
-        sharp_url: Url::parse(&get_env_var_or_panic("SHARP_URL")).unwrap(),
-        sharp_user_crt: get_env_var_or_panic("SHARP_USER_CRT"),
-        sharp_user_key: get_env_var_or_panic("SHARP_USER_KEY"),
-        sharp_rpc_node_url: Url::parse(&get_env_var_or_panic("SHARP_RPC_NODE_URL")).unwrap(),
-        sharp_server_crt: get_env_var_or_panic("SHARP_SERVER_CRT"),
-        sharp_proof_layout: get_env_var_or_panic("SHARP_PROOF_LAYOUT"),
-        gps_verifier_contract_address: get_env_var_or_panic("GPS_VERIFIER_CONTRACT_ADDRESS"),
+        sharp_customer_id: get_env_var_or_panic("MADARA_ORCHESTRATOR_SHARP_CUSTOMER_ID"),
+        sharp_url: Url::parse(&get_env_var_or_panic("MADARA_ORCHESTRATOR_SHARP_URL")).unwrap(),
+        sharp_user_crt: get_env_var_or_panic("MADARA_ORCHESTRATOR_SHARP_USER_CRT"),
+        sharp_user_key: get_env_var_or_panic("MADARA_ORCHESTRATOR_SHARP_USER_KEY"),
+        sharp_rpc_node_url: Url::parse(&get_env_var_or_panic("MADARA_ORCHESTRATOR_SHARP_RPC_NODE_URL")).unwrap(),
+        sharp_server_crt: get_env_var_or_panic("MADARA_ORCHESTRATOR_SHARP_SERVER_CRT"),
+        sharp_proof_layout: get_env_var_or_panic("MADARA_ORCHESTRATOR_SHARP_PROOF_LAYOUT"),
+        gps_verifier_contract_address: get_env_var_or_panic("MADARA_ORCHESTRATOR_GPS_VERIFIER_CONTRACT_ADDRESS"),
     };
 
     let server = MockServer::start();
     let sharp_service = SharpProverService::with_test_settings(server.port(), &sharp_params);
-    let customer_id = get_env_var_or_panic("SHARP_CUSTOMER_ID");
+    let customer_id = get_env_var_or_panic("MADARA_ORCHESTRATOR_SHARP_CUSTOMER_ID");
 
     let sharp_add_job_call = server.mock(|when, then| {
         when.path_contains("/get_status").query_param("customer_id", customer_id.as_str());

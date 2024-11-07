@@ -1,7 +1,9 @@
 use clap::Args;
+use serde::Serialize;
 
 /// Parameters used to config AWS.
-#[derive(Debug, Clone, Args)]
+#[derive(Debug, Clone, Args, Serialize)]
+#[group(requires_all = ["aws_access_key_id", "aws_secret_access_key", "aws_region"])]
 pub struct AWSConfigParams {
     /// The access key ID.
     #[arg(env = "AWS_ACCESS_KEY_ID", long)]
@@ -16,14 +18,10 @@ pub struct AWSConfigParams {
     pub aws_region: String,
 
     /// The endpoint URL.
-    #[arg(
-        env = "MADARA_ORCHESTRATOR_AWS_ENDPOINT_URL",
-        long,
-        default_value = "http://localhost.localstack.cloud:4566"
-    )]
+    #[arg(env = "AWS_ENDPOINT_URL", long, default_value = "http://localhost.localstack.cloud:4566")]
     pub aws_endpoint_url: String,
 
     /// The default region.
-    #[arg(env = "MADARA_ORCHESTRATOR_AWS_DEFAULT_REGION", long, default_value = "localhost")]
+    #[arg(env = "AWS_DEFAULT_REGION", long, default_value = "localhost")]
     pub aws_default_region: String,
 }

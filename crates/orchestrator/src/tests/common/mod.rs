@@ -50,7 +50,7 @@ pub fn custom_job_item(default_job_item: JobItem, #[default(String::from("0"))] 
 
 pub async fn create_sns_arn(provider_config: Arc<ProviderConfig>) -> Result<(), SdkError<CreateTopicError>> {
     let sns_client = get_sns_client(provider_config.get_aws_client_or_panic()).await;
-    sns_client.create_topic().name(get_env_var_or_panic("AWS_SNS_ARN_NAME")).send().await?;
+    sns_client.create_topic().name(get_env_var_or_panic("MADARA_ORCHESTRATOR_AWS_SNS_ARN")).send().await?;
     Ok(())
 }
 

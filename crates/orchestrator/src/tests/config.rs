@@ -2,23 +2,37 @@ use std::net::SocketAddr;
 use std::sync::Arc;
 
 use axum::Router;
-use clap::Parser;
-use color_eyre::eyre::eyre;
 use da_client_interface::{DaClient, MockDaClient};
+use ethereum_da_client::config::EthereumDaParams;
+use ethereum_settlement_client::config::EthereumSettlementParams;
 use httpmock::MockServer;
 use prover_client_interface::{MockProverClient, ProverClient};
 use settlement_client_interface::{MockSettlementClient, SettlementClient};
+use sharp_service::config::SharpParams;
 use starknet::providers::jsonrpc::HttpTransport;
 use starknet::providers::JsonRpcClient;
 use url::Url;
+use utils::env_utils::get_env_var_or_panic;
 
+use crate::alerts::aws_sns::AWSSNSParams;
 use crate::alerts::Alerts;
-use crate::cli::RunCmd;
-use crate::config::{get_aws_config, Config, OrchestratorConfig, ProviderConfig};
+use crate::cli::alert::AlertParams;
+use crate::cli::aws_config::AWSConfigParams;
+use crate::cli::da::DaParams;
+use crate::cli::database::DatabaseParams;
+use crate::cli::prover::ProverParams;
+use crate::cli::queue::QueueParams;
+use crate::cli::settlement::SettlementParams;
+use crate::cli::snos::SNOSParams;
+use crate::cli::storage::StorageParams;
+use crate::config::{get_aws_config, Config, OrchestratorConfig, ProviderConfig, ServiceParams};
+use crate::data_storage::aws_s3::config::AWSS3Params;
 use crate::data_storage::{DataStorage, MockDataStorage};
+use crate::database::mongodb::config::MongoDBParams;
 use crate::database::{Database, MockDatabase};
+use crate::queue::sqs::AWSSQSParams;
 use crate::queue::{MockQueueProvider, QueueProvider};
-use crate::routes::{get_server_url, setup_server};
+use crate::routes::{get_server_url, setup_server, ServerParams};
 use crate::tests::common::{create_queues, create_sns_arn, drop_database};
 
 // Inspiration : https://rust-unofficial.github.io/patterns/patterns/creational/builder.html
@@ -181,17 +195,20 @@ impl TestConfigBuilder {
 
     pub async fn build(self) -> TestConfigBuilderReturns {
         dotenvy::from_filename("../.env.test").expect("Failed to load the .env.test file");
-        let run_cmd = RunCmd::parse();
 
-        let aws_config = &run_cmd.aws_config_args;
-        let provider_config = Arc::new(ProviderConfig::AWS(Box::new(get_aws_config(aws_config).await)));
+        let (
+            db_params,
+            storage_params,
+            queue_params,
+            aws_config,
+            orchestrator_config,
+            alert_params,
+            settlement_params,
+            da_params,
+            prover_params,
+        ) = get_env_params();
 
-        let orchestrator_config = OrchestratorConfig {
-            madara_rpc_url: run_cmd.madara_rpc_url.clone(),
-            snos_config: run_cmd.validate_snos_params().expect("Failed to validate SNOS params"),
-            service_config: run_cmd.validate_service_params().expect("Failed to validate service params"),
-            server_config: run_cmd.validate_server_params().expect("Failed to validate server params"),
-        };
+        let provider_config = Arc::new(ProviderConfig::AWS(Box::new(get_aws_config(&aws_config).await)));
 
         let TestConfigBuilder {
             starknet_rpc_url_type,
@@ -206,39 +223,31 @@ impl TestConfigBuilder {
             api_server_type,
         } = self;
 
-        let (starknet_rpc_url, starknet_client, starknet_server) =
+        let (_starknet_rpc_url, starknet_client, starknet_server) =
             implement_client::init_starknet_client(starknet_rpc_url_type, starknet_client_type).await;
 
         // init alerts
-        let alert_params =
-            run_cmd.validate_alert_params().map_err(|e| eyre!("Failed to validate alert params: {e}")).unwrap();
         let alerts = implement_client::init_alerts(alerts_type, &alert_params, provider_config.clone()).await;
 
-        let da_params = run_cmd.validate_da_params().unwrap();
         let da_client = implement_client::init_da_client(da_client_type, &da_params).await;
 
-        let settlement_params = run_cmd.validate_settlement_params().unwrap();
         let settlement_client =
             implement_client::init_settlement_client(settlement_client_type, &settlement_params).await;
 
-        let prover_params = run_cmd.validate_prover_params().unwrap();
         let prover_client = implement_client::init_prover_client(prover_client_type, &prover_params).await;
 
         // External Dependencies
-        let data_storage_params = run_cmd.validate_storage_params().unwrap();
         let storage =
-            implement_client::init_storage_client(storage_type, &data_storage_params, provider_config.clone()).await;
+            implement_client::init_storage_client(storage_type, &storage_params, provider_config.clone()).await;
 
-        let database_params = run_cmd.validate_database_params().unwrap();
-        let database = implement_client::init_database(database_type, &database_params).await;
+        let database = implement_client::init_database(database_type, &db_params).await;
 
-        let queue_params = run_cmd.validate_queue_params().unwrap();
         let queue = implement_client::init_queue_client(queue_type, queue_params.clone()).await;
         // Deleting and Creating the queues in sqs.
 
         create_queues(provider_config.clone(), &queue_params).await.expect("Not able to delete and create the queues.");
         // Deleting the database
-        drop_database(&database_params).await.expect("Unable to drop the database.");
+        drop_database(&db_params).await.expect("Unable to drop the database.");
         // Creating the SNS ARN
         create_sns_arn(provider_config.clone()).await.expect("Unable to create the sns arn");
 
@@ -450,4 +459,112 @@ pub mod implement_client {
 
         (rpc_url, starknet_client, server)
     }
+}
+
+fn get_env_params() -> (
+    DatabaseParams,
+    StorageParams,
+    QueueParams,
+    AWSConfigParams,
+    OrchestratorConfig,
+    AlertParams,
+    SettlementParams,
+    DaParams,
+    ProverParams,
+) {
+    let db_params = DatabaseParams::MongoDB(MongoDBParams {
+        connection_url: get_env_var_or_panic("MADARA_ORCHESTRATOR_MONGODB_CONNECTION_URL"),
+        database_name: get_env_var_or_panic("MADARA_ORCHESTRATOR_DATABASE_NAME"),
+    });
+
+    let storage_params = StorageParams::AWSS3(AWSS3Params {
+        bucket_name: get_env_var_or_panic("MADARA_ORCHESTRATOR_AWS_S3_BUCKET_NAME"),
+    });
+    let queue_params = QueueParams::AWSSQS(AWSSQSParams {
+        queue_base_url: get_env_var_or_panic("MADARA_ORCHESTRATOR_SQS_BASE_QUEUE_URL"),
+        sqs_prefix: get_env_var_or_panic("MADARA_ORCHESTRATOR_SQS_PREFIX"),
+        sqs_suffix: get_env_var_or_panic("MADARA_ORCHESTRATOR_SQS_SUFFIX"),
+    });
+
+    let aws_config = AWSConfigParams {
+        aws_access_key_id: get_env_var_or_panic("AWS_ACCESS_KEY_ID"),
+        aws_secret_access_key: get_env_var_or_panic("AWS_SECRET_ACCESS_KEY"),
+        aws_region: get_env_var_or_panic("AWS_REGION"),
+        aws_endpoint_url: get_env_var_or_panic("AWS_ENDPOINT_URL"),
+        aws_default_region: get_env_var_or_panic("AWS_DEFAULT_REGION"),
+    };
+
+    let da_params = DaParams::Ethereum(EthereumDaParams {
+        ethereum_da_rpc_url: Url::parse(&get_env_var_or_panic("MADARA_ORCHESTRATOR_ETHEREUM_DA_RPC_URL"))
+            .expect("Failed to parse MADARA_ORCHESTRATOR_ETHEREUM_RPC_URL"),
+    });
+
+    let alert_params =
+        AlertParams::AWSSNS(AWSSNSParams { sns_arn: get_env_var_or_panic("MADARA_ORCHESTRATOR_AWS_SNS_ARN") });
+
+    let settlement_params = SettlementParams::Ethereum(EthereumSettlementParams {
+        ethereum_rpc_url: Url::parse(&get_env_var_or_panic("MADARA_ORCHESTRATOR_ETHEREUM_SETTLEMENT_RPC_URL"))
+            .expect("Failed to parse MADARA_ORCHESTRATOR_ETHEREUM_RPC_URL"),
+        ethereum_private_key: get_env_var_or_panic("MADARA_ORCHESTRATOR_ETHEREUM_PRIVATE_KEY"),
+        l1_core_contract_address: get_env_var_or_panic("MADARA_ORCHESTRATOR_L1_CORE_CONTRACT_ADDRESS"),
+        starknet_operator_address: get_env_var_or_panic("MADARA_ORCHESTRATOR_STARKNET_OPERATOR_ADDRESS"),
+    });
+
+    let snos_config = SNOSParams {
+        rpc_for_snos: Url::parse(&get_env_var_or_panic("MADARA_ORCHESTRATOR_RPC_FOR_SNOS"))
+            .expect("Failed to parse MADARA_ORCHESTRATOR_RPC_FOR_SNOS"),
+    };
+
+    let service_config = ServiceParams {
+        max_block_to_process: Some(
+            get_env_var_or_panic("MADARA_ORCHESTRATOR_MAX_BLOCK_NO_TO_PROCESS")
+                .parse()
+                .expect("Failed to parse MADARA_ORCHESTRATOR_MAX_BLOCK_NO_TO_PROCESS"),
+        ),
+        min_block_to_process: Some(
+            get_env_var_or_panic("MADARA_ORCHESTRATOR_MIN_BLOCK_NO_TO_PROCESS")
+                .parse()
+                .expect("Failed to parse MADARA_ORCHESTRATOR_MIN_BLOCK_NO_TO_PROCESS"),
+        ),
+    };
+
+    let server_config = ServerParams {
+        host: get_env_var_or_panic("MADARA_ORCHESTRATOR_HOST"),
+        port: get_env_var_or_panic("MADARA_ORCHESTRATOR_PORT")
+            .parse()
+            .expect("Failed to parse MADARA_ORCHESTRATOR_PORT"),
+    };
+
+    let orchestrator_config = OrchestratorConfig {
+        madara_rpc_url: Url::parse(&get_env_var_or_panic("MADARA_ORCHESTRATOR_MADARA_RPC_URL"))
+            .expect("Failed to parse MADARA_ORCHESTRATOR_MADARA_RPC_URL"),
+        snos_config,
+        service_config,
+        server_config,
+    };
+
+    let prover_params = ProverParams::Sharp(SharpParams {
+        sharp_customer_id: get_env_var_or_panic("MADARA_ORCHESTRATOR_SHARP_CUSTOMER_ID"),
+        sharp_url: Url::parse(&get_env_var_or_panic("MADARA_ORCHESTRATOR_SHARP_URL"))
+            .expect("Failed to parse MADARA_ORCHESTRATOR_SHARP_URL"),
+        sharp_user_crt: get_env_var_or_panic("MADARA_ORCHESTRATOR_SHARP_USER_CRT"),
+        sharp_user_key: get_env_var_or_panic("MADARA_ORCHESTRATOR_SHARP_USER_KEY"),
+        sharp_rpc_node_url: Url::parse(&get_env_var_or_panic("MADARA_ORCHESTRATOR_SHARP_RPC_NODE_URL"))
+            .expect("Failed to parse MADARA_ORCHESTRATOR_SHARP_RPC_NODE_URL"),
+        sharp_server_crt: get_env_var_or_panic("MADARA_ORCHESTRATOR_SHARP_SERVER_CRT"),
+        sharp_proof_layout: get_env_var_or_panic("MADARA_ORCHESTRATOR_SHARP_PROOF_LAYOUT"),
+        gps_verifier_contract_address: get_env_var_or_panic("MADARA_ORCHESTRATOR_GPS_VERIFIER_CONTRACT_ADDRESS"),
+    });
+
+    (
+        db_params,
+        storage_params,
+        queue_params,
+        aws_config,
+        orchestrator_config,
+        alert_params,
+        settlement_params,
+        da_params,
+        prover_params,
+    )
 }

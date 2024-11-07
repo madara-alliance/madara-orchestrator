@@ -20,9 +20,9 @@ pub struct SharpClient {
 impl SharpClient {
     /// We need to set up the client with the provided certificates.
     /// We need to have three secrets :
-    /// - base64(SHARP_USER_CRT)
-    /// - base64(SHARP_USER_KEY)
-    /// - base64(SHARP_SERVER_CRT)
+    /// - base64(MADARA_ORCHESTRATOR_SHARP_USER_CRT)
+    /// - base64(MADARA_ORCHESTRATOR_SHARP_USER_KEY)
+    /// - base64(MADARA_ORCHESTRATOR_SHARP_SERVER_CRT)
     ///
     /// You can run this command in terminal to convert a file output into base64
     /// and then copy it and paste it into .env file :
@@ -69,7 +69,7 @@ impl SharpClient {
 
         let cairo_key = Uuid::new_v4();
         let cairo_key_string = cairo_key.to_string();
-        let proof_layout = get_env_var_or_panic("SHARP_PROOF_LAYOUT");
+        let proof_layout = get_env_var_or_panic("MADARA_ORCHESTRATOR_SHARP_PROOF_LAYOUT");
 
         // Params for sending the PIE file to the prover
         // for temporary reference you can check this doc :

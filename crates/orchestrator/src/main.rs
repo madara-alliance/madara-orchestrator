@@ -16,8 +16,7 @@ async fn main() {
     // TODO: could this be an ARC ?
     let run_cmd: RunCmd = RunCmd::parse();
 
-    // print the run cmd
-    println!("{:?}", run_cmd);
+    println!("{:?}", run_cmd.aws_sqs_args.queue_base_url);
 
     // Analytics Setup
     let instrumentation_params = run_cmd.validate_instrumentation_params().expect("Invalid instrumentation params");

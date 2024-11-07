@@ -118,7 +118,7 @@ pub struct RunCmd {
     #[clap(flatten)]
     pub snos_args: snos::SNOSCliArgs,
 
-    #[arg(env = "MADARA_RPC_URL", long, required = true)]
+    #[arg(env = "MADARA_ORCHESTRATOR_MADARA_RPC_URL", long, required = true)]
     pub madara_rpc_url: Url,
 
     // Service
@@ -201,8 +201,8 @@ impl RunCmd {
     pub fn validate_database_params(&self) -> Result<DatabaseParams, String> {
         if self.mongodb_args.mongodb {
             Ok(DatabaseParams::MongoDB(MongoDBParams {
-                connection_url: self.mongodb_args.connection_url.clone().unwrap(),
-                database_name: self.mongodb_args.database_name.clone().unwrap(),
+                connection_url: self.mongodb_args.mongodb_connection_url.clone().unwrap(),
+                database_name: self.mongodb_args.mongodb_database_name.clone().unwrap(),
             }))
         } else {
             Err("Only MongoDB is supported as of now".to_string())
@@ -211,7 +211,9 @@ impl RunCmd {
 
     pub fn validate_da_params(&self) -> Result<DaParams, String> {
         if self.ethereum_da_args.da_on_ethereum {
-            Ok(DaParams::Ethereum(EthereumDaParams { da_rpc_url: self.ethereum_da_args.da_rpc_url.clone().unwrap() }))
+            Ok(DaParams::Ethereum(EthereumDaParams {
+                ethereum_da_rpc_url: self.ethereum_da_args.ethereum_da_rpc_url.clone().unwrap(),
+            }))
         } else {
             Err("Only Ethereum is supported as of now".to_string())
         }

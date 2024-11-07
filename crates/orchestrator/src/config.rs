@@ -261,7 +261,7 @@ pub async fn build_da_client(da_params: &DaParams) -> Box<dyn DaClient + Send + 
     match da_params {
         DaParams::Ethereum(ethereum_da_params) => {
             let client = RpcClient::new_http(
-                Url::from_str(ethereum_da_params.da_rpc_url.as_str()).expect("Failed to parse DA_RPC_URL"),
+                Url::from_str(ethereum_da_params.ethereum_da_rpc_url.as_str()).expect("Failed to parse DA_RPC_URL"),
             );
             let provider = ProviderBuilder::<_, Ethereum>::new().on_client(client);
             Box::new(EthereumDaClient { provider })

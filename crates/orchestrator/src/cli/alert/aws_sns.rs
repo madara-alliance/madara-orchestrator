@@ -2,7 +2,6 @@ use clap::Args;
 
 /// Parameters used to config AWS SNS.
 #[derive(Debug, Clone, Args)]
-#[group(requires_all = ["sns_arn"])]
 pub struct AWSSNSCliArgs {
     /// Use the AWS SNS client
     #[arg(long)]
