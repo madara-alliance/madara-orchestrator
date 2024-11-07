@@ -6,6 +6,9 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ## Added
 
+- upgrade ETH L1 bridge for withdrawals to work
+- added makefile and submodules
+- Endpoints for triggering processing and verification jobs
 - Added Atlantic proving service integration
 - Add multiple queues for processing and verification based on job type
 - added logs
@@ -40,6 +43,9 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ## Changed
 
+- refactor: update json made generic to update any json file
+- refactor: makefile updated as per bootstraper changes
+- removed error return in case of JobAlreadyExists in `create_job` function
 - update_job returns the updated job item
 - made create_job atomic to avoid race conditions
 - handle jobs in tokio tasks
@@ -66,6 +72,14 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ## Fixed
 
+- blob data formation process from state update
+- OTEL config refactor
+- indexing for get_jobs_without_successor
+- wait for transaction logic in ethereum settlement client
+- y_0 point evaluation in build kzg proof for ethereum settlement
+- fixed metrics name, signoz dashboard.
+- fixes logs based on RUST_LOG
+- fixes after sepolia testing
 - all failed jobs should move to failed state
 - Fixes all unwraps() in code to improve error logging
 - Simplified Update_Job for Database.

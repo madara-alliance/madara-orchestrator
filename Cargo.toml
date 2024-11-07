@@ -14,6 +14,7 @@ members = [
   "crates/settlement-clients/starknet",
   "e2e-tests",
 ]
+exclude = ["madara-bootstrapper", "pathfinder", "madara"]
 
 [workspace.package]
 version = "0.1.0"

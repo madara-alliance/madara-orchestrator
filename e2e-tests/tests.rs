@@ -13,7 +13,7 @@ use e2e_tests::utils::{get_mongo_db_client, read_state_update_from_file, vec_u8_
 use e2e_tests::{MongoDbServer, Orchestrator};
 use mongodb::bson::doc;
 use orchestrator::data_storage::DataStorage;
-use orchestrator::jobs::constants::JOB_METADATA_SNOS_BLOCK;
+use orchestrator::jobs::constants::{JOB_METADATA_SNOS_BLOCK, JOB_METADATA_STATE_UPDATE_BLOCKS_TO_SETTLE_KEY};
 use orchestrator::jobs::types::{ExternalId, JobItem, JobStatus, JobType};
 use orchestrator::queue::job_queue::{JobQueueMessage, WorkerTriggerType};
 use rstest::rstest;
@@ -46,9 +46,7 @@ struct Setup {
 
 impl Setup {
     /// Initialise a new setup
-    pub async fn new() -> Self {
-        color_eyre::install().expect("Unable to install color_eyre");
-
+    pub async fn new(l2_block_number: String) -> Self {
         let mongo_db_instance = MongoDbServer::run().await;
         println!("✅ Mongo DB setup completed");
 
@@ -66,6 +64,7 @@ impl Setup {
         let localstack_instance = LocalStack::new().await;
         localstack_instance.setup_sqs().await.unwrap();
         localstack_instance.delete_event_bridge_rule("worker_trigger_scheduled").await.unwrap();
+        localstack_instance.setup_event_bridge(WorkerTriggerType::Snos).await.unwrap();
         localstack_instance.setup_event_bridge(WorkerTriggerType::Proving).await.unwrap();
         localstack_instance.setup_event_bridge(WorkerTriggerType::DataSubmission).await.unwrap();
         localstack_instance.setup_event_bridge(WorkerTriggerType::UpdateState).await.unwrap();
@@ -95,6 +94,7 @@ impl Setup {
             .push(("STARKNET_OPERATOR_ADDRESS".to_string(), "0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266".to_string()));
         env_vec.push(("GPS_VERIFIER_CONTRACT_ADDRESS".to_string(), verifier_contract_address.to_string()));
         env_vec.push(("L1_CORE_CONTRACT_ADDRESS".to_string(), starknet_core_contract_address.to_string()));
+        env_vec.push(("MAX_BLOCK_TO_PROCESS".to_string(), l2_block_number));
 
         Self { mongo_db_instance, starknet_client, sharp_client, env_vector: env_vec, localstack_instance }
     }
@@ -128,9 +128,8 @@ async fn test_orchestrator_workflow(#[case] l2_block_number: String) {
     // Fetching the env vars from the test env file as these will be used in
     // setting up of the test and during orchestrator run too.
     dotenvy::from_filename(".env.test").expect("Failed to load the .env file");
-    env_logger::init();
 
-    let mut setup_config = Setup::new().await;
+    let mut setup_config = Setup::new(l2_block_number.clone()).await;
     // Setup S3
     setup_s3(setup_config.localstack().s3_client()).await.unwrap();
 
@@ -152,8 +151,6 @@ async fn test_orchestrator_workflow(#[case] l2_block_number: String) {
     put_job_data_in_db_update_state(setup_config.mongo_db_instance(), l2_block_number.clone()).await;
 
     println!("✅ Orchestrator setup completed.");
-
-    log::trace!("Trace.......General process job started for block");
 
     // Run orchestrator
     let mut orchestrator = Orchestrator::run(setup_config.envs());
@@ -402,7 +399,10 @@ pub async fn put_job_data_in_db_update_state(mongo_db: &MongoDbServer, l2_block_
         job_type: JobType::StateTransition,
         status: JobStatus::Completed,
         external_id: ExternalId::Number(0),
-        metadata: HashMap::new(),
+        metadata: HashMap::from([(
+            JOB_METADATA_STATE_UPDATE_BLOCKS_TO_SETTLE_KEY.to_string(),
+            (l2_block_number.parse::<u32>().unwrap() - 1).to_string(),
+        )]),
         version: 0,
         created_at: Utc::now().round_subsecs(0),
         updated_at: Utc::now().round_subsecs(0),

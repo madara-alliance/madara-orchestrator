@@ -1,22 +1,25 @@
 use std::path::PathBuf;
 use std::str::FromStr;
 use std::sync::Arc;
+use std::time::Duration;
 
 use alloy::consensus::{
     BlobTransactionSidecar, SignableTransaction, TxEip4844, TxEip4844Variant, TxEip4844WithSidecar, TxEnvelope,
 };
+#[cfg(not(feature = "testing"))]
+use alloy::eips::eip2718::Encodable2718;
 use alloy::eips::eip2930::AccessList;
 use alloy::eips::eip4844::BYTES_PER_BLOB;
 use alloy::hex;
 use alloy::network::EthereumWallet;
 use alloy::primitives::{Address, B256, U256};
-use alloy::providers::{PendingTransactionConfig, Provider, ProviderBuilder};
-use alloy::rpc::types::{TransactionReceipt, TransactionRequest};
+use alloy::providers::{Provider, ProviderBuilder};
+use alloy::rpc::types::TransactionReceipt;
 use alloy::signers::local::PrivateKeySigner;
 use alloy_primitives::Bytes;
 use async_trait::async_trait;
 use c_kzg::{Blob, Bytes32, KzgCommitment, KzgProof, KzgSettings};
-use color_eyre::eyre::{eyre, Ok};
+use color_eyre::eyre::{bail, eyre, Ok};
 use color_eyre::Result;
 use conversion::{get_input_data_for_eip_4844, prepare_sidecar};
 use settlement_client_interface::{SettlementClient, SettlementVerificationStatus};
@@ -38,9 +41,20 @@ use alloy::transports::http::Http;
 use lazy_static::lazy_static;
 use mockall::automock;
 use reqwest::Client;
+use tokio::time::sleep;
 use utils::settings::Settings;
 
+use crate::types::{bytes_be_to_u128, convert_stark_bigint_to_u256};
+
 pub const ENV_PRIVATE_KEY: &str = "ETHEREUM_PRIVATE_KEY";
+const X_0_POINT_OFFSET: usize = 10;
+const Y_LOW_POINT_OFFSET: usize = 14;
+const Y_HIGH_POINT_OFFSET: usize = Y_LOW_POINT_OFFSET + 1;
+
+// Ethereum Transaction Finality
+const MAX_TX_FINALISATION_ATTEMPTS: usize = 100;
+const REQUIRED_BLOCK_CONFIRMATIONS: u64 = 3;
+const TX_WAIT_SLEEP_DELAY_SECS: u64 = 5;
 
 lazy_static! {
     pub static ref PROJECT_ROOT: PathBuf = PathBuf::from(format!("{}/../../../", env!("CARGO_MANIFEST_DIR")));
@@ -113,7 +127,11 @@ impl EthereumSettlementClient {
     }
 
     /// Build kzg proof for the x_0 point evaluation
-    pub fn build_proof(blob_data: Vec<Vec<u8>>, x_0_value: Bytes32) -> Result<KzgProof> {
+    pub fn build_proof(
+        blob_data: Vec<Vec<u8>>,
+        x_0_value: Bytes32,
+        y_0_value_program_output: Bytes32,
+    ) -> Result<KzgProof> {
         // Assuming that there is only one blob in the whole Vec<Vec<u8>> array for now.
         // Later we will add the support for multiple blob in single blob_data vec.
         assert_eq!(blob_data.len(), 1);
@@ -123,6 +141,14 @@ impl EthereumSettlementClient {
         let blob = Blob::new(fixed_size_blob);
         let commitment = KzgCommitment::blob_to_kzg_commitment(&blob, &KZG_SETTINGS)?;
         let (kzg_proof, y_0_value) = KzgProof::compute_kzg_proof(&blob, &x_0_value, &KZG_SETTINGS)?;
+
+        if y_0_value != y_0_value_program_output {
+            bail!(
+                "ERROR : y_0 value is different than expected. Expected {:?}, got {:?}",
+                y_0_value,
+                y_0_value_program_output
+            );
+        }
 
         // Verifying the proof for double check
         let eval = KzgProof::verify_kzg_proof(
@@ -180,7 +206,7 @@ impl SettlementClient for EthereumSettlementClient {
         &self,
         program_output: Vec<[u8; 32]>,
         state_diff: Vec<Vec<u8>>,
-        nonce: u64,
+        _nonce: u64,
     ) -> Result<String> {
         tracing::info!(
             log_type = "starting",
@@ -194,33 +220,51 @@ impl SettlementClient for EthereumSettlementClient {
         let eip1559_est = self.provider.estimate_eip1559_fees(None).await?;
         let chain_id: u64 = self.provider.get_chain_id().await?.to_string().parse()?;
 
-        let mut max_fee_per_blob_gas: u128 = self.provider.get_blob_base_fee().await?.to_string().parse()?;
-        // TODO: need to send more than current gas price.
-        max_fee_per_blob_gas += 12;
-        let max_priority_fee_per_gas: u128 = self.provider.get_max_priority_fee_per_gas().await?.to_string().parse()?;
+        let max_fee_per_blob_gas: u128 = self.provider.get_blob_base_fee().await?.to_string().parse()?;
+
+        // calculating y_0 point
+        let y_0 = Bytes32::from(
+            convert_stark_bigint_to_u256(
+                bytes_be_to_u128(&program_output[Y_LOW_POINT_OFFSET]),
+                bytes_be_to_u128(&program_output[Y_HIGH_POINT_OFFSET]),
+            )
+            .to_be_bytes(),
+        );
 
         // x_0_value : program_output[10]
         // Updated with starknet 0.13.2 spec
         let kzg_proof = Self::build_proof(
             state_diff,
-            Bytes32::from_bytes(program_output[10].as_slice()).expect("Not able to get x_0 point params."),
+            Bytes32::from_bytes(program_output[X_0_POINT_OFFSET].as_slice())
+                .expect("Not able to get x_0 point params."),
+            y_0,
         )
         .expect("Unable to build KZG proof for given params.")
         .to_owned();
 
         let input_bytes = get_input_data_for_eip_4844(program_output, kzg_proof)?;
 
+        let nonce = self.provider.get_transaction_count(self.wallet_address).await?.to_string().parse()?;
+
+        // add a safety margin to the gas price to handle fluctuations
+        let add_safety_margin = |n: u128, div_factor: u128| n + n / div_factor;
+
+        let max_fee_per_gas: u128 = eip1559_est.max_fee_per_gas.to_string().parse()?;
+        let max_priority_fee_per_gas: u128 = eip1559_est.max_priority_fee_per_gas.to_string().parse()?;
+
         let tx: TxEip4844 = TxEip4844 {
             chain_id,
             nonce,
-            gas_limit: 30_000_000,
-            max_fee_per_gas: (eip1559_est.max_fee_per_gas * 10).to_string().parse()?,
-            max_priority_fee_per_gas,
+            // we noticed Starknet uses the same limit on mainnet
+            // https://etherscan.io/tx/0x8a58b936faaefb63ee1371991337ae3b99d74cb3504d73868615bf21fa2f25a1
+            gas_limit: 5_500_000,
+            max_fee_per_gas: add_safety_margin(max_fee_per_gas, 5),
+            max_priority_fee_per_gas: add_safety_margin(max_priority_fee_per_gas, 5),
             to: self.core_contract_client.contract_address(),
             value: U256::from(0),
             access_list: AccessList(vec![]),
             blob_versioned_hashes: sidecar.versioned_hashes().collect(),
-            max_fee_per_blob_gas,
+            max_fee_per_blob_gas: add_safety_margin(max_fee_per_blob_gas, 5),
             input: Bytes::from(hex::decode(input_bytes)?),
         };
 
@@ -231,24 +275,40 @@ impl SettlementClient for EthereumSettlementClient {
         let tx_signed = variant.into_signed(signature);
         let tx_envelope: TxEnvelope = tx_signed.into();
 
-        #[cfg(not(feature = "testing"))]
-        let txn_request = {
-            let txn_request: TransactionRequest = tx_envelope.clone().into();
-            txn_request
+        #[cfg(feature = "testing")]
+        let pending_transaction = {
+            let txn_request = {
+                test_config::configure_transaction(self.provider.clone(), tx_envelope, self.impersonate_account).await
+            };
+            self.provider.send_transaction(txn_request).await?
         };
 
-        #[cfg(feature = "testing")]
-        let txn_request =
-            { test_config::configure_transaction(self.provider.clone(), tx_envelope, self.impersonate_account).await };
+        #[cfg(not(feature = "testing"))]
+        let pending_transaction = {
+            let encoded = tx_envelope.encoded_2718();
+            self.provider.send_raw_transaction(encoded.as_slice()).await?
+        };
 
-        let pending_transaction = self.provider.send_transaction(txn_request).await?;
         tracing::info!(
             log_type = "completed",
             category = "update_state",
             function_type = "blobs",
             "State updated with blobs."
         );
-        return Ok(pending_transaction.tx_hash().to_string());
+
+        log::warn!("⏳ Waiting for txn finality.......");
+
+        let res = self.wait_for_tx_finality(&pending_transaction.tx_hash().to_string()).await?;
+
+        match res {
+            Some(_) => {
+                log::info!("Txn hash : {:?} Finalized ✅", pending_transaction.tx_hash().to_string());
+            }
+            None => {
+                log::error!("Txn hash not finalised");
+            }
+        }
+        Ok(pending_transaction.tx_hash().to_string())
     }
 
     /// Should verify the inclusion of a tx in the settlement layer
@@ -298,10 +358,22 @@ impl SettlementClient for EthereumSettlementClient {
     }
 
     /// Wait for a pending tx to achieve finality
-    async fn wait_for_tx_finality(&self, tx_hash: &str) -> Result<()> {
-        let tx_hash = B256::from_str(tx_hash)?;
-        self.provider.watch_pending_transaction(PendingTransactionConfig::new(tx_hash)).await?;
-        Ok(())
+    async fn wait_for_tx_finality(&self, tx_hash: &str) -> Result<Option<u64>> {
+        for _ in 0..MAX_TX_FINALISATION_ATTEMPTS {
+            if let Some(receipt) =
+                self.provider.get_transaction_receipt(B256::from_str(tx_hash).expect("Unable to form")).await?
+            {
+                if let Some(block_number) = receipt.block_number {
+                    let latest_block = self.provider.get_block_number().await?;
+                    let confirmations = latest_block.saturating_sub(block_number);
+                    if confirmations >= REQUIRED_BLOCK_CONFIRMATIONS {
+                        return Ok(Some(block_number));
+                    }
+                }
+            }
+            sleep(Duration::from_secs(TX_WAIT_SLEEP_DELAY_SECS)).await;
+        }
+        Ok(None)
     }
 
     /// Get the last block settled through the core contract
@@ -319,9 +391,11 @@ impl SettlementClient for EthereumSettlementClient {
 #[cfg(feature = "testing")]
 mod test_config {
     use alloy::network::TransactionBuilder;
+    use alloy::rpc::types::TransactionRequest;
 
     use super::*;
 
+    #[allow(dead_code)]
     pub async fn configure_transaction(
         provider: Arc<RootProvider<Http<Client>>>,
         tx_envelope: TxEnvelope,

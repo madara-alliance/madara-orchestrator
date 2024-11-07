@@ -1,4 +1,4 @@
-use std::collections::HashMap;
+use std::collections::{HashMap, HashSet};
 use std::ops::{Add, Mul, Rem};
 use std::str::FromStr;
 use std::sync::Arc;
@@ -10,7 +10,7 @@ use lazy_static::lazy_static;
 use num_bigint::{BigUint, ToBigUint};
 use num_traits::{Num, Zero};
 use starknet::core::types::{
-    BlockId, ContractStorageDiffItem, DeclaredClassItem, Felt, MaybePendingStateUpdate, StateUpdate,
+    BlockId, ContractStorageDiffItem, DeclaredClassItem, Felt, MaybePendingStateUpdate, StateDiff, StateUpdate,
 };
 use starknet::providers::Provider;
 use thiserror::Error;
@@ -203,7 +203,7 @@ impl Job for DaJob {
     }
 }
 
-#[tracing::instrument(skip(elements), ret)]
+#[tracing::instrument(skip(elements))]
 pub fn fft_transformation(elements: Vec<BigUint>) -> Vec<BigUint> {
     let xs: Vec<BigUint> = (0..*BLOB_LEN)
         .map(|i| {
@@ -278,6 +278,7 @@ pub async fn state_update_to_blob_data(
     config: Arc<Config>,
 ) -> color_eyre::Result<Vec<Felt>> {
     let mut state_diff = state_update.state_diff;
+    refactor_state_update(&mut state_diff);
 
     let mut blob_data: Vec<Felt> = vec![Felt::from(state_diff.storage_diffs.len())];
 
@@ -394,8 +395,26 @@ fn da_word(class_flag: bool, nonce_change: Option<Felt>, num_changes: u64) -> Fe
     Felt::from_dec_str(&decimal_string).expect("issue while converting to fieldElement")
 }
 
+fn refactor_state_update(state_update: &mut StateDiff) {
+    let existing_storage: HashSet<_> = state_update.storage_diffs.iter().map(|item| item.address).collect();
+
+    // Collect new addresses, using a HashSet for deduplication
+    let new_addresses: HashSet<_> = Iterator::chain(
+        state_update.nonces.iter().map(|item| item.contract_address),
+        state_update.deployed_contracts.iter().map(|item| item.address),
+    )
+    .filter(|address| !existing_storage.contains(address))
+    .collect();
+
+    // Add new storage diffs in batch
+    state_update.storage_diffs.extend(
+        new_addresses.into_iter().map(|address| ContractStorageDiffItem { address, storage_entries: Vec::new() }),
+    );
+}
+
 #[cfg(test)]
 pub mod test {
+    use std::collections::HashSet;
     use std::fs;
     use std::fs::File;
     use std::io::Read;
@@ -408,12 +427,14 @@ pub mod test {
     use majin_blob_types::serde;
     use rstest::rstest;
     use serde_json::json;
-    use starknet::core::types::{Felt, StateUpdate};
+    use starknet::core::types::{
+        ContractStorageDiffItem, DeployedContractItem, Felt, NonceUpdate, StateDiff, StateUpdate, StorageEntry,
+    };
     use starknet::providers::jsonrpc::HttpTransport;
     use starknet::providers::JsonRpcClient;
     use url::Url;
 
-    use crate::jobs::da_job::da_word;
+    use crate::jobs::da_job::{da_word, refactor_state_update};
 
     /// Tests `da_word` function with various inputs for class flag, new nonce, and number of
     /// changes. Verifies that `da_word` produces the correct Felt based on the provided
@@ -466,6 +487,16 @@ pub mod test {
         "src/tests/jobs/da_job/test_data/state_update/671070.txt",
         "src/tests/jobs/da_job/test_data/test_blob/671070.txt",
         "src/tests/jobs/da_job/test_data/nonces/671070.txt"
+    )]
+    // Block from pragma madara and orch test run. Here we faced an issue where our
+    // blob building logic was not able to take the contract addresses from
+    // `deployed_contracts` field in state diff from state update. This test case
+    // was added after the fix
+    #[case(
+        178,
+        "src/tests/jobs/da_job/test_data/state_update/178.txt",
+        "src/tests/jobs/da_job/test_data/test_blob/178.txt",
+        "src/tests/jobs/da_job/test_data/nonces/178.txt"
     )]
     #[tokio::test]
     async fn test_state_update_to_blob_data(
@@ -551,6 +582,47 @@ pub mod test {
         assert_eq!(data, deserialize_data);
     }
 
+    #[rstest]
+    #[case::empty_case(vec![], vec![], vec![], 0)]
+    #[case::only_nonces(
+        vec![(Felt::from(1), Felt::from(10)), (Felt::from(2), Felt::from(20))],
+        vec![],
+        vec![],
+        2
+    )]
+    #[case::only_deployed(
+        vec![],
+        vec![],
+        vec![(Felt::from(1), vec![1]), (Felt::from(2), vec![2])],
+        2
+    )]
+    #[case::overlapping_addresses(
+        vec![(Felt::from(1), Felt::from(10))],
+        vec![(Felt::from(1), vec![(Felt::from(1), Felt::from(100))])],
+        vec![(Felt::from(1), vec![1])],
+        1
+    )]
+    #[case::duplicate_addresses(
+        vec![(Felt::from(1), Felt::from(10)), (Felt::from(1), Felt::from(20))],
+        vec![],
+        vec![(Felt::from(1), vec![1]), (Felt::from(1), vec![2])],
+        1
+    )]
+    fn test_refactor_state_update(
+        #[case] nonces: Vec<(Felt, Felt)>,
+        #[case] storage_diffs: Vec<(Felt, Vec<(Felt, Felt)>)>,
+        #[case] deployed_contracts: Vec<(Felt, Vec<u8>)>,
+        #[case] expected_storage_count: usize,
+    ) {
+        let mut state_diff = create_state_diff(nonces, storage_diffs.clone(), deployed_contracts);
+        let initial_storage = state_diff.storage_diffs.clone();
+
+        refactor_state_update(&mut state_diff);
+
+        assert!(verify_addresses_have_storage_diffs(&state_diff, &initial_storage));
+        verify_unique_addresses(&state_diff, expected_storage_count);
+    }
+
     pub(crate) fn read_state_update_from_file(file_path: &str) -> Result<StateUpdate> {
         // let file_path = format!("state_update_block_no_{}.txt", block_no);
         let mut file = File::open(file_path)?;
@@ -596,5 +668,57 @@ pub mod test {
         let mut new_hex_chars = hex_chars.join("");
         new_hex_chars = new_hex_chars.trim_start_matches('0').to_string();
         if new_hex_chars.is_empty() { "0x0".to_string() } else { format!("0x{}", new_hex_chars) }
+    }
+
+    fn create_state_diff(
+        nonces: Vec<(Felt, Felt)>,
+        storage_diffs: Vec<(Felt, Vec<(Felt, Felt)>)>,
+        deployed_contracts: Vec<(Felt, Vec<u8>)>,
+    ) -> StateDiff {
+        StateDiff {
+            nonces: nonces.into_iter().map(|(addr, nonce)| NonceUpdate { contract_address: addr, nonce }).collect(),
+            storage_diffs: storage_diffs
+                .into_iter()
+                .map(|(addr, entries)| ContractStorageDiffItem {
+                    address: addr,
+                    storage_entries: entries.into_iter().map(|(key, value)| StorageEntry { key, value }).collect(),
+                })
+                .collect(),
+            deprecated_declared_classes: vec![],
+            declared_classes: vec![],
+            deployed_contracts: deployed_contracts
+                .into_iter()
+                .map(|(addr, _class_hash)| DeployedContractItem { address: addr, class_hash: Default::default() })
+                .collect(),
+            replaced_classes: vec![],
+        }
+    }
+
+    fn verify_unique_addresses(state_diff: &StateDiff, expected_count: usize) {
+        let unique_addresses: HashSet<_> = state_diff.storage_diffs.iter().map(|item| &item.address).collect();
+
+        assert_eq!(unique_addresses.len(), state_diff.storage_diffs.len(), "Storage diffs contain duplicate addresses");
+        assert_eq!(unique_addresses.len(), expected_count, "Unexpected number of storage diffs");
+    }
+
+    fn verify_addresses_have_storage_diffs(
+        state_diff: &StateDiff,
+        initial_storage: &Vec<ContractStorageDiffItem>,
+    ) -> bool {
+        for orig_storage in initial_storage {
+            if let Some(current_storage) =
+                state_diff.storage_diffs.iter().find(|item| item.address == orig_storage.address)
+            {
+                assert_eq!(
+                    orig_storage.storage_entries, current_storage.storage_entries,
+                    "Storage entries changed unexpectedly"
+                );
+            }
+        }
+
+        let storage_addresses: HashSet<_> = state_diff.storage_diffs.iter().map(|item| &item.address).collect();
+
+        state_diff.nonces.iter().all(|item| storage_addresses.contains(&item.contract_address))
+            && state_diff.deployed_contracts.iter().all(|item| storage_addresses.contains(&item.address))
     }
 }
