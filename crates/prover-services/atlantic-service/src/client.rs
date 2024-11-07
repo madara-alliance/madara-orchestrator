@@ -1,10 +1,7 @@
 use std::path::Path;
 
 use cairo_vm::types::layout_name::LayoutName;
-use reqwest::multipart::Form;
-use reqwest::{multipart, Body, Method};
-use tokio::fs::File;
-use tokio_util::codec::{BytesCodec, FramedRead};
+use reqwest::Method;
 use url::Url;
 use utils::env_utils::get_env_var_or_panic;
 use utils::http_client::{HttpClient, RequestBuilder};
@@ -28,7 +25,7 @@ trait ProvingLayer: Send + Sync {
 struct EthereumLayer;
 impl ProvingLayer for EthereumLayer {
     fn customize_request<'a>(&self, request: RequestBuilder<'a>) -> RequestBuilder<'a> {
-        request.path("/l1/submit-sharp-query/proof_generation_verification")
+        request.path("/l1/atlantic-query/proof_generation_verification")
     }
 }
 
@@ -48,14 +45,14 @@ pub struct AtlanticClient {
 impl AtlanticClient {
     /// We need to set up the client with the API_KEY.
     pub fn new_with_settings(url: Url, settlement_layer: SettlementLayer) -> Self {
-        let api_key = get_env_var_or_panic("ATLANTIC_API_KEY");
+        println!("Atlantic client created with url: {:?}", url);
+
         let mock_fact_hash = get_env_var_or_panic("MOCK_FACT_HASH");
         let prover_type = get_env_var_or_panic("PROVER_TYPE");
 
         let client = HttpClient::builder(url.as_str())
-            .default_query_param("apiKey", &api_key)
-            .default_query_param("mockFactHash", &mock_fact_hash)
-            .default_query_param("prover", &prover_type)
+            .default_form_data("mockFactHash", &mock_fact_hash)
+            .default_form_data("proverType", &prover_type)
             .build()
             .expect("Failed to build HTTP client");
 
@@ -70,22 +67,17 @@ impl AtlanticClient {
     pub async fn add_job(
         &self,
         pie_file: &Path,
-        proof_layout: LayoutName,
+        _proof_layout: LayoutName,
     ) -> Result<AtlanticAddJobResponse, AtlanticError> {
-        let pie_file = File::open(pie_file).await.map_err(AtlanticError::FileReadError)?;
-        let stream = FramedRead::new(pie_file, BytesCodec::new());
-        let file_body = Body::wrap_stream(stream);
+        let api_key = get_env_var_or_panic("ATLANTIC_API_KEY");
 
-        // make form part of file
-        let pie_file_part = multipart::Part::stream(file_body).file_name("pie.zip");
-        let form = Form::new().part("pieFile", pie_file_part).text("layout", proof_layout.to_str());
-
+        println!("form created");
         let response = self
             .proving_layer
-            .customize_request(self.client.request().method(Method::POST).multipart(form))
+            .customize_request(self.client.request().method(Method::POST).query_param("apiKey", &api_key).form_file("pieFile", pie_file, "pie.zip").form_text("layout", "dynamic"))
             .send()
             .await
-            .map_err(AtlanticError::AddJobFailure)?;
+            .map_err(AtlanticError::AddJobFailure).expect("Failed to add job");
 
         if response.status().is_success() {
             response.json().await.map_err(AtlanticError::AddJobFailure)
@@ -99,7 +91,7 @@ impl AtlanticClient {
             .client
             .request()
             .method(Method::GET)
-            .path("/sharp-query")
+            .path("atlantic-query")
             .path(job_key)
             .send()
             .await

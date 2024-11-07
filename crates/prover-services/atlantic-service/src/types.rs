@@ -13,12 +13,12 @@ pub struct AtlanticGetProofResponse {
 #[derive(Debug, Clone, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct AtlanticGetStatusResponse {
-    pub sharp_query: SharpQuery,
+    pub atlantic_query: AtlanticQuery,
 }
 
 #[derive(Debug, Clone, Deserialize)]
 #[serde(rename_all = "camelCase")]
-pub struct SharpQuery {
+pub struct AtlanticQuery {
     pub id: String,
     pub submitted_by_client: String,
     pub status: SharpQueryStatus,
@@ -29,7 +29,7 @@ pub struct SharpQuery {
     pub is_fact_mocked: bool,
     pub prover: String,
     pub chain: String,
-    pub price: i64,
+    pub price: String,
     pub steps: Vec<SharpQueryStep>,
 }
 

@@ -33,9 +33,10 @@
 //! ```
 
 use std::collections::HashMap;
+use std::path::Path;
 
 use reqwest::header::{HeaderMap, HeaderName, HeaderValue};
-use reqwest::multipart::Form;
+use reqwest::multipart::{Form, Part};
 use reqwest::{Certificate, Client, ClientBuilder, Identity, Method, Response, Result};
 use url::Url;
 
@@ -80,6 +81,7 @@ impl HttpClient {
     /// # Panics
     /// Panics if the provided base URL is invalid
     pub fn builder(base_url: &str) -> HttpClientBuilder {
+        println!("HttpClient builder created with base url: {:?}", base_url);
         HttpClientBuilder::new(Url::parse(base_url).expect("Invalid base URL"))
     }
 
@@ -99,8 +101,13 @@ impl HttpClient {
     /// # Returns
     /// A Result containing either the Response or an error
     async fn send_request(&self, builder: RequestBuilder<'_>) -> Result<Response> {
-        let mut url = self.base_url.join(&builder.path).expect("Failed to join base URL and path");
-
+        println!("sending request with base url: {:?}", self.base_url);
+        // Create a new URL by cloning the base URL and appending the path
+        let mut url = self.base_url.clone();
+        url.path_segments_mut()
+            .expect("Base URL cannot be a base")
+            .extend(builder.path.trim_start_matches('/').split('/'));
+        println!("url: {:?}", url);
         // Merge query parameters
         {
             let mut pairs = url.query_pairs_mut();
@@ -138,14 +145,16 @@ impl HttpClient {
 
         // Handle form data
         if let Some(mut form) = builder.form {
-            let default_form = self.default_form_data.clone();
+            let default_form: HashMap<String, String> = self.default_form_data.clone();
             for (key, value) in default_form {
                 form = form.text(key, value);
             }
             request = request.multipart(form);
         }
-
-        request.send().await
+        println!("sending request");
+        let response = request.send().await;
+        println!("response: {:?}", response);
+        response
     }
 }
 
@@ -247,9 +256,17 @@ impl<'a> RequestBuilder<'a> {
         self
     }
 
-    /// Sets the path for the request, which will be joined with the base URL.
+    /// Appends a path segment to the existing path.
+    /// If the path starts with '/', it will replace the existing path instead of appending.
     pub fn path(mut self, path: &str) -> Self {
-        self.path = path.to_string();
+        if path.starts_with('/') {
+            self.path = path.to_string();
+        } else {
+            if !self.path.is_empty() && !self.path.ends_with('/') {
+                self.path.push('/');
+            }
+            self.path.push_str(path);
+        }
         self
     }
 
@@ -272,11 +289,40 @@ impl<'a> RequestBuilder<'a> {
         self
     }
 
-    /// Sets multipart form data for the request.
-    pub fn multipart(mut self, form: Form) -> Self {
+    /// Adds a text part to the multipart form.
+    pub fn form_text(mut self, key: &str, value: &str) -> Self {
+        let form = match self.form.take() {
+            Some(existing_form) => existing_form.text(key.to_string(), value.to_string()),
+            None => Form::new().text(key.to_string(), value.to_string()),
+        };
         self.form = Some(form);
         self
     }
+
+    pub fn form_file(mut self, key: &str, file_path: &Path, file_name: &str) -> Self {
+        let file_bytes = std::fs::read(file_path).expect("Failed to read file");
+        // Convert file_name to owned String
+        let file_name = file_name.to_string();
+        
+        let part = Part::bytes(file_bytes).file_name(file_name);
+        
+        let form = match self.form.take() {
+            Some(existing_form) => existing_form.part(key.to_string(), part),
+            None => Form::new().part(key.to_string(), part),
+        };
+        self.form = Some(form);
+        self
+    }
+
+    /// Adds a file part to the multipart form.
+    // pub fn form_file(mut self, key: &str, file: std::fs::File) -> Self {
+    //     let form = match self.form.take() {
+    //         Some(existing_form) => existing_form.file(key.to_string(), file),
+    //         None => Form::new().file(key.to_string(), file),
+    //     };
+    //     self.form = Some(form);
+    //     self
+    // }
 
     /// Sends the request with all configured parameters.
     pub async fn send(self) -> Result<Response> {
