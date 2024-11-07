@@ -7,10 +7,10 @@ use std::str::FromStr;
 
 use alloy::primitives::B256;
 use async_trait::async_trait;
+use client::SharpParams;
 use gps_fact_checker::FactChecker;
 use prover_client_interface::{ProverClient, ProverClientError, Task, TaskStatus};
 use starknet_os::sharp::CairoJobStatus;
-use utils::cli::prover::sharp::SharpParams;
 use uuid::Uuid;
 
 use crate::client::SharpClient;
@@ -135,7 +135,10 @@ impl SharpProverService {
 
     pub fn new_with_settings(sharp_params: &SharpParams) -> Self {
         let sharp_client = SharpClient::new_with_settings(sharp_params.sharp_url.clone(), sharp_params);
-        let fact_checker = FactChecker::new(sharp_params);
+        let fact_checker = FactChecker::new(
+            sharp_params.sharp_rpc_node_url.clone(),
+            sharp_params.gps_verifier_contract_address.clone(),
+        );
         Self::new(sharp_client, fact_checker)
     }
 
@@ -144,7 +147,10 @@ impl SharpProverService {
             format!("http://127.0.0.1:{}", port).parse().expect("Failed to create sharp client with the given params"),
             sharp_params,
         );
-        let fact_checker = FactChecker::new(sharp_params);
+        let fact_checker = FactChecker::new(
+            sharp_params.sharp_rpc_node_url.clone(),
+            sharp_params.gps_verifier_contract_address.clone(),
+        );
         Self::new(sharp_client, fact_checker)
     }
 }

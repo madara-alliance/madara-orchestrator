@@ -7,12 +7,17 @@ use axum::response::{IntoResponse, Response};
 use axum::{Json, Router};
 use job_routes::job_router;
 use serde::Serialize;
-use utils::cli::server::ServerParams;
 
 use crate::config::Config;
 
 pub mod app_routes;
 pub mod job_routes;
+
+#[derive(Debug, Clone)]
+pub struct ServerParams {
+    pub host: String,
+    pub port: u16,
+}
 
 #[derive(Debug, Serialize)]
 struct ApiResponse<T>

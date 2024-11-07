@@ -11,19 +11,18 @@ use chrono::{SubsecRound, Utc};
 use mongodb::Client;
 use rstest::*;
 use serde::Deserialize;
-use utils::cli::database::DatabaseParams;
-use utils::cli::queue::aws_sqs::QueueType;
-use utils::cli::queue::QueueParams;
-use utils::cli::storage::aws_s3::AWSS3Params;
 use utils::env_utils::get_env_var_or_panic;
 
+use crate::cli::database::DatabaseParams;
+use crate::cli::queue::QueueParams;
 use crate::config::ProviderConfig;
-use crate::data_storage::aws_s3::AWSS3;
+use crate::data_storage::aws_s3::{AWSS3Params, AWSS3};
 use crate::data_storage::DataStorage;
 use crate::database::mongodb::MongoDb;
 use crate::jobs::types::JobStatus::Created;
 use crate::jobs::types::JobType::DataSubmission;
 use crate::jobs::types::{ExternalId, JobItem};
+use crate::queue::job_queue::QueueType;
 
 #[fixture]
 pub fn default_job_item() -> JobItem {

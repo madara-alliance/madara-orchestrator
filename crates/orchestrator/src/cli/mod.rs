@@ -1,21 +1,24 @@
-use alert::aws_sns::AWSSNSParams;
 use alert::AlertParams;
-use clap::{command, ArgGroup, Parser};
+use aws_config::AWSConfigParams;
+use clap::{ArgGroup, Parser};
 use da::ethereum::EthereumDAParams;
 use da::DaParams;
-use database::mongodb::MongoDBParams;
 use database::DatabaseParams;
-use instrumentation::InstrumentationParams;
-use prover::sharp::SharpParams;
+use ethereum_settlement_client::config::EthereumSettlementParams;
 use prover::ProverParams;
-use queue::aws_sqs::AWSSQSParams;
 use queue::QueueParams;
-use settlement::ethereum::EthereumSettlementParams;
-use settlement::starknet::StarknetSettlementParams;
 use settlement::SettlementParams;
-use storage::aws_s3::AWSS3Params;
+use sharp_service::client::SharpParams;
+use starknet_settlement_client::config::StarknetSettlementParams;
 use storage::StorageParams;
 use url::Url;
+
+use crate::alerts::aws_sns::AWSSNSParams;
+use crate::data_storage::aws_s3::AWSS3Params;
+use crate::database::mongodb::MongoDBParams;
+use crate::queue::sqs::AWSSQSParams;
+use crate::routes::ServerParams;
+use crate::telemetry::InstrumentationParams;
 
 pub mod alert;
 pub mod aws_config;
@@ -72,14 +75,14 @@ pub mod storage;
 pub struct RunCmd {
     // AWS Config
     #[clap(flatten)]
-    pub aws_config_args: aws_config::AWSConfigParams,
+    pub aws_config_args: AWSConfigParams,
 
     // Settlement Layer
     #[command(flatten)]
-    ethereum_args: settlement::ethereum::EthereumSettlementArgs,
+    ethereum_args: settlement::ethereum::EthereumSettlementCliArgs,
 
     #[command(flatten)]
-    starknet_args: settlement::starknet::StarknetSettlementArgs,
+    starknet_args: settlement::starknet::StarknetSettlementCliArgs,
 
     // Storage
     #[clap(flatten)]
@@ -90,7 +93,7 @@ pub struct RunCmd {
 
     // Server
     #[clap(flatten)]
-    pub server: server::ServerParams,
+    pub server_args: server::ServerCliArgs,
 
     // Alert
     #[clap(flatten)]
@@ -120,7 +123,7 @@ pub struct RunCmd {
 }
 
 impl RunCmd {
-    pub fn validate_settlement_params(&self) -> Result<SettlementParams, String> {
+    pub fn validate_settlement_params(&self) -> Result<settlement::SettlementParams, String> {
         match (self.ethereum_args.settle_on_ethereum, self.starknet_args.settle_on_starknet) {
             (true, false) => {
                 // TODO: Ensure Starknet params are not provided
@@ -231,5 +234,9 @@ impl RunCmd {
             otel_collector_endpoint: self.instrumentation_args.otel_collector_endpoint.clone(),
             log_level: self.instrumentation_args.log_level,
         })
+    }
+
+    pub fn validate_server_params(&self) -> Result<ServerParams, String> {
+        Ok(ServerParams { host: self.server_args.host.clone(), port: self.server_args.port })
     }
 }

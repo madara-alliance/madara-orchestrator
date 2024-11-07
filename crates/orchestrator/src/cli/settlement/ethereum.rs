@@ -3,7 +3,7 @@ use url::Url;
 
 #[derive(Debug, Clone, Args)]
 #[group(requires_all = ["ethereum_rpc_url", "ethereum_private_key", "l1_core_contract_address", "starknet_operator_address"])]
-pub struct EthereumSettlementArgs {
+pub struct EthereumSettlementCliArgs {
     /// Use the Ethereum settlement layer.
     #[arg(long)]
     pub settle_on_ethereum: bool,
@@ -23,15 +23,4 @@ pub struct EthereumSettlementArgs {
     /// The address of the Starknet operator.
     #[arg(env = "STARKNET_OPERATOR_ADDRESS", long)]
     pub starknet_operator_address: Option<String>,
-}
-
-#[derive(Clone, Debug)]
-pub struct EthereumSettlementParams {
-    pub ethereum_rpc_url: Url,
-
-    pub ethereum_private_key: String,
-
-    pub l1_core_contract_address: String,
-
-    pub starknet_operator_address: String,
 }

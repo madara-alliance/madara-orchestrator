@@ -10,6 +10,7 @@ use appchain_core_contract_client::interfaces::core_contract::CoreContract;
 use async_trait::async_trait;
 use color_eyre::eyre::eyre;
 use color_eyre::Result;
+use config::StarknetSettlementParams;
 use crypto_bigint::Encoding;
 use lazy_static::lazy_static;
 use mockall::automock;
@@ -22,7 +23,6 @@ use starknet::providers::jsonrpc::HttpTransport;
 use starknet::providers::{JsonRpcClient, Provider};
 use starknet::signers::{LocalWallet, SigningKey};
 use tokio::time::{sleep, Duration};
-use utils::cli::settlement::starknet::StarknetSettlementParams;
 
 use crate::conversion::{slice_slice_u8_to_vec_field, slice_u8_to_field, u64_from_felt};
 

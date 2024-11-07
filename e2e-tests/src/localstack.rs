@@ -8,13 +8,12 @@ use aws_sdk_eventbridge::types::{InputTransformer, RuleState, Target};
 use aws_sdk_s3::config::ProvideCredentials;
 use aws_sdk_sqs::types::QueueAttributeName;
 use aws_sdk_sqs::types::QueueAttributeName::VisibilityTimeout;
+use orchestrator::cli::aws_config::AWSConfigParams;
 use orchestrator::config::ProviderConfig;
-use orchestrator::data_storage::aws_s3::AWSS3;
+use orchestrator::data_storage::aws_s3::{AWSS3Params, AWSS3};
 use orchestrator::data_storage::DataStorage;
-use orchestrator::queue::job_queue::{JobQueueMessage, WorkerTriggerMessage, WorkerTriggerType};
-use utils::cli::aws_config::AWSConfigParams;
-use utils::cli::queue::aws_sqs::{AWSSQSParams, QueueType};
-use utils::cli::storage::aws_s3::AWSS3Params;
+use orchestrator::queue::job_queue::{JobQueueMessage, QueueType, WorkerTriggerMessage, WorkerTriggerType};
+use orchestrator::queue::sqs::AWSSQSParams;
 
 /// LocalStack struct
 pub struct LocalStack {

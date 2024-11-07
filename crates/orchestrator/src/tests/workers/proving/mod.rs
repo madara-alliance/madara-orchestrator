@@ -25,7 +25,7 @@ use crate::workers::proving::ProvingWorker;
 #[case(false)]
 #[tokio::test]
 async fn test_proving_worker(#[case] incomplete_runs: bool) -> Result<(), Box<dyn Error>> {
-    use utils::cli::queue::aws_sqs::QueueType;
+    use crate::queue::job_queue::QueueType;
 
     let server = MockServer::start();
     let da_client = MockDaClient::new();

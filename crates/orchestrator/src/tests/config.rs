@@ -11,9 +11,9 @@ use settlement_client_interface::{MockSettlementClient, SettlementClient};
 use starknet::providers::jsonrpc::HttpTransport;
 use starknet::providers::JsonRpcClient;
 use url::Url;
-use utils::cli::RunCmd;
 
 use crate::alerts::Alerts;
+use crate::cli::RunCmd;
 use crate::config::{get_aws_config, Config, ProviderConfig, SnosConfig};
 use crate::data_storage::{DataStorage, MockDataStorage};
 use crate::database::{Database, MockDatabase};
@@ -185,7 +185,7 @@ impl TestConfigBuilder {
 
         let aws_config = &run_cmd.aws_config_args;
         let provider_config = Arc::new(ProviderConfig::AWS(Box::new(get_aws_config(aws_config).await)));
-        let server_config = run_cmd.server.clone();
+        let server_config = run_cmd.validate_server_params().expect("Failed to validate server params");
 
         let snos_config = SnosConfig {
             rpc_url: run_cmd.snos_args.rpc_for_snos.clone(),
@@ -297,16 +297,16 @@ pub mod implement_client {
     use settlement_client_interface::{MockSettlementClient, SettlementClient};
     use starknet::providers::jsonrpc::HttpTransport;
     use starknet::providers::{JsonRpcClient, Url};
-    use utils::cli::alert::AlertParams;
-    use utils::cli::da::DaParams;
-    use utils::cli::database::DatabaseParams;
-    use utils::cli::prover::ProverParams;
-    use utils::cli::queue::QueueParams;
-    use utils::cli::settlement::SettlementParams;
-    use utils::cli::storage::StorageParams;
 
     use super::{ConfigType, MockType};
     use crate::alerts::{Alerts, MockAlerts};
+    use crate::cli::alert::AlertParams;
+    use crate::cli::da::DaParams;
+    use crate::cli::database::DatabaseParams;
+    use crate::cli::prover::ProverParams;
+    use crate::cli::queue::QueueParams;
+    use crate::cli::settlement::SettlementParams;
+    use crate::cli::storage::StorageParams;
     use crate::config::{
         build_alert_client, build_da_client, build_database_client, build_prover_service, build_queue_client,
         build_settlement_client, ProviderConfig,

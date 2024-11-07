@@ -8,7 +8,6 @@ use alloy::providers::ProviderBuilder;
 use alloy::sol;
 use alloy_primitives::Address;
 use utils::env_utils::get_env_var_or_panic;
-
 // Using the Pipe trait to write chained operations easier
 #[allow(dead_code)]
 trait Pipe: Sized {
@@ -135,7 +134,6 @@ mod settlement_client_tests {
     use settlement_client_interface::{SettlementClient, SettlementVerificationStatus};
     use tokio::time::sleep;
     use url::Url;
-    use utils::cli::settlement::ethereum::EthereumSettlementParams;
     use utils::env_utils::get_env_var_or_panic;
 
     use super::{BLOCK_TIME, ENV_FILE_PATH};
@@ -145,7 +143,7 @@ mod settlement_client_tests {
         STARKNET_CORE_CONTRACT_ADDRESS, STARKNET_OPERATOR_ADDRESS,
     };
     use crate::types::{bytes_be_to_u128, convert_stark_bigint_to_u256};
-    use crate::{EthereumSettlementClient, Y_HIGH_POINT_OFFSET, Y_LOW_POINT_OFFSET};
+    use crate::{EthereumSettlementClient, EthereumSettlementParams, Y_HIGH_POINT_OFFSET, Y_LOW_POINT_OFFSET};
 
     #[rstest]
     #[tokio::test]

@@ -18,10 +18,3 @@ pub struct InstrumentationCliArgs {
     #[arg(env = "RUST_LOG", long, default_value = "INFO")]
     pub log_level: Level,
 }
-
-#[derive(Debug, Clone)]
-pub struct InstrumentationParams {
-    pub otel_service_name: String,
-    pub otel_collector_endpoint: Option<Url>,
-    pub log_level: Level,
-}

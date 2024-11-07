@@ -7,7 +7,6 @@ use mongodb::bson::doc;
 use omniqueue::QueueError;
 use rstest::rstest;
 use tokio::time::sleep;
-use utils::cli::queue::aws_sqs::QueueType;
 use uuid::Uuid;
 
 use super::database::build_job_item;
@@ -19,7 +18,7 @@ use crate::jobs::types::{ExternalId, JobItem, JobStatus, JobType, JobVerificatio
 use crate::jobs::{
     create_job, handle_job_failure, increment_key_in_metadata, process_job, verify_job, Job, JobError, MockJob,
 };
-use crate::queue::job_queue::QueueNameForJobType;
+use crate::queue::job_queue::{QueueNameForJobType, QueueType};
 use crate::tests::common::MessagePayloadType;
 use crate::tests::config::{ConfigType, TestConfigBuilder};
 

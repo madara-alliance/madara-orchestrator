@@ -1,4 +1,3 @@
-use ::utils::cli::database::mongodb::MongoDBParams;
 use async_std::stream::StreamExt;
 use async_trait::async_trait;
 use chrono::{SubsecRound, Utc};
@@ -20,6 +19,12 @@ use crate::jobs::JobError;
 
 pub mod config;
 mod utils;
+
+#[derive(Debug, Clone)]
+pub struct MongoDBParams {
+    pub connection_url: String,
+    pub database_name: String,
+}
 
 pub struct MongoDb {
     client: Client,

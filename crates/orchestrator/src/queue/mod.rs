@@ -8,7 +8,6 @@ use async_trait::async_trait;
 use color_eyre::Result as EyreResult;
 use mockall::automock;
 use omniqueue::{Delivery, QueueError};
-use utils::cli::queue::aws_sqs::QueueType;
 
 use crate::config::Config;
 use crate::jobs::JobError;
@@ -20,9 +19,16 @@ use crate::jobs::JobError;
 #[automock]
 #[async_trait]
 pub trait QueueProvider: Send + Sync {
-    async fn send_message_to_queue(&self, queue: QueueType, payload: String, delay: Option<Duration>)
-    -> EyreResult<()>;
-    async fn consume_message_from_queue(&self, queue: QueueType) -> std::result::Result<Delivery, QueueError>;
+    async fn send_message_to_queue(
+        &self,
+        queue: job_queue::QueueType,
+        payload: String,
+        delay: Option<Duration>,
+    ) -> EyreResult<()>;
+    async fn consume_message_from_queue(
+        &self,
+        queue: job_queue::QueueType,
+    ) -> std::result::Result<Delivery, QueueError>;
 }
 
 pub async fn init_consumers(config: Arc<Config>) -> Result<(), JobError> {

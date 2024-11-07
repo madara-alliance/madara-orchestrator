@@ -14,25 +14,25 @@ use sharp_service::SharpProverService;
 use starknet::providers::jsonrpc::HttpTransport;
 use starknet::providers::{JsonRpcClient, Url};
 use starknet_settlement_client::StarknetSettlementClient;
-use utils::cli::alert::AlertParams;
-use utils::cli::aws_config::AWSConfigParams;
-use utils::cli::da::DaParams;
-use utils::cli::database::DatabaseParams;
-use utils::cli::prover::ProverParams;
-use utils::cli::queue::QueueParams;
-use utils::cli::server::ServerParams;
-use utils::cli::settlement::SettlementParams;
-use utils::cli::storage::StorageParams;
-use utils::cli::RunCmd;
 
 use crate::alerts::aws_sns::AWSSNS;
 use crate::alerts::Alerts;
+use crate::cli::alert::AlertParams;
+use crate::cli::aws_config::AWSConfigParams;
+use crate::cli::da::DaParams;
+use crate::cli::database::DatabaseParams;
+use crate::cli::prover::ProverParams;
+use crate::cli::queue::QueueParams;
+use crate::cli::settlement::SettlementParams;
+use crate::cli::storage::StorageParams;
+use crate::cli::RunCmd;
 use crate::data_storage::aws_s3::AWSS3;
 use crate::data_storage::DataStorage;
 use crate::database::mongodb::MongoDb;
 use crate::database::Database;
 use crate::queue::sqs::SqsQueue;
 use crate::queue::QueueProvider;
+use crate::routes::ServerParams;
 
 /// The app config. It can be accessed from anywhere inside the service
 /// by calling `config` function.
@@ -114,7 +114,7 @@ pub async fn init_config(run_cmd: &RunCmd) -> color_eyre::Result<Arc<Config>> {
         min_block_to_process: run_cmd.snos_args.min_block_to_process,
     };
 
-    let server_config = run_cmd.server.clone();
+    let server_config = run_cmd.validate_server_params().map_err(|e| eyre!("Failed to validate server params: {e}"))?;
     let provider = JsonRpcClient::new(HttpTransport::new(rpc_url.clone()));
 
     // init database

@@ -12,7 +12,3 @@ pub struct AWSS3CliArgs {
     #[arg(env = "AWS_S3_BUCKET_NAME", long, default_value = Some("madara-orchestrator-bucket"))]
     pub bucket_name: Option<String>,
 }
-#[derive(Debug, Clone)]
-pub struct AWSS3Params {
-    pub bucket_name: String,
-}

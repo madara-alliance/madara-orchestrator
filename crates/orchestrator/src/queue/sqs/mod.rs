@@ -4,9 +4,29 @@ use async_trait::async_trait;
 use color_eyre::Result;
 use omniqueue::backends::{SqsBackend, SqsConfig, SqsConsumer, SqsProducer};
 use omniqueue::{Delivery, QueueError};
-use utils::cli::queue::aws_sqs::{AWSSQSParams, QueueType};
 
+use super::job_queue::QueueType;
 use crate::queue::QueueProvider;
+
+#[derive(Debug, Clone)]
+pub struct AWSSQSParams {
+    pub queue_base_url: String,
+    pub sqs_prefix: String,
+    pub sqs_suffix: String,
+}
+
+impl AWSSQSParams {
+    pub fn get_queue_url(&self, queue_type: QueueType) -> String {
+        format!("{}/{}", self.queue_base_url, self.get_queue_name(queue_type))
+    }
+
+    pub fn get_queue_name(&self, queue_type: QueueType) -> String {
+        // TODO: check if serde_json is the best way to convert the enum to string
+        let queue_name = serde_json::to_string(&queue_type).unwrap();
+        format!("{}_{}_{}", self.sqs_prefix, queue_name, self.sqs_suffix)
+    }
+}
+
 pub struct SqsQueue {
     pub params: AWSSQSParams,
 }

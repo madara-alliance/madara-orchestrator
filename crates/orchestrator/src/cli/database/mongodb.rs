@@ -16,9 +16,3 @@ pub struct MongoDBCliArgs {
     #[arg(env = "DATABASE_NAME", long, default_value = Some("orchestrator"))]
     pub database_name: Option<String>,
 }
-
-#[derive(Debug, Clone)]
-pub struct MongoDBParams {
-    pub connection_url: String,
-    pub database_name: String,
-}

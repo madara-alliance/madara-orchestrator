@@ -12,8 +12,3 @@ pub struct AWSSNSCliArgs {
     #[arg(env = "SNS_NAME", long, default_value = Some("madara-orchestrator-arn"))]
     pub sns_arn: Option<String>,
 }
-
-#[derive(Debug, Clone)]
-pub struct AWSSNSParams {
-    pub sns_arn: String,
-}

@@ -3,7 +3,7 @@ use url::Url;
 
 #[derive(Debug, Clone, Args)]
 #[group(requires_all = ["starknet_rpc_url", "starknet_private_key", "starknet_account_address", "starknet_cairo_core_contract_address", "starknet_finality_retry_wait_in_secs", "madara_binary_path"])]
-pub struct StarknetSettlementArgs {
+pub struct StarknetSettlementCliArgs {
     /// Use the Starknet settlement layer.
     #[arg(long)]
     pub settle_on_starknet: bool,
@@ -31,19 +31,4 @@ pub struct StarknetSettlementArgs {
     /// The path to the Madara binary.
     #[arg(env = "MADARA_BINARY_PATH", long)]
     pub madara_binary_path: Option<String>,
-}
-
-#[derive(Clone, Debug)]
-pub struct StarknetSettlementParams {
-    pub starknet_rpc_url: Url,
-
-    pub starknet_private_key: String,
-
-    pub starknet_account_address: String,
-
-    pub starknet_cairo_core_contract_address: String,
-
-    pub starknet_finality_retry_wait_in_secs: u64,
-
-    pub madara_binary_path: String,
 }

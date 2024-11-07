@@ -9,12 +9,12 @@ use opentelemetry_sdk::metrics::reader::{DefaultAggregationSelector, DefaultTemp
 use opentelemetry_sdk::metrics::{PeriodicReader, SdkMeterProvider};
 use opentelemetry_sdk::trace::{BatchConfigBuilder, Config, Tracer};
 use opentelemetry_sdk::{runtime, Resource};
+use tracing::Level;
 use tracing_opentelemetry::OpenTelemetryLayer;
 use tracing_subscriber::layer::SubscriberExt as _;
 use tracing_subscriber::util::SubscriberInitExt as _;
 use tracing_subscriber::EnvFilter;
 use url::Url;
-use utils::cli::instrumentation::InstrumentationParams;
 
 pub struct OTELConfig {
     endpoint: Url,
@@ -219,4 +219,11 @@ mod tests {
 
         register_metric!(ORCHESTRATOR_METRICS, OrchestratorMetrics);
     }
+}
+
+#[derive(Debug, Clone)]
+pub struct InstrumentationParams {
+    pub otel_service_name: String,
+    pub otel_collector_endpoint: Option<Url>,
+    pub log_level: Level,
 }
