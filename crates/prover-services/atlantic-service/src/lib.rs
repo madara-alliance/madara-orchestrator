@@ -86,8 +86,6 @@ impl AtlanticProverService {
         let atlantic_client =
             AtlanticClient::new_with_settings(atlantic_config.service_url, atlantic_config.settlement_layer);
         let fact_checker = FactChecker::new(atlantic_config.rpc_node_url, atlantic_config.verifier_address);
-        log::debug!("Atlantic Client instantiated: {:?}", atlantic_client);
-        log::debug!("Fact checker instantiated: {:?}", atlantic_client);
 
         Self::new(atlantic_client, fact_checker)
     }

@@ -1779,7 +1779,7 @@ dependencies = [
  "alloy 0.2.1",
  "async-trait",
  "base64 0.22.1",
- "cairo-vm 1.0.1 (git+https://github.com/Moonsong-Labs/cairo-vm?branch=notlesh%2Fsegment-arena-relocation-fix)",
+ "cairo-vm 1.0.1 (git+https://github.com/Moonsong-Labs/cairo-vm?branch=herman%2Ffix-pie-serialization)",
  "chrono",
  "color-eyre",
  "dotenvy",
@@ -3389,7 +3389,7 @@ dependencies = [
 [[package]]
 name = "cairo-type-derive"
 version = "0.1.0"
-source = "git+https://github.com/keep-starknet-strange/snos?rev=3bd95bfb315a596519b5b1d3c81114fbfa06f8a6#3bd95bfb315a596519b5b1d3c81114fbfa06f8a6"
+source = "git+https://github.com/Mohiiit/snos?rev=2dcd3b0f0c6bfa368a802de12de29cd124c72bb8#2dcd3b0f0c6bfa368a802de12de29cd124c72bb8"
 dependencies = [
  "proc-macro2",
  "quote",
@@ -3430,7 +3430,7 @@ dependencies = [
 [[package]]
 name = "cairo-vm"
 version = "1.0.1"
-source = "git+https://github.com/Moonsong-Labs/cairo-vm?branch=notlesh%2Fsegment-arena-relocation-fix#3de95d928c87b9be19ceb1684d11a2b92303ae1c"
+source = "git+https://github.com/Moonsong-Labs/cairo-vm?branch=herman%2Ffix-pie-serialization#6036ab9533e1754f1612fbea9c9d2a27063ca5f8"
 dependencies = [
  "anyhow",
  "ark-ff 0.4.2",
@@ -4555,7 +4555,7 @@ dependencies = [
  "async-trait",
  "bytes",
  "c-kzg",
- "cairo-vm 1.0.1 (git+https://github.com/Moonsong-Labs/cairo-vm?branch=notlesh%2Fsegment-arena-relocation-fix)",
+ "cairo-vm 1.0.1 (git+https://github.com/Moonsong-Labs/cairo-vm?branch=herman%2Ffix-pie-serialization)",
  "color-eyre",
  "dotenvy",
  "lazy_static",
@@ -5113,7 +5113,7 @@ dependencies = [
  "aws-config",
  "aws-sdk-s3",
  "bincode 1.3.3",
- "cairo-vm 1.0.1 (git+https://github.com/Moonsong-Labs/cairo-vm?branch=notlesh%2Fsegment-arena-relocation-fix)",
+ "cairo-vm 1.0.1 (git+https://github.com/Moonsong-Labs/cairo-vm?branch=herman%2Ffix-pie-serialization)",
  "dotenvy",
  "itertools 0.13.0",
  "log",
@@ -7031,7 +7031,7 @@ dependencies = [
  "bincode 1.3.3",
  "bytes",
  "c-kzg",
- "cairo-vm 1.0.1 (git+https://github.com/Moonsong-Labs/cairo-vm?branch=notlesh%2Fsegment-arena-relocation-fix)",
+ "cairo-vm 1.0.1 (git+https://github.com/Moonsong-Labs/cairo-vm?branch=herman%2Ffix-pie-serialization)",
  "chrono",
  "color-eyre",
  "da-client-interface",
@@ -7818,13 +7818,13 @@ dependencies = [
 [[package]]
 name = "prove_block"
 version = "0.1.0"
-source = "git+https://github.com/keep-starknet-strange/snos?rev=3bd95bfb315a596519b5b1d3c81114fbfa06f8a6#3bd95bfb315a596519b5b1d3c81114fbfa06f8a6"
+source = "git+https://github.com/Mohiiit/snos?rev=2dcd3b0f0c6bfa368a802de12de29cd124c72bb8#2dcd3b0f0c6bfa368a802de12de29cd124c72bb8"
 dependencies = [
  "anyhow",
  "blockifier",
  "cairo-lang-starknet-classes",
  "cairo-lang-utils",
- "cairo-vm 1.0.1 (git+https://github.com/Moonsong-Labs/cairo-vm?branch=notlesh%2Fsegment-arena-relocation-fix)",
+ "cairo-vm 1.0.1 (git+https://github.com/Moonsong-Labs/cairo-vm?branch=herman%2Ffix-pie-serialization)",
  "clap",
  "env_logger",
  "futures-core",
@@ -7853,7 +7853,7 @@ name = "prover-client-interface"
 version = "0.1.0"
 dependencies = [
  "async-trait",
- "cairo-vm 1.0.1 (git+https://github.com/Moonsong-Labs/cairo-vm?branch=notlesh%2Fsegment-arena-relocation-fix)",
+ "cairo-vm 1.0.1 (git+https://github.com/Moonsong-Labs/cairo-vm?branch=herman%2Ffix-pie-serialization)",
  "gps-fact-checker",
  "mockall",
  "starknet-os",
@@ -8281,7 +8281,7 @@ dependencies = [
 [[package]]
 name = "rpc-client"
 version = "0.1.0"
-source = "git+https://github.com/keep-starknet-strange/snos?rev=3bd95bfb315a596519b5b1d3c81114fbfa06f8a6#3bd95bfb315a596519b5b1d3c81114fbfa06f8a6"
+source = "git+https://github.com/Mohiiit/snos?rev=2dcd3b0f0c6bfa368a802de12de29cd124c72bb8#2dcd3b0f0c6bfa368a802de12de29cd124c72bb8"
 dependencies = [
  "log",
  "reqwest 0.11.27",
@@ -8296,7 +8296,7 @@ dependencies = [
 [[package]]
 name = "rpc-replay"
 version = "0.1.0"
-source = "git+https://github.com/keep-starknet-strange/snos?rev=3bd95bfb315a596519b5b1d3c81114fbfa06f8a6#3bd95bfb315a596519b5b1d3c81114fbfa06f8a6"
+source = "git+https://github.com/Mohiiit/snos?rev=2dcd3b0f0c6bfa368a802de12de29cd124c72bb8#2dcd3b0f0c6bfa368a802de12de29cd124c72bb8"
 dependencies = [
  "blockifier",
  "cairo-lang-starknet-classes",
@@ -9227,7 +9227,7 @@ dependencies = [
  "alloy 0.2.1",
  "async-trait",
  "base64 0.22.1",
- "cairo-vm 1.0.1 (git+https://github.com/Moonsong-Labs/cairo-vm?branch=notlesh%2Fsegment-arena-relocation-fix)",
+ "cairo-vm 1.0.1 (git+https://github.com/Moonsong-Labs/cairo-vm?branch=herman%2Ffix-pie-serialization)",
  "color-eyre",
  "dotenvy",
  "gps-fact-checker",
@@ -9670,7 +9670,7 @@ dependencies = [
 [[package]]
 name = "starknet-os"
 version = "0.1.0"
-source = "git+https://github.com/keep-starknet-strange/snos?rev=3bd95bfb315a596519b5b1d3c81114fbfa06f8a6#3bd95bfb315a596519b5b1d3c81114fbfa06f8a6"
+source = "git+https://github.com/Mohiiit/snos?rev=2dcd3b0f0c6bfa368a802de12de29cd124c72bb8#2dcd3b0f0c6bfa368a802de12de29cd124c72bb8"
 dependencies = [
  "anyhow",
  "ark-ec",
@@ -9685,7 +9685,7 @@ dependencies = [
  "cairo-lang-starknet",
  "cairo-lang-starknet-classes",
  "cairo-type-derive",
- "cairo-vm 1.0.1 (git+https://github.com/Moonsong-Labs/cairo-vm?branch=notlesh%2Fsegment-arena-relocation-fix)",
+ "cairo-vm 1.0.1 (git+https://github.com/Moonsong-Labs/cairo-vm?branch=herman%2Ffix-pie-serialization)",
  "futures",
  "futures-util",
  "heck 0.4.1",
@@ -9719,11 +9719,11 @@ dependencies = [
 [[package]]
 name = "starknet-os-types"
 version = "0.1.0"
-source = "git+https://github.com/keep-starknet-strange/snos?rev=3bd95bfb315a596519b5b1d3c81114fbfa06f8a6#3bd95bfb315a596519b5b1d3c81114fbfa06f8a6"
+source = "git+https://github.com/Mohiiit/snos?rev=2dcd3b0f0c6bfa368a802de12de29cd124c72bb8#2dcd3b0f0c6bfa368a802de12de29cd124c72bb8"
 dependencies = [
  "blockifier",
  "cairo-lang-starknet-classes",
- "cairo-vm 1.0.1 (git+https://github.com/Moonsong-Labs/cairo-vm?branch=notlesh%2Fsegment-arena-relocation-fix)",
+ "cairo-vm 1.0.1 (git+https://github.com/Moonsong-Labs/cairo-vm?branch=herman%2Ffix-pie-serialization)",
  "flate2",
  "num-bigint",
  "serde",

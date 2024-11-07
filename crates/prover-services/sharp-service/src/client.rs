@@ -1,11 +1,9 @@
-use std::clone::Clone;
 
 use base64::engine::general_purpose;
 use base64::Engine;
 use cairo_vm::types::layout_name::LayoutName;
-use reqwest::{Certificate, ClientBuilder, Identity};
+use reqwest::{Certificate, Identity, Method, StatusCode};
 use url::Url;
-use utils::env_utils::get_env_var_or_panic;
 use utils::http_client::HttpClient;
 use utils::settings::Settings;
 use uuid::Uuid;

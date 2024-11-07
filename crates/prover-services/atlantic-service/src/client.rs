@@ -1,9 +1,8 @@
-use std::clone::Clone;
 use std::path::Path;
 
 use cairo_vm::types::layout_name::LayoutName;
 use reqwest::multipart::Form;
-use reqwest::{multipart, Body, ClientBuilder, Method};
+use reqwest::{multipart, Body, Method};
 use tokio::fs::File;
 use tokio_util::codec::{BytesCodec, FramedRead};
 use url::Url;
@@ -22,7 +21,7 @@ enum ProverType {
     HeroDotus,
 }
 
-trait ProvingLayer {
+trait ProvingLayer: Send + Sync {
     fn customize_request<'a>(&self, request: RequestBuilder<'a>) -> RequestBuilder<'a>;
 }
 
@@ -41,7 +40,6 @@ impl ProvingLayer for StarknetLayer {
 }
 
 /// SHARP API async wrapper
-#[derive(Debug)]
 pub struct AtlanticClient {
     client: HttpClient,
     proving_layer: Box<dyn ProvingLayer>,
@@ -49,7 +47,7 @@ pub struct AtlanticClient {
 
 impl AtlanticClient {
     /// We need to set up the client with the API_KEY.
-    pub fn new_with_settings(url: Url, settlement_layer: SettlementLayer) -> Result<Self, AtlanticError> {
+    pub fn new_with_settings(url: Url, settlement_layer: SettlementLayer) -> Self {
         let api_key = get_env_var_or_panic("ATLANTIC_API_KEY");
         let mock_fact_hash = get_env_var_or_panic("MOCK_FACT_HASH");
         let prover_type = get_env_var_or_panic("PROVER_TYPE");
@@ -58,14 +56,15 @@ impl AtlanticClient {
             .default_query_param("apiKey", &api_key)
             .default_query_param("mockFactHash", &mock_fact_hash)
             .default_query_param("prover", &prover_type)
-            .build()?;
+            .build()
+            .expect("Failed to build HTTP client");
 
         let proving_layer: Box<dyn ProvingLayer> = match settlement_layer {
             SettlementLayer::Ethereum => Box::new(EthereumLayer),
             SettlementLayer::Starknet => Box::new(StarknetLayer),
         };
 
-        Ok(Self { client, proving_layer })
+        Self { client, proving_layer }
     }
 
     pub async fn add_job(
