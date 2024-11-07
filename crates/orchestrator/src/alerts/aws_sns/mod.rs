@@ -4,7 +4,6 @@ use std::sync::Arc;
 
 use async_trait::async_trait;
 use aws_sdk_sns::Client;
-use utils::settings::env::EnvSettingsProvider;
 use utils::settings::Settings;
 
 use crate::alerts::aws_sns::config::AWSSNSConfig;
