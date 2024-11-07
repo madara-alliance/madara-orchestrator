@@ -6987,6 +6987,7 @@ dependencies = [
  "starknet-core 0.9.0",
  "starknet-os",
  "starknet-settlement-client",
+ "strum 0.26.2",
  "strum_macros 0.26.4",
  "tempfile",
  "thiserror",
