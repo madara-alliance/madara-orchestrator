@@ -115,6 +115,7 @@ cairo-vm = { git = "https://github.com/Moonsong-Labs/cairo-vm", branch = "herman
 ] }
 
 # Snos & Sharp (Starkware)
+# TODO: need to update this once the updated PR merges
 starknet-os = { git = "https://github.com/Mohiiit/snos", rev = "2dcd3b0f0c6bfa368a802de12de29cd124c72bb8" }
 prove_block = { git = "https://github.com/Mohiiit/snos", rev = "2dcd3b0f0c6bfa368a802de12de29cd124c72bb8" }
 
