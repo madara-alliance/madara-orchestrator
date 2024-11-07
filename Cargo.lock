@@ -10995,6 +10995,7 @@ dependencies = [
  "opentelemetry_sdk 0.25.0",
  "reqwest 0.12.7",
  "serde",
+ "serde_json",
  "thiserror",
  "tracing",
  "tracing-core",

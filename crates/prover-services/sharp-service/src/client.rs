@@ -6,6 +6,7 @@ use cairo_vm::types::layout_name::LayoutName;
 use reqwest::{Certificate, ClientBuilder, Identity};
 use url::Url;
 use utils::env_utils::get_env_var_or_panic;
+use utils::http_client::HttpClient;
 use utils::settings::Settings;
 use uuid::Uuid;
 
@@ -14,8 +15,7 @@ use crate::types::{SharpAddJobResponse, SharpGetStatusResponse};
 
 /// SHARP API async wrapper
 pub struct SharpClient {
-    base_url: Url,
-    client: reqwest::Client,
+    client: HttpClient,
 }
 
 impl SharpClient {
@@ -42,25 +42,20 @@ impl SharpClient {
             .decode(settings.get_settings_or_panic("SHARP_SERVER_CRT"))
             .expect("Failed to decode sharp server certificate");
 
-        // Adding Customer ID to the url
-
-        let mut url_mut = url.clone();
         let customer_id = settings.get_settings_or_panic("SHARP_CUSTOMER_ID");
-        url_mut.query_pairs_mut().append_pair("customer_id", customer_id.as_str());
 
-        Self {
-            base_url: url_mut,
-            client: ClientBuilder::new()
-                .identity(
-                    Identity::from_pkcs8_pem(&cert, &key)
-                        .expect("Failed to build the identity from certificate and key"),
-                )
-                .add_root_certificate(
-                    Certificate::from_pem(server_cert.as_slice()).expect("Failed to add root certificate"),
-                )
-                .build()
-                .expect("Failed to build the reqwest client with provided configs"),
-        }
+        let identity =
+            Identity::from_pkcs8_pem(&cert, &key).expect("Failed to build the identity from certificate and key");
+        let certificate = Certificate::from_pem(server_cert.as_slice()).expect("Failed to add root certificate");
+
+        let client = HttpClient::builder(url.as_str())
+            .identity(identity)
+            .add_root_certificate(certificate)
+            .default_query_param("customer_id", customer_id.as_str())
+            .build()
+            .expect("Failed to build the http client");
+
+        Self { client }
     }
 
     pub async fn add_job(
@@ -68,31 +63,24 @@ impl SharpClient {
         encoded_pie: &str,
         proof_layout: LayoutName,
     ) -> Result<(SharpAddJobResponse, Uuid), SharpError> {
-        let mut base_url = self.base_url.clone();
-
-        base_url.path_segments_mut().map_err(|_| SharpError::PathSegmentMutFailOnUrl)?.push("add_job");
-
         let cairo_key = Uuid::new_v4();
-        let cairo_key_string = cairo_key.to_string();
 
-        // Params for sending the PIE file to the prover
-        // for temporary reference you can check this doc :
-        // https://docs.google.com/document/d/1-9ggQoYmjqAtLBGNNR2Z5eLreBmlckGYjbVl0khtpU0
-        let params = vec![
-            ("cairo_job_key", cairo_key_string.as_str()),
-            ("offchain_proof", "true"),
-            ("proof_layout", proof_layout.to_str()),
-        ];
+        let response = self
+            .client
+            .request()
+            .method(Method::POST)
+            .path("add_job")
+            .query_param("cairo_job_key", &cairo_key.to_string())
+            .query_param("offchain_proof", "true")
+            .query_param("proof_layout", proof_layout.to_str())
+            .body(encoded_pie)
+            .send()
+            .await
+            .map_err(SharpError::AddJobFailure)?;
 
-        // Adding params to the URL
-        add_params_to_url(&mut base_url, params);
-
-        let res =
-            self.client.post(base_url).body(encoded_pie.to_string()).send().await.map_err(SharpError::AddJobFailure)?;
-
-        match res.status() {
-            reqwest::StatusCode::OK => {
-                let result: SharpAddJobResponse = res.json().await.map_err(SharpError::AddJobFailure)?;
+        match response.status() {
+            StatusCode::OK => {
+                let result = response.json().await.map_err(SharpError::AddJobFailure)?;
                 Ok((result, cairo_key))
             }
             code => Err(SharpError::SharpService(code)),
@@ -100,31 +88,19 @@ impl SharpClient {
     }
 
     pub async fn get_job_status(&self, job_key: &Uuid) -> Result<SharpGetStatusResponse, SharpError> {
-        let mut base_url = self.base_url.clone();
+        let response = self
+            .client
+            .request()
+            .method(Method::POST)
+            .path("get_status")
+            .query_param("cairo_job_key", &job_key.to_string())
+            .send()
+            .await
+            .map_err(SharpError::GetJobStatusFailure)?;
 
-        base_url.path_segments_mut().map_err(|_| SharpError::PathSegmentMutFailOnUrl)?.push("get_status");
-        let cairo_key_string = job_key.to_string();
-
-        // Params for getting the prover job status
-        // for temporary reference you can check this doc :
-        // https://docs.google.com/document/d/1-9ggQoYmjqAtLBGNNR2Z5eLreBmlckGYjbVl0khtpU0
-        let params = vec![("cairo_job_key", cairo_key_string.as_str())];
-
-        // Adding params to the url
-        add_params_to_url(&mut base_url, params);
-
-        let res = self.client.post(base_url).send().await.map_err(SharpError::GetJobStatusFailure)?;
-
-        match res.status() {
-            reqwest::StatusCode::OK => res.json().await.map_err(SharpError::GetJobStatusFailure),
+        match response.status() {
+            StatusCode::OK => response.json().await.map_err(SharpError::GetJobStatusFailure),
             code => Err(SharpError::SharpService(code)),
         }
-    }
-}
-
-fn add_params_to_url(url: &mut Url, params: Vec<(&str, &str)>) {
-    let mut pairs = url.query_pairs_mut();
-    for (key, value) in params {
-        pairs.append_pair(key, value);
     }
 }
