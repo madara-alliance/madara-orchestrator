@@ -25,7 +25,7 @@ pub struct LocalStack {
 
 impl LocalStack {
     pub async fn new(aws_config: AWSConfigParams, s3_config: &AWSS3Params) -> Self {
-        let region_provider = Region::new(aws_config.region);
+        let region_provider = Region::new(aws_config.aws_region);
 
         let creds = EnvironmentVariableCredentialsProvider::new().provide_credentials().await.unwrap();
         let config = from_env().region(region_provider).credentials_provider(creds).load().await;

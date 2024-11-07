@@ -183,7 +183,7 @@ impl TestConfigBuilder {
         dotenvy::from_filename("../.env.test").expect("Failed to load the .env.test file");
         let run_cmd = RunCmd::parse();
 
-        let aws_config = &run_cmd.aws_config;
+        let aws_config = &run_cmd.aws_config_args;
         let provider_config = Arc::new(ProviderConfig::AWS(Box::new(get_aws_config(aws_config).await)));
         let server_config = run_cmd.server.clone();
 

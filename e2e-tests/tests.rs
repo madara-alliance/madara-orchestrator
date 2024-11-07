@@ -72,7 +72,7 @@ impl Setup {
         println!("✅ Anvil setup completed");
 
         // Setting up LocalStack
-        let aws_config = run_cmd.aws_config;
+        let aws_config = run_cmd.aws_config_args;
         let StorageParams::AWSS3(s3_params) = storage_params;
         let QueueParams::AWSSQS(sqs_params) = queue_params;
         let localstack_instance = LocalStack::new(aws_config, &s3_params).await;

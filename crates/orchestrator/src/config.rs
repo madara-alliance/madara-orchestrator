@@ -90,10 +90,10 @@ impl ProviderConfig {
 
 /// To build a `SdkConfig` for AWS provider.
 pub async fn get_aws_config(aws_config: &AWSConfigParams) -> SdkConfig {
-    let region = aws_config.region.clone();
+    let region = aws_config.aws_region.clone();
     let region_provider = RegionProviderChain::first_try(Region::new(region)).or_default_provider();
     let credentials =
-        Credentials::from_keys(aws_config.access_key_id.clone(), aws_config.secret_access_key.clone(), None);
+        Credentials::from_keys(aws_config.aws_access_key_id.clone(), aws_config.aws_secret_access_key.clone(), None);
     aws_config::from_env().credentials_provider(credentials).region(region_provider).load().await
 }
 
@@ -101,7 +101,7 @@ pub async fn get_aws_config(aws_config: &AWSConfigParams) -> SdkConfig {
 pub async fn init_config(run_cmd: &RunCmd) -> color_eyre::Result<Arc<Config>> {
     dotenv().ok();
 
-    let aws_config = &run_cmd.aws_config;
+    let aws_config = &run_cmd.aws_config_args;
     let provider_config = Arc::new(ProviderConfig::AWS(Box::new(get_aws_config(aws_config).await)));
 
     // init starknet client

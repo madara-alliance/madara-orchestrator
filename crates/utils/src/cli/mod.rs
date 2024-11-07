@@ -72,7 +72,7 @@ pub mod storage;
 pub struct RunCmd {
     // AWS Config
     #[clap(flatten)]
-    pub aws_config: aws_config::AWSConfigParams,
+    pub aws_config_args: aws_config::AWSConfigParams,
 
     // Settlement Layer
     #[command(flatten)]
