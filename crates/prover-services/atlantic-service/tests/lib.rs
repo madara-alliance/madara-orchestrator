@@ -17,13 +17,9 @@ async fn atlantic_client_submit_task_works() {
     dotenvy::from_filename("../.env.test").expect("Failed to load the .env file");
     let atlantic_service = AtlanticProverService::new_with_settings(&EnvSettingsProvider {});
 
-    println!("Atlantic service: ");
-
     let cairo_pie_path = env!("CARGO_MANIFEST_DIR").to_string() + CAIRO_PIE_PATH;
-    println!("Cairo pie path: {}", cairo_pie_path);
 
     let cairo_pie = CairoPie::read_zip_file(cairo_pie_path.as_ref()).expect("failed to read cairo pie zip");
-    println!("cairo pie read successfully");
     let task_result = atlantic_service.submit_task(Task::CairoPie(Box::new(cairo_pie)), LayoutName::dynamic).await;
     log::info!("Task result from atlantic service: {:?}", task_result);
     assert!(task_result.is_ok());

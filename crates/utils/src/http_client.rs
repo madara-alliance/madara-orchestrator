@@ -303,9 +303,9 @@ impl<'a> RequestBuilder<'a> {
         let file_bytes = std::fs::read(file_path).expect("Failed to read file");
         // Convert file_name to owned String
         let file_name = file_name.to_string();
-        
+
         let part = Part::bytes(file_bytes).file_name(file_name);
-        
+
         let form = match self.form.take() {
             Some(existing_form) => existing_form.part(key.to_string(), part),
             None => Form::new().part(key.to_string(), part),

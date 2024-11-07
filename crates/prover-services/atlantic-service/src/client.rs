@@ -45,8 +45,6 @@ pub struct AtlanticClient {
 impl AtlanticClient {
     /// We need to set up the client with the API_KEY.
     pub fn new_with_settings(url: Url, settlement_layer: SettlementLayer) -> Self {
-        println!("Atlantic client created with url: {:?}", url);
-
         let mock_fact_hash = get_env_var_or_panic("MOCK_FACT_HASH");
         let prover_type = get_env_var_or_panic("PROVER_TYPE");
 
@@ -71,13 +69,20 @@ impl AtlanticClient {
     ) -> Result<AtlanticAddJobResponse, AtlanticError> {
         let api_key = get_env_var_or_panic("ATLANTIC_API_KEY");
 
-        println!("form created");
         let response = self
             .proving_layer
-            .customize_request(self.client.request().method(Method::POST).query_param("apiKey", &api_key).form_file("pieFile", pie_file, "pie.zip").form_text("layout", "dynamic"))
+            .customize_request(
+                self.client
+                    .request()
+                    .method(Method::POST)
+                    .query_param("apiKey", &api_key)
+                    .form_file("pieFile", pie_file, "pie.zip")
+                    .form_text("layout", "dynamic"),
+            )
             .send()
             .await
-            .map_err(AtlanticError::AddJobFailure).expect("Failed to add job");
+            .map_err(AtlanticError::AddJobFailure)
+            .expect("Failed to add job");
 
         if response.status().is_success() {
             response.json().await.map_err(AtlanticError::AddJobFailure)

@@ -41,9 +41,7 @@ impl ProverClient for AtlanticProverService {
 
                 // sleep for 2 seconds to make sure the job is submitted
                 tokio::time::sleep(tokio::time::Duration::from_secs(2)).await;
-                println!("add job called");
                 let atlantic_job_response = self.atlantic_client.add_job(pie_file_path, proof_layout).await?;
-                println!("add job completed");
                 log::debug!("Successfully submitted task to atlantic: {:?}", atlantic_job_response);
                 // The temporary file will be automatically deleted when `temp_file` goes out of scope
                 Ok(atlantic_job_response.sharp_query_id)
@@ -84,11 +82,9 @@ impl AtlanticProverService {
     pub fn new_with_settings(settings: &impl Settings) -> Self {
         let atlantic_config = AtlanticConfig::new_with_settings(settings)
             .expect("Not able to create Atlantic Prover Service from given settings.");
-        println!("Atlantic client created with url: {:?}", atlantic_config.service_url);
         let atlantic_client =
             AtlanticClient::new_with_settings(atlantic_config.service_url, atlantic_config.settlement_layer);
 
-       
         let fact_checker = FactChecker::new(atlantic_config.rpc_node_url, atlantic_config.verifier_address);
 
         Self::new(atlantic_client, fact_checker)
