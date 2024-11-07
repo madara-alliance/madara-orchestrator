@@ -27,7 +27,7 @@ use rstest::rstest;
 use serde::{Deserialize, Serialize};
 use serde_json::json;
 use starknet::core::types::{Felt, MaybePendingStateUpdate};
-use utils::env_utils::get_env_var_or_panic;
+use utils::env_utils::{get_env_var_optional, get_env_var_or_panic};
 use uuid::Uuid;
 
 extern crate e2e_tests;
@@ -584,10 +584,7 @@ fn set_env_vars() -> Vec<(String, String)> {
             "MADARA_ORCHESTRATOR_OTEL_SERVICE_NAME".to_string(),
             get_env_var_or_panic("MADARA_ORCHESTRATOR_OTEL_SERVICE_NAME"),
         ),
-        (
-            "MADARA_ORCHESTRATOR_OTEL_COLLECTOR_ENDPOINT".to_string(),
-            get_env_var_or_panic("MADARA_ORCHESTRATOR_OTEL_COLLECTOR_ENDPOINT"),
-        ),
+       
         // Server
         ("MADARA_ORCHESTRATOR_HOST".to_string(), get_env_var_or_panic("MADARA_ORCHESTRATOR_HOST")),
         ("MADARA_ORCHESTRATOR_PORT".to_string(), get_env_var_or_panic("MADARA_ORCHESTRATOR_PORT")),

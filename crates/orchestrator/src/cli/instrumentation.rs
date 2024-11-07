@@ -4,7 +4,7 @@ use url::Url;
 
 /// Parameters used to config instrumentation.
 #[derive(Debug, Clone, Args)]
-#[group(requires_all = ["otel_service_name", "otel_collector_endpoint", "log_level"])]
+#[group(requires_all = ["log_level"])]
 pub struct InstrumentationCliArgs {
     /// The name of the instrumentation service.
     #[arg(env = "MADARA_ORCHESTRATOR_OTEL_SERVICE_NAME", long, default_value = "orchestrator")]
