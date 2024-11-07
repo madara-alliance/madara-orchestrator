@@ -4,10 +4,10 @@ members = [
   "crates/orchestrator",
   "crates/da-clients/da-client-interface",
   "crates/da-clients/ethereum",
-  "crates/prover-services/prover-client-interface",
-  "crates/prover-services/gps-fact-checker",
-  "crates/prover-services/sharp-service",
-  "crates/prover-services/atlantic-service",
+  "crates/prover-clients/prover-client-interface",
+  "crates/prover-clients/gps-fact-checker",
+  "crates/prover-clients/sharp-service",
+  "crates/prover-clients/atlantic-service",
   "crates/utils",
   "crates/settlement-clients/settlement-client-interface",
   "crates/settlement-clients/ethereum",
@@ -133,8 +133,8 @@ ethereum-settlement-client = { path = "crates/settlement-clients/ethereum" }
 starknet-settlement-client = { path = "crates/settlement-clients/starknet" }
 
 utils = { path = "crates/utils" }
-prover-client-interface = { path = "crates/prover-services/prover-client-interface" }
-gps-fact-checker = { path = "crates/prover-services/gps-fact-checker" }
-sharp-service = { path = "crates/prover-services/sharp-service" }
-atlantic-service = { path = "crates/prover-services/atlantic-service" }
+prover-client-interface = { path = "crates/prover-clients/prover-client-interface" }
+gps-fact-checker = { path = "crates/prover-clients/gps-fact-checker" }
+sharp-service = { path = "crates/prover-clients/sharp-service" }
+atlantic-service = { path = "crates/prover-clients/atlantic-service" }
 orchestrator = { path = "crates/orchestrator" }

@@ -101,13 +101,11 @@ impl HttpClient {
     /// # Returns
     /// A Result containing either the Response or an error
     async fn send_request(&self, builder: RequestBuilder<'_>) -> Result<Response> {
-        println!("sending request with base url: {:?}", self.base_url);
         // Create a new URL by cloning the base URL and appending the path
         let mut url = self.base_url.clone();
         url.path_segments_mut()
             .expect("Base URL cannot be a base")
             .extend(builder.path.trim_start_matches('/').split('/'));
-        println!("url: {:?}", url);
         // Merge query parameters
         {
             let mut pairs = url.query_pairs_mut();
@@ -151,10 +149,7 @@ impl HttpClient {
             }
             request = request.multipart(form);
         }
-        println!("sending request");
-        let response = request.send().await;
-        println!("response: {:?}", response);
-        response
+        request.send().await
     }
 }
 
@@ -299,6 +294,7 @@ impl<'a> RequestBuilder<'a> {
         self
     }
 
+    /// Adds a file part to the multipart form.
     pub fn form_file(mut self, key: &str, file_path: &Path, file_name: &str) -> Self {
         let file_bytes = std::fs::read(file_path).expect("Failed to read file");
         // Convert file_name to owned String
@@ -313,17 +309,6 @@ impl<'a> RequestBuilder<'a> {
         self.form = Some(form);
         self
     }
-
-    /// Adds a file part to the multipart form.
-    // pub fn form_file(mut self, key: &str, file: std::fs::File) -> Self {
-    //     let form = match self.form.take() {
-    //         Some(existing_form) => existing_form.file(key.to_string(), file),
-    //         None => Form::new().file(key.to_string(), file),
-    //     };
-    //     self.form = Some(form);
-    //     self
-    // }
-
     /// Sends the request with all configured parameters.
     pub async fn send(self) -> Result<Response> {
         self.client.send_request(self).await
