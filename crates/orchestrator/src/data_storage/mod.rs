@@ -21,9 +21,9 @@ use utils::settings::Settings;
 pub trait DataStorage: Send + Sync {
     async fn get_data(&self, key: &str) -> Result<Bytes>;
     async fn put_data(&self, data: Bytes, key: &str) -> Result<()>;
-    async fn build_bucket(&self, bucket_name: &str) -> Result<()>;
+    async fn create_bucket(&self, bucket_name: &str) -> Result<()>;
     async fn setup(&self, bucket_name: &str) -> Result<()> {
-        self.build_bucket(bucket_name).await
+        self.create_bucket(bucket_name).await
     }
 }
 
