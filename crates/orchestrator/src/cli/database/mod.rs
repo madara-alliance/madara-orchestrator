@@ -1,4 +1,4 @@
-use crate::database::mongodb::MongoDBParams;
+use crate::database::mongodb::config::MongoDBParams;
 
 pub mod mongodb;
 

@@ -7,6 +7,7 @@ use url::Url;
 use utils::env_utils::get_env_var_or_panic;
 use uuid::Uuid;
 
+use crate::config::SharpParams;
 use crate::error::SharpError;
 use crate::types::{SharpAddJobResponse, SharpGetStatusResponse};
 
@@ -122,16 +123,4 @@ fn add_params_to_url(url: &mut Url, params: Vec<(&str, &str)>) {
     for (key, value) in params {
         pairs.append_pair(key, value);
     }
-}
-
-#[derive(Debug, Clone)]
-pub struct SharpParams {
-    pub sharp_customer_id: String,
-    pub sharp_url: Url,
-    pub sharp_user_crt: String,
-    pub sharp_user_key: String,
-    pub sharp_rpc_node_url: Url,
-    pub sharp_server_crt: String,
-    pub sharp_proof_layout: String,
-    pub gps_verifier_contract_address: String,
 }

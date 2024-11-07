@@ -5,7 +5,6 @@ use async_trait::async_trait;
 use bytes::Bytes;
 use color_eyre::Result;
 use mockall::automock;
-use utils::settings::Settings;
 
 /// Data Storage Trait
 ///
@@ -22,11 +21,4 @@ pub trait DataStorage: Send + Sync {
     async fn get_data(&self, key: &str) -> Result<Bytes>;
     async fn put_data(&self, data: Bytes, key: &str) -> Result<()>;
     async fn build_test_bucket(&self, bucket_name: &str) -> Result<()>;
-}
-
-/// **DataStorageConfig** : Trait method to represent the config struct needed for
-/// initialisation of data storage client
-pub trait DataStorageConfig {
-    /// Get a config file from environment vars in system or
-    fn new_with_settings(settings: &impl Settings) -> Self;
 }

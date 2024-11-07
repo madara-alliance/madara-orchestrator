@@ -6,7 +6,7 @@ use prover_client_interface::ProverClient;
 use prover_client_interface::{Task, TaskStatus};
 use rstest::rstest;
 use serde_json::json;
-use sharp_service::client::SharpParams;
+use sharp_service::config::SharpParams;
 use sharp_service::SharpProverService;
 use starknet_os::sharp::CairoJobStatus;
 use url::Url;
@@ -64,8 +64,6 @@ async fn prover_client_submit_task_works() {
 #[case(CairoJobStatus::ONCHAIN)]
 #[tokio::test]
 async fn prover_client_get_task_status_works(#[case] cairo_job_status: CairoJobStatus) {
-    use sharp_service::client::SharpParams;
-
     dotenvy::from_filename("../.env.test").expect("Failed to load the .env file");
 
     let sharp_params = SharpParams {

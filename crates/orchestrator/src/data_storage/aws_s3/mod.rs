@@ -5,6 +5,7 @@ use aws_sdk_s3::primitives::ByteStream;
 use aws_sdk_s3::Client;
 use bytes::Bytes;
 use color_eyre::Result;
+use config::AWSS3Params;
 
 use crate::config::ProviderConfig;
 use crate::data_storage::DataStorage;
@@ -13,11 +14,6 @@ pub const S3_SETTINGS_NAME: &str = "s3";
 
 /// Module for AWS S3 config structs and implementations
 pub mod config;
-
-#[derive(Debug, Clone)]
-pub struct AWSS3Params {
-    pub bucket_name: String,
-}
 
 /// AWSS3 represents AWS S3 client object containing the client and the config itself.
 pub struct AWSS3 {

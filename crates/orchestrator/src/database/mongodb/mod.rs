@@ -3,6 +3,7 @@ use async_trait::async_trait;
 use chrono::{SubsecRound, Utc};
 use color_eyre::eyre::eyre;
 use color_eyre::Result;
+use config::MongoDBParams;
 use futures::TryStreamExt;
 use mongodb::bson::{doc, Bson, Document};
 use mongodb::options::{
@@ -19,12 +20,6 @@ use crate::jobs::JobError;
 
 pub mod config;
 mod utils;
-
-#[derive(Debug, Clone)]
-pub struct MongoDBParams {
-    pub connection_url: String,
-    pub database_name: String,
-}
 
 pub struct MongoDb {
     client: Client,

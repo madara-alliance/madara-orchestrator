@@ -17,8 +17,7 @@ use starknet::macros::{felt, selector};
 use starknet::providers::jsonrpc::HttpTransport;
 use starknet::providers::{JsonRpcClient, Provider, ProviderError, Url};
 use starknet::signers::{LocalWallet, SigningKey};
-use utils::settings::env::EnvSettingsProvider;
-use utils::settings::Settings;
+use utils::env_utils::get_env_var_or_panic;
 
 use super::setup::{wait_for_cond, MadaraCmd, MadaraCmdBuilder};
 use crate::config::StarknetSettlementParams;
@@ -80,16 +79,25 @@ async fn wait_for_tx(account: &LocalWalletSignerMiddleware, transaction_hash: Fe
 #[fixture]
 async fn setup(#[future] spin_up_madara: MadaraCmd) -> (LocalWalletSignerMiddleware, MadaraCmd) {
     let madara_process = spin_up_madara.await;
-    env::set_var("STARKNET_RPC_URL", madara_process.rpc_url.to_string());
 
-    let env_settings = EnvSettingsProvider::default();
-    let rpc_url = Url::parse(&env_settings.get_settings_or_panic("STARKNET_RPC_URL")).unwrap();
+    let starknet_settlement_params: StarknetSettlementParams = StarknetSettlementParams {
+        starknet_rpc_url: Url::parse(madara_process.rpc_url.as_ref()).unwrap(),
+        starknet_private_key: get_env_var_or_panic("STARKNET_PRIVATE_KEY"),
+        starknet_account_address: get_env_var_or_panic("STARKNET_ACCOUNT_ADDRESS"),
+        starknet_cairo_core_contract_address: get_env_var_or_panic("STARKNET_CAIRO_CORE_CONTRACT_ADDRESS"),
+        starknet_finality_retry_wait_in_secs: get_env_var_or_panic("STARKNET_FINALITY_RETRY_WAIT_IN_SECS")
+            .parse::<u64>()
+            .unwrap(),
+        madara_binary_path: get_env_var_or_panic("MADARA_BINARY_PATH"),
+    };
+
+    let rpc_url = Url::parse(starknet_settlement_params.starknet_rpc_url.as_ref()).unwrap();
 
     let provider = Arc::new(JsonRpcClient::new(HttpTransport::new(rpc_url)));
     let signer = LocalWallet::from(SigningKey::from_secret_scalar(
-        Felt::from_hex(&env_settings.get_settings_or_panic("STARKNET_PRIVATE_KEY")).expect("Invalid private key"),
+        Felt::from_hex(&starknet_settlement_params.starknet_private_key).expect("Invalid private key"),
     ));
-    let address = Felt::from_hex(&env_settings.get_settings_or_panic("STARKNET_ACCOUNT_ADDRESS")).unwrap();
+    let address = Felt::from_hex(&starknet_settlement_params.starknet_account_address).unwrap();
 
     let chain_id = provider.chain_id().await.unwrap();
     let mut account = SingleOwnerAccount::new(provider, signer, address, chain_id, ExecutionEncoding::New);
@@ -105,18 +113,15 @@ async fn setup(#[future] spin_up_madara: MadaraCmd) -> (LocalWalletSignerMiddlew
 async fn test_settle(#[future] setup: (LocalWalletSignerMiddleware, MadaraCmd)) {
     dotenvy::from_filename_override(".env.test").expect("Failed to load the .env file");
 
-    let env_settings = EnvSettingsProvider::default();
-    let starknet_settlement_params = StarknetSettlementParams {
-        starknet_rpc_url: Url::parse(&env_settings.get_settings_or_panic("STARKNET_RPC_URL")).unwrap(),
-        starknet_private_key: env_settings.get_settings_or_panic("STARKNET_PRIVATE_KEY"),
-        starknet_account_address: env_settings.get_settings_or_panic("STARKNET_ACCOUNT_ADDRESS"),
-        starknet_cairo_core_contract_address: env_settings
-            .get_settings_or_panic("STARKNET_CAIRO_CORE_CONTRACT_ADDRESS"),
-        starknet_finality_retry_wait_in_secs: env_settings
-            .get_settings_or_panic("STARKNET_FINALITY_RETRY_WAIT_IN_SECS")
+    let starknet_settlement_params: StarknetSettlementParams = StarknetSettlementParams {
+        starknet_rpc_url: Url::parse(&get_env_var_or_panic("STARKNET_RPC_URL")).unwrap(),
+        starknet_private_key: get_env_var_or_panic("STARKNET_PRIVATE_KEY"),
+        starknet_account_address: get_env_var_or_panic("STARKNET_ACCOUNT_ADDRESS"),
+        starknet_cairo_core_contract_address: get_env_var_or_panic("STARKNET_CAIRO_CORE_CONTRACT_ADDRESS"),
+        starknet_finality_retry_wait_in_secs: get_env_var_or_panic("STARKNET_FINALITY_RETRY_WAIT_IN_SECS")
             .parse::<u64>()
             .unwrap(),
-        madara_binary_path: env_settings.get_settings_or_panic("MADARA_BINARY_PATH"),
+        madara_binary_path: get_env_var_or_panic("MADARA_BINARY_PATH"),
     };
 
     let (account, _madara_process) = setup.await;

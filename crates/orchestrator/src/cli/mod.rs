@@ -1,21 +1,21 @@
 use alert::AlertParams;
 use aws_config::AWSConfigParams;
 use clap::{ArgGroup, Parser};
-use da::ethereum::EthereumDAParams;
 use da::DaParams;
 use database::DatabaseParams;
+use ethereum_da_client::config::EthereumDaParams;
 use ethereum_settlement_client::config::EthereumSettlementParams;
 use prover::ProverParams;
 use queue::QueueParams;
 use settlement::SettlementParams;
-use sharp_service::client::SharpParams;
+use sharp_service::config::SharpParams;
 use starknet_settlement_client::config::StarknetSettlementParams;
 use storage::StorageParams;
 use url::Url;
 
 use crate::alerts::aws_sns::AWSSNSParams;
-use crate::data_storage::aws_s3::AWSS3Params;
-use crate::database::mongodb::MongoDBParams;
+use crate::data_storage::aws_s3::config::AWSS3Params;
+use crate::database::mongodb::config::MongoDBParams;
 use crate::queue::sqs::AWSSQSParams;
 use crate::routes::ServerParams;
 use crate::telemetry::InstrumentationParams;
@@ -105,7 +105,7 @@ pub struct RunCmd {
 
     // Data Availability Layer
     #[clap(flatten)]
-    pub ethereum_da_args: da::ethereum::EthereumDACliArgs,
+    pub ethereum_da_args: da::ethereum::EthereumDaCliArgs,
 
     // Prover
     #[clap(flatten)]
@@ -205,7 +205,7 @@ impl RunCmd {
 
     pub fn validate_da_params(&self) -> Result<DaParams, String> {
         if self.ethereum_da_args.da_on_ethereum {
-            Ok(DaParams::Ethereum(EthereumDAParams { da_rpc_url: self.ethereum_da_args.da_rpc_url.clone().unwrap() }))
+            Ok(DaParams::Ethereum(EthereumDaParams { da_rpc_url: self.ethereum_da_args.da_rpc_url.clone().unwrap() }))
         } else {
             Err("Only Ethereum is supported as of now".to_string())
         }

@@ -1,4 +1,4 @@
-use crate::data_storage::aws_s3::AWSS3Params;
+use crate::data_storage::aws_s3::config::AWSS3Params;
 
 pub mod aws_s3;
 
