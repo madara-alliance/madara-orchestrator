@@ -134,6 +134,9 @@ mod settlement_client_tests {
     use rstest::rstest;
     use settlement_client_interface::{SettlementClient, SettlementVerificationStatus};
     use tokio::time::sleep;
+    use url::Url;
+    use utils::cli::settlement::ethereum::EthereumSettlementParams;
+    use utils::env_utils::get_env_var_or_panic;
 
     use super::{BLOCK_TIME, ENV_FILE_PATH};
     use crate::conversion::to_padded_hex;
@@ -153,16 +156,20 @@ mod settlement_client_tests {
     /// And hence to test the signature and transaction via a dummy contract that has same function
     /// selector as `updateStateKzgDa`. and anvil is for testing on fork Eth.
     async fn update_state_blob_with_dummy_contract_works() {
+        dotenvy::from_filename(&*ENV_FILE_PATH).expect("Could not load .env.test file.");
+
+        let ethereum_settlement_params = EthereumSettlementParams {
+            ethereum_rpc_url: Url::from_str(get_env_var_or_panic("SETTLEMENT_RPC_URL").as_str()).unwrap(),
+            ethereum_private_key: get_env_var_or_panic("ETHEREUM_PRIVATE_KEY"),
+            l1_core_contract_address: get_env_var_or_panic("L1_CORE_CONTRACT_ADDRESS"),
+            starknet_operator_address: get_env_var_or_panic("STARKNET_OPERATOR_ADDRESS"),
+        };
+
         let setup = EthereumTestBuilder::new().build().await;
 
         // Deploying a dummy contract
         let contract = DummyCoreContract::deploy(&setup.provider).await.expect("Unable to deploy address");
-        let ethereum_settlement_client = EthereumSettlementClient::with_test_settings(
-            setup.provider.clone(),
-            *contract.address(),
-            setup.rpc_url,
-            None,
-        );
+        let ethereum_settlement_client = EthereumSettlementClient::with_test_settings(&ethereum_settlement_params);
 
         // Getting latest nonce after deployment
         let nonce = ethereum_settlement_client.get_nonce().await.expect("Unable to fetch nonce");
@@ -213,17 +220,21 @@ mod settlement_client_tests {
     /// contract Here signature checks are bypassed and anvil is for testing on fork Eth.
     async fn update_state_blob_with_impersonation_works(#[case] fork_block_no: u64) {
         dotenvy::from_filename(&*ENV_FILE_PATH).expect("Could not load .env.test file.");
+
+        let ethereum_settlement_params = EthereumSettlementParams {
+            ethereum_rpc_url: Url::from_str(get_env_var_or_panic("SETTLEMENT_RPC_URL").as_str()).unwrap(),
+            ethereum_private_key: get_env_var_or_panic("ETHEREUM_PRIVATE_KEY"),
+            l1_core_contract_address: get_env_var_or_panic("L1_CORE_CONTRACT_ADDRESS"),
+            starknet_operator_address: get_env_var_or_panic("STARKNET_OPERATOR_ADDRESS"),
+        };
+
         let setup = EthereumTestBuilder::new()
             .with_fork_block(fork_block_no)
             .with_impersonator(*STARKNET_OPERATOR_ADDRESS)
             .build()
             .await;
-        let ethereum_settlement_client = EthereumSettlementClient::with_test_settings(
-            setup.provider.clone(),
-            *STARKNET_CORE_CONTRACT_ADDRESS,
-            setup.rpc_url,
-            Some(*STARKNET_OPERATOR_ADDRESS),
-        );
+
+        let ethereum_settlement_client = EthereumSettlementClient::with_test_settings(&ethereum_settlement_params);
 
         // let nonce = ethereum_settlement_client.get_nonce().await.expect("Unable to fetch nonce");
 
@@ -274,13 +285,18 @@ mod settlement_client_tests {
     #[tokio::test]
     #[case::typical(6806847)]
     async fn get_last_settled_block_typical_works(#[case] fork_block_no: u64) {
+        dotenvy::from_filename(&*ENV_FILE_PATH).expect("Could not load .env.test file.");
+
+        let ethereum_settlement_params = EthereumSettlementParams {
+            ethereum_rpc_url: Url::from_str(get_env_var_or_panic("SETTLEMENT_RPC_URL").as_str()).unwrap(),
+            ethereum_private_key: get_env_var_or_panic("ETHEREUM_PRIVATE_KEY"),
+            l1_core_contract_address: get_env_var_or_panic("L1_CORE_CONTRACT_ADDRESS"),
+            starknet_operator_address: get_env_var_or_panic("STARKNET_OPERATOR_ADDRESS"),
+        };
+
         let setup = EthereumTestBuilder::new().with_fork_block(fork_block_no).build().await;
-        let ethereum_settlement_client = EthereumSettlementClient::with_test_settings(
-            setup.provider.clone(),
-            *STARKNET_CORE_CONTRACT_ADDRESS,
-            setup.rpc_url,
-            None,
-        );
+        let ethereum_settlement_client = EthereumSettlementClient::with_test_settings(&ethereum_settlement_params);
+
         assert_eq!(
             ethereum_settlement_client.get_last_settled_block().await.expect("Could not get last settled block."),
             218378
