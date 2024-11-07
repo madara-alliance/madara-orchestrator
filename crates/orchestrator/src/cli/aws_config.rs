@@ -16,10 +16,14 @@ pub struct AWSConfigParams {
     pub aws_region: String,
 
     /// The endpoint URL.
-    #[arg(env = "AWS_ENDPOINT_URL", long, default_value = "http://localhost.localstack.cloud:4566")]
+    #[arg(
+        env = "MADARA_ORCHESTRATOR_AWS_ENDPOINT_URL",
+        long,
+        default_value = "http://localhost.localstack.cloud:4566"
+    )]
     pub aws_endpoint_url: String,
 
     /// The default region.
-    #[arg(env = "AWS_DEFAULT_REGION", long, default_value = "localhost")]
+    #[arg(env = "MADARA_ORCHESTRATOR_AWS_DEFAULT_REGION", long, default_value = "localhost")]
     pub aws_default_region: String,
 }

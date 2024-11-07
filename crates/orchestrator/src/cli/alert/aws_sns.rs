@@ -9,6 +9,6 @@ pub struct AWSSNSCliArgs {
     pub aws_sns: bool,
 
     /// The name of the S3 bucket.
-    #[arg(env = "SNS_NAME", long, default_value = Some("madara-orchestrator-arn"))]
+    #[arg(env = "MADARA_ORCHESTRATOR_AWS_SNS_ARN", long, default_value = Some("madara-orchestrator-arn"))]
     pub sns_arn: Option<String>,
 }

@@ -5,10 +5,10 @@ use clap::Args;
 #[group(requires_all = ["host", "port"])]
 pub struct ServerCliArgs {
     /// The host to listen on.
-    #[arg(env = "HOST", long, default_value = "127.0.0.1")]
+    #[arg(env = "MADARA_ORCHESTRATOR_HOST", long, default_value = "127.0.0.1")]
     pub host: String,
 
     /// The port to listen on.
-    #[arg(env = "PORT", long, default_value = "3000")]
+    #[arg(env = "MADARA_ORCHESTRATOR_PORT", long, default_value = "3000")]
     pub port: u16,
 }

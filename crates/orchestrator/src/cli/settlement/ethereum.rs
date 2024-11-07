@@ -9,18 +9,18 @@ pub struct EthereumSettlementCliArgs {
     pub settle_on_ethereum: bool,
 
     /// The URL of the Ethereum RPC node.
-    #[arg(env = "ETHEREUM_SETTLEMENT_RPC_URL", long)]
+    #[arg(env = "MADARA_ORCHESTRATOR_ETHEREUM_SETTLEMENT_RPC_URL", long)]
     pub ethereum_rpc_url: Option<Url>,
 
     /// The private key of the Ethereum account.
-    #[arg(env = "ETHEREUM_PRIVATE_KEY", long)]
+    #[arg(env = "MADARA_ORCHESTRATOR_ETHEREUM_PRIVATE_KEY", long)]
     pub ethereum_private_key: Option<String>,
 
     /// The address of the L1 core contract.
-    #[arg(env = "L1_CORE_CONTRACT_ADDRESS", long)]
+    #[arg(env = "MADARA_ORCHESTRATOR_L1_CORE_CONTRACT_ADDRESS", long)]
     pub l1_core_contract_address: Option<String>,
 
     /// The address of the Starknet operator.
-    #[arg(env = "STARKNET_OPERATOR_ADDRESS", long)]
+    #[arg(env = "MADARA_ORCHESTRATOR_STARKNET_OPERATOR_ADDRESS", long)]
     pub starknet_operator_address: Option<String>,
 }

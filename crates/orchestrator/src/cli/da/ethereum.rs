@@ -10,6 +10,6 @@ pub struct EthereumDaCliArgs {
     pub da_on_ethereum: bool,
 
     /// The RPC URL of the Ethereum node.
-    #[arg(env = "DA_RPC_URL", long)]
+    #[arg(env = "MADARA_ORCHESTRATOR_ETHEREUM_DA_RPC_URL", long)]
     pub da_rpc_url: Option<Url>,
 }
