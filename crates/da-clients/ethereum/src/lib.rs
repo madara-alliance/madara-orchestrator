@@ -1,7 +1,6 @@
 #![allow(missing_docs)]
 #![allow(clippy::missing_docs_in_private_items)]
 
-
 use alloy::network::Ethereum;
 use alloy::providers::RootProvider;
 use alloy::transports::http::Http;

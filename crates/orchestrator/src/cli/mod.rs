@@ -9,11 +9,13 @@ use prover::ProverParams;
 use queue::QueueParams;
 use settlement::SettlementParams;
 use sharp_service::config::SharpParams;
+use snos::SNOSParams;
 use starknet_settlement_client::config::StarknetSettlementParams;
 use storage::StorageParams;
 use url::Url;
 
 use crate::alerts::aws_sns::AWSSNSParams;
+use crate::config::ServiceParams;
 use crate::data_storage::aws_s3::config::AWSS3Params;
 use crate::database::mongodb::config::MongoDBParams;
 use crate::queue::sqs::AWSSQSParams;
@@ -28,6 +30,7 @@ pub mod instrumentation;
 pub mod prover;
 pub mod queue;
 pub mod server;
+pub mod service;
 pub mod settlement;
 pub mod snos;
 pub mod storage;
@@ -118,6 +121,9 @@ pub struct RunCmd {
     #[arg(env = "MADARA_RPC_URL", long, required = true)]
     pub madara_rpc_url: Url,
 
+    // Service
+    #[clap(flatten)]
+    pub service_args: service::ServiceCliArgs,
     #[clap(flatten)]
     pub instrumentation_args: instrumentation::InstrumentationCliArgs,
 }
@@ -238,5 +244,16 @@ impl RunCmd {
 
     pub fn validate_server_params(&self) -> Result<ServerParams, String> {
         Ok(ServerParams { host: self.server_args.host.clone(), port: self.server_args.port })
+    }
+
+    pub fn validate_service_params(&self) -> Result<ServiceParams, String> {
+        Ok(ServiceParams {
+            max_block_to_process: self.service_args.max_block_to_process,
+            min_block_to_process: self.service_args.min_block_to_process,
+        })
+    }
+
+    pub fn validate_snos_params(&self) -> Result<SNOSParams, String> {
+        Ok(SNOSParams { rpc_for_snos: self.snos_args.rpc_for_snos.clone() })
     }
 }

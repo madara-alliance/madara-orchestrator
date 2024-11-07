@@ -22,7 +22,7 @@ impl Worker for SnosWorker {
         let provider = config.starknet_client();
         let block_number_provider = provider.block_number().await?;
 
-        let latest_block_number = if let Some(max_block_to_process) = config.snos_config.max_block_to_process {
+        let latest_block_number = if let Some(max_block_to_process) = config.service_config().max_block_to_process {
             max_block_to_process
         } else {
             block_number_provider
@@ -40,7 +40,7 @@ impl Worker for SnosWorker {
         .unwrap();
 
         // To be used when testing in specific block range
-        let block_start = if let Some(min_block_to_process) = config.snos_config.min_block_to_process {
+        let block_start = if let Some(min_block_to_process) = config.service_config().min_block_to_process {
             min_block_to_process
         } else {
             latest_job_id

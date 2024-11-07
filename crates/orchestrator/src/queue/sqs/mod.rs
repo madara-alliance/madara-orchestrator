@@ -21,9 +21,7 @@ impl AWSSQSParams {
     }
 
     pub fn get_queue_name(&self, queue_type: QueueType) -> String {
-        // TODO: check if serde_json is the best way to convert the enum to string
-        let queue_name = serde_json::to_string(&queue_type).unwrap();
-        format!("{}_{}_{}", self.sqs_prefix, queue_name, self.sqs_suffix)
+        format!("{}_{}_{}", self.sqs_prefix, queue_type, self.sqs_suffix)
     }
 }
 

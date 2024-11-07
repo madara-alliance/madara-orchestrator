@@ -7,6 +7,7 @@ use color_eyre::eyre::Context;
 use color_eyre::Result as EyreResult;
 use omniqueue::{Delivery, QueueError};
 use serde::{Deserialize, Deserializer, Serialize};
+use strum_macros::Display;
 use thiserror::Error;
 use tokio::time::sleep;
 use uuid::Uuid;
@@ -20,10 +21,9 @@ use crate::workers::proving::ProvingWorker;
 use crate::workers::snos::SnosWorker;
 use crate::workers::update_state::UpdateStateWorker;
 use crate::workers::Worker;
-use strum_macros::Display;
 
 #[derive(Display, Debug, Clone, PartialEq, Eq)]
-enum QueueType {
+pub enum QueueType {
     #[strum(serialize = "snos_job_processing")]
     SnosJobProcessing,
     #[strum(serialize = "snos_job_verification")]
@@ -49,7 +49,6 @@ enum QueueType {
     #[strum(serialize = "worker_trigger")]
     WorkerTrigger,
 }
-
 
 impl QueueType {
     pub fn iter() -> impl Iterator<Item = QueueType> {

@@ -24,6 +24,7 @@ use crate::cli::database::DatabaseParams;
 use crate::cli::prover::ProverParams;
 use crate::cli::queue::QueueParams;
 use crate::cli::settlement::SettlementParams;
+use crate::cli::snos::SNOSParams;
 use crate::cli::storage::StorageParams;
 use crate::cli::RunCmd;
 use crate::data_storage::aws_s3::AWSS3;
@@ -37,14 +38,8 @@ use crate::routes::ServerParams;
 /// The app config. It can be accessed from anywhere inside the service
 /// by calling `config` function.
 pub struct Config {
-    /// The RPC url used by the [starknet_client]
-    starknet_rpc_url: Url,
-
-    server_config: ServerParams,
-    /// The RPC url to be used when running SNOS
-    /// When Madara supports getProof, we can re use
-    /// starknet_rpc_url for SNOS as well
-    pub snos_config: SnosConfig,
+    /// The orchestrator config
+    orchestrator_config: OrchestratorConfig,
     /// The starknet client to get data from the node
     starknet_client: Arc<JsonRpcClient<HttpTransport>>,
     /// The DA client to interact with the DA layer
@@ -64,10 +59,16 @@ pub struct Config {
 }
 
 #[derive(Debug, Clone)]
-pub struct SnosConfig {
-    pub rpc_url: Url,
+pub struct ServiceParams {
     pub max_block_to_process: Option<u64>,
     pub min_block_to_process: Option<u64>,
+}
+
+pub struct OrchestratorConfig {
+    pub madara_rpc_url: Url,
+    pub snos_config: SNOSParams,
+    pub service_config: ServiceParams,
+    pub server_config: ServerParams,
 }
 
 /// `ProviderConfig` is an enum used to represent the global config built
@@ -104,18 +105,14 @@ pub async fn init_config(run_cmd: &RunCmd) -> color_eyre::Result<Arc<Config>> {
     let aws_config = &run_cmd.aws_config_args;
     let provider_config = Arc::new(ProviderConfig::AWS(Box::new(get_aws_config(aws_config).await)));
 
-    // init starknet client
-    let rpc_url = run_cmd.madara_rpc_url.clone();
-
-    // init snos url
-    let snos_config = SnosConfig {
-        rpc_url: run_cmd.snos_args.rpc_for_snos.clone(),
-        max_block_to_process: run_cmd.snos_args.max_block_to_process,
-        min_block_to_process: run_cmd.snos_args.min_block_to_process,
+    let orchestrator_config = OrchestratorConfig {
+        madara_rpc_url: run_cmd.madara_rpc_url.clone(),
+        snos_config: run_cmd.validate_snos_params().expect("Failed to validate SNOS params"),
+        service_config: run_cmd.validate_service_params().expect("Failed to validate service params"),
+        server_config: run_cmd.validate_server_params().expect("Failed to validate server params"),
     };
 
-    let server_config = run_cmd.validate_server_params().map_err(|e| eyre!("Failed to validate server params: {e}"))?;
-    let provider = JsonRpcClient::new(HttpTransport::new(rpc_url.clone()));
+    let provider = JsonRpcClient::new(HttpTransport::new(orchestrator_config.madara_rpc_url.clone()));
 
     // init database
     let database_params =
@@ -153,9 +150,7 @@ pub async fn init_config(run_cmd: &RunCmd) -> color_eyre::Result<Arc<Config>> {
     let queue = build_queue_client(&queue_params);
 
     Ok(Arc::new(Config::new(
-        rpc_url,
-        server_config,
-        snos_config,
+        orchestrator_config,
         Arc::new(provider),
         da_client,
         prover_client,
@@ -171,9 +166,7 @@ impl Config {
     /// Create a new config
     #[allow(clippy::too_many_arguments)]
     pub fn new(
-        starknet_rpc_url: Url,
-        server_config: ServerParams,
-        snos_config: SnosConfig,
+        orchestrator_config: OrchestratorConfig,
         starknet_client: Arc<JsonRpcClient<HttpTransport>>,
         da_client: Box<dyn DaClient>,
         prover_client: Box<dyn ProverClient>,
@@ -184,9 +177,7 @@ impl Config {
         alerts: Box<dyn Alerts>,
     ) -> Self {
         Self {
-            starknet_rpc_url,
-            server_config,
-            snos_config,
+            orchestrator_config,
             starknet_client,
             da_client,
             prover_client,
@@ -200,17 +191,22 @@ impl Config {
 
     /// Returns the starknet rpc url
     pub fn starknet_rpc_url(&self) -> &Url {
-        &self.starknet_rpc_url
+        &self.orchestrator_config.madara_rpc_url
     }
 
     /// Returns the server config
     pub fn server_config(&self) -> &ServerParams {
-        &self.server_config
+        &self.orchestrator_config.server_config
     }
 
     /// Returns the snos rpc url
-    pub fn snos_config(&self) -> &SnosConfig {
-        &self.snos_config
+    pub fn snos_config(&self) -> &SNOSParams {
+        &self.orchestrator_config.snos_config
+    }
+
+    /// Returns the service config
+    pub fn service_config(&self) -> &ServiceParams {
+        &self.orchestrator_config.service_config
     }
 
     /// Returns the starknet client

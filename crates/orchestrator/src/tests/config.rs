@@ -14,7 +14,7 @@ use url::Url;
 
 use crate::alerts::Alerts;
 use crate::cli::RunCmd;
-use crate::config::{get_aws_config, Config, ProviderConfig, SnosConfig};
+use crate::config::{get_aws_config, Config, OrchestratorConfig, ProviderConfig};
 use crate::data_storage::{DataStorage, MockDataStorage};
 use crate::database::{Database, MockDatabase};
 use crate::queue::{MockQueueProvider, QueueProvider};
@@ -185,12 +185,12 @@ impl TestConfigBuilder {
 
         let aws_config = &run_cmd.aws_config_args;
         let provider_config = Arc::new(ProviderConfig::AWS(Box::new(get_aws_config(aws_config).await)));
-        let server_config = run_cmd.validate_server_params().expect("Failed to validate server params");
 
-        let snos_config = SnosConfig {
-            rpc_url: run_cmd.snos_args.rpc_for_snos.clone(),
-            max_block_to_process: run_cmd.snos_args.max_block_to_process,
-            min_block_to_process: run_cmd.snos_args.min_block_to_process,
+        let orchestrator_config = OrchestratorConfig {
+            madara_rpc_url: run_cmd.madara_rpc_url.clone(),
+            snos_config: run_cmd.validate_snos_params().expect("Failed to validate SNOS params"),
+            service_config: run_cmd.validate_service_params().expect("Failed to validate service params"),
+            server_config: run_cmd.validate_server_params().expect("Failed to validate server params"),
         };
 
         let TestConfigBuilder {
@@ -243,9 +243,7 @@ impl TestConfigBuilder {
         create_sns_arn(provider_config.clone()).await.expect("Unable to create the sns arn");
 
         let config = Arc::new(Config::new(
-            starknet_rpc_url,
-            server_config,
-            snos_config,
+            orchestrator_config,
             starknet_client,
             da_client,
             prover_client,
