@@ -20,7 +20,8 @@ async fn main() {
     println!("{:?}", run_cmd);
 
     // Analytics Setup
-    let meter_provider = setup_analytics(&run_cmd.instrumentation);
+    let instrumentation_params = run_cmd.validate_instrumentation_params().expect("Invalid instrumentation params");
+    let meter_provider = setup_analytics(&instrumentation_params);
     tracing::info!(service = "orchestrator", "Starting orchestrator service");
 
     color_eyre::install().expect("Unable to install color_eyre");
@@ -46,6 +47,6 @@ async fn main() {
     tokio::signal::ctrl_c().await.expect("Failed to listen for ctrl+c");
 
     // Analytics Shutdown
-    shutdown_analytics(meter_provider, &run_cmd.instrumentation);
+    shutdown_analytics(meter_provider, &instrumentation_params);
     tracing::info!(service = "orchestrator", "Orchestrator service shutting down");
 }

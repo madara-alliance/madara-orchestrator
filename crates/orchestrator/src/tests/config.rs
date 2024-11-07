@@ -188,9 +188,9 @@ impl TestConfigBuilder {
         let server_config = run_cmd.server.clone();
 
         let snos_config = SnosConfig {
-            rpc_url: run_cmd.snos.rpc_for_snos.clone(),
-            max_block_to_process: run_cmd.snos.max_block_to_process,
-            min_block_to_process: run_cmd.snos.min_block_to_process,
+            rpc_url: run_cmd.snos_args.rpc_for_snos.clone(),
+            max_block_to_process: run_cmd.snos_args.max_block_to_process,
+            min_block_to_process: run_cmd.snos_args.min_block_to_process,
         };
 
         let TestConfigBuilder {

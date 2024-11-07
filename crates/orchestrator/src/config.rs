@@ -109,9 +109,9 @@ pub async fn init_config(run_cmd: &RunCmd) -> color_eyre::Result<Arc<Config>> {
 
     // init snos url
     let snos_config = SnosConfig {
-        rpc_url: run_cmd.snos.rpc_for_snos.clone(),
-        max_block_to_process: run_cmd.snos.max_block_to_process,
-        min_block_to_process: run_cmd.snos.min_block_to_process,
+        rpc_url: run_cmd.snos_args.rpc_for_snos.clone(),
+        max_block_to_process: run_cmd.snos_args.max_block_to_process,
+        min_block_to_process: run_cmd.snos_args.min_block_to_process,
     };
 
     let server_config = run_cmd.server.clone();
@@ -265,7 +265,7 @@ pub async fn build_da_client(da_params: &DaParams) -> Box<dyn DaClient + Send + 
     match da_params {
         DaParams::Ethereum(ethereum_da_params) => {
             let client = RpcClient::new_http(
-                Url::from_str(ethereum_da_params.rpc_url.as_str()).expect("Failed to parse SETTLEMENT_RPC_URL"),
+                Url::from_str(ethereum_da_params.da_rpc_url.as_str()).expect("Failed to parse DA_RPC_URL"),
             );
             let provider = ProviderBuilder::<_, Ethereum>::new().on_client(client);
             Box::new(EthereumDaClient { provider })

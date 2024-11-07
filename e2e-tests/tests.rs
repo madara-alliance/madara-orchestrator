@@ -21,6 +21,9 @@ use rstest::rstest;
 use serde::{Deserialize, Serialize};
 use serde_json::json;
 use starknet::core::types::{Felt, MaybePendingStateUpdate};
+use utils::cli::database::DatabaseParams;
+use utils::cli::queue::QueueParams;
+use utils::cli::storage::StorageParams;
 use utils::cli::RunCmd;
 use utils::env_utils::get_env_var_or_panic;
 use uuid::Uuid;
@@ -49,7 +52,12 @@ struct Setup {
 impl Setup {
     /// Initialise a new setup
     pub async fn new(l2_block_number: String, run_cmd: RunCmd) -> Self {
-        let mongodb_params = run_cmd.mongodb_params;
+        let db_params = run_cmd.validate_database_params().expect("Invalid database params");
+        let storage_params = run_cmd.validate_storage_params().expect("Invalid storage params");
+        let queue_params = run_cmd.validate_queue_params().expect("Invalid queue params");
+
+        let DatabaseParams::MongoDB(mongodb_params) = db_params;
+
         let mongo_db_instance = MongoDbServer::run(mongodb_params);
         println!("✅ Mongo DB setup completed");
 
@@ -65,15 +73,15 @@ impl Setup {
 
         // Setting up LocalStack
         let aws_config = run_cmd.aws_config;
-        let s3_config = run_cmd.aws_s3_params;
-        let sqs_config = run_cmd.aws_sqs_params;
-        let localstack_instance = LocalStack::new(aws_config, &s3_config).await;
-        localstack_instance.setup_sqs(&sqs_config).await.unwrap();
+        let StorageParams::AWSS3(s3_params) = storage_params;
+        let QueueParams::AWSSQS(sqs_params) = queue_params;
+        let localstack_instance = LocalStack::new(aws_config, &s3_params).await;
+        localstack_instance.setup_sqs(&sqs_params).await.unwrap();
         localstack_instance.delete_event_bridge_rule("worker_trigger_scheduled").await.unwrap();
-        localstack_instance.setup_event_bridge(WorkerTriggerType::Snos, &sqs_config).await.unwrap();
-        localstack_instance.setup_event_bridge(WorkerTriggerType::Proving, &sqs_config).await.unwrap();
-        localstack_instance.setup_event_bridge(WorkerTriggerType::DataSubmission, &sqs_config).await.unwrap();
-        localstack_instance.setup_event_bridge(WorkerTriggerType::UpdateState, &sqs_config).await.unwrap();
+        localstack_instance.setup_event_bridge(WorkerTriggerType::Snos, &sqs_params).await.unwrap();
+        localstack_instance.setup_event_bridge(WorkerTriggerType::Proving, &sqs_params).await.unwrap();
+        localstack_instance.setup_event_bridge(WorkerTriggerType::DataSubmission, &sqs_params).await.unwrap();
+        localstack_instance.setup_event_bridge(WorkerTriggerType::UpdateState, &sqs_params).await.unwrap();
 
         println!("✅ Localstack instance setup completed");
 

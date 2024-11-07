@@ -2,12 +2,23 @@ use clap::Args;
 
 /// Parameters used to config MongoDB.
 #[derive(Debug, Clone, Args)]
-pub struct MongoDBParams {
+#[group(requires_all = ["connection_url", "database_name"])]
+pub struct MongoDBCliArgs {
+    /// Use the MongoDB client
+    #[arg(long)]
+    pub mongodb: bool,
+
     /// The connection string to the MongoDB server.
-    #[arg(env = "MONGODB_CONNECTION_URL", long)]
-    pub connection_url: String,
+    #[arg(env = "MONGODB_CONNECTION_URL", long, default_value = Some("mongodb://localhost:27017"))]
+    pub connection_url: Option<String>,
 
     /// The name of the database.
-    #[arg(env = "DATABASE_NAME", long)]
+    #[arg(env = "DATABASE_NAME", long, default_value = Some("orchestrator"))]
+    pub database_name: Option<String>,
+}
+
+#[derive(Debug, Clone)]
+pub struct MongoDBParams {
+    pub connection_url: String,
     pub database_name: String,
 }

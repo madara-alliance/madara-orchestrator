@@ -2,6 +2,7 @@ use clap::Args;
 
 /// Parameters used to config the server.
 #[derive(Debug, Clone, Args)]
+#[group(requires_all = ["host", "port"])]
 pub struct ServerParams {
     /// The host to listen on.
     #[arg(env = "HOST", long, default_value = "127.0.0.1")]
