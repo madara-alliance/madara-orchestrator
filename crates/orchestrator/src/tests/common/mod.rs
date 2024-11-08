@@ -11,8 +11,8 @@ use chrono::{SubsecRound, Utc};
 use mongodb::Client;
 use rstest::*;
 use serde::Deserialize;
-use utils::env_utils::get_env_var_or_panic;
 
+use crate::cli::alert::AlertParams;
 use crate::cli::database::DatabaseParams;
 use crate::cli::queue::QueueParams;
 use crate::config::ProviderConfig;
@@ -48,9 +48,13 @@ pub fn custom_job_item(default_job_item: JobItem, #[default(String::from("0"))] 
     job_item
 }
 
-pub async fn create_sns_arn(provider_config: Arc<ProviderConfig>) -> Result<(), SdkError<CreateTopicError>> {
+pub async fn create_sns_arn(
+    provider_config: Arc<ProviderConfig>,
+    alert_params: &AlertParams,
+) -> Result<(), SdkError<CreateTopicError>> {
+    let AlertParams::AWSSNS(aws_sns_params) = alert_params;
     let sns_client = get_sns_client(provider_config.get_aws_client_or_panic()).await;
-    sns_client.create_topic().name(get_env_var_or_panic("MADARA_ORCHESTRATOR_AWS_SNS_ARN")).send().await?;
+    sns_client.create_topic().name(aws_sns_params.get_topic_name()).send().await?;
     Ok(())
 }
 

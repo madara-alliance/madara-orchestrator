@@ -42,7 +42,7 @@ use tokio::time::sleep;
 
 use crate::types::{bytes_be_to_u128, convert_stark_bigint_to_u256};
 
-pub const ENV_PRIVATE_KEY: &str = "ETHEREUM_PRIVATE_KEY";
+pub const ENV_PRIVATE_KEY: &str = "MADARA_ORCHESTRATOR_ETHEREUM_PRIVATE_KEY";
 const X_0_POINT_OFFSET: usize = 10;
 const Y_LOW_POINT_OFFSET: usize = 14;
 const Y_HIGH_POINT_OFFSET: usize = Y_LOW_POINT_OFFSET + 1;

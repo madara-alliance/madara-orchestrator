@@ -92,7 +92,7 @@ async fn setup(#[future] spin_up_madara: MadaraCmd) -> (LocalWalletSignerMiddlew
         )
         .parse::<u64>()
         .unwrap(),
-        madara_binary_path: get_env_var_or_panic("MADARA_BINARY_PATH"),
+        madara_binary_path: get_env_var_or_panic("MADARA_ORCHESTRATOR_MADARA_BINARY_PATH"),
     };
 
     let rpc_url = Url::parse(starknet_settlement_params.starknet_rpc_url.as_ref()).unwrap();
@@ -129,7 +129,7 @@ async fn test_settle(#[future] setup: (LocalWalletSignerMiddleware, MadaraCmd)) 
         )
         .parse::<u64>()
         .unwrap(),
-        madara_binary_path: get_env_var_or_panic("MADARA_BINARY_PATH"),
+        madara_binary_path: get_env_var_or_panic("MADARA_ORCHESTRATOR_MADARA_BINARY_PATH"),
     };
 
     let (account, _madara_process) = setup.await;

@@ -32,7 +32,7 @@ lazy_static! {
         .expect("Path contains invalid Unicode")
         .to_string();
     static ref ETH_RPC: String = get_env_var_or_panic("MADARA_ORCHESTRATOR_STARKNET_SETTLEMENT_RPC_URL");
-    pub static ref STARKNET_OPERATOR_ADDRESS: Address =
+    pub static ref MADARA_ORCHESTRATOR_STARKNET_OPERATOR_ADDRESS: Address =
         Address::from_str(get_env_var_or_panic("MADARA_ORCHESTRATOR_STARKNET_OPERATOR_ADDRESS").as_str())
             .expect("Could not parse MADARA_ORCHESTRATOR_STARKNET_OPERATOR_ADDRESS");
     static ref STARKNET_CORE_CONTRACT_ADDRESS: Address =
@@ -139,8 +139,8 @@ mod settlement_client_tests {
     use super::{BLOCK_TIME, ENV_FILE_PATH};
     use crate::conversion::to_padded_hex;
     use crate::tests::{
-        DummyCoreContract, EthereumTestBuilder, Pipe, CURRENT_PATH, STARKNET_CORE_CONTRACT,
-        STARKNET_CORE_CONTRACT_ADDRESS, STARKNET_OPERATOR_ADDRESS,
+        DummyCoreContract, EthereumTestBuilder, Pipe, CURRENT_PATH, MADARA_ORCHESTRATOR_STARKNET_OPERATOR_ADDRESS,
+        STARKNET_CORE_CONTRACT, STARKNET_CORE_CONTRACT_ADDRESS,
     };
     use crate::types::{bytes_be_to_u128, convert_stark_bigint_to_u256};
     use crate::{EthereumSettlementClient, EthereumSettlementParams, Y_HIGH_POINT_OFFSET, Y_LOW_POINT_OFFSET};
@@ -232,7 +232,7 @@ mod settlement_client_tests {
 
         let setup = EthereumTestBuilder::new()
             .with_fork_block(fork_block_no)
-            .with_impersonator(*STARKNET_OPERATOR_ADDRESS)
+            .with_impersonator(*MADARA_ORCHESTRATOR_STARKNET_OPERATOR_ADDRESS)
             .build()
             .await;
 
@@ -242,7 +242,7 @@ mod settlement_client_tests {
 
         let nonce = setup
             .provider
-            .get_transaction_count(*STARKNET_OPERATOR_ADDRESS)
+            .get_transaction_count(*MADARA_ORCHESTRATOR_STARKNET_OPERATOR_ADDRESS)
             .await
             .unwrap()
             .to_string()

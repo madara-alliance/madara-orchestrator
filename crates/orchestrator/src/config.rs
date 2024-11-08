@@ -306,12 +306,15 @@ pub async fn build_settlement_client(
     //         {
     //             Ok(Box::new(EthereumSettlementClient::with_test_settings(
     //
-    // RootProvider::new_http(get_env_var_or_panic("SETTLEMENT_RPC_URL").as_str().parse()?),
-    //                 Address::from_str(&get_env_var_or_panic("L1_CORE_CONTRACT_ADDRESS"))?,
-    //                 Url::from_str(get_env_var_or_panic("SETTLEMENT_RPC_URL").as_str())?,
+    // RootProvider::new_http(get_env_var_or_panic("MADARA_ORCHESTRATOR_ETHEREUM_SETTLEMENT_RPC_URL"
+    // ).as_str().parse()?),                 
+    // Address::from_str(&get_env_var_or_panic("MADARA_ORCHESTRATOR_L1_CORE_CONTRACT_ADDRESS"))?,
+    //                 
+    // Url::from_str(get_env_var_or_panic("MADARA_ORCHESTRATOR_ETHEREUM_SETTLEMENT_RPC_URL").
+    // as_str())?,
     //
-    // Some(Address::from_str(get_env_var_or_panic("STARKNET_OPERATOR_ADDRESS").as_str())?),
-    //             )))
+    // Some(Address::from_str(get_env_var_or_panic("MADARA_ORCHESTRATOR_STARKNET_OPERATOR_ADDRESS").
+    // as_str())?),             )))
     //         }
     //     }
     //     "starknet" =>
@@ -334,6 +337,7 @@ pub async fn build_alert_client(
 ) -> Box<dyn Alerts + Send + Sync> {
     match alert_params {
         AlertParams::AWSSNS(aws_sns_params) => {
+            println!("Building alert client {}", aws_sns_params.sns_arn);
             Box::new(AWSSNS::new_with_settings(aws_sns_params, provider_config).await)
         }
     }

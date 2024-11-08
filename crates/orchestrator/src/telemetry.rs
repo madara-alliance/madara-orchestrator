@@ -57,7 +57,7 @@ fn get_otel_config(instrumentation: &InstrumentationParams) -> Option<OTELConfig
     match otel_endpoint {
         Some(endpoint) => Some(OTELConfig { endpoint, service_name: otel_service_name }),
         _ => {
-            tracing::warn!("OTEL_COLLECTOR_ENDPOINT is not set");
+            tracing::warn!("MADARA_ORCHESTRATOR_OTEL_COLLECTOR_ENDPOINT is not set");
             None
         }
     }

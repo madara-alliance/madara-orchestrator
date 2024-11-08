@@ -35,8 +35,8 @@ pub struct StarknetSettlementClient {
     pub tx_finality_retry_delay_in_seconds: u64,
 }
 
-pub const ENV_ACCOUNT_ADDRESS: &str = "STARKNET_ACCOUNT_ADDRESS";
-pub const ENV_PRIVATE_KEY: &str = "STARKNET_PRIVATE_KEY";
+pub const ENV_ACCOUNT_ADDRESS: &str = "MADARA_ORCHESTRATOR_STARKNET_ACCOUNT_ADDRESS";
+pub const ENV_PRIVATE_KEY: &str = "MADARA_ORCHESTRATOR_STARKNET_PRIVATE_KEY";
 
 const MAX_RETRIES_VERIFY_TX_FINALITY: usize = 10;
 

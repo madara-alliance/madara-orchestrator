@@ -249,7 +249,7 @@ impl TestConfigBuilder {
         // Deleting the database
         drop_database(&db_params).await.expect("Unable to drop the database.");
         // Creating the SNS ARN
-        create_sns_arn(provider_config.clone()).await.expect("Unable to create the sns arn");
+        create_sns_arn(provider_config.clone(), &alert_params).await.expect("Unable to create the sns arn");
 
         let config = Arc::new(Config::new(
             orchestrator_config,

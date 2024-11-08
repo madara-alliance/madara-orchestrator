@@ -35,7 +35,7 @@ impl Orchestrator {
         std::env::set_current_dir(repository_root).expect("Failed to change working directory");
 
         let port_str = format!("{}", port);
-        let envs = [envs, vec![("PORT".to_string(), port_str)]].concat();
+        let envs = [envs, vec![("MADARA_ORCHESTRATOR_PORT".to_string(), port_str)]].concat();
 
         let mut command = Command::new("cargo");
         command

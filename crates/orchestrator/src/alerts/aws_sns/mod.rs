@@ -11,6 +11,12 @@ pub struct AWSSNSParams {
     pub sns_arn: String,
 }
 
+impl AWSSNSParams {
+    pub fn get_topic_name(&self) -> String {
+        self.sns_arn.split(":").last().unwrap().to_string()
+    }
+}
+
 pub struct AWSSNS {
     client: Client,
     topic_arn: String,
