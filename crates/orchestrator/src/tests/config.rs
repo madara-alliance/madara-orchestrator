@@ -12,7 +12,7 @@ use sharp_service::config::SharpParams;
 use starknet::providers::jsonrpc::HttpTransport;
 use starknet::providers::JsonRpcClient;
 use url::Url;
-use utils::env_utils::get_env_var_or_panic;
+use utils::env_utils::{get_env_var_optional, get_env_var_or_panic};
 
 use crate::alerts::aws_sns::AWSSNSParams;
 use crate::alerts::Alerts;
@@ -515,18 +515,13 @@ fn get_env_params() -> (
             .expect("Failed to parse MADARA_ORCHESTRATOR_RPC_FOR_SNOS"),
     };
 
-    let service_config = ServiceParams {
-        max_block_to_process: Some(
-            get_env_var_or_panic("MADARA_ORCHESTRATOR_MAX_BLOCK_NO_TO_PROCESS")
-                .parse()
-                .expect("Failed to parse MADARA_ORCHESTRATOR_MAX_BLOCK_NO_TO_PROCESS"),
-        ),
-        min_block_to_process: Some(
-            get_env_var_or_panic("MADARA_ORCHESTRATOR_MIN_BLOCK_NO_TO_PROCESS")
-                .parse()
-                .expect("Failed to parse MADARA_ORCHESTRATOR_MIN_BLOCK_NO_TO_PROCESS"),
-        ),
-    };
+    let env = get_env_var_optional("MADARA_ORCHESTRATOR_MAX_BLOCK_NO_TO_PROCESS").expect("Couldn't get max block");
+    let max_block: Option<u64> = env.expect("Couldn't get max block").parse().ok();
+
+    let env = get_env_var_optional("MADARA_ORCHESTRATOR_MIN_BLOCK_NO_TO_PROCESS").expect("Couldn't get min block");
+    let min_block: Option<u64> = env.expect("Couldn't get min block").parse().ok();
+
+    let service_config = ServiceParams { max_block_to_process: max_block, min_block_to_process: min_block };
 
     let server_config = ServerParams {
         host: get_env_var_or_panic("MADARA_ORCHESTRATOR_HOST"),

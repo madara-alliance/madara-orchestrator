@@ -31,7 +31,7 @@ lazy_static! {
         .to_str()
         .expect("Path contains invalid Unicode")
         .to_string();
-    static ref ETH_RPC: String = get_env_var_or_panic("MADARA_ORCHESTRATOR_STARKNET_SETTLEMENT_RPC_URL");
+    static ref ETH_RPC: String = get_env_var_or_panic("MADARA_ORCHESTRATOR_ETHEREUM_SETTLEMENT_RPC_URL");
     pub static ref MADARA_ORCHESTRATOR_STARKNET_OPERATOR_ADDRESS: Address =
         Address::from_str(get_env_var_or_panic("MADARA_ORCHESTRATOR_STARKNET_OPERATOR_ADDRESS").as_str())
             .expect("Could not parse MADARA_ORCHESTRATOR_STARKNET_OPERATOR_ADDRESS");
