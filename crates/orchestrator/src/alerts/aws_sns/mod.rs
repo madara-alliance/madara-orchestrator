@@ -8,6 +8,8 @@ use crate::config::ProviderConfig;
 
 #[derive(Debug, Clone)]
 pub struct AWSSNSParams {
+    // TODO: convert to ARN type, and validate it
+    // NOTE: aws is using str to represent ARN : https://docs.aws.amazon.com/sdk-for-rust/latest/dg/rust_sns_code_examples.html
     pub sns_arn: String,
 }
 
@@ -23,7 +25,7 @@ pub struct AWSSNS {
 }
 
 impl AWSSNS {
-    pub async fn new_with_settings(aws_sns_params: &AWSSNSParams, provider_config: Arc<ProviderConfig>) -> Self {
+    pub async fn new_with_params(aws_sns_params: &AWSSNSParams, provider_config: Arc<ProviderConfig>) -> Self {
         let config = provider_config.get_aws_client_or_panic();
         Self { client: Client::new(config), topic_arn: aws_sns_params.sns_arn.clone() }
     }

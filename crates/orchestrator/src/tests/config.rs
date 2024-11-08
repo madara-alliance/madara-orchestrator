@@ -27,7 +27,7 @@ use crate::cli::queue::QueueParams;
 use crate::cli::settlement::SettlementParams;
 use crate::cli::snos::SNOSParams;
 use crate::cli::storage::StorageParams;
-use crate::config::{get_aws_config, Config, OrchestratorConfig, ProviderConfig, ServiceParams};
+use crate::config::{get_aws_config, Config, OrchestratorParams, ProviderConfig, ServiceParams};
 use crate::data_storage::aws_s3::config::AWSS3Params;
 use crate::data_storage::{DataStorage, MockDataStorage};
 use crate::database::mongodb::config::MongoDBParams;
@@ -201,7 +201,7 @@ impl TestConfigBuilder {
 
         let params = get_env_params();
 
-        let provider_config = Arc::new(ProviderConfig::AWS(Box::new(get_aws_config(&params.aws_config).await)));
+        let provider_config = Arc::new(ProviderConfig::AWS(Box::new(get_aws_config(&params.aws_params).await)));
 
         let TestConfigBuilder {
             starknet_rpc_url_type,
@@ -247,7 +247,7 @@ impl TestConfigBuilder {
         create_sns_arn(provider_config.clone(), &params.alert_params).await.expect("Unable to create the sns arn");
 
         let config = Arc::new(Config::new(
-            params.orchestrator_config,
+            params.orchestrator_params,
             starknet_client,
             da_client,
             prover_client,
@@ -457,7 +457,7 @@ pub mod implement_client {
 }
 
 struct EnvParams {
-    aws_config: AWSConfigParams,
+    aws_params: AWSConfigParams,
     alert_params: AlertParams,
     queue_params: QueueParams,
     storage_params: StorageParams,
@@ -465,7 +465,7 @@ struct EnvParams {
     da_params: DaParams,
     settlement_params: SettlementParams,
     prover_params: ProverParams,
-    orchestrator_config: OrchestratorConfig,
+    orchestrator_params: OrchestratorParams,
     #[allow(dead_code)]
     instrumentation_params: InstrumentationParams,
 }
@@ -486,11 +486,12 @@ fn get_env_params() -> EnvParams {
         sqs_suffix: get_env_var_or_panic("MADARA_ORCHESTRATOR_SQS_SUFFIX"),
     });
 
-    let aws_config = AWSConfigParams {
+    let aws_params = AWSConfigParams {
         aws_access_key_id: get_env_var_or_panic("AWS_ACCESS_KEY_ID"),
         aws_secret_access_key: get_env_var_or_panic("AWS_SECRET_ACCESS_KEY"),
         aws_region: get_env_var_or_panic("AWS_REGION"),
-        aws_endpoint_url: get_env_var_or_panic("AWS_ENDPOINT_URL"),
+        aws_endpoint_url: Url::parse(&get_env_var_or_panic("AWS_ENDPOINT_URL"))
+            .expect("Failed to parse AWS_ENDPOINT_URL"),
         aws_default_region: get_env_var_or_panic("AWS_DEFAULT_REGION"),
     };
 
@@ -530,7 +531,7 @@ fn get_env_params() -> EnvParams {
             .expect("Failed to parse MADARA_ORCHESTRATOR_PORT"),
     };
 
-    let orchestrator_config = OrchestratorConfig {
+    let orchestrator_params = OrchestratorParams {
         madara_rpc_url: Url::parse(&get_env_var_or_panic("MADARA_ORCHESTRATOR_MADARA_RPC_URL"))
             .expect("Failed to parse MADARA_ORCHESTRATOR_MADARA_RPC_URL"),
         snos_config,
@@ -560,7 +561,7 @@ fn get_env_params() -> EnvParams {
     });
 
     EnvParams {
-        aws_config,
+        aws_params,
         alert_params,
         queue_params,
         storage_params,
@@ -569,6 +570,6 @@ fn get_env_params() -> EnvParams {
         settlement_params,
         prover_params,
         instrumentation_params,
-        orchestrator_config,
+        orchestrator_params,
     }
 }

@@ -167,7 +167,7 @@ mod settlement_client_tests {
 
         // Deploying a dummy contract
         let contract = DummyCoreContract::deploy(&setup.provider).await.expect("Unable to deploy address");
-        let ethereum_settlement_client = EthereumSettlementClient::with_test_settings(
+        let ethereum_settlement_client = EthereumSettlementClient::with_test_params(
             setup.provider.clone(),
             *contract.address(),
             ethereum_settlement_params.ethereum_rpc_url,
@@ -237,7 +237,7 @@ mod settlement_client_tests {
             starknet_operator_address: get_env_var_or_panic("MADARA_ORCHESTRATOR_STARKNET_OPERATOR_ADDRESS"),
         };
 
-        let ethereum_settlement_client = EthereumSettlementClient::with_test_settings(
+        let ethereum_settlement_client = EthereumSettlementClient::with_test_params(
             setup.provider.clone(),
             Address::from_str(&ethereum_settlement_params.l1_core_contract_address).unwrap(),
             ethereum_settlement_params.ethereum_rpc_url,
@@ -303,7 +303,7 @@ mod settlement_client_tests {
             starknet_operator_address: get_env_var_or_panic("MADARA_ORCHESTRATOR_STARKNET_OPERATOR_ADDRESS"),
         };
 
-        let ethereum_settlement_client = EthereumSettlementClient::with_test_settings(
+        let ethereum_settlement_client = EthereumSettlementClient::with_test_params(
             setup.provider.clone(),
             Address::from_str(&ethereum_settlement_params.l1_core_contract_address).unwrap(),
             ethereum_settlement_params.ethereum_rpc_url,

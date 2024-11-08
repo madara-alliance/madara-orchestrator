@@ -26,7 +26,7 @@ pub struct AWSS3 {
 /// - initializing a new AWS S3 client
 impl AWSS3 {
     /// To init the struct with main settings
-    pub async fn new_with_settings(s3_config: &AWSS3Params, provider_config: Arc<ProviderConfig>) -> Self {
+    pub async fn new_with_params(s3_config: &AWSS3Params, provider_config: Arc<ProviderConfig>) -> Self {
         let aws_config = provider_config.get_aws_client_or_panic();
         // Building AWS S3 config
         let mut s3_config_builder = aws_sdk_s3::config::Builder::from(aws_config);

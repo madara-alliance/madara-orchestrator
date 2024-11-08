@@ -1,5 +1,5 @@
 use alert::AlertParams;
-use aws_config::AWSConfigParams;
+use aws_config::{AWSConfigCliArgs, AWSConfigParams};
 use clap::{ArgGroup, Parser};
 use da::DaParams;
 use database::DatabaseParams;
@@ -78,7 +78,7 @@ pub mod storage;
 pub struct RunCmd {
     // AWS Config
     #[clap(flatten)]
-    pub aws_config_args: AWSConfigParams,
+    pub aws_config_args: AWSConfigCliArgs,
 
     // Settlement Layer
     #[command(flatten)]
@@ -129,52 +129,27 @@ pub struct RunCmd {
 }
 
 impl RunCmd {
-    pub fn validate_settlement_params(&self) -> Result<settlement::SettlementParams, String> {
-        match (self.ethereum_args.settle_on_ethereum, self.starknet_args.settle_on_starknet) {
-            (true, false) => {
-                // TODO: Ensure Starknet params are not provided
+    pub fn validate_aws_config_params(&self) -> Result<AWSConfigParams, String> {
+        let aws_endpoint_url = Url::parse("http://localhost.localstack.cloud:4566").unwrap();
+        let aws_default_region = "localhost".to_string();
 
-                // Get Ethereum params or error if none provided
-                // Either all the values are provided or panic
-                let ethereum_params = EthereumSettlementParams {
-                    ethereum_rpc_url: self.ethereum_args.ethereum_rpc_url.clone().unwrap(),
-                    ethereum_private_key: self.ethereum_args.ethereum_private_key.clone().unwrap(),
-                    l1_core_contract_address: self.ethereum_args.l1_core_contract_address.clone().unwrap(),
-                    starknet_operator_address: self.ethereum_args.starknet_operator_address.clone().unwrap(),
-                };
-                Ok(SettlementParams::Ethereum(ethereum_params))
-            }
-            (false, true) => {
-                // TODO: Ensure Ethereum params are not provided
+        tracing::warn!("Setting AWS_ENDPOINT_URL to {} for AWS SDK to use", aws_endpoint_url);
+        tracing::warn!("Setting AWS_DEFAULT_REGION to {} for Omniqueue to use", aws_default_region);
 
-                // Get Starknet params or error if none provided
-                // Either all the values are provided or panic
-                let starknet_params = StarknetSettlementParams {
-                    starknet_rpc_url: self.starknet_args.starknet_rpc_url.clone().unwrap(),
-                    starknet_private_key: self.starknet_args.starknet_private_key.clone().unwrap(),
-                    starknet_account_address: self.starknet_args.starknet_account_address.clone().unwrap(),
-                    starknet_cairo_core_contract_address: self
-                        .starknet_args
-                        .starknet_cairo_core_contract_address
-                        .clone()
-                        .unwrap(),
-                    starknet_finality_retry_wait_in_secs: self
-                        .starknet_args
-                        .starknet_finality_retry_wait_in_secs
-                        .unwrap(),
-                    madara_binary_path: self.starknet_args.madara_binary_path.clone().unwrap(),
-                };
-                Ok(SettlementParams::Starknet(starknet_params))
-            }
-            (true, true) | (false, false) => Err("Exactly one settlement layer must be selected".to_string()),
-        }
+        Ok(AWSConfigParams {
+            aws_access_key_id: self.aws_config_args.aws_access_key_id.clone(),
+            aws_secret_access_key: self.aws_config_args.aws_secret_access_key.clone(),
+            aws_region: self.aws_config_args.aws_region.clone(),
+            aws_endpoint_url,
+            aws_default_region,
+        })
     }
 
-    pub fn validate_storage_params(&self) -> Result<StorageParams, String> {
-        if self.aws_s3_args.aws_s3 {
-            Ok(StorageParams::AWSS3(AWSS3Params { bucket_name: self.aws_s3_args.bucket_name.clone().unwrap() }))
+    pub fn validate_alert_params(&self) -> Result<AlertParams, String> {
+        if self.aws_sns_args.aws_sns {
+            Ok(AlertParams::AWSSNS(AWSSNSParams { sns_arn: self.aws_sns_args.sns_arn.clone().unwrap() }))
         } else {
-            Err("Only AWS S3 is supported as of now".to_string())
+            Err("Only AWS SNS is supported as of now".to_string())
         }
     }
 
@@ -190,11 +165,11 @@ impl RunCmd {
         }
     }
 
-    pub fn validate_alert_params(&self) -> Result<AlertParams, String> {
-        if self.aws_sns_args.aws_sns {
-            Ok(AlertParams::AWSSNS(AWSSNSParams { sns_arn: self.aws_sns_args.sns_arn.clone().unwrap() }))
+    pub fn validate_storage_params(&self) -> Result<StorageParams, String> {
+        if self.aws_s3_args.aws_s3 {
+            Ok(StorageParams::AWSS3(AWSS3Params { bucket_name: self.aws_s3_args.bucket_name.clone().unwrap() }))
         } else {
-            Err("Only AWS SNS is supported as of now".to_string())
+            Err("Only AWS S3 is supported as of now".to_string())
         }
     }
 
@@ -216,6 +191,39 @@ impl RunCmd {
             }))
         } else {
             Err("Only Ethereum is supported as of now".to_string())
+        }
+    }
+
+    pub fn validate_settlement_params(&self) -> Result<settlement::SettlementParams, String> {
+        match (self.ethereum_args.settle_on_ethereum, self.starknet_args.settle_on_starknet) {
+            (true, false) => {
+                let ethereum_params = EthereumSettlementParams {
+                    ethereum_rpc_url: self.ethereum_args.ethereum_rpc_url.clone().unwrap(),
+                    ethereum_private_key: self.ethereum_args.ethereum_private_key.clone().unwrap(),
+                    l1_core_contract_address: self.ethereum_args.l1_core_contract_address.clone().unwrap(),
+                    starknet_operator_address: self.ethereum_args.starknet_operator_address.clone().unwrap(),
+                };
+                Ok(SettlementParams::Ethereum(ethereum_params))
+            }
+            (false, true) => {
+                let starknet_params = StarknetSettlementParams {
+                    starknet_rpc_url: self.starknet_args.starknet_rpc_url.clone().unwrap(),
+                    starknet_private_key: self.starknet_args.starknet_private_key.clone().unwrap(),
+                    starknet_account_address: self.starknet_args.starknet_account_address.clone().unwrap(),
+                    starknet_cairo_core_contract_address: self
+                        .starknet_args
+                        .starknet_cairo_core_contract_address
+                        .clone()
+                        .unwrap(),
+                    starknet_finality_retry_wait_in_secs: self
+                        .starknet_args
+                        .starknet_finality_retry_wait_in_secs
+                        .unwrap(),
+                    madara_binary_path: self.starknet_args.madara_binary_path.clone().unwrap(),
+                };
+                Ok(SettlementParams::Starknet(starknet_params))
+            }
+            (true, true) | (false, false) => Err("Exactly one settlement layer must be selected".to_string()),
         }
     }
 

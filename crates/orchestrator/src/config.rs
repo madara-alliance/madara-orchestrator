@@ -45,7 +45,7 @@ use crate::routes::ServerParams;
 /// by calling `config` function.
 pub struct Config {
     /// The orchestrator config
-    orchestrator_config: OrchestratorConfig,
+    orchestrator_params: OrchestratorParams,
     /// The starknet client to get data from the node
     starknet_client: Arc<JsonRpcClient<HttpTransport>>,
     /// The DA client to interact with the DA layer
@@ -70,7 +70,7 @@ pub struct ServiceParams {
     pub min_block_to_process: Option<u64>,
 }
 
-pub struct OrchestratorConfig {
+pub struct OrchestratorParams {
     pub madara_rpc_url: Url,
     pub snos_config: SNOSParams,
     pub service_config: ServiceParams,
@@ -108,17 +108,17 @@ pub async fn get_aws_config(aws_config: &AWSConfigParams) -> SdkConfig {
 pub async fn init_config(run_cmd: &RunCmd) -> color_eyre::Result<Arc<Config>> {
     dotenv().ok();
 
-    let aws_config = &run_cmd.aws_config_args;
+    let aws_config = &run_cmd.validate_aws_config_params().expect("Failed to validate AWS config params");
     let provider_config = Arc::new(ProviderConfig::AWS(Box::new(get_aws_config(aws_config).await)));
 
-    let orchestrator_config = OrchestratorConfig {
+    let orchestrator_params = OrchestratorParams {
         madara_rpc_url: run_cmd.madara_rpc_url.clone(),
         snos_config: run_cmd.validate_snos_params().expect("Failed to validate SNOS params"),
         service_config: run_cmd.validate_service_params().expect("Failed to validate service params"),
         server_config: run_cmd.validate_server_params().expect("Failed to validate server params"),
     };
 
-    let provider = JsonRpcClient::new(HttpTransport::new(orchestrator_config.madara_rpc_url.clone()));
+    let provider = JsonRpcClient::new(HttpTransport::new(orchestrator_params.madara_rpc_url.clone()));
 
     // init database
     let database_params =
@@ -156,7 +156,7 @@ pub async fn init_config(run_cmd: &RunCmd) -> color_eyre::Result<Arc<Config>> {
     let queue = build_queue_client(&queue_params);
 
     Ok(Arc::new(Config::new(
-        orchestrator_config,
+        orchestrator_params,
         Arc::new(provider),
         da_client,
         prover_client,
@@ -172,7 +172,7 @@ impl Config {
     /// Create a new config
     #[allow(clippy::too_many_arguments)]
     pub fn new(
-        orchestrator_config: OrchestratorConfig,
+        orchestrator_params: OrchestratorParams,
         starknet_client: Arc<JsonRpcClient<HttpTransport>>,
         da_client: Box<dyn DaClient>,
         prover_client: Box<dyn ProverClient>,
@@ -183,7 +183,7 @@ impl Config {
         alerts: Box<dyn Alerts>,
     ) -> Self {
         Self {
-            orchestrator_config,
+            orchestrator_params,
             starknet_client,
             da_client,
             prover_client,
@@ -197,22 +197,22 @@ impl Config {
 
     /// Returns the starknet rpc url
     pub fn starknet_rpc_url(&self) -> &Url {
-        &self.orchestrator_config.madara_rpc_url
+        &self.orchestrator_params.madara_rpc_url
     }
 
     /// Returns the server config
     pub fn server_config(&self) -> &ServerParams {
-        &self.orchestrator_config.server_config
+        &self.orchestrator_params.server_config
     }
 
     /// Returns the snos rpc url
     pub fn snos_config(&self) -> &SNOSParams {
-        &self.orchestrator_config.snos_config
+        &self.orchestrator_params.snos_config
     }
 
     /// Returns the service config
     pub fn service_config(&self) -> &ServiceParams {
-        &self.orchestrator_config.service_config
+        &self.orchestrator_params.service_config
     }
 
     /// Returns the starknet client
@@ -270,7 +270,7 @@ pub async fn build_da_client(da_params: &DaParams) -> Box<dyn DaClient + Send + 
 /// Builds the prover service based on the environment variable PROVER_SERVICE
 pub fn build_prover_service(prover_params: &ProverParams) -> Box<dyn ProverClient> {
     match prover_params {
-        ProverParams::Sharp(sharp_params) => Box::new(SharpProverService::new_with_settings(sharp_params)),
+        ProverParams::Sharp(sharp_params) => Box::new(SharpProverService::new_with_params(sharp_params)),
     }
 }
 
@@ -282,11 +282,11 @@ pub async fn build_settlement_client(
         SettlementParams::Ethereum(ethereum_settlement_params) => {
             #[cfg(not(feature = "testing"))]
             {
-                Ok(Box::new(EthereumSettlementClient::new_with_settings(ethereum_settlement_params)))
+                Ok(Box::new(EthereumSettlementClient::new_with_params(ethereum_settlement_params)))
             }
             #[cfg(feature = "testing")]
             {
-                Ok(Box::new(EthereumSettlementClient::with_test_settings(
+                Ok(Box::new(EthereumSettlementClient::with_test_params(
                     RootProvider::new_http(ethereum_settlement_params.ethereum_rpc_url.clone()),
                     Address::from_str(&ethereum_settlement_params.l1_core_contract_address)?,
                     ethereum_settlement_params.ethereum_rpc_url.clone(),
@@ -295,34 +295,9 @@ pub async fn build_settlement_client(
             }
         }
         SettlementParams::Starknet(starknet_settlement_params) => {
-            Ok(Box::new(StarknetSettlementClient::new_with_settings(starknet_settlement_params).await))
+            Ok(Box::new(StarknetSettlementClient::new_with_params(starknet_settlement_params).await))
         }
     }
-
-    // match settlement_params {
-    //     "ethereum" => {
-    //         #[cfg(not(feature = "testing"))]
-    //         {
-    //             Ok(Box::new(EthereumSettlementClient::new_with_settings(settings_provider)))
-    //         }
-    //         #[cfg(feature = "testing")]
-    //         {
-    //             Ok(Box::new(EthereumSettlementClient::with_test_settings(
-    //
-    // RootProvider::new_http(get_env_var_or_panic("MADARA_ORCHESTRATOR_ETHEREUM_SETTLEMENT_RPC_URL"
-    // ).as_str().parse()?),
-    // Address::from_str(&get_env_var_or_panic("MADARA_ORCHESTRATOR_L1_CORE_CONTRACT_ADDRESS"))?,
-    //
-    // Url::from_str(get_env_var_or_panic("MADARA_ORCHESTRATOR_ETHEREUM_SETTLEMENT_RPC_URL").
-    // as_str())?,
-    //
-    // Some(Address::from_str(get_env_var_or_panic("MADARA_ORCHESTRATOR_STARKNET_OPERATOR_ADDRESS").
-    // as_str())?),             )))
-    //         }
-    //     }
-    //     "starknet" =>
-    // Ok(Box::new(StarknetSettlementClient::new_with_settings(settings_provider).await)),     _
-    // => panic!("Unsupported Settlement layer"), }
 }
 
 pub async fn build_storage_client(
@@ -330,7 +305,7 @@ pub async fn build_storage_client(
     provider_config: Arc<ProviderConfig>,
 ) -> Box<dyn DataStorage + Send + Sync> {
     match data_storage_params {
-        StorageParams::AWSS3(aws_s3_params) => Box::new(AWSS3::new_with_settings(aws_s3_params, provider_config).await),
+        StorageParams::AWSS3(aws_s3_params) => Box::new(AWSS3::new_with_params(aws_s3_params, provider_config).await),
     }
 }
 
@@ -341,7 +316,7 @@ pub async fn build_alert_client(
     match alert_params {
         AlertParams::AWSSNS(aws_sns_params) => {
             println!("Building alert client {}", aws_sns_params.sns_arn);
-            Box::new(AWSSNS::new_with_settings(aws_sns_params, provider_config).await)
+            Box::new(AWSSNS::new_with_params(aws_sns_params, provider_config).await)
         }
     }
 }
@@ -354,6 +329,6 @@ pub fn build_queue_client(queue_params: &QueueParams) -> Box<dyn QueueProvider +
 
 pub async fn build_database_client(database_params: &DatabaseParams) -> Box<dyn Database + Send + Sync> {
     match database_params {
-        DatabaseParams::MongoDB(mongodb_params) => Box::new(MongoDb::new_with_settings(mongodb_params).await),
+        DatabaseParams::MongoDB(mongodb_params) => Box::new(MongoDb::new_with_params(mongodb_params).await),
     }
 }

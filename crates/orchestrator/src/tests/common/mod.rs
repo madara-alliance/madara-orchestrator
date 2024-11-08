@@ -65,7 +65,7 @@ pub async fn get_sns_client(aws_config: &SdkConfig) -> aws_sdk_sns::client::Clie
 pub async fn drop_database(database_params: &DatabaseParams) -> color_eyre::Result<()> {
     match database_params {
         DatabaseParams::MongoDB(mongodb_params) => {
-            let db_client: Client = MongoDb::new_with_settings(mongodb_params).await.client();
+            let db_client: Client = MongoDb::new_with_params(mongodb_params).await.client();
             // dropping all the collection.
             // use .collection::<JobItem>("<collection_name>")
             // if only particular collection is to be dropped
@@ -117,5 +117,5 @@ pub async fn get_storage_client(
     storage_cfg: &AWSS3Params,
     provider_config: Arc<ProviderConfig>,
 ) -> Box<dyn DataStorage + Send + Sync> {
-    Box::new(AWSS3::new_with_settings(storage_cfg, provider_config).await)
+    Box::new(AWSS3::new_with_params(storage_cfg, provider_config).await)
 }

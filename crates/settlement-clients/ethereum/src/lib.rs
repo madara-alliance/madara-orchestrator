@@ -74,9 +74,7 @@ pub struct EthereumSettlementClient {
 }
 
 impl EthereumSettlementClient {
-    pub fn new_with_settings(settlement_cfg: &EthereumSettlementParams) -> Self {
-        // let settlement_cfg = EthereumSettlementConfig::new_with_settings(settings);3
-        // TODO: can pass the actual struct here no ned for reference
+    pub fn new_with_params(settlement_cfg: &EthereumSettlementParams) -> Self {
         let private_key = settlement_cfg.ethereum_private_key.clone();
         let signer: PrivateKeySigner = private_key.parse().expect("Failed to parse private key");
         let wallet_address = signer.address();
@@ -105,7 +103,7 @@ impl EthereumSettlementClient {
     }
 
     #[cfg(feature = "testing")]
-    pub fn with_test_settings(
+    pub fn with_test_params(
         provider: RootProvider<Http<Client>>,
         core_contract_address: Address,
         rpc_url: Url,

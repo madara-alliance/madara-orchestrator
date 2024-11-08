@@ -133,8 +133,8 @@ impl SharpProverService {
         Self { sharp_client, fact_checker }
     }
 
-    pub fn new_with_settings(sharp_params: &SharpParams) -> Self {
-        let sharp_client = SharpClient::new_with_settings(sharp_params.sharp_url.clone(), sharp_params);
+    pub fn new_with_params(sharp_params: &SharpParams) -> Self {
+        let sharp_client = SharpClient::new_with_params(sharp_params.sharp_url.clone(), sharp_params);
         let fact_checker = FactChecker::new(
             sharp_params.sharp_rpc_node_url.clone(),
             sharp_params.gps_verifier_contract_address.clone(),
@@ -142,8 +142,8 @@ impl SharpProverService {
         Self::new(sharp_client, fact_checker)
     }
 
-    pub fn with_test_settings(port: u16, sharp_params: &SharpParams) -> Self {
-        let sharp_client = SharpClient::new_with_settings(
+    pub fn with_test_params(port: u16, sharp_params: &SharpParams) -> Self {
+        let sharp_client = SharpClient::new_with_params(
             format!("http://127.0.0.1:{}", port).parse().expect("Failed to create sharp client with the given params"),
             sharp_params,
         );

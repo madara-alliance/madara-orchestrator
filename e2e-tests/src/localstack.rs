@@ -33,7 +33,7 @@ impl LocalStack {
 
         Self {
             sqs_client: aws_sdk_sqs::Client::new(&config),
-            s3_client: Box::new(AWSS3::new_with_settings(s3_config, provider_config).await),
+            s3_client: Box::new(AWSS3::new_with_params(s3_config, provider_config).await),
             event_bridge_client: aws_sdk_eventbridge::Client::new(&config),
         }
     }

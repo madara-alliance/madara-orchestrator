@@ -27,6 +27,7 @@ use rstest::rstest;
 use serde::{Deserialize, Serialize};
 use serde_json::json;
 use starknet::core::types::{Felt, MaybePendingStateUpdate};
+use url::Url;
 use utils::env_utils::get_env_var_or_panic;
 use uuid::Uuid;
 
@@ -72,7 +73,8 @@ impl Setup {
             aws_access_key_id: get_env_var_or_panic("AWS_ACCESS_KEY_ID"),
             aws_secret_access_key: get_env_var_or_panic("AWS_SECRET_ACCESS_KEY"),
             aws_region: get_env_var_or_panic("AWS_REGION"),
-            aws_endpoint_url: get_env_var_or_panic("AWS_ENDPOINT_URL"),
+            aws_endpoint_url: Url::parse(&get_env_var_or_panic("AWS_ENDPOINT_URL"))
+                .expect("Failed to parse AWS_ENDPOINT_URL"),
             aws_default_region: get_env_var_or_panic("AWS_DEFAULT_REGION"),
         };
 
