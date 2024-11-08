@@ -1,7 +1,9 @@
 use std::collections::HashMap;
+use std::panic::AssertUnwindSafe;
 use std::sync::Arc;
 use std::time::Duration;
 
+use futures::FutureExt;
 use mockall::predicate::eq;
 use mongodb::bson::doc;
 use omniqueue::QueueError;
@@ -225,7 +227,19 @@ async fn process_job_handles_panic() {
     let ctx = mock_factory::get_job_handler_context();
     ctx.expect().times(1).with(eq(JobType::SnosRun)).return_once(move |_| Arc::clone(&job_handler));
 
-    assert!(process_job(job_item.id, services.config.clone()).await.is_ok());
+    let async_result = AssertUnwindSafe(process_job(job_item.id, services.config.clone())).catch_unwind().await;
+
+    // Verify that it panicked
+    assert!(async_result.is_err());
+    let err = async_result.unwrap_err();
+    let panic_msg = err.downcast_ref::<String>().expect("Panic message should be a string");
+    assert_eq!(
+        *panic_msg,
+        format!(
+            "Job handler panicked during processing of job with id: {} and internal id: {}",
+            job_item.id, job_item.internal_id
+        )
+    );
 
     // DB checks - verify the job was moved to failed state
     let job_in_db = database_client.get_job_by_id(job_item.id).await.unwrap().unwrap();
