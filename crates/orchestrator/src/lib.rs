@@ -1,3 +1,5 @@
+#![feature(duration_constructors)]
+
 /// Contains the trait implementations for alerts
 pub mod alerts;
 /// Config of the service. Contains configurations for DB, Queues and other services.
@@ -5,6 +7,7 @@ pub mod config;
 pub mod constants;
 /// Controllers for the routes
 pub mod controllers;
+pub mod cron;
 /// Contains the trait that implements the fetching functions
 /// for blob and SNOS data from cloud for a particular block.
 pub mod data_storage;

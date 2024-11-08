@@ -16,7 +16,7 @@ use crate::queue::job_queue::{
     PROVING_JOB_VERIFICATION_QUEUE, SNOS_JOB_PROCESSING_QUEUE, SNOS_JOB_VERIFICATION_QUEUE,
     UPDATE_STATE_JOB_PROCESSING_QUEUE, UPDATE_STATE_JOB_VERIFICATION_QUEUE, WORKER_TRIGGER_QUEUE,
 };
-use crate::queue::QueueProvider;
+use crate::queue::{QueueConfig, QueueProvider};
 use crate::setup::SetupConfig;
 
 pub struct SqsQueue;
@@ -60,45 +60,27 @@ impl QueueProvider for SqsQueue {
         consumer.receive().await
     }
 
-    async fn create_queue(&self, queue_name: &str, config: &SetupConfig) -> Result<()> {
+    async fn create_queue(&self, queue_config: &QueueConfig, config: &SetupConfig) -> Result<()> {
         let config = match config {
             SetupConfig::AWS(config) => config,
             _ => panic!("Unsupported SQS configuration"),
         };
         let sqs_client = Client::new(config);
-        let res = sqs_client.create_queue().queue_name(queue_name).send().await?;
-        log::debug!("Created queue: {} | Queue URL : {:?}", queue_name, res.queue_url);
-
-        Ok(())
-    }
-
-    async fn setup_queue(
-        &self,
-        queue_name: &str,
-        config: &SetupConfig,
-        needs_dlq: Option<String>,
-        visibility_timeout: u32,
-        max_receive_count: Option<u32>,
-    ) -> Result<()> {
-        let config = match config {
-            SetupConfig::AWS(config) => config,
-            _ => panic!("Unsupported SQS configuration"),
-        };
-        let sqs_client = Client::new(config);
-        let queue_url = Self::determine_queue_url(queue_name, &sqs_client).await?;
+        let res = sqs_client.create_queue().queue_name(&queue_config.name).send().await?;
+        let queue_url = res.queue_url().expect("Not able to get queue url from result");
 
         let mut attributes = HashMap::new();
-        attributes.insert(QueueAttributeName::VisibilityTimeout, visibility_timeout.to_string());
+        attributes.insert(QueueAttributeName::VisibilityTimeout, queue_config.visibility_timeout.to_string());
 
-        if let Some(queue) = needs_dlq {
-            let dlq_url = Self::determine_queue_url(&queue, &sqs_client).await?;
+        if let Some(queue) = &queue_config.dlq_name {
+            let dlq_url = Self::get_queue_url_from_client(queue, &sqs_client).await?;
             let dlq_arn = Self::get_queue_arn(&sqs_client, &dlq_url).await?;
             let policy = format!(
                 r#"{{"deadLetterTargetArn":"{}","maxReceiveCount":"{}"}}"#,
                 dlq_arn,
-                max_receive_count.unwrap_or(0)
+                &queue_config.max_receive_count.unwrap_or(0)
             );
-            attributes.insert(QueueAttributeName::RedrivePolicy, policy.to_string());
+            attributes.insert(QueueAttributeName::RedrivePolicy, policy);
         }
 
         sqs_client.set_queue_attributes().queue_url(queue_url).set_attributes(Some(attributes)).send().await?;
@@ -109,7 +91,7 @@ impl QueueProvider for SqsQueue {
 
 impl SqsQueue {
     /// To get the queue url from the given queue name
-    async fn determine_queue_url(queue_name: &str, sqs_client: &Client) -> Result<String> {
+    async fn get_queue_url_from_client(queue_name: &str, sqs_client: &Client) -> Result<String> {
         Ok(sqs_client
             .get_queue_url()
             .queue_name(queue_name)

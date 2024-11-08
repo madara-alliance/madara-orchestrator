@@ -14,22 +14,78 @@ use crate::config::Config;
 use crate::jobs::JobError;
 use crate::setup::SetupConfig;
 
+#[derive(Clone)]
+pub struct QueueConfig {
+    pub name: String,
+    pub visibility_timeout: i32,
+    pub max_receive_count: Option<i32>,
+    pub dlq_name: Option<String>,
+}
+
 lazy_static! {
-    pub static ref JOB_QUEUES: Vec<String> = vec![
-        String::from("madara_orchestrator_snos_job_processing_queue"),
-        String::from("madara_orchestrator_snos_job_verification_queue"),
-        String::from("madara_orchestrator_proving_job_processing_queue"),
-        String::from("madara_orchestrator_proving_job_verification_queue"),
-        String::from("madara_orchestrator_data_submission_job_processing_queue"),
-        String::from("madara_orchestrator_data_submission_job_verification_queue"),
-        String::from("madara_orchestrator_update_state_job_processing_queue"),
-        String::from("madara_orchestrator_update_state_job_verification_queue"),
-    ];
-    pub static ref OTHER_QUEUES: Vec<String> = vec![
-        String::from("madara_orchestrator_job_handle_failure_queue"),
-        String::from("madara_orchestrator_worker_trigger_queue"),
-    ];
     pub static ref JOB_HANDLE_FAILURE_QUEUE: String = String::from("madara_orchestrator_job_handle_failure_queue");
+    pub static ref QUEUES: Vec<QueueConfig> = vec![
+        QueueConfig {
+            name: String::from("madara_orchestrator_snos_job_processing_queue"),
+            visibility_timeout: 300,
+            max_receive_count: Some(5),
+            dlq_name: Some(JOB_HANDLE_FAILURE_QUEUE.clone())
+        },
+        QueueConfig {
+            name: String::from("madara_orchestrator_snos_job_verification_queue"),
+            visibility_timeout: 300,
+            max_receive_count: Some(5),
+            dlq_name: Some(JOB_HANDLE_FAILURE_QUEUE.clone())
+        },
+        QueueConfig {
+            name: String::from("madara_orchestrator_proving_job_processing_queue"),
+            visibility_timeout: 300,
+            max_receive_count: Some(5),
+            dlq_name: Some(JOB_HANDLE_FAILURE_QUEUE.clone())
+        },
+        QueueConfig {
+            name: String::from("madara_orchestrator_proving_job_verification_queue"),
+            visibility_timeout: 300,
+            max_receive_count: Some(5),
+            dlq_name: Some(JOB_HANDLE_FAILURE_QUEUE.clone())
+        },
+        QueueConfig {
+            name: String::from("madara_orchestrator_data_submission_job_processing_queue"),
+            visibility_timeout: 300,
+            max_receive_count: Some(5),
+            dlq_name: Some(JOB_HANDLE_FAILURE_QUEUE.clone())
+        },
+        QueueConfig {
+            name: String::from("madara_orchestrator_data_submission_job_verification_queue"),
+            visibility_timeout: 300,
+            max_receive_count: Some(5),
+            dlq_name: Some(JOB_HANDLE_FAILURE_QUEUE.clone())
+        },
+        QueueConfig {
+            name: String::from("madara_orchestrator_update_state_job_processing_queue"),
+            visibility_timeout: 300,
+            max_receive_count: Some(5),
+            dlq_name: Some(JOB_HANDLE_FAILURE_QUEUE.clone())
+        },
+        QueueConfig {
+            name: String::from("madara_orchestrator_update_state_job_verification_queue"),
+            visibility_timeout: 300,
+            max_receive_count: Some(5),
+            dlq_name: Some(JOB_HANDLE_FAILURE_QUEUE.clone())
+        },
+        QueueConfig {
+            name: String::from("madara_orchestrator_job_handle_failure_queue"),
+            visibility_timeout: 300,
+            max_receive_count: None,
+            dlq_name: None
+        },
+        QueueConfig {
+            name: String::from("madara_orchestrator_worker_trigger_queue"),
+            visibility_timeout: 300,
+            max_receive_count: None,
+            dlq_name: None
+        },
+    ];
 }
 
 /// Queue Provider Trait
@@ -42,35 +98,11 @@ lazy_static! {
 pub trait QueueProvider: Send + Sync {
     async fn send_message_to_queue(&self, queue: String, payload: String, delay: Option<Duration>) -> EyreResult<()>;
     async fn consume_message_from_queue(&self, queue: String) -> Result<Delivery, QueueError>;
-    async fn create_queue(&self, queue_name: &str, config: &SetupConfig) -> EyreResult<()>;
-    async fn setup_queue(
-        &self,
-        queue_name: &str,
-        config: &SetupConfig,
-        needs_dlq: Option<String>,
-        visibility_timeout: u32,
-        max_receive_count: Option<u32>,
-    ) -> EyreResult<()>;
-    async fn setup(&self, config: SetupConfig, visibility_timeout: u32, max_receive_count: u32) -> EyreResult<()> {
-        // Creating the job queues :
-        for queue in JOB_QUEUES.iter() {
+    async fn create_queue(&self, queue_config: &QueueConfig, config: &SetupConfig) -> EyreResult<()>;
+    async fn setup(&self, config: SetupConfig) -> EyreResult<()> {
+        // Creating the queues :
+        for queue in QUEUES.iter() {
             self.create_queue(queue, &config).await?;
-        }
-        // Creating the other queues :
-        for queue in OTHER_QUEUES.iter() {
-            self.create_queue(queue, &config).await?;
-        }
-
-        // Setting up the job queues :
-        for queue in JOB_QUEUES.iter() {
-            self.setup_queue(
-                queue,
-                &config,
-                Some(JOB_HANDLE_FAILURE_QUEUE.clone()),
-                visibility_timeout,
-                Some(max_receive_count),
-            )
-            .await?;
         }
         Ok(())
     }
