@@ -251,8 +251,16 @@ impl RunCmd {
     pub fn validate_service_params(&self) -> Result<ServiceParams, String> {
         Ok(ServiceParams {
             // return None if the value is empty string
-            max_block_to_process: self.service_args.max_block_to_process.clone().and_then(|s| if s.is_empty() { None } else { Some(s.parse::<u64>().unwrap()) }),
-            min_block_to_process: self.service_args.min_block_to_process.clone().and_then(|s| if s.is_empty() { None } else { Some(s.parse::<u64>().unwrap()) }),
+            max_block_to_process: self
+                .service_args
+                .max_block_to_process
+                .clone()
+                .and_then(|s| if s.is_empty() { None } else { Some(s.parse::<u64>().unwrap()) }),
+            min_block_to_process: self
+                .service_args
+                .min_block_to_process
+                .clone()
+                .and_then(|s| if s.is_empty() { None } else { Some(s.parse::<u64>().unwrap()) }),
         })
     }
 

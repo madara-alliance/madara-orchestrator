@@ -230,15 +230,17 @@ impl TestConfigBuilder {
         let prover_client = implement_client::init_prover_client(prover_client_type, &params.prover_params).await;
 
         // External Dependencies
-        let storage = implement_client::init_storage_client(storage_type, &params.storage_params, provider_config.clone())
-            .await;
+        let storage =
+            implement_client::init_storage_client(storage_type, &params.storage_params, provider_config.clone()).await;
 
         let database = implement_client::init_database(database_type, &params.db_params).await;
 
         let queue = implement_client::init_queue_client(queue_type, params.queue_params.clone()).await;
         // Deleting and Creating the queues in sqs.
 
-        create_queues(provider_config.clone(), &params.queue_params).await.expect("Not able to delete and create the queues.");
+        create_queues(provider_config.clone(), &params.queue_params)
+            .await
+            .expect("Not able to delete and create the queues.");
         // Deleting the database
         drop_database(&params.db_params).await.expect("Unable to drop the database.");
         // Creating the SNS ARN
@@ -454,8 +456,6 @@ pub mod implement_client {
     }
 }
 
-
-
 struct EnvParams {
     aws_config: AWSConfigParams,
     alert_params: AlertParams,
@@ -470,7 +470,6 @@ struct EnvParams {
 }
 
 fn get_env_params() -> EnvParams {
-
     let db_params = DatabaseParams::MongoDB(MongoDBParams {
         connection_url: get_env_var_or_panic("MADARA_ORCHESTRATOR_MONGODB_CONNECTION_URL"),
         database_name: get_env_var_or_panic("MADARA_ORCHESTRATOR_DATABASE_NAME"),
@@ -541,7 +540,7 @@ fn get_env_params() -> EnvParams {
     let instrumentation_params = InstrumentationParams {
         otel_service_name: get_env_var_or_panic("MADARA_ORCHESTRATOR_OTEL_SERVICE_NAME"),
         otel_collector_endpoint: get_env_var_optional("MADARA_ORCHESTRATOR_OTEL_COLLECTOR_ENDPOINT")
-        .expect("Couldn't get otel collector endpoint")
+            .expect("Couldn't get otel collector endpoint")
             .map(|url| Url::parse(&url).expect("Failed to parse MADARA_ORCHESTRATOR_OTEL_COLLECTOR_ENDPOINT")),
         log_level: Level::from_str(&get_env_var_or_default("RUST_LOG", "info")).expect("Failed to parse RUST_LOG"),
     };
