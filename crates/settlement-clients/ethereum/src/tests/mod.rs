@@ -3,10 +3,10 @@ use std::path::PathBuf;
 use std::str::FromStr;
 
 use alloy::node_bindings::{Anvil, AnvilInstance};
+use alloy::primitives::Address;
 use alloy::providers::ext::AnvilApi;
 use alloy::providers::ProviderBuilder;
 use alloy::sol;
-use alloy_primitives::Address;
 use utils::env_utils::get_env_var_or_panic;
 // Using the Pipe trait to write chained operations easier
 #[allow(dead_code)]
@@ -126,6 +126,7 @@ mod settlement_client_tests {
     use std::time::Duration;
 
     use alloy::eips::eip4844::BYTES_PER_BLOB;
+    use alloy::primitives::Address;
     use alloy::providers::Provider;
     use alloy::sol_types::private::U256;
     use alloy_primitives::FixedBytes;
@@ -133,7 +134,6 @@ mod settlement_client_tests {
     use rstest::rstest;
     use settlement_client_interface::{SettlementClient, SettlementVerificationStatus};
     use tokio::time::sleep;
-    use url::Url;
     use utils::env_utils::get_env_var_or_panic;
 
     use super::{BLOCK_TIME, ENV_FILE_PATH};
@@ -156,19 +156,23 @@ mod settlement_client_tests {
     async fn update_state_blob_with_dummy_contract_works() {
         dotenvy::from_filename(&*ENV_FILE_PATH).expect("Could not load .env.test file.");
 
+        let setup = EthereumTestBuilder::new().build().await;
+
         let ethereum_settlement_params = EthereumSettlementParams {
-            ethereum_rpc_url: Url::parse(&get_env_var_or_panic("MADARA_ORCHESTRATOR_ETHEREUM_SETTLEMENT_RPC_URL"))
-                .expect("Failed to parse MADARA_ORCHESTRATOR_ETHEREUM_SETTLEMENT_RPC_URL"),
+            ethereum_rpc_url: setup.rpc_url,
             ethereum_private_key: get_env_var_or_panic("MADARA_ORCHESTRATOR_ETHEREUM_PRIVATE_KEY"),
             l1_core_contract_address: get_env_var_or_panic("MADARA_ORCHESTRATOR_L1_CORE_CONTRACT_ADDRESS"),
             starknet_operator_address: get_env_var_or_panic("MADARA_ORCHESTRATOR_STARKNET_OPERATOR_ADDRESS"),
         };
 
-        let setup = EthereumTestBuilder::new().build().await;
-
         // Deploying a dummy contract
         let contract = DummyCoreContract::deploy(&setup.provider).await.expect("Unable to deploy address");
-        let ethereum_settlement_client = EthereumSettlementClient::with_test_settings(&ethereum_settlement_params);
+        let ethereum_settlement_client = EthereumSettlementClient::with_test_settings(
+            setup.provider.clone(),
+            *contract.address(),
+            ethereum_settlement_params.ethereum_rpc_url,
+            None,
+        );
 
         // Getting latest nonce after deployment
         let nonce = ethereum_settlement_client.get_nonce().await.expect("Unable to fetch nonce");
@@ -220,23 +224,25 @@ mod settlement_client_tests {
     async fn update_state_blob_with_impersonation_works(#[case] fork_block_no: u64) {
         dotenvy::from_filename(&*ENV_FILE_PATH).expect("Could not load .env.test file.");
 
-        let ethereum_settlement_params = EthereumSettlementParams {
-            ethereum_rpc_url: Url::from_str(
-                get_env_var_or_panic("MADARA_ORCHESTRATOR_ETHEREUM_SETTLEMENT_RPC_URL").as_str(),
-            )
-            .unwrap(),
-            ethereum_private_key: get_env_var_or_panic("MADARA_ORCHESTRATOR_ETHEREUM_PRIVATE_KEY"),
-            l1_core_contract_address: get_env_var_or_panic("MADARA_ORCHESTRATOR_L1_CORE_CONTRACT_ADDRESS"),
-            starknet_operator_address: get_env_var_or_panic("MADARA_ORCHESTRATOR_STARKNET_OPERATOR_ADDRESS"),
-        };
-
         let setup = EthereumTestBuilder::new()
             .with_fork_block(fork_block_no)
             .with_impersonator(*MADARA_ORCHESTRATOR_STARKNET_OPERATOR_ADDRESS)
             .build()
             .await;
 
-        let ethereum_settlement_client = EthereumSettlementClient::with_test_settings(&ethereum_settlement_params);
+        let ethereum_settlement_params = EthereumSettlementParams {
+            ethereum_rpc_url: setup.rpc_url,
+            ethereum_private_key: get_env_var_or_panic("MADARA_ORCHESTRATOR_ETHEREUM_PRIVATE_KEY"),
+            l1_core_contract_address: get_env_var_or_panic("MADARA_ORCHESTRATOR_L1_CORE_CONTRACT_ADDRESS"),
+            starknet_operator_address: get_env_var_or_panic("MADARA_ORCHESTRATOR_STARKNET_OPERATOR_ADDRESS"),
+        };
+
+        let ethereum_settlement_client = EthereumSettlementClient::with_test_settings(
+            setup.provider.clone(),
+            Address::from_str(&ethereum_settlement_params.l1_core_contract_address).unwrap(),
+            ethereum_settlement_params.ethereum_rpc_url,
+            Some(Address::from_str(&ethereum_settlement_params.starknet_operator_address).unwrap()),
+        );
 
         // let nonce = ethereum_settlement_client.get_nonce().await.expect("Unable to fetch nonce");
 
@@ -288,18 +294,21 @@ mod settlement_client_tests {
     #[case::typical(6806847)]
     async fn get_last_settled_block_typical_works(#[case] fork_block_no: u64) {
         dotenvy::from_filename(&*ENV_FILE_PATH).expect("Could not load .env.test file.");
+        let setup = EthereumTestBuilder::new().with_fork_block(fork_block_no).build().await;
 
         let ethereum_settlement_params = EthereumSettlementParams {
-            ethereum_rpc_url: Url::parse(&get_env_var_or_panic("MADARA_ORCHESTRATOR_ETHEREUM_SETTLEMENT_RPC_URL"))
-                .expect("Failed to parse MADARA_ORCHESTRATOR_ETHEREUM_RPC_URL"),
+            ethereum_rpc_url: setup.rpc_url,
             ethereum_private_key: get_env_var_or_panic("MADARA_ORCHESTRATOR_ETHEREUM_PRIVATE_KEY"),
             l1_core_contract_address: get_env_var_or_panic("MADARA_ORCHESTRATOR_L1_CORE_CONTRACT_ADDRESS"),
             starknet_operator_address: get_env_var_or_panic("MADARA_ORCHESTRATOR_STARKNET_OPERATOR_ADDRESS"),
         };
 
-        let _setup = EthereumTestBuilder::new().with_fork_block(fork_block_no).build().await;
-        let ethereum_settlement_client = EthereumSettlementClient::with_test_settings(&ethereum_settlement_params);
-
+        let ethereum_settlement_client = EthereumSettlementClient::with_test_settings(
+            setup.provider.clone(),
+            Address::from_str(&ethereum_settlement_params.l1_core_contract_address).unwrap(),
+            ethereum_settlement_params.ethereum_rpc_url,
+            None,
+        );
         assert_eq!(
             ethereum_settlement_client.get_last_settled_block().await.expect("Could not get last settled block."),
             218378

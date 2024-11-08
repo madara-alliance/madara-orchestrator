@@ -24,6 +24,10 @@ use color_eyre::Result;
 use config::EthereumSettlementParams;
 use conversion::{get_input_data_for_eip_4844, prepare_sidecar};
 use settlement_client_interface::{SettlementClient, SettlementVerificationStatus};
+#[cfg(feature = "testing")]
+use url::Url;
+#[cfg(feature = "testing")]
+use utils::env_utils::get_env_var_or_panic;
 
 use crate::clients::interfaces::validity_interface::StarknetValidityContractTrait;
 use crate::clients::StarknetValidityContractClient;
@@ -101,29 +105,28 @@ impl EthereumSettlementClient {
     }
 
     #[cfg(feature = "testing")]
-    pub fn with_test_settings(settlement_cfg: &EthereumSettlementParams) -> Self {
-        let root_provider = RootProvider::new_http(settlement_cfg.ethereum_rpc_url.clone().as_str().parse().unwrap());
-        let core_contract_address = Address::from_str(&settlement_cfg.l1_core_contract_address.clone()).unwrap();
-        let operator_address = Address::from_str(&settlement_cfg.starknet_operator_address.clone()).unwrap();
-
-        let settlement_rpc_url = settlement_cfg.ethereum_rpc_url.clone();
-        let private_key = settlement_cfg.ethereum_private_key.clone();
+    pub fn with_test_settings(
+        provider: RootProvider<Http<Client>>,
+        core_contract_address: Address,
+        rpc_url: Url,
+        impersonate_account: Option<Address>,
+    ) -> Self {
+        let private_key = get_env_var_or_panic(ENV_PRIVATE_KEY);
         let signer: PrivateKeySigner = private_key.parse().expect("Failed to parse private key");
         let wallet_address = signer.address();
         let wallet = EthereumWallet::from(signer);
 
-        let fill_provider = Arc::new(
-            ProviderBuilder::new().with_recommended_fillers().wallet(wallet.clone()).on_http(settlement_rpc_url),
-        );
+        let fill_provider =
+            Arc::new(ProviderBuilder::new().with_recommended_fillers().wallet(wallet.clone()).on_http(rpc_url));
 
         let core_contract_client = StarknetValidityContractClient::new(core_contract_address, fill_provider);
 
         EthereumSettlementClient {
-            provider: Arc::new(root_provider),
+            provider: Arc::new(provider),
             core_contract_client,
             wallet,
             wallet_address,
-            impersonate_account: Some(operator_address),
+            impersonate_account,
         }
     }
 

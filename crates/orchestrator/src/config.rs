@@ -1,12 +1,18 @@
+#[cfg(feature = "testing")]
+use std::str::FromStr;
 use std::sync::Arc;
 
+#[cfg(feature = "testing")]
+use alloy::primitives::Address;
+#[cfg(feature = "testing")]
+use alloy::providers::RootProvider;
 use aws_config::meta::region::RegionProviderChain;
 use aws_config::{Region, SdkConfig};
 use aws_credential_types::Credentials;
 use color_eyre::eyre::eyre;
 use da_client_interface::DaClient;
 use dotenvy::dotenv;
-use ethereum_da_client::EthereumDaClient;
+use ethereum_da_client::config::EthereumDaConfig;
 use ethereum_settlement_client::EthereumSettlementClient;
 use prover_client_interface::ProverClient;
 use settlement_client_interface::SettlementClient;
@@ -14,6 +20,8 @@ use sharp_service::SharpProverService;
 use starknet::providers::jsonrpc::HttpTransport;
 use starknet::providers::{JsonRpcClient, Url};
 use starknet_settlement_client::StarknetSettlementClient;
+#[cfg(feature = "testing")]
+use utils::env_utils::get_env_var_or_panic;
 
 use crate::alerts::aws_sns::AWSSNS;
 use crate::alerts::Alerts;
@@ -250,21 +258,13 @@ impl Config {
     }
 }
 
-use std::str::FromStr;
-
-use alloy::network::Ethereum;
-use alloy::providers::ProviderBuilder;
-use alloy::rpc::client::RpcClient;
-
 /// Builds the DA client based on the environment variable DA_LAYER
 pub async fn build_da_client(da_params: &DaParams) -> Box<dyn DaClient + Send + Sync> {
     match da_params {
         DaParams::Ethereum(ethereum_da_params) => {
-            let client = RpcClient::new_http(
-                Url::from_str(ethereum_da_params.ethereum_da_rpc_url.as_str()).expect("Failed to parse DA_RPC_URL"),
-            );
-            let provider = ProviderBuilder::<_, Ethereum>::new().on_client(client);
-            Box::new(EthereumDaClient { provider })
+            let config = EthereumDaConfig::new_with_params(ethereum_da_params)
+                .expect("Not able to build config from the given settings provider.");
+            Box::new(config.build_client().await)
         }
     }
 }
@@ -288,7 +288,16 @@ pub async fn build_settlement_client(
             }
             #[cfg(feature = "testing")]
             {
-                Ok(Box::new(EthereumSettlementClient::with_test_settings(ethereum_settlement_params)))
+                Ok(Box::new(EthereumSettlementClient::with_test_settings(
+                    RootProvider::new_http(
+                        get_env_var_or_panic("MADARA_ORCHESTRATOR_ETHEREUM_SETTLEMENT_RPC_URL").as_str().parse()?,
+                    ),
+                    Address::from_str(&get_env_var_or_panic("MADARA_ORCHESTRATOR_L1_CORE_CONTRACT_ADDRESS"))?,
+                    Url::from_str(get_env_var_or_panic("MADARA_ORCHESTRATOR_ETHEREUM_SETTLEMENT_RPC_URL").as_str())?,
+                    Some(Address::from_str(
+                        get_env_var_or_panic("MADARA_ORCHESTRATOR_STARKNET_OPERATOR_ADDRESS").as_str(),
+                    )?),
+                )))
             }
         }
         SettlementParams::Starknet(starknet_settlement_params) => {
@@ -307,9 +316,9 @@ pub async fn build_settlement_client(
     //             Ok(Box::new(EthereumSettlementClient::with_test_settings(
     //
     // RootProvider::new_http(get_env_var_or_panic("MADARA_ORCHESTRATOR_ETHEREUM_SETTLEMENT_RPC_URL"
-    // ).as_str().parse()?),                 
+    // ).as_str().parse()?),
     // Address::from_str(&get_env_var_or_panic("MADARA_ORCHESTRATOR_L1_CORE_CONTRACT_ADDRESS"))?,
-    //                 
+    //
     // Url::from_str(get_env_var_or_panic("MADARA_ORCHESTRATOR_ETHEREUM_SETTLEMENT_RPC_URL").
     // as_str())?,
     //
