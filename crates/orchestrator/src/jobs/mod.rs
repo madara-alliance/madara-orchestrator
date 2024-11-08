@@ -241,14 +241,20 @@ pub async fn process_job(id: Uuid, config: Arc<Config>) -> Result<(), JobError> 
             tracing::error!(job_id = ?id, error = ?e, "Failed to process job");
             return move_job_to_failed(&job, config.clone(), format!("Processing failed: {}", e)).await;
         }
-        Err(_) => {
-            tracing::error!(job_id = ?id, "Job handler panicked during processing");
-            let _ =
-                move_job_to_failed(&job, config.clone(), "Job handler panicked during processing".to_string()).await;
-            panic!(
-                "Job handler panicked during processing of job with id: {} and internal id: {}",
-                id, job.internal_id
-            );
+        Err(panic) => {
+            let panic_msg = panic
+                .downcast_ref::<String>()
+                .map(|s| s.as_str())
+                .or_else(|| panic.downcast_ref::<&str>().copied())
+                .unwrap_or("Unknown panic message");
+
+            tracing::error!(job_id = ?id, panic_msg = %panic_msg, "Job handler panicked during processing");
+            return move_job_to_failed(
+                &job,
+                config.clone(),
+                format!("Job handler panicked in job with id: {} and panic message: {}", id, panic_msg),
+            )
+            .await;
         }
     };
     tracing::debug!(job_id = ?id, "Incrementing process attempt count in metadata");

@@ -1,9 +1,7 @@
 use std::collections::HashMap;
-use std::panic::AssertUnwindSafe;
 use std::sync::Arc;
 use std::time::Duration;
 
-use futures::FutureExt;
 use mockall::predicate::eq;
 use mongodb::bson::doc;
 use omniqueue::QueueError;
@@ -227,25 +225,19 @@ async fn process_job_handles_panic() {
     let ctx = mock_factory::get_job_handler_context();
     ctx.expect().times(1).with(eq(JobType::SnosRun)).return_once(move |_| Arc::clone(&job_handler));
 
-    let async_result = AssertUnwindSafe(process_job(job_item.id, services.config.clone())).catch_unwind().await;
-
-    // Verify that it panicked
-    assert!(async_result.is_err());
-    let err = async_result.unwrap_err();
-    let panic_msg = err.downcast_ref::<String>().expect("Panic message should be a string");
-    assert_eq!(
-        *panic_msg,
-        format!(
-            "Job handler panicked during processing of job with id: {} and internal id: {}",
-            job_item.id, job_item.internal_id
-        )
-    );
+    assert!(process_job(job_item.id, services.config.clone()).await.is_ok());
 
     // DB checks - verify the job was moved to failed state
     let job_in_db = database_client.get_job_by_id(job_item.id).await.unwrap().unwrap();
     assert_eq!(job_in_db.status, JobStatus::Failed);
     assert!(
-        job_in_db.metadata.get(JOB_METADATA_FAILURE_REASON).unwrap().contains("Job handler panicked during processing")
+        job_in_db.metadata.get(JOB_METADATA_FAILURE_REASON).unwrap().contains(
+            format!(
+                "Job handler panicked in job with id: {} and panic message: Simulated panic in process_job",
+                job_item.id
+            )
+            .as_str()
+        )
     );
 }
 
