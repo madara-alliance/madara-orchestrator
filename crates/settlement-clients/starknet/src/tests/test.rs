@@ -117,8 +117,10 @@ async fn setup(#[future] spin_up_madara: MadaraCmd) -> (LocalWalletSignerMiddlew
 async fn test_settle(#[future] setup: (LocalWalletSignerMiddleware, MadaraCmd)) {
     dotenvy::from_filename_override(".env.test").expect("Failed to load the .env file");
 
+    let (account, madara_process) = setup.await;
+
     let mut starknet_settlement_params: StarknetSettlementParams = StarknetSettlementParams {
-        starknet_rpc_url: Url::parse(&get_env_var_or_panic("MADARA_ORCHESTRATOR_STARKNET_SETTLEMENT_RPC_URL")).unwrap(),
+        starknet_rpc_url: madara_process.rpc_url.clone(),
         starknet_private_key: get_env_var_or_panic("MADARA_ORCHESTRATOR_STARKNET_PRIVATE_KEY"),
         starknet_account_address: get_env_var_or_panic("MADARA_ORCHESTRATOR_STARKNET_ACCOUNT_ADDRESS"),
         starknet_cairo_core_contract_address: get_env_var_or_panic(
@@ -131,8 +133,6 @@ async fn test_settle(#[future] setup: (LocalWalletSignerMiddleware, MadaraCmd)) 
         .unwrap(),
         madara_binary_path: get_env_var_or_panic("MADARA_ORCHESTRATOR_MADARA_BINARY_PATH"),
     };
-
-    let (account, _madara_process) = setup.await;
 
     let project_root = Path::new(env!("CARGO_MANIFEST_DIR")).ancestors().nth(3).unwrap();
     let contract_path = project_root.join("crates/settlement-clients/starknet/src/tests/mock_contracts/target/dev");
@@ -158,7 +158,7 @@ async fn test_settle(#[future] setup: (LocalWalletSignerMiddleware, MadaraCmd)) 
     tracing::debug!("declare tx hash {:?}", declare_tx_hash);
 
     let is_success = wait_for_tx(&account, declare_tx_hash, Duration::from_secs(2)).await;
-    assert!(is_success, "Declare trasactiion failed");
+    assert!(is_success, "Declare transaction failed");
 
     let contract_factory = ContractFactory::new(flattened_class.class_hash(), account.clone());
     let deploy_v1 = contract_factory.deploy_v1(vec![], felt!("1122"), false);
