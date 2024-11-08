@@ -1,4 +1,5 @@
 use std::str::FromStr;
+use std::time::Duration;
 
 use alloy::dyn_abi::SolType;
 use alloy::network::EthereumWallet;
@@ -6,6 +7,7 @@ use alloy::primitives::{fixed_bytes, Address, Bytes, I256, U256};
 use alloy::providers::ProviderBuilder;
 use alloy::signers::local::PrivateKeySigner;
 use alloy::sol;
+use tokio::time::sleep;
 use url::Url;
 use utils::env_utils::get_env_var_or_panic;
 
@@ -62,6 +64,7 @@ impl AnvilSetup {
         // for block 66645
         let fact_hash = fixed_bytes!("129324e742e7c1ce700f7a99cbc83b4959ede9dff22e1bbaa7bd95396c3a6240");
         let _ = verifier_client.setValid(fact_hash).send().await.expect("Failed to set fact as valid");
+        sleep(Duration::from_secs(10)).await;
         let _is_fact_valid = verifier_client.isValid(fact_hash).call().await.unwrap()._0;
         assert!(_is_fact_valid, "Fact should be valid");
         log::debug!("Is fact valid? {:?}", _is_fact_valid);
