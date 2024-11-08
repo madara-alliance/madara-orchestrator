@@ -570,10 +570,10 @@ fn set_env_vars() -> Vec<(String, String)> {
             "MADARA_ORCHESTRATOR_STARKNET_FINALITY_RETRY_WAIT_IN_SECS".to_string(),
             get_env_var_or_panic("MADARA_ORCHESTRATOR_STARKNET_FINALITY_RETRY_WAIT_IN_SECS"),
         ),
-        (
-            "MADARA_ORCHESTRATOR_MADARA_BINARY_PATH".to_string(),
-            get_env_var_or_panic("MADARA_ORCHESTRATOR_MADARA_BINARY_PATH"),
-        ),
+        // (
+        //     "MADARA_ORCHESTRATOR_MADARA_BINARY_PATH".to_string(),
+        //     get_env_var_or_panic("MADARA_ORCHESTRATOR_MADARA_BINARY_PATH"),
+        // ),
         // Storage
         (
             "MADARA_ORCHESTRATOR_AWS_S3_BUCKET_NAME".to_string(),
@@ -590,10 +590,10 @@ fn set_env_vars() -> Vec<(String, String)> {
         // Service
         // ("MADARA_ORCHESTRATOR_MAX_BLOCK_NO_TO_PROCESS".to_string(),
         // get_env_var_or_panic("MADARA_ORCHESTRATOR_MAX_BLOCK_NO_TO_PROCESS")),
-        (
-            "MADARA_ORCHESTRATOR_MIN_BLOCK_NO_TO_PROCESS".to_string(),
-            get_env_var_or_panic("MADARA_ORCHESTRATOR_MIN_BLOCK_NO_TO_PROCESS"),
-        ),
+        // (
+        //     "MADARA_ORCHESTRATOR_MIN_BLOCK_NO_TO_PROCESS".to_string(),
+        //     get_env_var_or_panic("MADARA_ORCHESTRATOR_MIN_BLOCK_NO_TO_PROCESS"),
+        // ),
         // SNOS
         ("MADARA_ORCHESTRATOR_RPC_FOR_SNOS".to_string(), get_env_var_or_panic("MADARA_ORCHESTRATOR_RPC_FOR_SNOS")),
     ];

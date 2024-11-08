@@ -20,8 +20,6 @@ use sharp_service::SharpProverService;
 use starknet::providers::jsonrpc::HttpTransport;
 use starknet::providers::{JsonRpcClient, Url};
 use starknet_settlement_client::StarknetSettlementClient;
-#[cfg(feature = "testing")]
-use utils::env_utils::get_env_var_or_panic;
 
 use crate::alerts::aws_sns::AWSSNS;
 use crate::alerts::Alerts;
@@ -289,14 +287,10 @@ pub async fn build_settlement_client(
             #[cfg(feature = "testing")]
             {
                 Ok(Box::new(EthereumSettlementClient::with_test_settings(
-                    RootProvider::new_http(
-                        get_env_var_or_panic("MADARA_ORCHESTRATOR_ETHEREUM_SETTLEMENT_RPC_URL").as_str().parse()?,
-                    ),
-                    Address::from_str(&get_env_var_or_panic("MADARA_ORCHESTRATOR_L1_CORE_CONTRACT_ADDRESS"))?,
-                    Url::from_str(get_env_var_or_panic("MADARA_ORCHESTRATOR_ETHEREUM_SETTLEMENT_RPC_URL").as_str())?,
-                    Some(Address::from_str(
-                        get_env_var_or_panic("MADARA_ORCHESTRATOR_STARKNET_OPERATOR_ADDRESS").as_str(),
-                    )?),
+                    RootProvider::new_http(ethereum_settlement_params.ethereum_rpc_url.clone()),
+                    Address::from_str(&ethereum_settlement_params.l1_core_contract_address)?,
+                    ethereum_settlement_params.ethereum_rpc_url.clone(),
+                    Some(Address::from_str(&ethereum_settlement_params.starknet_operator_address)?),
                 )))
             }
         }

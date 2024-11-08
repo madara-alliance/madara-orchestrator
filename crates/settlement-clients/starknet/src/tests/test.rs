@@ -144,8 +144,7 @@ async fn test_settle(#[future] setup: (LocalWalletSignerMiddleware, MadaraCmd)) 
 
     let compiled_class: CompiledClass = serde_json::from_reader(
         std::fs::File::open(contract_path.join(
-            "mock_contracts_Piltover.compiled_contract_class.
-json",
+            "mock_contracts_Piltover.compiled_contract_class.json",
         ))
         .expect("Could not open compiled class file"),
     )
