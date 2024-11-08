@@ -465,8 +465,9 @@ struct EnvParams {
     da_params: DaParams,
     settlement_params: SettlementParams,
     prover_params: ProverParams,
-    instrumentation_params: InstrumentationParams,
     orchestrator_config: OrchestratorConfig,
+    #[allow(dead_code)]
+    instrumentation_params: InstrumentationParams,
 }
 
 fn get_env_params() -> EnvParams {
