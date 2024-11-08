@@ -32,18 +32,16 @@ impl Worker for SnosWorker {
 
         let latest_job_in_db = config.database().get_latest_job_by_type(JobType::SnosRun).await?;
 
-        let latest_job_id: u64 = match latest_job_in_db {
+        let latest_job_id = match latest_job_in_db {
             Some(job) => job.internal_id,
             None => "0".to_string(),
-        }
-        .parse::<u64>()
-        .unwrap();
+        };
 
         // To be used when testing in specific block range
         let block_start = if let Some(min_block_to_process) = config.service_config().min_block_to_process {
             min_block_to_process
         } else {
-            latest_job_id
+            latest_job_id.parse::<u64>().unwrap()
         };
 
         for block_num in block_start..latest_block_number + 1 {

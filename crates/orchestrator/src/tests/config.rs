@@ -516,10 +516,10 @@ fn get_env_params() -> EnvParams {
     };
 
     let env = get_env_var_optional("MADARA_ORCHESTRATOR_MAX_BLOCK_NO_TO_PROCESS").expect("Couldn't get max block");
-    let max_block: Option<u64> = env.expect("Couldn't get max block").parse().ok();
+    let max_block: Option<u64> = env.and_then(|s| if s.is_empty() { None } else { Some(s.parse::<u64>().unwrap()) });
 
     let env = get_env_var_optional("MADARA_ORCHESTRATOR_MIN_BLOCK_NO_TO_PROCESS").expect("Couldn't get min block");
-    let min_block: Option<u64> = env.expect("Couldn't get min block").parse().ok();
+    let min_block: Option<u64> = env.and_then(|s| if s.is_empty() { None } else { Some(s.parse::<u64>().unwrap()) });
 
     let service_config = ServiceParams { max_block_to_process: max_block, min_block_to_process: min_block };
 
