@@ -4,6 +4,7 @@ use std::time::Duration;
 use async_trait::async_trait;
 use aws_sdk_sqs::types::QueueAttributeName;
 use aws_sdk_sqs::Client;
+use color_eyre::eyre::eyre;
 use color_eyre::Result;
 use lazy_static::lazy_static;
 use omniqueue::backends::{SqsBackend, SqsConfig, SqsConsumer, SqsProducer};
@@ -67,18 +68,17 @@ impl QueueProvider for SqsQueue {
         };
         let sqs_client = Client::new(config);
         let res = sqs_client.create_queue().queue_name(&queue_config.name).send().await?;
-        let queue_url = res.queue_url().expect("Not able to get queue url from result");
+        let queue_url = res.queue_url().ok_or_else(|| eyre!("Not able to get queue url from result"))?;
 
         let mut attributes = HashMap::new();
         attributes.insert(QueueAttributeName::VisibilityTimeout, queue_config.visibility_timeout.to_string());
 
-        if let Some(queue) = &queue_config.dlq_name {
-            let dlq_url = Self::get_queue_url_from_client(queue, &sqs_client).await?;
+        if let Some(dlq_config) = &queue_config.dlq_config {
+            let dlq_url = Self::get_queue_url_from_client(&dlq_config.dlq_name, &sqs_client).await?;
             let dlq_arn = Self::get_queue_arn(&sqs_client, &dlq_url).await?;
             let policy = format!(
                 r#"{{"deadLetterTargetArn":"{}","maxReceiveCount":"{}"}}"#,
-                dlq_arn,
-                &queue_config.max_receive_count.unwrap_or(0)
+                dlq_arn, &dlq_config.max_receive_count
             );
             attributes.insert(QueueAttributeName::RedrivePolicy, policy);
         }
@@ -98,7 +98,7 @@ impl SqsQueue {
             .send()
             .await?
             .queue_url()
-            .expect("Unable to get queue url from the given queue_name.")
+            .ok_or_else(|| eyre!("Unable to get queue url from the given queue_name."))?
             .to_string())
     }
 

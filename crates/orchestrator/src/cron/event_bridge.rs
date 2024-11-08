@@ -10,8 +10,6 @@ use crate::setup::SetupConfig;
 
 pub struct AWSEventBridge {}
 
-const WORKER_TRIGGER_RULE_NAME: &str = "worker_trigger_scheduled";
-
 #[async_trait]
 impl Cron for AWSEventBridge {
     #[allow(unreachable_patterns)]
@@ -21,6 +19,7 @@ impl Cron for AWSEventBridge {
         cron_time: Duration,
         target_queue_name: String,
         message: String,
+        trigger_rule_name: String,
         worker_trigger_type: WorkerTriggerType,
     ) -> color_eyre::Result<()> {
         let config = match config {
@@ -32,7 +31,7 @@ impl Cron for AWSEventBridge {
 
         event_bridge_client
             .put_rule()
-            .name(WORKER_TRIGGER_RULE_NAME)
+            .name(&trigger_rule_name)
             .schedule_expression(duration_to_rate_string(cron_time))
             .state(RuleState::Enabled)
             .send()
@@ -53,7 +52,7 @@ impl Cron for AWSEventBridge {
 
         event_bridge_client
             .put_targets()
-            .rule(WORKER_TRIGGER_RULE_NAME)
+            .rule(trigger_rule_name)
             .targets(
                 Target::builder()
                     .id(format!("worker-trigger-target-{:?}", worker_trigger_type))

@@ -15,11 +15,16 @@ use crate::jobs::JobError;
 use crate::setup::SetupConfig;
 
 #[derive(Clone)]
+pub struct DlqConfig {
+    pub max_receive_count: i32,
+    pub dlq_name: String,
+}
+
+#[derive(Clone)]
 pub struct QueueConfig {
     pub name: String,
     pub visibility_timeout: i32,
-    pub max_receive_count: Option<i32>,
-    pub dlq_name: Option<String>,
+    pub dlq_config: Option<DlqConfig>,
 }
 
 lazy_static! {
@@ -28,62 +33,52 @@ lazy_static! {
         QueueConfig {
             name: String::from("madara_orchestrator_snos_job_processing_queue"),
             visibility_timeout: 300,
-            max_receive_count: Some(5),
-            dlq_name: Some(JOB_HANDLE_FAILURE_QUEUE.clone())
+            dlq_config: Some(DlqConfig { max_receive_count: 5, dlq_name: JOB_HANDLE_FAILURE_QUEUE.clone() })
         },
         QueueConfig {
             name: String::from("madara_orchestrator_snos_job_verification_queue"),
             visibility_timeout: 300,
-            max_receive_count: Some(5),
-            dlq_name: Some(JOB_HANDLE_FAILURE_QUEUE.clone())
+            dlq_config: Some(DlqConfig { max_receive_count: 5, dlq_name: JOB_HANDLE_FAILURE_QUEUE.clone() })
         },
         QueueConfig {
             name: String::from("madara_orchestrator_proving_job_processing_queue"),
             visibility_timeout: 300,
-            max_receive_count: Some(5),
-            dlq_name: Some(JOB_HANDLE_FAILURE_QUEUE.clone())
+            dlq_config: Some(DlqConfig { max_receive_count: 5, dlq_name: JOB_HANDLE_FAILURE_QUEUE.clone() })
         },
         QueueConfig {
             name: String::from("madara_orchestrator_proving_job_verification_queue"),
             visibility_timeout: 300,
-            max_receive_count: Some(5),
-            dlq_name: Some(JOB_HANDLE_FAILURE_QUEUE.clone())
+            dlq_config: Some(DlqConfig { max_receive_count: 5, dlq_name: JOB_HANDLE_FAILURE_QUEUE.clone() })
         },
         QueueConfig {
             name: String::from("madara_orchestrator_data_submission_job_processing_queue"),
             visibility_timeout: 300,
-            max_receive_count: Some(5),
-            dlq_name: Some(JOB_HANDLE_FAILURE_QUEUE.clone())
+            dlq_config: Some(DlqConfig { max_receive_count: 5, dlq_name: JOB_HANDLE_FAILURE_QUEUE.clone() })
         },
         QueueConfig {
             name: String::from("madara_orchestrator_data_submission_job_verification_queue"),
             visibility_timeout: 300,
-            max_receive_count: Some(5),
-            dlq_name: Some(JOB_HANDLE_FAILURE_QUEUE.clone())
+            dlq_config: Some(DlqConfig { max_receive_count: 5, dlq_name: JOB_HANDLE_FAILURE_QUEUE.clone() })
         },
         QueueConfig {
             name: String::from("madara_orchestrator_update_state_job_processing_queue"),
             visibility_timeout: 300,
-            max_receive_count: Some(5),
-            dlq_name: Some(JOB_HANDLE_FAILURE_QUEUE.clone())
+            dlq_config: Some(DlqConfig { max_receive_count: 5, dlq_name: JOB_HANDLE_FAILURE_QUEUE.clone() })
         },
         QueueConfig {
             name: String::from("madara_orchestrator_update_state_job_verification_queue"),
             visibility_timeout: 300,
-            max_receive_count: Some(5),
-            dlq_name: Some(JOB_HANDLE_FAILURE_QUEUE.clone())
+            dlq_config: Some(DlqConfig { max_receive_count: 5, dlq_name: JOB_HANDLE_FAILURE_QUEUE.clone() })
         },
         QueueConfig {
             name: String::from("madara_orchestrator_job_handle_failure_queue"),
             visibility_timeout: 300,
-            max_receive_count: None,
-            dlq_name: None
+            dlq_config: None
         },
         QueueConfig {
             name: String::from("madara_orchestrator_worker_trigger_queue"),
             visibility_timeout: 300,
-            max_receive_count: None,
-            dlq_name: None
+            dlq_config: None
         },
     ];
 }

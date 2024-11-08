@@ -10,6 +10,7 @@ pub mod event_bridge;
 
 lazy_static! {
     pub static ref CRON_DURATION: Duration = Duration::from_mins(1);
+    // TODO : we can take this from clap.
     pub static ref TARGET_QUEUE_NAME: String = String::from("madara_orchestrator_worker_trigger_queue");
     pub static ref WORKER_TRIGGERS: Vec<WorkerTriggerType> = vec![
         WorkerTriggerType::Snos,
@@ -17,6 +18,7 @@ lazy_static! {
         WorkerTriggerType::DataSubmission,
         WorkerTriggerType::UpdateState
     ];
+    pub static ref WORKER_TRIGGER_RULE_NAME: String = String::from("worker_trigger_scheduled");
 }
 
 #[async_trait]
@@ -27,6 +29,7 @@ pub trait Cron {
         cron_time: Duration,
         target_queue_name: String,
         message: String,
+        trigger_rule_name: String,
         worker_trigger_type: WorkerTriggerType,
     ) -> color_eyre::Result<()>;
     async fn setup(&self, config: SetupConfig) -> color_eyre::Result<()> {
@@ -36,6 +39,7 @@ pub trait Cron {
                 *CRON_DURATION,
                 TARGET_QUEUE_NAME.clone(),
                 get_worker_trigger_message(triggers.clone())?,
+                WORKER_TRIGGER_RULE_NAME.clone(),
                 triggers.clone(),
             )
             .await?;
