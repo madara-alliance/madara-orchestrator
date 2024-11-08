@@ -143,10 +143,8 @@ async fn test_settle(#[future] setup: (LocalWalletSignerMiddleware, MadaraCmd)) 
     .expect("Failed to parse SierraClass");
 
     let compiled_class: CompiledClass = serde_json::from_reader(
-        std::fs::File::open(contract_path.join(
-            "mock_contracts_Piltover.compiled_contract_class.json",
-        ))
-        .expect("Could not open compiled class file"),
+        std::fs::File::open(contract_path.join("mock_contracts_Piltover.compiled_contract_class.json"))
+            .expect("Could not open compiled class file"),
     )
     .expect("Failed to parse CompiledClass");
 

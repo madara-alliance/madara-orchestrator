@@ -1,4 +1,5 @@
 use std::net::SocketAddr;
+use std::str::FromStr as _;
 use std::sync::Arc;
 
 use axum::Router;
@@ -11,8 +12,9 @@ use settlement_client_interface::{MockSettlementClient, SettlementClient};
 use sharp_service::config::SharpParams;
 use starknet::providers::jsonrpc::HttpTransport;
 use starknet::providers::JsonRpcClient;
+use tracing::Level;
 use url::Url;
-use utils::env_utils::{get_env_var_optional, get_env_var_or_panic};
+use utils::env_utils::{get_env_var_optional, get_env_var_or_default, get_env_var_or_panic};
 
 use crate::alerts::aws_sns::AWSSNSParams;
 use crate::alerts::Alerts;
@@ -33,6 +35,7 @@ use crate::database::{Database, MockDatabase};
 use crate::queue::sqs::AWSSQSParams;
 use crate::queue::{MockQueueProvider, QueueProvider};
 use crate::routes::{get_server_url, setup_server, ServerParams};
+use crate::telemetry::InstrumentationParams;
 use crate::tests::common::{create_queues, create_sns_arn, drop_database};
 
 // Inspiration : https://rust-unofficial.github.io/patterns/patterns/creational/builder.html
@@ -196,19 +199,9 @@ impl TestConfigBuilder {
     pub async fn build(self) -> TestConfigBuilderReturns {
         dotenvy::from_filename("../.env.test").expect("Failed to load the .env.test file");
 
-        let (
-            db_params,
-            storage_params,
-            queue_params,
-            aws_config,
-            orchestrator_config,
-            alert_params,
-            settlement_params,
-            da_params,
-            prover_params,
-        ) = get_env_params();
+        let params = get_env_params();
 
-        let provider_config = Arc::new(ProviderConfig::AWS(Box::new(get_aws_config(&aws_config).await)));
+        let provider_config = Arc::new(ProviderConfig::AWS(Box::new(get_aws_config(&params.aws_config).await)));
 
         let TestConfigBuilder {
             starknet_rpc_url_type,
@@ -227,32 +220,32 @@ impl TestConfigBuilder {
             implement_client::init_starknet_client(starknet_rpc_url_type, starknet_client_type).await;
 
         // init alerts
-        let alerts = implement_client::init_alerts(alerts_type, &alert_params, provider_config.clone()).await;
+        let alerts = implement_client::init_alerts(alerts_type, &params.alert_params, provider_config.clone()).await;
 
-        let da_client = implement_client::init_da_client(da_client_type, &da_params).await;
+        let da_client = implement_client::init_da_client(da_client_type, &params.da_params).await;
 
         let settlement_client =
-            implement_client::init_settlement_client(settlement_client_type, &settlement_params).await;
+            implement_client::init_settlement_client(settlement_client_type, &params.settlement_params).await;
 
-        let prover_client = implement_client::init_prover_client(prover_client_type, &prover_params).await;
+        let prover_client = implement_client::init_prover_client(prover_client_type, &params.prover_params).await;
 
         // External Dependencies
-        let storage =
-            implement_client::init_storage_client(storage_type, &storage_params, provider_config.clone()).await;
+        let storage = implement_client::init_storage_client(storage_type, &params.storage_params, provider_config.clone())
+            .await;
 
-        let database = implement_client::init_database(database_type, &db_params).await;
+        let database = implement_client::init_database(database_type, &params.db_params).await;
 
-        let queue = implement_client::init_queue_client(queue_type, queue_params.clone()).await;
+        let queue = implement_client::init_queue_client(queue_type, params.queue_params.clone()).await;
         // Deleting and Creating the queues in sqs.
 
-        create_queues(provider_config.clone(), &queue_params).await.expect("Not able to delete and create the queues.");
+        create_queues(provider_config.clone(), &params.queue_params).await.expect("Not able to delete and create the queues.");
         // Deleting the database
-        drop_database(&db_params).await.expect("Unable to drop the database.");
+        drop_database(&params.db_params).await.expect("Unable to drop the database.");
         // Creating the SNS ARN
-        create_sns_arn(provider_config.clone(), &alert_params).await.expect("Unable to create the sns arn");
+        create_sns_arn(provider_config.clone(), &params.alert_params).await.expect("Unable to create the sns arn");
 
         let config = Arc::new(Config::new(
-            orchestrator_config,
+            params.orchestrator_config,
             starknet_client,
             da_client,
             prover_client,
@@ -461,17 +454,23 @@ pub mod implement_client {
     }
 }
 
-fn get_env_params() -> (
-    DatabaseParams,
-    StorageParams,
-    QueueParams,
-    AWSConfigParams,
-    OrchestratorConfig,
-    AlertParams,
-    SettlementParams,
-    DaParams,
-    ProverParams,
-) {
+
+
+struct EnvParams {
+    aws_config: AWSConfigParams,
+    alert_params: AlertParams,
+    queue_params: QueueParams,
+    storage_params: StorageParams,
+    db_params: DatabaseParams,
+    da_params: DaParams,
+    settlement_params: SettlementParams,
+    prover_params: ProverParams,
+    instrumentation_params: InstrumentationParams,
+    orchestrator_config: OrchestratorConfig,
+}
+
+fn get_env_params() -> EnvParams {
+
     let db_params = DatabaseParams::MongoDB(MongoDBParams {
         connection_url: get_env_var_or_panic("MADARA_ORCHESTRATOR_MONGODB_CONNECTION_URL"),
         database_name: get_env_var_or_panic("MADARA_ORCHESTRATOR_DATABASE_NAME"),
@@ -480,6 +479,7 @@ fn get_env_params() -> (
     let storage_params = StorageParams::AWSS3(AWSS3Params {
         bucket_name: get_env_var_or_panic("MADARA_ORCHESTRATOR_AWS_S3_BUCKET_NAME"),
     });
+
     let queue_params = QueueParams::AWSSQS(AWSSQSParams {
         queue_base_url: get_env_var_or_panic("MADARA_ORCHESTRATOR_SQS_BASE_QUEUE_URL"),
         sqs_prefix: get_env_var_or_panic("MADARA_ORCHESTRATOR_SQS_PREFIX"),
@@ -538,6 +538,14 @@ fn get_env_params() -> (
         server_config,
     };
 
+    let instrumentation_params = InstrumentationParams {
+        otel_service_name: get_env_var_or_panic("MADARA_ORCHESTRATOR_OTEL_SERVICE_NAME"),
+        otel_collector_endpoint: get_env_var_optional("MADARA_ORCHESTRATOR_OTEL_COLLECTOR_ENDPOINT")
+        .expect("Couldn't get otel collector endpoint")
+            .map(|url| Url::parse(&url).expect("Failed to parse MADARA_ORCHESTRATOR_OTEL_COLLECTOR_ENDPOINT")),
+        log_level: Level::from_str(&get_env_var_or_default("RUST_LOG", "info")).expect("Failed to parse RUST_LOG"),
+    };
+
     let prover_params = ProverParams::Sharp(SharpParams {
         sharp_customer_id: get_env_var_or_panic("MADARA_ORCHESTRATOR_SHARP_CUSTOMER_ID"),
         sharp_url: Url::parse(&get_env_var_or_panic("MADARA_ORCHESTRATOR_SHARP_URL"))
@@ -551,15 +559,16 @@ fn get_env_params() -> (
         gps_verifier_contract_address: get_env_var_or_panic("MADARA_ORCHESTRATOR_GPS_VERIFIER_CONTRACT_ADDRESS"),
     });
 
-    (
-        db_params,
-        storage_params,
-        queue_params,
+    EnvParams {
         aws_config,
-        orchestrator_config,
         alert_params,
-        settlement_params,
+        queue_params,
+        storage_params,
+        db_params,
         da_params,
+        settlement_params,
         prover_params,
-    )
+        instrumentation_params,
+        orchestrator_config,
+    }
 }
