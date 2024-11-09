@@ -6,7 +6,7 @@ use prover_client_interface::ProverClient;
 use prover_client_interface::{Task, TaskStatus};
 use rstest::rstest;
 use serde_json::json;
-use sharp_service::{SharpParams, SharpProverService};
+use sharp_service::{SharpValidatedArgs, SharpProverService};
 use starknet_os::sharp::CairoJobStatus;
 use url::Url;
 use utils::env_utils::get_env_var_or_panic;
@@ -20,7 +20,7 @@ mod constants;
 async fn prover_client_submit_task_works() {
     dotenvy::from_filename("../.env.test").expect("Failed to load the .env file");
 
-    let sharp_params = SharpParams {
+    let sharp_params = SharpValidatedArgs {
         sharp_customer_id: get_env_var_or_panic("MADARA_ORCHESTRATOR_SHARP_CUSTOMER_ID"),
         sharp_url: Url::parse(&get_env_var_or_panic("MADARA_ORCHESTRATOR_SHARP_URL")).unwrap(),
         sharp_user_crt: get_env_var_or_panic("MADARA_ORCHESTRATOR_SHARP_USER_CRT"),
@@ -65,7 +65,7 @@ async fn prover_client_submit_task_works() {
 async fn prover_client_get_task_status_works(#[case] cairo_job_status: CairoJobStatus) {
     dotenvy::from_filename("../.env.test").expect("Failed to load the .env file");
 
-    let sharp_params = SharpParams {
+    let sharp_params = SharpValidatedArgs {
         sharp_customer_id: get_env_var_or_panic("MADARA_ORCHESTRATOR_SHARP_CUSTOMER_ID"),
         sharp_url: Url::parse(&get_env_var_or_panic("MADARA_ORCHESTRATOR_SHARP_URL")).unwrap(),
         sharp_user_crt: get_env_var_or_panic("MADARA_ORCHESTRATOR_SHARP_USER_CRT"),

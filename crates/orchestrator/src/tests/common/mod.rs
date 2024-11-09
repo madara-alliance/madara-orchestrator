@@ -16,7 +16,7 @@ use crate::cli::alert::AlertParams;
 use crate::cli::database::DatabaseParams;
 use crate::cli::queue::QueueParams;
 use crate::config::ProviderConfig;
-use crate::data_storage::aws_s3::{AWSS3Params, AWSS3};
+use crate::data_storage::aws_s3::{AWSS3ValidatedArgs, AWSS3};
 use crate::data_storage::DataStorage;
 use crate::database::mongodb::MongoDb;
 use crate::jobs::types::JobStatus::Created;
@@ -113,7 +113,7 @@ pub struct MessagePayloadType {
 }
 
 pub async fn get_storage_client(
-    storage_cfg: &AWSS3Params,
+    storage_cfg: &AWSS3ValidatedArgs,
     provider_config: Arc<ProviderConfig>,
 ) -> Box<dyn DataStorage + Send + Sync> {
     Box::new(AWSS3::new_with_params(storage_cfg, provider_config).await)

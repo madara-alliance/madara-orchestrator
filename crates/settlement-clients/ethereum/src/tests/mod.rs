@@ -143,7 +143,7 @@ mod settlement_client_tests {
         STARKNET_CORE_CONTRACT, STARKNET_CORE_CONTRACT_ADDRESS,
     };
     use crate::types::{bytes_be_to_u128, convert_stark_bigint_to_u256};
-    use crate::{EthereumSettlementClient, EthereumSettlementParams, Y_HIGH_POINT_OFFSET, Y_LOW_POINT_OFFSET};
+    use crate::{EthereumSettlementClient, EthereumSettlementValidatedArgs, Y_HIGH_POINT_OFFSET, Y_LOW_POINT_OFFSET};
 
     #[rstest]
     #[tokio::test]
@@ -158,7 +158,7 @@ mod settlement_client_tests {
 
         let setup = EthereumTestBuilder::new().build().await;
 
-        let ethereum_settlement_params = EthereumSettlementParams {
+        let ethereum_settlement_params = EthereumSettlementValidatedArgs {
             ethereum_rpc_url: setup.rpc_url,
             ethereum_private_key: get_env_var_or_panic("MADARA_ORCHESTRATOR_ETHEREUM_PRIVATE_KEY"),
             l1_core_contract_address: get_env_var_or_panic("MADARA_ORCHESTRATOR_L1_CORE_CONTRACT_ADDRESS"),
@@ -230,7 +230,7 @@ mod settlement_client_tests {
             .build()
             .await;
 
-        let ethereum_settlement_params = EthereumSettlementParams {
+        let ethereum_settlement_params = EthereumSettlementValidatedArgs {
             ethereum_rpc_url: setup.rpc_url,
             ethereum_private_key: get_env_var_or_panic("MADARA_ORCHESTRATOR_ETHEREUM_PRIVATE_KEY"),
             l1_core_contract_address: get_env_var_or_panic("MADARA_ORCHESTRATOR_L1_CORE_CONTRACT_ADDRESS"),
@@ -296,7 +296,7 @@ mod settlement_client_tests {
         dotenvy::from_filename(&*ENV_FILE_PATH).expect("Could not load .env.test file.");
         let setup = EthereumTestBuilder::new().with_fork_block(fork_block_no).build().await;
 
-        let ethereum_settlement_params = EthereumSettlementParams {
+        let ethereum_settlement_params = EthereumSettlementValidatedArgs {
             ethereum_rpc_url: setup.rpc_url,
             ethereum_private_key: get_env_var_or_panic("MADARA_ORCHESTRATOR_ETHEREUM_PRIVATE_KEY"),
             l1_core_contract_address: get_env_var_or_panic("MADARA_ORCHESTRATOR_L1_CORE_CONTRACT_ADDRESS"),

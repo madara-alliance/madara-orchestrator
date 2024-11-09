@@ -3,22 +3,22 @@ use aws_config::{AWSConfigCliArgs, AWSConfigParams};
 use clap::{ArgGroup, Parser};
 use da::DaParams;
 use database::DatabaseParams;
-use ethereum_da_client::EthereumDaParams;
-use ethereum_settlement_client::EthereumSettlementParams;
+use ethereum_da_client::EthereumDaValidatedArgs;
+use ethereum_settlement_client::EthereumSettlementValidatedArgs;
 use prover::ProverParams;
 use queue::QueueParams;
 use settlement::SettlementParams;
-use sharp_service::SharpParams;
+use sharp_service::SharpValidatedArgs;
 use snos::SNOSParams;
-use starknet_settlement_client::StarknetSettlementParams;
+use starknet_settlement_client::StarknetSettlementValidatedArgs;
 use storage::StorageParams;
 use url::Url;
 
-use crate::alerts::aws_sns::AWSSNSParams;
+use crate::alerts::aws_sns::AWSSNSValidatedArgs;
 use crate::config::ServiceParams;
-use crate::data_storage::aws_s3::AWSS3Params;
-use crate::database::mongodb::MongoDBParams;
-use crate::queue::sqs::AWSSQSParams;
+use crate::data_storage::aws_s3::AWSS3ValidatedArgs;
+use crate::database::mongodb::MongoDBValidatedArgs;
+use crate::queue::sqs::AWSSQSValidatedArgs;
 use crate::routes::ServerParams;
 use crate::telemetry::InstrumentationParams;
 
@@ -149,7 +149,7 @@ impl RunCmd {
 
     pub fn validate_alert_params(&self) -> Result<AlertParams, String> {
         if self.aws_sns_args.aws_sns {
-            Ok(AlertParams::AWSSNS(AWSSNSParams {
+            Ok(AlertParams::AWSSNS(AWSSNSValidatedArgs {
                 sns_arn: self.aws_sns_args.sns_arn.clone().expect("SNS ARN is required"),
             }))
         } else {
@@ -159,7 +159,7 @@ impl RunCmd {
 
     pub fn validate_queue_params(&self) -> Result<QueueParams, String> {
         if self.aws_sqs_args.aws_sqs {
-            Ok(QueueParams::AWSSQS(AWSSQSParams {
+            Ok(QueueParams::AWSSQS(AWSSQSValidatedArgs {
                 queue_base_url: self.aws_sqs_args.queue_base_url.clone().expect("Queue base URL is required"),
                 sqs_prefix: self.aws_sqs_args.sqs_prefix.clone().expect("SQS prefix is required"),
                 sqs_suffix: self.aws_sqs_args.sqs_suffix.clone().expect("SQS suffix is required"),
@@ -171,7 +171,7 @@ impl RunCmd {
 
     pub fn validate_storage_params(&self) -> Result<StorageParams, String> {
         if self.aws_s3_args.aws_s3 {
-            Ok(StorageParams::AWSS3(AWSS3Params {
+            Ok(StorageParams::AWSS3(AWSS3ValidatedArgs {
                 bucket_name: self.aws_s3_args.bucket_name.clone().expect("Bucket name is required"),
             }))
         } else {
@@ -181,7 +181,7 @@ impl RunCmd {
 
     pub fn validate_database_params(&self) -> Result<DatabaseParams, String> {
         if self.mongodb_args.mongodb {
-            Ok(DatabaseParams::MongoDB(MongoDBParams {
+            Ok(DatabaseParams::MongoDB(MongoDBValidatedArgs {
                 connection_url: self
                     .mongodb_args
                     .mongodb_connection_url
@@ -200,7 +200,7 @@ impl RunCmd {
 
     pub fn validate_da_params(&self) -> Result<DaParams, String> {
         if self.ethereum_da_args.da_on_ethereum {
-            Ok(DaParams::Ethereum(EthereumDaParams {
+            Ok(DaParams::Ethereum(EthereumDaValidatedArgs {
                 ethereum_da_rpc_url: self
                     .ethereum_da_args
                     .ethereum_da_rpc_url
@@ -215,7 +215,7 @@ impl RunCmd {
     pub fn validate_settlement_params(&self) -> Result<settlement::SettlementParams, String> {
         match (self.ethereum_args.settle_on_ethereum, self.starknet_args.settle_on_starknet) {
             (true, false) => {
-                let ethereum_params = EthereumSettlementParams {
+                let ethereum_params = EthereumSettlementValidatedArgs {
                     ethereum_rpc_url: self
                         .ethereum_args
                         .ethereum_rpc_url
@@ -240,7 +240,7 @@ impl RunCmd {
                 Ok(SettlementParams::Ethereum(ethereum_params))
             }
             (false, true) => {
-                let starknet_params = StarknetSettlementParams {
+                let starknet_params = StarknetSettlementValidatedArgs {
                     starknet_rpc_url: self
                         .starknet_args
                         .starknet_rpc_url
@@ -279,7 +279,7 @@ impl RunCmd {
 
     pub fn validate_prover_params(&self) -> Result<ProverParams, String> {
         if self.sharp_args.sharp {
-            Ok(ProverParams::Sharp(SharpParams {
+            Ok(ProverParams::Sharp(SharpValidatedArgs {
                 sharp_customer_id: self.sharp_args.sharp_customer_id.clone().expect("Sharp customer ID is required"),
                 sharp_url: self.sharp_args.sharp_url.clone().expect("Sharp URL is required"),
                 sharp_user_crt: self.sharp_args.sharp_user_crt.clone().expect("Sharp user certificate is required"),

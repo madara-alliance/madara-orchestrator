@@ -17,7 +17,7 @@ use serde::{Deserialize, Serialize};
 use url::Url;
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
-pub struct EthereumDaParams {
+pub struct EthereumDaValidatedArgs {
     pub ethereum_da_rpc_url: Url,
 }
 
@@ -29,7 +29,7 @@ pub struct EthereumDaClient {
 }
 
 impl EthereumDaClient {
-    pub async fn new_with_params(ethereum_da_params: &EthereumDaParams) -> Self {
+    pub async fn new_with_params(ethereum_da_params: &EthereumDaValidatedArgs) -> Self {
         let client = RpcClient::new_http(
             Url::from_str(ethereum_da_params.ethereum_da_rpc_url.as_str()).expect("Failed to parse SETTLEMENT_RPC_URL"),
         );

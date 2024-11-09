@@ -37,7 +37,7 @@ pub struct SharpCliArgs {
     #[arg(env = "MADARA_ORCHESTRATOR_SHARP_PROOF_LAYOUT", long, default_value = "small")]
     pub sharp_proof_layout: Option<String>,
 
-    // TODO: GPS is a direct dependency of Sharp, hence GPS can be kept in SharpParams
+    // TODO: GPS is a direct dependency of Sharp, hence GPS can be kept in SharpValidatedArgs
     /// The GPS verifier contract address.
     #[arg(env = "MADARA_ORCHESTRATOR_GPS_VERIFIER_CONTRACT_ADDRESS", long)]
     pub gps_verifier_contract_address: Option<String>,

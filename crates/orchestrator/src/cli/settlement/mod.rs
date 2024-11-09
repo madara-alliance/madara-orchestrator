@@ -1,11 +1,11 @@
-use ethereum_settlement_client::EthereumSettlementParams;
-use starknet_settlement_client::StarknetSettlementParams;
+use ethereum_settlement_client::EthereumSettlementValidatedArgs;
+use starknet_settlement_client::StarknetSettlementValidatedArgs;
 
 pub mod ethereum;
 pub mod starknet;
 
 #[derive(Clone, Debug)]
 pub enum SettlementParams {
-    Ethereum(EthereumSettlementParams),
-    Starknet(StarknetSettlementParams),
+    Ethereum(EthereumSettlementValidatedArgs),
+    Starknet(StarknetSettlementValidatedArgs),
 }

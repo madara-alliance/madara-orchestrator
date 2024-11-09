@@ -16,13 +16,13 @@ use orchestrator::cli::aws_config::AWSConfigParams;
 use orchestrator::cli::database::DatabaseParams;
 use orchestrator::cli::queue::QueueParams;
 use orchestrator::cli::storage::StorageParams;
-use orchestrator::data_storage::aws_s3::AWSS3Params;
+use orchestrator::data_storage::aws_s3::AWSS3ValidatedArgs;
 use orchestrator::data_storage::DataStorage;
-use orchestrator::database::mongodb::MongoDBParams;
+use orchestrator::database::mongodb::MongoDBValidatedArgs;
 use orchestrator::jobs::constants::{JOB_METADATA_SNOS_BLOCK, JOB_METADATA_STATE_UPDATE_BLOCKS_TO_SETTLE_KEY};
 use orchestrator::jobs::types::{ExternalId, JobItem, JobStatus, JobType};
 use orchestrator::queue::job_queue::{JobQueueMessage, QueueType, WorkerTriggerType};
-use orchestrator::queue::sqs::AWSSQSParams;
+use orchestrator::queue::sqs::AWSSQSValidatedArgs;
 use rstest::rstest;
 use serde::{Deserialize, Serialize};
 use serde_json::json;
@@ -55,15 +55,15 @@ struct Setup {
 impl Setup {
     /// Initialise a new setup
     pub async fn new(l2_block_number: String) -> Self {
-        let db_params = DatabaseParams::MongoDB(MongoDBParams {
+        let db_params = DatabaseParams::MongoDB(MongoDBValidatedArgs {
             connection_url: get_env_var_or_panic("MADARA_ORCHESTRATOR_MONGODB_CONNECTION_URL"),
             database_name: get_env_var_or_panic("MADARA_ORCHESTRATOR_DATABASE_NAME"),
         });
 
-        let storage_params = StorageParams::AWSS3(AWSS3Params {
+        let storage_params = StorageParams::AWSS3(AWSS3ValidatedArgs {
             bucket_name: get_env_var_or_panic("MADARA_ORCHESTRATOR_AWS_S3_BUCKET_NAME"),
         });
-        let queue_params = QueueParams::AWSSQS(AWSSQSParams {
+        let queue_params = QueueParams::AWSSQS(AWSSQSValidatedArgs {
             queue_base_url: get_env_var_or_panic("MADARA_ORCHESTRATOR_SQS_BASE_QUEUE_URL"),
             sqs_prefix: get_env_var_or_panic("MADARA_ORCHESTRATOR_SQS_PREFIX"),
             sqs_suffix: get_env_var_or_panic("MADARA_ORCHESTRATOR_SQS_SUFFIX"),
@@ -166,7 +166,7 @@ async fn test_orchestrator_workflow(#[case] l2_block_number: String) {
     // setting up of the test and during orchestrator run too.
     dotenvy::from_filename(".env.test").expect("Failed to load the .env file");
 
-    let queue_params = AWSSQSParams {
+    let queue_params = AWSSQSValidatedArgs {
         queue_base_url: get_env_var_or_panic("MADARA_ORCHESTRATOR_SQS_BASE_QUEUE_URL"),
         sqs_prefix: get_env_var_or_panic("MADARA_ORCHESTRATOR_SQS_PREFIX"),
         sqs_suffix: get_env_var_or_panic("MADARA_ORCHESTRATOR_SQS_SUFFIX"),
@@ -327,7 +327,7 @@ pub async fn put_job_data_in_db_snos(mongo_db: &MongoDbServer, l2_block_number: 
 pub async fn put_snos_job_in_processing_queue(
     local_stack: &LocalStack,
     id: Uuid,
-    queue_params: AWSSQSParams,
+    queue_params: AWSSQSValidatedArgs,
 ) -> color_eyre::Result<()> {
     let message = JobQueueMessage { id };
     local_stack.put_message_in_queue(message, queue_params.get_queue_url(QueueType::SnosJobProcessing)).await?;

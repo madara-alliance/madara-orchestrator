@@ -10,13 +10,13 @@ use super::job_queue::QueueType;
 use crate::queue::QueueProvider;
 
 #[derive(Debug, Clone, Serialize)]
-pub struct AWSSQSParams {
+pub struct AWSSQSValidatedArgs {
     pub queue_base_url: String,
     pub sqs_prefix: String,
     pub sqs_suffix: String,
 }
 
-impl AWSSQSParams {
+impl AWSSQSValidatedArgs {
     pub fn get_queue_url(&self, queue_type: QueueType) -> String {
         let name = format!("{}/{}", self.queue_base_url, self.get_queue_name(queue_type));
         name
@@ -28,11 +28,11 @@ impl AWSSQSParams {
 }
 
 pub struct SqsQueue {
-    pub params: AWSSQSParams,
+    pub params: AWSSQSValidatedArgs,
 }
 
 impl SqsQueue {
-    pub fn new_with_params(params: AWSSQSParams) -> Self {
+    pub fn new_with_params(params: AWSSQSValidatedArgs) -> Self {
         Self { params }
     }
 }

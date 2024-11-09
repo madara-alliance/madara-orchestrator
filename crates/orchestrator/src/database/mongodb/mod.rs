@@ -20,7 +20,7 @@ use crate::jobs::JobError;
 mod utils;
 
 #[derive(Debug, Clone)]
-pub struct MongoDBParams {
+pub struct MongoDBValidatedArgs {
     pub connection_url: String,
     pub database_name: String,
 }
@@ -31,7 +31,7 @@ pub struct MongoDb {
 }
 
 impl MongoDb {
-    pub async fn new_with_params(mongodb_params: &MongoDBParams) -> Self {
+    pub async fn new_with_params(mongodb_params: &MongoDBValidatedArgs) -> Self {
         let mut client_options =
             ClientOptions::parse(mongodb_params.connection_url.clone()).await.expect("Failed to parse MongoDB Url");
         // Set the server_api field of the client_options object to set the version of the Stable API on the

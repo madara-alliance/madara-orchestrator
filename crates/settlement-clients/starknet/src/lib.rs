@@ -41,7 +41,7 @@ const MAX_RETRIES_VERIFY_TX_FINALITY: usize = 10;
 
 use url::Url;
 #[derive(Clone, Debug)]
-pub struct StarknetSettlementParams {
+pub struct StarknetSettlementValidatedArgs {
     pub starknet_rpc_url: Url,
 
     pub starknet_private_key: String,
@@ -59,7 +59,7 @@ pub struct StarknetSettlementParams {
 // https://github.com/keep-starknet-strange/piltover
 
 impl StarknetSettlementClient {
-    pub async fn new_with_params(settlement_cfg: &StarknetSettlementParams) -> Self {
+    pub async fn new_with_params(settlement_cfg: &StarknetSettlementValidatedArgs) -> Self {
         let provider: Arc<JsonRpcClient<HttpTransport>> =
             Arc::new(JsonRpcClient::new(HttpTransport::new(settlement_cfg.starknet_rpc_url.clone())));
 

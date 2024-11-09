@@ -20,7 +20,7 @@ use starknet::signers::{LocalWallet, SigningKey};
 use utils::env_utils::get_env_var_or_panic;
 
 use super::setup::{wait_for_cond, MadaraCmd, MadaraCmdBuilder};
-use crate::{LocalWalletSignerMiddleware, StarknetSettlementClient, StarknetSettlementParams};
+use crate::{LocalWalletSignerMiddleware, StarknetSettlementClient, StarknetSettlementValidatedArgs};
 
 #[fixture]
 pub async fn spin_up_madara() -> MadaraCmd {
@@ -79,7 +79,7 @@ async fn wait_for_tx(account: &LocalWalletSignerMiddleware, transaction_hash: Fe
 async fn setup(#[future] spin_up_madara: MadaraCmd) -> (LocalWalletSignerMiddleware, MadaraCmd) {
     let madara_process = spin_up_madara.await;
 
-    let starknet_settlement_params: StarknetSettlementParams = StarknetSettlementParams {
+    let starknet_settlement_params: StarknetSettlementValidatedArgs = StarknetSettlementValidatedArgs {
         starknet_rpc_url: Url::parse(madara_process.rpc_url.as_ref()).unwrap(),
         starknet_private_key: get_env_var_or_panic("MADARA_ORCHESTRATOR_STARKNET_PRIVATE_KEY"),
         starknet_account_address: get_env_var_or_panic("MADARA_ORCHESTRATOR_STARKNET_ACCOUNT_ADDRESS"),
@@ -118,7 +118,7 @@ async fn test_settle(#[future] setup: (LocalWalletSignerMiddleware, MadaraCmd)) 
 
     let (account, madara_process) = setup.await;
 
-    let mut starknet_settlement_params: StarknetSettlementParams = StarknetSettlementParams {
+    let mut starknet_settlement_params: StarknetSettlementValidatedArgs = StarknetSettlementValidatedArgs {
         starknet_rpc_url: madara_process.rpc_url.clone(),
         starknet_private_key: get_env_var_or_panic("MADARA_ORCHESTRATOR_STARKNET_PRIVATE_KEY"),
         starknet_account_address: get_env_var_or_panic("MADARA_ORCHESTRATOR_STARKNET_ACCOUNT_ADDRESS"),

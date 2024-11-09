@@ -10,10 +10,10 @@ use aws_sdk_sqs::types::QueueAttributeName;
 use aws_sdk_sqs::types::QueueAttributeName::VisibilityTimeout;
 use orchestrator::cli::aws_config::AWSConfigParams;
 use orchestrator::config::ProviderConfig;
-use orchestrator::data_storage::aws_s3::{AWSS3Params, AWSS3};
+use orchestrator::data_storage::aws_s3::{AWSS3ValidatedArgs, AWSS3};
 use orchestrator::data_storage::DataStorage;
 use orchestrator::queue::job_queue::{JobQueueMessage, QueueType, WorkerTriggerMessage, WorkerTriggerType};
-use orchestrator::queue::sqs::AWSSQSParams;
+use orchestrator::queue::sqs::AWSSQSValidatedArgs;
 
 /// LocalStack struct
 pub struct LocalStack {
@@ -23,7 +23,7 @@ pub struct LocalStack {
 }
 
 impl LocalStack {
-    pub async fn new(aws_config: AWSConfigParams, s3_config: &AWSS3Params) -> Self {
+    pub async fn new(aws_config: AWSConfigParams, s3_config: &AWSS3ValidatedArgs) -> Self {
         let region_provider = Region::new(aws_config.aws_region);
 
         let creds = EnvironmentVariableCredentialsProvider::new().provide_credentials().await.unwrap();
@@ -43,7 +43,7 @@ impl LocalStack {
     }
 
     /// To set up SQS on localstack instance
-    pub async fn setup_sqs(&self, sqs_config: &AWSSQSParams) -> color_eyre::Result<()> {
+    pub async fn setup_sqs(&self, sqs_config: &AWSSQSValidatedArgs) -> color_eyre::Result<()> {
         let list_queues_output = self.sqs_client.list_queues().send().await?;
         let queue_urls = list_queues_output.queue_urls();
         println!("Found {} queues", queue_urls.len());
@@ -77,7 +77,7 @@ impl LocalStack {
     pub async fn setup_event_bridge(
         &self,
         worker_trigger_type: WorkerTriggerType,
-        sqs_config: &AWSSQSParams,
+        sqs_config: &AWSSQSValidatedArgs,
     ) -> color_eyre::Result<()> {
         let rule_name = "worker_trigger_scheduled";
 

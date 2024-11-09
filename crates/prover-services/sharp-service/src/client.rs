@@ -9,7 +9,7 @@ use uuid::Uuid;
 
 use crate::error::SharpError;
 use crate::types::{SharpAddJobResponse, SharpGetStatusResponse};
-use crate::SharpParams;
+use crate::SharpValidatedArgs;
 
 /// SHARP API async wrapper
 pub struct SharpClient {
@@ -28,7 +28,7 @@ impl SharpClient {
     /// and then copy it and paste it into .env file :
     ///
     /// `cat <file_name> | base64`
-    pub fn new_with_params(url: Url, sharp_params: &SharpParams) -> Self {
+    pub fn new_with_params(url: Url, sharp_params: &SharpValidatedArgs) -> Self {
         // Getting the cert files from the .env and then decoding it from base64
 
         let cert = general_purpose::STANDARD

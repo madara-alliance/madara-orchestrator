@@ -1,8 +1,8 @@
-use crate::queue::sqs::AWSSQSParams;
+use crate::queue::sqs::AWSSQSValidatedArgs;
 
 pub mod aws_sqs;
 
 #[derive(Clone, Debug)]
 pub enum QueueParams {
-    AWSSQS(AWSSQSParams),
+    AWSSQS(AWSSQSValidatedArgs),
 }

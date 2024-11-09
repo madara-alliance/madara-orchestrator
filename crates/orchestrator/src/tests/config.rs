@@ -4,19 +4,19 @@ use std::sync::Arc;
 
 use axum::Router;
 use da_client_interface::{DaClient, MockDaClient};
-use ethereum_da_client::EthereumDaParams;
-use ethereum_settlement_client::EthereumSettlementParams;
+use ethereum_da_client::EthereumDaValidatedArgs;
+use ethereum_settlement_client::EthereumSettlementValidatedArgs;
 use httpmock::MockServer;
 use prover_client_interface::{MockProverClient, ProverClient};
 use settlement_client_interface::{MockSettlementClient, SettlementClient};
-use sharp_service::SharpParams;
+use sharp_service::SharpValidatedArgs;
 use starknet::providers::jsonrpc::HttpTransport;
 use starknet::providers::JsonRpcClient;
 use tracing::Level;
 use url::Url;
 use utils::env_utils::{get_env_var_optional, get_env_var_or_default, get_env_var_or_panic};
 
-use crate::alerts::aws_sns::AWSSNSParams;
+use crate::alerts::aws_sns::AWSSNSValidatedArgs;
 use crate::alerts::Alerts;
 use crate::cli::alert::AlertParams;
 use crate::cli::aws_config::AWSConfigParams;
@@ -28,11 +28,11 @@ use crate::cli::settlement::SettlementParams;
 use crate::cli::snos::SNOSParams;
 use crate::cli::storage::StorageParams;
 use crate::config::{get_aws_config, Config, OrchestratorParams, ProviderConfig, ServiceParams};
-use crate::data_storage::aws_s3::AWSS3Params;
+use crate::data_storage::aws_s3::AWSS3ValidatedArgs;
 use crate::data_storage::{DataStorage, MockDataStorage};
-use crate::database::mongodb::MongoDBParams;
+use crate::database::mongodb::MongoDBValidatedArgs;
 use crate::database::{Database, MockDatabase};
-use crate::queue::sqs::AWSSQSParams;
+use crate::queue::sqs::AWSSQSValidatedArgs;
 use crate::queue::{MockQueueProvider, QueueProvider};
 use crate::routes::{get_server_url, setup_server, ServerParams};
 use crate::telemetry::InstrumentationParams;
@@ -471,16 +471,16 @@ struct EnvParams {
 }
 
 fn get_env_params() -> EnvParams {
-    let db_params = DatabaseParams::MongoDB(MongoDBParams {
+    let db_params = DatabaseParams::MongoDB(MongoDBValidatedArgs {
         connection_url: get_env_var_or_panic("MADARA_ORCHESTRATOR_MONGODB_CONNECTION_URL"),
         database_name: get_env_var_or_panic("MADARA_ORCHESTRATOR_DATABASE_NAME"),
     });
 
-    let storage_params = StorageParams::AWSS3(AWSS3Params {
+    let storage_params = StorageParams::AWSS3(AWSS3ValidatedArgs {
         bucket_name: get_env_var_or_panic("MADARA_ORCHESTRATOR_AWS_S3_BUCKET_NAME"),
     });
 
-    let queue_params = QueueParams::AWSSQS(AWSSQSParams {
+    let queue_params = QueueParams::AWSSQS(AWSSQSValidatedArgs {
         queue_base_url: get_env_var_or_panic("MADARA_ORCHESTRATOR_SQS_BASE_QUEUE_URL"),
         sqs_prefix: get_env_var_or_panic("MADARA_ORCHESTRATOR_SQS_PREFIX"),
         sqs_suffix: get_env_var_or_panic("MADARA_ORCHESTRATOR_SQS_SUFFIX"),
@@ -495,15 +495,15 @@ fn get_env_params() -> EnvParams {
         aws_default_region: get_env_var_or_panic("AWS_DEFAULT_REGION"),
     };
 
-    let da_params = DaParams::Ethereum(EthereumDaParams {
+    let da_params = DaParams::Ethereum(EthereumDaValidatedArgs {
         ethereum_da_rpc_url: Url::parse(&get_env_var_or_panic("MADARA_ORCHESTRATOR_ETHEREUM_DA_RPC_URL"))
             .expect("Failed to parse MADARA_ORCHESTRATOR_ETHEREUM_RPC_URL"),
     });
 
     let alert_params =
-        AlertParams::AWSSNS(AWSSNSParams { sns_arn: get_env_var_or_panic("MADARA_ORCHESTRATOR_AWS_SNS_ARN") });
+        AlertParams::AWSSNS(AWSSNSValidatedArgs { sns_arn: get_env_var_or_panic("MADARA_ORCHESTRATOR_AWS_SNS_ARN") });
 
-    let settlement_params = SettlementParams::Ethereum(EthereumSettlementParams {
+    let settlement_params = SettlementParams::Ethereum(EthereumSettlementValidatedArgs {
         ethereum_rpc_url: Url::parse(&get_env_var_or_panic("MADARA_ORCHESTRATOR_ETHEREUM_SETTLEMENT_RPC_URL"))
             .expect("Failed to parse MADARA_ORCHESTRATOR_ETHEREUM_RPC_URL"),
         ethereum_private_key: get_env_var_or_panic("MADARA_ORCHESTRATOR_ETHEREUM_PRIVATE_KEY"),
@@ -547,7 +547,7 @@ fn get_env_params() -> EnvParams {
         log_level: Level::from_str(&get_env_var_or_default("RUST_LOG", "info")).expect("Failed to parse RUST_LOG"),
     };
 
-    let prover_params = ProverParams::Sharp(SharpParams {
+    let prover_params = ProverParams::Sharp(SharpValidatedArgs {
         sharp_customer_id: get_env_var_or_panic("MADARA_ORCHESTRATOR_SHARP_CUSTOMER_ID"),
         sharp_url: Url::parse(&get_env_var_or_panic("MADARA_ORCHESTRATOR_SHARP_URL"))
             .expect("Failed to parse MADARA_ORCHESTRATOR_SHARP_URL"),

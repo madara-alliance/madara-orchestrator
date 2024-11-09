@@ -65,7 +65,7 @@ lazy_static! {
 use url::Url;
 
 #[derive(Clone, Debug)]
-pub struct EthereumSettlementParams {
+pub struct EthereumSettlementValidatedArgs {
     pub ethereum_rpc_url: Url,
 
     pub ethereum_private_key: String,
@@ -85,7 +85,7 @@ pub struct EthereumSettlementClient {
 }
 
 impl EthereumSettlementClient {
-    pub fn new_with_params(settlement_cfg: &EthereumSettlementParams) -> Self {
+    pub fn new_with_params(settlement_cfg: &EthereumSettlementValidatedArgs) -> Self {
         let private_key = settlement_cfg.ethereum_private_key.clone();
         let signer: PrivateKeySigner = private_key.parse().expect("Failed to parse private key");
         let wallet_address = signer.address();

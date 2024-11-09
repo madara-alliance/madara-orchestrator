@@ -1,6 +1,6 @@
 use std::str::FromStr;
 
-use orchestrator::database::mongodb::MongoDBParams;
+use orchestrator::database::mongodb::MongoDBValidatedArgs;
 use url::Url;
 #[allow(dead_code)]
 pub struct MongoDbServer {
@@ -8,7 +8,7 @@ pub struct MongoDbServer {
 }
 
 impl MongoDbServer {
-    pub fn run(mongodb_params: MongoDBParams) -> Self {
+    pub fn run(mongodb_params: MongoDBValidatedArgs) -> Self {
         Self { endpoint: Url::from_str(&mongodb_params.connection_url).unwrap() }
     }
 
