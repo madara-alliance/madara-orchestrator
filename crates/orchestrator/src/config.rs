@@ -59,8 +59,10 @@ pub struct Config {
     storage: Box<dyn DataStorage>,
     /// Alerts client
     alerts: Box<dyn Alerts>,
-    /// Layout to use for running SNOS and proving
-    snos_proof_layout: LayoutName,
+    /// Layout to use for running SNOS
+    snos_layout_name: LayoutName,
+    /// Layout to use for proving
+    prover_layout_name: LayoutName,
 }
 
 /// `ProviderConfig` is an enum used to represent the global config built
@@ -119,9 +121,24 @@ pub async fn init_config() -> color_eyre::Result<Arc<Config>> {
     // us stop using the generic omniqueue abstractions for message ack/nack
     let queue = build_queue_client();
 
-    let snos_proof_layout = match settings_provider.get_settings_or_panic("SNOS_PROOF_LAYOUT").as_str() {
+    let snos_layout_name = match settings_provider.get_settings_or_panic("SNOS_LAYOUT_NAME").as_str() {
+        "all_cairo" => {
+            log::warn!(
+                "Using all_cairo layout for SNOS. This is probably not provable and so it's not recommended for \
+                 production use."
+            );
+            LayoutName::all_cairo
+        }
+        "starknet_with_keccak" => LayoutName::starknet_with_keccak,
+        _ => panic!("Unsupported SNOS proof layout"),
+    };
+
+    let prover_layout_name = match settings_provider.get_settings_or_panic("PROVER_LAYOUT_NAME").as_str() {
         "dynamic" => {
-            log::warn!("Using dynamic layout for SNOS.");
+            log::warn!(
+                "Using dynamic layout for proving. This is probably not provable and so it's not recommended for \
+                 production use." // TODO: verify this!!! no information as of now.
+            );
             LayoutName::dynamic
         }
         "starknet_with_keccak" => LayoutName::starknet_with_keccak,
@@ -139,7 +156,8 @@ pub async fn init_config() -> color_eyre::Result<Arc<Config>> {
         queue,
         storage_client,
         alerts_client,
-        snos_proof_layout,
+        snos_layout_name,
+        prover_layout_name,
     )))
 }
 
@@ -157,7 +175,8 @@ impl Config {
         queue: Box<dyn QueueProvider>,
         storage: Box<dyn DataStorage>,
         alerts: Box<dyn Alerts>,
-        snos_proof_layout: LayoutName,
+        snos_layout_name: LayoutName,
+        prover_layout_name: LayoutName,
     ) -> Self {
         Self {
             starknet_rpc_url,
@@ -170,7 +189,8 @@ impl Config {
             queue,
             storage,
             alerts,
-            snos_proof_layout,
+            snos_layout_name,
+            prover_layout_name,
         }
     }
 
@@ -225,8 +245,13 @@ impl Config {
     }
 
     /// Returns the snos proof layout
-    pub fn snos_proof_layout(&self) -> &LayoutName {
-        &self.snos_proof_layout
+    pub fn snos_layout_name(&self) -> &LayoutName {
+        &self.snos_layout_name
+    }
+
+    /// Returns the snos proof layout
+    pub fn prover_layout_name(&self) -> &LayoutName {
+        &self.prover_layout_name
     }
 }
 

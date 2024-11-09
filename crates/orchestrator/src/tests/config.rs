@@ -235,6 +235,7 @@ impl TestConfigBuilder {
             queue,
             storage,
             alerts,
+            LayoutName::all_cairo,
             LayoutName::dynamic,
         ));
 

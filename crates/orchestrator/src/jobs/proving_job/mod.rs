@@ -80,7 +80,7 @@ impl Job for ProvingJob {
         tracing::debug!(job_id = %job.internal_id, "Submitting task to prover client");
         let external_id = config
             .prover_client()
-            .submit_task(Task::CairoPie(cairo_pie), *config.snos_proof_layout())
+            .submit_task(Task::CairoPie(cairo_pie), *config.prover_layout_name())
             .await
             .wrap_err("Prover Client Error".to_string())
             .map_err(|e| {
