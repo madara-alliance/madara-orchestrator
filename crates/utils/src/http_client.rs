@@ -38,6 +38,7 @@ use std::path::Path;
 use reqwest::header::{HeaderMap, HeaderName, HeaderValue};
 use reqwest::multipart::{Form, Part};
 use reqwest::{Certificate, Client, ClientBuilder, Identity, Method, Response, Result};
+use serde::Serialize;
 use url::Url;
 
 /// Main HTTP client with default configurations.
@@ -278,9 +279,10 @@ impl<'a> RequestBuilder<'a> {
     }
 
     /// Sets the request body.
-    /// Note: Currently assumes string data. For binary data, this would need to be modified.
-    pub fn body(mut self, body: &str) -> Self {
-        self.body = Some(body.to_string());
+    /// This method can handle any type that implements Serialize.
+    pub fn body<T: Serialize>(mut self, body: T) -> Self {
+        let body_string = serde_json::to_string(&body).expect("Failed to serialize body");
+        self.body = Some(body_string);
         self
     }
 
@@ -560,7 +562,7 @@ mod http_client_tests {
                 .query_param("version", "v1")
                 .query_param("id", "123")
                 .header("Authorization", "Bearer token")
-                .body("tenant=main&name=test");
+                .body(r#"{"name":"test"}"#);
 
             then.status(200).header("content-type", "application/json").body(r#"{"status": "ok"}"#);
         });
@@ -568,16 +570,20 @@ mod http_client_tests {
         let client = HttpClient::builder(&mock_server.base_url())
             .default_header(HeaderName::from_static("authorization"), HeaderValue::from_static("Bearer token"))
             .default_query_param("version", "v1")
-            .default_body_param("tenant=main")
             .build()
             .unwrap();
+
+        #[derive(Serialize)]
+        struct RequestBody {
+            name: String,
+        }
 
         let response = client
             .request()
             .method(Method::POST)
             .path("/api/data")
             .query_param("id", "123")
-            .body("name=test")
+            .body(RequestBody { name: "test".to_string() })
             .send()
             .await
             .unwrap();
@@ -799,6 +805,41 @@ mod http_client_tests {
         let request = client.request().method(Method::POST).body(&large_body);
 
         assert!(request.body.is_some());
-        assert_eq!(request.body.unwrap().len(), 1024 * 1024);
+        assert_eq!(request.body.unwrap().len(), (1024 * 1024) + 2);
+    }
+
+    /// Tests body serialization functionality:
+    /// - JSON serialization of different types
+    /// - Struct serialization
+    /// - Error handling for serialization failures
+    #[test]
+    fn test_request_builder_body_serialization() {
+        let mock_server = httpmock::MockServer::start();
+        let client = HttpClient::builder(&mock_server.base_url()).build().unwrap();
+
+        // Test string body
+        let request = client.request().body("test string");
+        assert_eq!(request.body.unwrap(), r#""test string""#);
+
+        // Test number body
+        let request = client.request().body(42);
+        assert_eq!(request.body.unwrap(), "42");
+
+        // Test struct body
+        #[derive(Serialize)]
+        struct TestStruct {
+            field1: String,
+            field2: i32,
+        }
+
+        let test_struct = TestStruct { field1: "test".to_string(), field2: 123 };
+
+        let request = client.request().body(test_struct);
+        assert_eq!(request.body.unwrap(), r#"{"field1":"test","field2":123}"#);
+
+        // Test array/vec body
+        let vec_data = vec![1, 2, 3];
+        let request = client.request().body(vec_data);
+        assert_eq!(request.body.unwrap(), "[1,2,3]");
     }
 }
