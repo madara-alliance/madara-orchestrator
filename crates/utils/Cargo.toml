@@ -12,6 +12,9 @@ serde_json.workspace = true
 thiserror.workspace = true
 
 #Instrumentation
+base64 = { workspace = true }
+dotenv = { workspace = true }
+httpmock = { workspace = true }
 opentelemetry = { workspace = true, features = ["metrics", "logs"] }
 opentelemetry-appender-tracing = { workspace = true, default-features = false }
 opentelemetry-otlp = { workspace = true, features = [
@@ -23,8 +26,9 @@ opentelemetry-semantic-conventions = { workspace = true }
 opentelemetry-stdout = { workspace = true }
 opentelemetry_sdk = { workspace = true, features = ["rt-tokio", "logs"] }
 reqwest = { workspace = true }
+tokio = { workspace = true }
 tracing = { workspace = true }
 tracing-core = { workspace = true, default-features = false }
-tracing-opentelemetry = "0.26.0"
+tracing-opentelemetry = { workspace = true }
 tracing-subscriber = { workspace = true, features = ["env-filter"] }
 url = { workspace = true }

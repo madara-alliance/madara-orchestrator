@@ -6,7 +6,7 @@ edition.workspace = true
 [dependencies]
 alloy.workspace = true
 async-trait.workspace = true
-base64 = "0.22.1"
+base64.workspace = true
 cairo-vm.workspace = true
 chrono.workspace = true
 color-eyre.workspace = true
@@ -27,8 +27,8 @@ strum = { workspace = true }
 strum_macros = { workspace = true }
 tempfile.workspace = true
 thiserror.workspace = true
-tokio.workspace = true
 tokio-util = { version = "0.7.12", features = ["codec"] }
+tokio.workspace = true
 url.workspace = true
 utils.workspace = true
 uuid.workspace = true
@@ -45,7 +45,7 @@ opentelemetry-semantic-conventions = { workspace = true }
 opentelemetry_sdk = { workspace = true, features = ["rt-tokio", "logs"] }
 tracing = { workspace = true }
 tracing-core = { workspace = true, default-features = false }
-tracing-opentelemetry = "0.27.0"
+tracing-opentelemetry = { workspace = true }
 tracing-subscriber = { workspace = true, features = ["env-filter"] }
 
 

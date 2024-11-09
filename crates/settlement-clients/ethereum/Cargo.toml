@@ -4,11 +4,11 @@ version.workspace = true
 edition.workspace = true
 
 [dependencies]
-alloy-primitives = { version = "0.7.7", default-features = false }
+alloy-primitives = { workspace = true }
 
 alloy = { workspace = true, features = ["full", "node-bindings"] }
 async-trait = { workspace = true }
-bytes = "1.7.2"
+bytes = { workspace = true }
 c-kzg = { workspace = true }
 cairo-vm = { workspace = true }
 color-eyre = { workspace = true }
@@ -38,7 +38,7 @@ opentelemetry_sdk = { workspace = true, features = ["rt-tokio", "logs"] }
 thiserror = { workspace = true }
 tracing = { workspace = true }
 tracing-core = { workspace = true, default-features = false }
-tracing-opentelemetry = "0.26.0"
+tracing-opentelemetry = { workspace = true }
 tracing-subscriber = { workspace = true, features = ["env-filter"] }
 
 

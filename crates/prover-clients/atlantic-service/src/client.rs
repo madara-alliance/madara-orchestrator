@@ -65,9 +65,14 @@ impl AtlanticClient {
     pub async fn add_job(
         &self,
         pie_file: &Path,
-        _proof_layout: LayoutName,
+        proof_layout: LayoutName,
     ) -> Result<AtlanticAddJobResponse, AtlanticError> {
         let api_key = get_env_var_or_panic("ATLANTIC_API_KEY");
+
+        let proof_layout = match proof_layout {
+            LayoutName::dynamic => "dynamic",
+            _ => proof_layout.to_str(),
+        };
 
         let response = self
             .proving_layer
@@ -77,7 +82,7 @@ impl AtlanticClient {
                     .method(Method::POST)
                     .query_param("apiKey", &api_key)
                     .form_file("pieFile", pie_file, "pie.zip")
-                    .form_text("layout", "dynamic"),
+                    .form_text("layout", proof_layout),
             )
             .send()
             .await

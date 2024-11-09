@@ -21,8 +21,8 @@ cairo-vm.workspace = true
 dotenvy.workspace = true
 itertools.workspace = true
 log.workspace = true
-num-bigint = "0.4.5"
-serde = { version = "1.0", features = ["derive"] }
+num-bigint.workspace = true
+serde.workspace = true
 starknet.workspace = true
 thiserror.workspace = true
 tokio.workspace = true
@@ -41,5 +41,5 @@ opentelemetry-semantic-conventions = { workspace = true }
 opentelemetry_sdk = { workspace = true, features = ["rt-tokio", "logs"] }
 tracing = { workspace = true }
 tracing-core = { workspace = true, default-features = false }
-tracing-opentelemetry = "0.26.0"
+tracing-opentelemetry = { workspace = true }
 tracing-subscriber = { workspace = true, features = ["env-filter"] }

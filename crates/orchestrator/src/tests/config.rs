@@ -235,7 +235,7 @@ impl TestConfigBuilder {
             queue,
             storage,
             alerts,
-            LayoutName::all_cairo,
+            LayoutName::dynamic,
         ));
 
         let api_server_address = implement_api_server(api_server_type, config.clone()).await;

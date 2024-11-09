@@ -125,7 +125,7 @@ pub async fn init_config() -> color_eyre::Result<Arc<Config>> {
                 "Using all_cairo layout for SNOS. This is probably not provable and so it's not recommended for \
                  production use."
             );
-            LayoutName::all_cairo
+            LayoutName::dynamic
         }
         "starknet_with_keccak" => LayoutName::starknet_with_keccak,
         _ => panic!("Unsupported SNOS proof layout"),

@@ -30,12 +30,12 @@ async fn prover_client_submit_task_works() {
     );
     let customer_id = get_env_var_or_panic("SHARP_CUSTOMER_ID");
     let sharp_add_job_call = server.mock(|when, then| {
-        when.path_contains("/add_job").query_param("customer_id", customer_id.as_str());
+        when.path_includes("/add_job").query_param("customer_id", customer_id.as_str());
         then.status(200).body(serde_json::to_vec(&sharp_response).unwrap());
     });
 
     let cairo_pie = Box::new(cairo_pie);
-    assert!(sharp_service.submit_task(Task::CairoPie(cairo_pie), LayoutName::all_cairo).await.is_ok());
+    assert!(sharp_service.submit_task(Task::CairoPie(cairo_pie), LayoutName::dynamic).await.is_ok());
 
     sharp_add_job_call.assert();
 }
@@ -58,7 +58,7 @@ async fn prover_client_get_task_status_works(#[case] cairo_job_status: CairoJobS
     let customer_id = get_env_var_or_panic("SHARP_CUSTOMER_ID");
 
     let sharp_add_job_call = server.mock(|when, then| {
-        when.path_contains("/get_status").query_param("customer_id", customer_id.as_str());
+        when.path_includes("/get_status").query_param("customer_id", customer_id.as_str());
         then.status(200).body(serde_json::to_vec(&get_task_status_sharp_response(&cairo_job_status)).unwrap());
     });
 
