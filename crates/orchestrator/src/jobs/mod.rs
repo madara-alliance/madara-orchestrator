@@ -252,7 +252,7 @@ pub async fn process_job(id: Uuid, config: Arc<Config>) -> Result<(), JobError> 
             return move_job_to_failed(
                 &job,
                 config.clone(),
-                format!("Job handler panicked in job with id: {} and panic message: {}", id, panic_msg),
+                format!("Job handler panicked with message: {}", panic_msg),
             )
             .await;
         }

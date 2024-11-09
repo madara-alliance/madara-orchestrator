@@ -231,13 +231,11 @@ async fn process_job_handles_panic() {
     let job_in_db = database_client.get_job_by_id(job_item.id).await.unwrap().unwrap();
     assert_eq!(job_in_db.status, JobStatus::Failed);
     assert!(
-        job_in_db.metadata.get(JOB_METADATA_FAILURE_REASON).unwrap().contains(
-            format!(
-                "Job handler panicked in job with id: {} and panic message: Simulated panic in process_job",
-                job_item.id
-            )
-            .as_str()
-        )
+        job_in_db
+            .metadata
+            .get(JOB_METADATA_FAILURE_REASON)
+            .unwrap()
+            .contains("Job handler panicked with message: Simulated panic in process_job")
     );
 }
 
