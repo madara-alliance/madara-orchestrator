@@ -329,16 +329,15 @@ mod http_client_tests {
 
     use super::*;
 
-    /// # Builder Tests
+    const TEST_URL: &str = "https://madara.orchestrator.com";
 
     /// Verifies that HttpClient::builder creates a valid builder with the provided base URL
     /// and all default values are properly initialized
     #[test]
     fn test_builder_basic_initialization() {
-        let mock_server = httpmock::MockServer::start();
-        let client = HttpClient::builder(&mock_server.base_url()).build().unwrap();
+        let client = HttpClient::builder(TEST_URL).build().unwrap();
 
-        assert_eq!(client.base_url.as_str(), mock_server.base_url() + "/");
+        assert_eq!(client.base_url.as_str(), format!("{}/", TEST_URL));
         assert!(client.default_headers.is_empty());
         assert!(client.default_query_params.is_empty());
         assert!(client.default_form_data.is_empty());
@@ -359,15 +358,11 @@ mod http_client_tests {
     /// - Applied to outgoing requests
     #[test]
     fn test_builder_default_headers() {
-        let mock_server = httpmock::MockServer::start();
-
         let header_name = HeaderName::from_static("x-test");
         let header_value = HeaderValue::from_static("test-value");
 
-        let client = HttpClient::builder(&mock_server.base_url())
-            .default_header(header_name.clone(), header_value.clone())
-            .build()
-            .unwrap();
+        let client =
+            HttpClient::builder(TEST_URL).default_header(header_name.clone(), header_value.clone()).build().unwrap();
 
         assert!(client.default_headers.contains_key(&header_name));
         assert_eq!(client.default_headers.get(&header_name).unwrap(), &header_value);
@@ -379,11 +374,9 @@ mod http_client_tests {
     /// - Parameters are properly URL encoded
     #[test]
     fn test_builder_default_query_params() {
-        let mock_server = httpmock::MockServer::start();
-
-        let client = HttpClient::builder(&mock_server.base_url())
+        let client = HttpClient::builder(TEST_URL)
             .default_query_param("key1", "value1")
-            .default_query_param("key2", "value 2") // Space should be encoded
+            .default_query_param("key2", "value 2")
             .build()
             .unwrap();
 
@@ -398,9 +391,7 @@ mod http_client_tests {
     /// can be correctly set and are properly sent in requests
     #[test]
     fn test_request_builder_method_setting() {
-        let mock_server = httpmock::MockServer::start();
-
-        let client = HttpClient::builder(&mock_server.base_url()).build().unwrap();
+        let client = HttpClient::builder(TEST_URL).build().unwrap();
 
         let request = client.request().method(Method::GET);
         assert_eq!(request.method, Method::GET);
@@ -423,8 +414,7 @@ mod http_client_tests {
     /// - Unicode paths
     #[test]
     fn test_request_builder_path_handling() {
-        let mock_server = httpmock::MockServer::start();
-        let client = HttpClient::builder(&mock_server.base_url()).build().unwrap();
+        let client = HttpClient::builder(TEST_URL).build().unwrap();
 
         // Test absolute path
         let request = client.request().path("/absolute/path");
@@ -457,10 +447,7 @@ mod http_client_tests {
     /// - Later parameters override earlier ones
     #[test]
     fn test_request_builder_query_params() {
-        let mock_server = httpmock::MockServer::start();
-
-        let client =
-            HttpClient::builder(&mock_server.base_url()).default_query_param("default", "value").build().unwrap();
+        let client = HttpClient::builder(TEST_URL).default_query_param("default", "value").build().unwrap();
 
         let request = client.request().query_param("test", "value").query_param("another", "param");
 
@@ -475,14 +462,9 @@ mod http_client_tests {
     /// - Request-specific headers override defaults
     #[test]
     fn test_request_builder_headers() {
-        let mock_server = httpmock::MockServer::start();
-
         let header_name = HeaderName::from_static("x-test");
         let header_value = HeaderValue::from_static("default-value");
-        let client = HttpClient::builder(&mock_server.base_url())
-            .default_header(header_name.clone(), header_value)
-            .build()
-            .unwrap();
+        let client = HttpClient::builder(TEST_URL).default_header(header_name.clone(), header_value).build().unwrap();
 
         let new_value = HeaderValue::from_static("new-value");
         let request = client.request().header(header_name.clone(), new_value.clone());
@@ -499,8 +481,7 @@ mod http_client_tests {
     /// - Form builder chaining
     #[test]
     fn test_multipart_form_text() {
-        let mock_server = httpmock::MockServer::start();
-        let client = HttpClient::builder(&mock_server.base_url()).build().unwrap();
+        let client = HttpClient::builder(TEST_URL).build().unwrap();
 
         // Test initial state
         let request = client.request();
@@ -522,10 +503,7 @@ mod http_client_tests {
     /// - Non-existent file handling
     #[test]
     fn test_multipart_form_file() {
-        let mock_server = httpmock::MockServer::start();
-
-        let client = HttpClient::builder(&mock_server.base_url()).build().unwrap();
-
+        let client = HttpClient::builder(TEST_URL).build().unwrap();
         let file_path: PathBuf = "../orchestrator/src/tests/artifacts/fibonacci.zip".parse().unwrap();
 
         // Test initial state
@@ -543,8 +521,7 @@ mod http_client_tests {
     /// - Array/Vector serialization
     #[test]
     fn test_request_builder_body_serialization() {
-        let mock_server = httpmock::MockServer::start();
-        let client = HttpClient::builder(&mock_server.base_url()).build().unwrap();
+        let client = HttpClient::builder(TEST_URL).build().unwrap();
 
         // Test string body
         let request = client.request().body("test string");
@@ -578,8 +555,6 @@ mod http_client_tests {
     /// - Identity verification
     #[test]
     fn test_certificate_handling() {
-        let mock_server = httpmock::MockServer::start();
-
         // Load variables from .env.test
         dotenv::from_filename(".env.test").ok();
 
@@ -598,14 +573,11 @@ mod http_client_tests {
             Identity::from_pkcs8_pem(&cert, &key).expect("Failed to build the identity from certificate and key");
         let certificate = Certificate::from_pem(server_cert.as_slice()).expect("Failed to add root certificate");
 
-        let client = HttpClient::builder(&mock_server.base_url())
-            .identity(identity)
-            .add_root_certificate(certificate)
-            .build()
-            .unwrap();
+        let client =
+            HttpClient::builder(TEST_URL).identity(identity).add_root_certificate(certificate).build().unwrap();
 
         // Since we can't check the certificates directly, we'll just verify the client was built
-        assert_eq!(client.base_url.as_str(), mock_server.base_url() + "/");
+        assert_eq!(client.base_url.as_str(), (TEST_URL.to_owned() + "/"));
     }
 
     /// Tests client behavior with:
