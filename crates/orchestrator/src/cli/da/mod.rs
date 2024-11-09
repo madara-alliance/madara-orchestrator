@@ -1,4 +1,4 @@
-use ethereum_da_client::config::EthereumDaParams;
+use ethereum_da_client::EthereumDaParams;
 
 pub mod ethereum;
 

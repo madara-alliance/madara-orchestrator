@@ -20,8 +20,7 @@ use starknet::signers::{LocalWallet, SigningKey};
 use utils::env_utils::get_env_var_or_panic;
 
 use super::setup::{wait_for_cond, MadaraCmd, MadaraCmdBuilder};
-use crate::config::StarknetSettlementParams;
-use crate::{LocalWalletSignerMiddleware, StarknetSettlementClient};
+use crate::{LocalWalletSignerMiddleware, StarknetSettlementClient, StarknetSettlementParams};
 
 #[fixture]
 pub async fn spin_up_madara() -> MadaraCmd {

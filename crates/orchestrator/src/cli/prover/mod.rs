@@ -1,4 +1,4 @@
-use sharp_service::config::SharpParams;
+use sharp_service::SharpParams;
 
 pub mod sharp;
 

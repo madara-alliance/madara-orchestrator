@@ -10,7 +10,6 @@ use appchain_core_contract_client::interfaces::core_contract::CoreContract;
 use async_trait::async_trait;
 use color_eyre::eyre::eyre;
 use color_eyre::Result;
-use config::StarknetSettlementParams;
 use crypto_bigint::Encoding;
 use lazy_static::lazy_static;
 use mockall::automock;
@@ -39,6 +38,22 @@ pub const ENV_ACCOUNT_ADDRESS: &str = "MADARA_ORCHESTRATOR_STARKNET_ACCOUNT_ADDR
 pub const ENV_PRIVATE_KEY: &str = "MADARA_ORCHESTRATOR_STARKNET_PRIVATE_KEY";
 
 const MAX_RETRIES_VERIFY_TX_FINALITY: usize = 10;
+
+use url::Url;
+#[derive(Clone, Debug)]
+pub struct StarknetSettlementParams {
+    pub starknet_rpc_url: Url,
+
+    pub starknet_private_key: String,
+
+    pub starknet_account_address: String,
+
+    pub starknet_cairo_core_contract_address: String,
+
+    pub starknet_finality_retry_wait_in_secs: u64,
+
+    pub madara_binary_path: String,
+}
 
 // Assumed the contract called for settlement looks like:
 // https://github.com/keep-starknet-strange/piltover

@@ -7,9 +7,9 @@ use url::Url;
 use utils::env_utils::get_env_var_or_panic;
 use uuid::Uuid;
 
-use crate::config::SharpParams;
 use crate::error::SharpError;
 use crate::types::{SharpAddJobResponse, SharpGetStatusResponse};
+use crate::SharpParams;
 
 /// SHARP API async wrapper
 pub struct SharpClient {

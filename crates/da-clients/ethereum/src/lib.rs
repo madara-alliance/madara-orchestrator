@@ -9,16 +9,20 @@ use alloy::rpc::client::RpcClient;
 use alloy::transports::http::Http;
 use async_trait::async_trait;
 use color_eyre::Result;
-use config::EthereumDaParams;
 use da_client_interface::{DaClient, DaVerificationStatus};
 use mockall::automock;
 use mockall::predicate::*;
 use reqwest::Client;
+use serde::{Deserialize, Serialize};
 use url::Url;
+
+#[derive(Clone, Debug, Serialize, Deserialize)]
+pub struct EthereumDaParams {
+    pub ethereum_da_rpc_url: Url,
+}
 
 pub const DA_SETTINGS_NAME: &str = "ethereum";
 
-pub mod config;
 pub struct EthereumDaClient {
     #[allow(dead_code)]
     pub provider: RootProvider<Ethereum, Http<Client>>,

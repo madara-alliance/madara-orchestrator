@@ -1,6 +1,6 @@
 use std::str::FromStr;
 
-use orchestrator::database::mongodb::config::MongoDBParams;
+use orchestrator::database::mongodb::MongoDBParams;
 use url::Url;
 #[allow(dead_code)]
 pub struct MongoDbServer {

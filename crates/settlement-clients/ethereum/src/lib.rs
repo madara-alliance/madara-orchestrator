@@ -21,7 +21,6 @@ use async_trait::async_trait;
 use c_kzg::{Blob, Bytes32, KzgCommitment, KzgProof, KzgSettings};
 use color_eyre::eyre::{bail, eyre, Ok};
 use color_eyre::Result;
-use config::EthereumSettlementParams;
 use conversion::{get_input_data_for_eip_4844, prepare_sidecar};
 use settlement_client_interface::{SettlementClient, SettlementVerificationStatus};
 #[cfg(feature = "testing")]
@@ -33,7 +32,6 @@ use crate::clients::interfaces::validity_interface::StarknetValidityContractTrai
 use crate::clients::StarknetValidityContractClient;
 use crate::conversion::{slice_u8_to_u256, vec_u8_32_to_vec_u256};
 pub mod clients;
-pub mod config;
 pub mod conversion;
 pub mod tests;
 pub mod types;
@@ -62,6 +60,19 @@ lazy_static! {
         &PROJECT_ROOT.join("crates/settlement-clients/ethereum/src/trusted_setup.txt")
     )
     .expect("Error loading trusted setup file");
+}
+
+use url::Url;
+
+#[derive(Clone, Debug)]
+pub struct EthereumSettlementParams {
+    pub ethereum_rpc_url: Url,
+
+    pub ethereum_private_key: String,
+
+    pub l1_core_contract_address: String,
+
+    pub starknet_operator_address: String,
 }
 
 #[allow(dead_code)]
