@@ -1,15 +1,20 @@
 #![allow(missing_docs)]
 #![allow(clippy::missing_docs_in_private_items)]
 
+use std::str::FromStr;
+
 use alloy::network::Ethereum;
-use alloy::providers::RootProvider;
+use alloy::providers::{ProviderBuilder, RootProvider};
+use alloy::rpc::client::RpcClient;
 use alloy::transports::http::Http;
 use async_trait::async_trait;
 use color_eyre::Result;
+use config::EthereumDaParams;
 use da_client_interface::{DaClient, DaVerificationStatus};
 use mockall::automock;
 use mockall::predicate::*;
 use reqwest::Client;
+use url::Url;
 
 pub const DA_SETTINGS_NAME: &str = "ethereum";
 
@@ -17,6 +22,16 @@ pub mod config;
 pub struct EthereumDaClient {
     #[allow(dead_code)]
     pub provider: RootProvider<Ethereum, Http<Client>>,
+}
+
+impl EthereumDaClient {
+    pub async fn new_with_params(ethereum_da_params: &EthereumDaParams) -> Self {
+        let client = RpcClient::new_http(
+            Url::from_str(ethereum_da_params.ethereum_da_rpc_url.as_str()).expect("Failed to parse SETTLEMENT_RPC_URL"),
+        );
+        let provider = ProviderBuilder::<_, Ethereum>::new().on_client(client);
+        Self { provider }
+    }
 }
 
 #[automock]

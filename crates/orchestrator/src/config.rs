@@ -12,7 +12,7 @@ use aws_credential_types::Credentials;
 use color_eyre::eyre::eyre;
 use da_client_interface::DaClient;
 use dotenvy::dotenv;
-use ethereum_da_client::config::EthereumDaConfig;
+use ethereum_da_client::EthereumDaClient;
 use ethereum_settlement_client::EthereumSettlementClient;
 use prover_client_interface::ProverClient;
 use settlement_client_interface::SettlementClient;
@@ -257,13 +257,10 @@ impl Config {
 }
 
 /// Builds the DA client based on the environment variable DA_LAYER
+// TODO: convert this to use new_with_params
 pub async fn build_da_client(da_params: &DaParams) -> Box<dyn DaClient + Send + Sync> {
     match da_params {
-        DaParams::Ethereum(ethereum_da_params) => {
-            let config = EthereumDaConfig::new_with_params(ethereum_da_params)
-                .expect("Not able to build config from the given settings provider.");
-            Box::new(config.build_client().await)
-        }
+        DaParams::Ethereum(ethereum_da_params) => Box::new(EthereumDaClient::new_with_params(ethereum_da_params).await),
     }
 }
 
@@ -314,16 +311,13 @@ pub async fn build_alert_client(
     provider_config: Arc<ProviderConfig>,
 ) -> Box<dyn Alerts + Send + Sync> {
     match alert_params {
-        AlertParams::AWSSNS(aws_sns_params) => {
-            println!("Building alert client {}", aws_sns_params.sns_arn);
-            Box::new(AWSSNS::new_with_params(aws_sns_params, provider_config).await)
-        }
+        AlertParams::AWSSNS(aws_sns_params) => Box::new(AWSSNS::new_with_params(aws_sns_params, provider_config).await),
     }
 }
 
 pub fn build_queue_client(queue_params: &QueueParams) -> Box<dyn QueueProvider + Send + Sync> {
     match queue_params {
-        QueueParams::AWSSQS(aws_sqs_params) => Box::new(SqsQueue { params: aws_sqs_params.clone() }),
+        QueueParams::AWSSQS(aws_sqs_params) => Box::new(SqsQueue::new_with_params(aws_sqs_params.clone())),
     }
 }
 

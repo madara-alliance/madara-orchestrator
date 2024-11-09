@@ -31,6 +31,12 @@ pub struct SqsQueue {
     pub params: AWSSQSParams,
 }
 
+impl SqsQueue {
+    pub fn new_with_params(params: AWSSQSParams) -> Self {
+        Self { params }
+    }
+}
+
 #[async_trait]
 impl QueueProvider for SqsQueue {
     async fn send_message_to_queue(&self, queue: QueueType, payload: String, delay: Option<Duration>) -> Result<()> {
