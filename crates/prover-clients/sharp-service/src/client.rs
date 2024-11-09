@@ -62,6 +62,11 @@ impl SharpClient {
     ) -> Result<(SharpAddJobResponse, Uuid), SharpError> {
         let cairo_key = Uuid::new_v4();
 
+        let proof_layout = match proof_layout {
+            LayoutName::dynamic => "dynamic",
+            _ => proof_layout.to_str(),
+        };
+
         let response = self
             .client
             .request()
@@ -69,7 +74,7 @@ impl SharpClient {
             .path("add_job")
             .query_param("cairo_job_key", &cairo_key.to_string())
             .query_param("offchain_proof", "true")
-            .query_param("proof_layout", proof_layout.to_str())
+            .query_param("proof_layout", proof_layout)
             .body(encoded_pie)
             .send()
             .await

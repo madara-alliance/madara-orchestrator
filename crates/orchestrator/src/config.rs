@@ -121,9 +121,7 @@ pub async fn init_config() -> color_eyre::Result<Arc<Config>> {
 
     let snos_proof_layout = match settings_provider.get_settings_or_panic("SNOS_PROOF_LAYOUT").as_str() {
         "dynamic" => {
-            log::warn!(
-                "Using dynamic layout for SNOS."
-            );
+            log::warn!("Using dynamic layout for SNOS.");
             LayoutName::dynamic
         }
         "starknet_with_keccak" => LayoutName::starknet_with_keccak,
