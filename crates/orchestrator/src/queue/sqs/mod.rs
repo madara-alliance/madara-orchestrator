@@ -61,7 +61,7 @@ impl QueueProvider for SqsQueue {
         consumer.receive().await
     }
 
-    async fn create_queue(&self, queue_config: &QueueConfig, config: &SetupConfig) -> Result<()> {
+    async fn create_queue<'a>(&self, queue_config: &QueueConfig<'a>, config: &SetupConfig) -> Result<()> {
         let config = match config {
             SetupConfig::AWS(config) => config,
             _ => panic!("Unsupported SQS configuration"),
@@ -74,7 +74,7 @@ impl QueueProvider for SqsQueue {
         attributes.insert(QueueAttributeName::VisibilityTimeout, queue_config.visibility_timeout.to_string());
 
         if let Some(dlq_config) = &queue_config.dlq_config {
-            let dlq_url = Self::get_queue_url_from_client(&dlq_config.dlq_name, &sqs_client).await?;
+            let dlq_url = Self::get_queue_url_from_client(dlq_config.dlq_name, &sqs_client).await?;
             let dlq_arn = Self::get_queue_arn(&sqs_client, &dlq_url).await?;
             let policy = format!(
                 r#"{{"deadLetterTargetArn":"{}","maxReceiveCount":"{}"}}"#,

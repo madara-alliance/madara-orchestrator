@@ -5,30 +5,24 @@ use aws_sdk_eventbridge::types::{InputTransformer, RuleState, Target};
 use aws_sdk_sqs::types::QueueAttributeName;
 
 use crate::cron::Cron;
-use crate::queue::job_queue::WorkerTriggerType;
 use crate::setup::SetupConfig;
 
 pub struct AWSEventBridge {}
 
 #[async_trait]
+#[allow(unreachable_patterns)]
 impl Cron for AWSEventBridge {
-    #[allow(unreachable_patterns)]
-    async fn setup_cron(
+    async fn create_cron(
         &self,
         config: &SetupConfig,
         cron_time: Duration,
-        target_queue_name: String,
-        message: String,
         trigger_rule_name: String,
-        worker_trigger_type: WorkerTriggerType,
     ) -> color_eyre::Result<()> {
         let config = match config {
             SetupConfig::AWS(config) => config,
             _ => panic!("Unsupported Event Bridge configuration"),
         };
         let event_bridge_client = aws_sdk_eventbridge::Client::new(config);
-        let sqs_client = aws_sdk_sqs::Client::new(config);
-
         event_bridge_client
             .put_rule()
             .name(&trigger_rule_name)
@@ -36,6 +30,22 @@ impl Cron for AWSEventBridge {
             .state(RuleState::Enabled)
             .send()
             .await?;
+
+        Ok(())
+    }
+    async fn add_cron_target_queue(
+        &self,
+        config: &SetupConfig,
+        target_queue_name: String,
+        message: String,
+        trigger_rule_name: String,
+    ) -> color_eyre::Result<()> {
+        let config = match config {
+            SetupConfig::AWS(config) => config,
+            _ => panic!("Unsupported Event Bridge configuration"),
+        };
+        let event_bridge_client = aws_sdk_eventbridge::Client::new(config);
+        let sqs_client = aws_sdk_sqs::Client::new(config);
         let queue_url = sqs_client.get_queue_url().queue_name(target_queue_name).send().await?;
 
         let queue_attributes = sqs_client
@@ -55,7 +65,7 @@ impl Cron for AWSEventBridge {
             .rule(trigger_rule_name)
             .targets(
                 Target::builder()
-                    .id(format!("worker-trigger-target-{:?}", worker_trigger_type))
+                    .id(uuid::Uuid::new_v4().to_string())
                     .arn(queue_arn)
                     .input_transformer(input_transformer)
                     .build()?,

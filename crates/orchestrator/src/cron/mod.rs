@@ -23,24 +23,27 @@ lazy_static! {
 
 #[async_trait]
 pub trait Cron {
-    async fn setup_cron(
+    async fn create_cron(
         &self,
         config: &SetupConfig,
         cron_time: Duration,
+        trigger_rule_name: String,
+    ) -> color_eyre::Result<()>;
+    async fn add_cron_target_queue(
+        &self,
+        config: &SetupConfig,
         target_queue_name: String,
         message: String,
         trigger_rule_name: String,
-        worker_trigger_type: WorkerTriggerType,
     ) -> color_eyre::Result<()>;
     async fn setup(&self, config: SetupConfig) -> color_eyre::Result<()> {
+        self.create_cron(&config, *CRON_DURATION, WORKER_TRIGGER_RULE_NAME.clone()).await?;
         for triggers in WORKER_TRIGGERS.iter() {
-            self.setup_cron(
+            self.add_cron_target_queue(
                 &config,
-                *CRON_DURATION,
                 TARGET_QUEUE_NAME.clone(),
                 get_worker_trigger_message(triggers.clone())?,
                 WORKER_TRIGGER_RULE_NAME.clone(),
-                triggers.clone(),
             )
             .await?;
         }
