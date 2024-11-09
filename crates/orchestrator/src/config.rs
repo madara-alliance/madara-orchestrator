@@ -120,10 +120,9 @@ pub async fn init_config() -> color_eyre::Result<Arc<Config>> {
     let queue = build_queue_client();
 
     let snos_proof_layout = match settings_provider.get_settings_or_panic("SNOS_PROOF_LAYOUT").as_str() {
-        "all_cairo" => {
+        "dynamic" => {
             log::warn!(
-                "Using all_cairo layout for SNOS. This is probably not provable and so it's not recommended for \
-                 production use."
+                "Using dynamic layout for SNOS."
             );
             LayoutName::dynamic
         }
