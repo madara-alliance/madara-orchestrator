@@ -6,6 +6,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ## Added
 
+- tests: http_client tests added
 - upgrade ETH L1 bridge for withdrawals to work
 - added makefile and submodules
 - Endpoints for triggering processing and verification jobs
@@ -43,6 +44,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ## Changed
 
+- refactor: http_mock version updated
 - refactor: prover-services renamed to prover-clients
 - refactor: update json made generic to update any json file
 - refactor: makefile updated as per bootstraper changes
@@ -73,6 +75,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ## Fixed
 
+- refactor: cargo.toml files cleaned
 - blob data formation process from state update
 - OTEL config refactor
 - indexing for get_jobs_without_successor
