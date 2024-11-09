@@ -23,7 +23,6 @@ use color_eyre::eyre::{bail, eyre, Ok};
 use color_eyre::Result;
 use conversion::{get_input_data_for_eip_4844, prepare_sidecar};
 use settlement_client_interface::{SettlementClient, SettlementVerificationStatus};
-#[cfg(feature = "testing")]
 use url::Url;
 #[cfg(feature = "testing")]
 use utils::env_utils::get_env_var_or_panic;
@@ -61,8 +60,6 @@ lazy_static! {
     )
     .expect("Error loading trusted setup file");
 }
-
-use url::Url;
 
 #[derive(Clone, Debug)]
 pub struct EthereumSettlementValidatedArgs {
