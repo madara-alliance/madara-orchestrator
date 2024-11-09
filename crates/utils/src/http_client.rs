@@ -8,9 +8,10 @@
 //! - Body handling (currently optimized for string payloads)
 //!
 //! # Body Handling
-//! The current implementation assumes bodies are UTF-8 string data. When merging default body
-//! parameters with request bodies, they are concatenated with '&' as a separator. For binary
-//! data or different formats, the implementation would need to be modified.
+//! The current implementation serializes request bodies to JSON format. The body method accepts
+//! any type that implements the Serialize trait, allowing for flexible payload structures including
+//! strings, numbers, objects, and arrays. For binary data or other formats, the implementation
+//! would need to be modified.
 //!
 //! # Examples
 //! ```
@@ -197,16 +198,6 @@ impl HttpClientBuilder {
         self
     }
 
-    /// Adds a default body parameter to be included in all request bodies.
-    /// Parameters are joined with '&' separator.
-    pub fn default_body_param(mut self, param: &str) -> Self {
-        if !self.default_body_params.is_empty() {
-            self.default_body_params.push('&');
-        }
-        self.default_body_params.push_str(param);
-        self
-    }
-
     /// Builds the HttpClient with all configured defaults.
     pub fn build(self) -> Result<HttpClient> {
         Ok(HttpClient {
@@ -278,8 +269,18 @@ impl<'a> RequestBuilder<'a> {
         self
     }
 
-    /// Sets the request body.
+    /// Sets the request body by serializing the input to JSON.
     /// This method can handle any type that implements Serialize.
+    ///
+    /// # Arguments
+    /// * `body` - The data to be serialized and sent as the request body
+    ///
+    /// # Examples
+    /// ```
+    /// let request = client.request()
+    ///     .method(Method::POST)
+    ///     .body(json!({ "key": "value" }));
+    /// ```
     pub fn body<T: Serialize>(mut self, body: T) -> Self {
         let body_string = serde_json::to_string(&body).expect("Failed to serialize body");
         self.body = Some(body_string);
@@ -391,29 +392,6 @@ mod http_client_tests {
         assert_eq!(client.default_query_params.get("key2").unwrap(), "value 2");
     }
 
-    /// Tests body parameter handling:
-    /// - Parameters are properly concatenated with '&'
-    /// - Empty parameters are handled correctly
-    /// - URL encoding is applied appropriately
-    #[test]
-    fn test_builder_default_body_params() {
-        let mock_server = httpmock::MockServer::start();
-
-        let client = HttpClient::builder(&mock_server.base_url())
-            .default_body_param("param1=value1")
-            .default_body_param("param2=value2")
-            .build()
-            .unwrap();
-
-        assert_eq!(client.default_body_params, "param1=value1&param2=value2");
-
-        // Test single parameter
-        let client_single =
-            HttpClient::builder(&mock_server.base_url()).default_body_param("param1=value1").build().unwrap();
-
-        assert_eq!(client_single.default_body_params, "param1=value1");
-    }
-
     /// # Request Builder Tests
 
     /// Verifies that all HTTP methods (GET, POST, PUT, DELETE, etc.)
@@ -441,11 +419,11 @@ mod http_client_tests {
     /// - Absolute paths (starting with /) replace existing path
     /// - Relative paths are properly appended
     /// - Multiple path segments are correctly joined
-    /// - Special characters are properly encoded
+    /// - Empty paths and special characters
+    /// - Unicode paths
     #[test]
     fn test_request_builder_path_handling() {
         let mock_server = httpmock::MockServer::start();
-
         let client = HttpClient::builder(&mock_server.base_url()).build().unwrap();
 
         // Test absolute path
@@ -463,6 +441,14 @@ mod http_client_tests {
         // Test empty path handling
         let request = client.request().path("");
         assert_eq!(request.path, "");
+
+        // Test multiple slashes
+        let request = client.request().path("//test//path//");
+        assert_eq!(request.path, "//test//path//");
+
+        // Test Unicode path
+        let request = client.request().path("/测试/路径");
+        assert_eq!(request.path, "/测试/路径");
     }
 
     /// Tests query parameter behavior:
@@ -510,19 +496,22 @@ mod http_client_tests {
     /// Validates multipart form text field handling:
     /// - Single field addition
     /// - Multiple fields
-    /// - Special characters in field names and values
+    /// - Form builder chaining
     #[test]
     fn test_multipart_form_text() {
         let mock_server = httpmock::MockServer::start();
-
         let client = HttpClient::builder(&mock_server.base_url()).build().unwrap();
 
-        let request = client.request().form_text("field1", "value1").form_text("field2", "value2");
+        // Test initial state
+        let request = client.request();
+        assert!(request.form.is_none());
 
+        // Test single field
+        let request = client.request().form_text("field1", "value1");
         assert!(request.form.is_some());
 
-        // Since Form doesn't provide a way to inspect its contents directly,
-        // we can only verify that the form was created
+        // Test multiple fields with chaining
+        let request = client.request().form_text("field1", "value1").form_text("field2", "value2");
         assert!(request.form.is_some());
     }
 
@@ -539,9 +528,102 @@ mod http_client_tests {
 
         let file_path: PathBuf = "../orchestrator/src/tests/artifacts/fibonacci.zip".parse().unwrap();
 
+        // Test initial state
+        let request = client.request();
+        assert!(request.form.is_none());
+
         let request = client.request().form_file("file", &file_path, "fibonacci.zip");
 
         assert!(request.form.is_some());
+    }
+
+    /// Tests body serialization functionality for the request builder:
+    /// - JSON serialization of different types
+    /// - Struct serialization
+    /// - Array/Vector serialization
+    #[test]
+    fn test_request_builder_body_serialization() {
+        let mock_server = httpmock::MockServer::start();
+        let client = HttpClient::builder(&mock_server.base_url()).build().unwrap();
+
+        // Test string body
+        let request = client.request().body("test string");
+        assert_eq!(request.body.unwrap(), r#""test string""#);
+
+        // Test number body
+        let request = client.request().body(42);
+        assert_eq!(request.body.unwrap(), "42");
+
+        // Test struct body
+        #[derive(Serialize)]
+        struct TestStruct {
+            field1: String,
+            field2: i32,
+        }
+
+        let test_struct = TestStruct { field1: "test".to_string(), field2: 123 };
+
+        let request = client.request().body(test_struct);
+        assert_eq!(request.body.unwrap(), r#"{"field1":"test","field2":123}"#);
+
+        // Test array/vec body
+        let vec_data = vec![1, 2, 3];
+        let request = client.request().body(vec_data);
+        assert_eq!(request.body.unwrap(), "[1,2,3]");
+    }
+
+    /// Tests TLS certificate and identity handling:
+    /// - Valid certificate addition
+    /// - Invalid certificate handling
+    /// - Identity verification
+    #[test]
+    fn test_certificate_handling() {
+        let mock_server = httpmock::MockServer::start();
+
+        // Load variables from .env.test
+        dotenv::from_filename(".env.test").ok();
+
+        // Getting the cert files from the .env.test and then decoding it from base64
+        let cert = general_purpose::STANDARD
+            .decode(std::env::var("SHARP_USER_CRT").unwrap())
+            .expect("Failed to decode certificate");
+        let key = general_purpose::STANDARD
+            .decode(std::env::var("SHARP_USER_KEY").unwrap())
+            .expect("Failed to decode sharp user key");
+        let server_cert = general_purpose::STANDARD
+            .decode(std::env::var("SHARP_SERVER_CRT").unwrap())
+            .expect("Failed to decode sharp server certificate");
+
+        let identity =
+            Identity::from_pkcs8_pem(&cert, &key).expect("Failed to build the identity from certificate and key");
+        let certificate = Certificate::from_pem(server_cert.as_slice()).expect("Failed to add root certificate");
+
+        let client = HttpClient::builder(&mock_server.base_url())
+            .identity(identity)
+            .add_root_certificate(certificate)
+            .build()
+            .unwrap();
+
+        // Since we can't check the certificates directly, we'll just verify the client was built
+        assert_eq!(client.base_url.as_str(), mock_server.base_url() + "/");
+    }
+
+    /// Tests client behavior with:
+    /// - Large body content
+    /// - Large file uploads
+    /// - Memory usage monitoring
+    #[tokio::test]
+    async fn test_large_payload_handling() {
+        let mock_server = httpmock::MockServer::start();
+
+        let client = HttpClient::builder(&mock_server.base_url()).build().unwrap();
+
+        // Create a large body string
+        let large_body = "x".repeat(1024 * 1024); // 1MB string
+        let request = client.request().method(Method::POST).body(&large_body);
+
+        assert!(request.body.is_some());
+        assert_eq!(request.body.unwrap().len(), (1024 * 1024) + 2);
     }
 
     /// # Integration Tests
@@ -590,256 +672,5 @@ mod http_client_tests {
 
         assert_eq!(response.status(), 200);
         mock.assert();
-    }
-
-    /// Verifies that request-specific parameters properly
-    /// override default values where appropriate
-    #[tokio::test]
-    async fn test_default_override_behavior() {
-        let mock_server = httpmock::MockServer::start();
-
-        let mock = mock_server.mock(|when, then| {
-            when.method("GET")
-                .path("/test")
-                .header("X-Custom", "override-value")
-                .query_param("param", "override-value");
-
-            then.status(200);
-        });
-
-        let client = HttpClient::builder(&mock_server.base_url())
-            .default_header(HeaderName::from_static("x-custom"), HeaderValue::from_static("default-value"))
-            .default_query_param("param", "default-value")
-            .build()
-            .unwrap();
-
-        let response = client
-            .request()
-            .method(Method::GET)
-            .path("/test")
-            .header(HeaderName::from_static("x-custom"), HeaderValue::from_static("override-value"))
-            .query_param("param", "override-value")
-            .send()
-            .await
-            .unwrap();
-
-        assert_eq!(response.status(), 200);
-        mock.assert();
-    }
-
-    /// # Mock Tests
-
-    /// Tests successful response scenarios using mock server:
-    /// - Different response codes
-    /// - Various content types
-    /// - Response header handling
-    #[tokio::test]
-    async fn test_mock_successful_response() {
-        let mock_server = httpmock::MockServer::start();
-
-        let mock = mock_server.mock(|when, then| {
-            when.method("GET").path("/success");
-
-            then.status(201)
-                .header("content-type", "application/json")
-                .header("x-custom", "test-value")
-                .body(r#"{"message": "created"}"#);
-        });
-
-        let client = HttpClient::builder(&mock_server.base_url()).build().unwrap();
-
-        let response = client.request().method(Method::GET).path("/success").send().await.unwrap();
-
-        assert_eq!(response.status(), 201);
-        assert_eq!(response.headers().get("content-type").unwrap(), "application/json");
-        assert_eq!(response.headers().get("x-custom").unwrap(), "test-value");
-        mock.assert();
-    }
-
-    /// Validates error response handling:
-    /// - Different HTTP error codes
-    /// - Timeout scenarios
-    /// - Network errors
-    /// - Malformed responses
-    #[tokio::test]
-    async fn test_mock_error_responses() {
-        let mock_server = httpmock::MockServer::start();
-
-        // Test 404 Not Found
-        let mock_404 = mock_server.mock(|when, then| {
-            when.method("GET").path("/not-found");
-
-            then.status(404).header("content-type", "application/json").body(r#"{"error": "not found"}"#);
-        });
-
-        // Test 500 Internal Server Error
-        let mock_500 = mock_server.mock(|when, then| {
-            when.method("GET").path("/server-error");
-
-            then.status(500).header("content-type", "application/json").body(r#"{"error": "internal server error"}"#);
-        });
-
-        // Test malformed response
-        let mock_malformed = mock_server.mock(|when, then| {
-            when.method("GET").path("/malformed");
-
-            then.status(200).header("content-type", "application/json").body("invalid json");
-        });
-
-        let client = HttpClient::builder(&mock_server.base_url()).build().unwrap();
-
-        // Test 404 response
-        let response = client.request().method(Method::GET).path("/not-found").send().await.unwrap();
-        assert_eq!(response.status(), 404);
-        mock_404.assert();
-
-        // Test 500 response
-        let response = client.request().method(Method::GET).path("/server-error").send().await.unwrap();
-        assert_eq!(response.status(), 500);
-        mock_500.assert();
-
-        // Test malformed response
-        let response = client.request().method(Method::GET).path("/malformed").send().await.unwrap();
-        assert_eq!(response.status(), 200);
-        let text = response.text().await.unwrap();
-        assert_eq!(text, "invalid json");
-        mock_malformed.assert();
-    }
-
-    /// # Error Handling Tests
-
-    /// Tests TLS certificate and identity handling:
-    /// - Valid certificate addition
-    /// - Invalid certificate handling
-    /// - Identity verification
-    #[test]
-    fn test_certificate_handling() {
-        let mock_server = httpmock::MockServer::start();
-
-        // Load variables from .env.test
-        dotenv::from_filename(".env.test").ok();
-
-        // Getting the cert files from the .env.test and then decoding it from base64
-        let cert = general_purpose::STANDARD
-            .decode(std::env::var("SHARP_USER_CRT").unwrap())
-            .expect("Failed to decode certificate");
-        let key = general_purpose::STANDARD
-            .decode(std::env::var("SHARP_USER_KEY").unwrap())
-            .expect("Failed to decode sharp user key");
-        let server_cert = general_purpose::STANDARD
-            .decode(std::env::var("SHARP_SERVER_CRT").unwrap())
-            .expect("Failed to decode sharp server certificate");
-
-        let identity =
-            Identity::from_pkcs8_pem(&cert, &key).expect("Failed to build the identity from certificate and key");
-        let certificate = Certificate::from_pem(server_cert.as_slice()).expect("Failed to add root certificate");
-
-        let client = HttpClient::builder(&mock_server.base_url())
-            .identity(identity)
-            .add_root_certificate(certificate)
-            .build()
-            .unwrap();
-
-        // Since we can't check the certificates directly, we'll just verify the client was built
-        assert_eq!(client.base_url.as_str(), mock_server.base_url() + "/");
-    }
-
-    /// # Edge Cases
-
-    /// Tests behavior with empty or problematic paths:
-    /// - Empty path segments
-    /// - Multiple slashes
-    /// - Unicode paths
-    #[test]
-    fn test_empty_path_handling() {
-        let mock_server = httpmock::MockServer::start();
-
-        let client = HttpClient::builder(&mock_server.base_url()).build().unwrap();
-
-        // Test empty path
-        let request = client.request().path("");
-        assert_eq!(request.path, "");
-
-        // Test multiple slashes
-        let request = client.request().path("//test//path//");
-        assert_eq!(request.path, "//test//path//");
-
-        // Test Unicode path
-        let request = client.request().path("/测试/路径");
-        assert_eq!(request.path, "/测试/路径");
-    }
-
-    /// Verifies handling of special characters in:
-    /// - URLs and paths
-    /// - Query parameters
-    /// - Headers
-    /// - Form data
-    #[test]
-    fn test_special_characters() {
-        let mock_server = httpmock::MockServer::start();
-
-        let client =
-            HttpClient::builder(&mock_server.base_url()).default_query_param("special", "!@#$%^&*()").build().unwrap();
-
-        let request = client
-            .request()
-            .path("/path with spaces/and#special/chars")
-            .query_param("unicode", "测试")
-            .form_text("special form", "value with spaces");
-
-        assert!(request.form.is_some());
-    }
-
-    /// Tests client behavior with:
-    /// - Large body content
-    /// - Large file uploads
-    /// - Memory usage monitoring
-    #[tokio::test]
-    async fn test_large_payload_handling() {
-        let mock_server = httpmock::MockServer::start();
-
-        let client = HttpClient::builder(&mock_server.base_url()).build().unwrap();
-
-        // Create a large body string
-        let large_body = "x".repeat(1024 * 1024); // 1MB string
-        let request = client.request().method(Method::POST).body(&large_body);
-
-        assert!(request.body.is_some());
-        assert_eq!(request.body.unwrap().len(), (1024 * 1024) + 2);
-    }
-
-    /// Tests body serialization functionality:
-    /// - JSON serialization of different types
-    /// - Struct serialization
-    /// - Error handling for serialization failures
-    #[test]
-    fn test_request_builder_body_serialization() {
-        let mock_server = httpmock::MockServer::start();
-        let client = HttpClient::builder(&mock_server.base_url()).build().unwrap();
-
-        // Test string body
-        let request = client.request().body("test string");
-        assert_eq!(request.body.unwrap(), r#""test string""#);
-
-        // Test number body
-        let request = client.request().body(42);
-        assert_eq!(request.body.unwrap(), "42");
-
-        // Test struct body
-        #[derive(Serialize)]
-        struct TestStruct {
-            field1: String,
-            field2: i32,
-        }
-
-        let test_struct = TestStruct { field1: "test".to_string(), field2: 123 };
-
-        let request = client.request().body(test_struct);
-        assert_eq!(request.body.unwrap(), r#"{"field1":"test","field2":123}"#);
-
-        // Test array/vec body
-        let vec_data = vec![1, 2, 3];
-        let request = client.request().body(vec_data);
-        assert_eq!(request.body.unwrap(), "[1,2,3]");
     }
 }

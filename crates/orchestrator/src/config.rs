@@ -129,7 +129,6 @@ pub async fn init_config() -> color_eyre::Result<Arc<Config>> {
             );
             LayoutName::all_cairo
         }
-        "starknet_with_keccak" => LayoutName::starknet_with_keccak,
         _ => panic!("Unsupported SNOS proof layout"),
     };
 
@@ -141,7 +140,6 @@ pub async fn init_config() -> color_eyre::Result<Arc<Config>> {
             );
             LayoutName::dynamic
         }
-        "starknet_with_keccak" => LayoutName::starknet_with_keccak,
         _ => panic!("Unsupported SNOS proof layout"),
     };
 
