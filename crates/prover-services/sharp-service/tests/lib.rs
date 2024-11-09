@@ -6,7 +6,7 @@ use prover_client_interface::ProverClient;
 use prover_client_interface::{Task, TaskStatus};
 use rstest::rstest;
 use serde_json::json;
-use sharp_service::{SharpValidatedArgs, SharpProverService};
+use sharp_service::{SharpProverService, SharpValidatedArgs};
 use starknet_os::sharp::CairoJobStatus;
 use url::Url;
 use utils::env_utils::get_env_var_or_panic;
