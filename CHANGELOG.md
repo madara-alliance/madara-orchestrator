@@ -7,6 +7,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 ## Added
 
 - tests: http_client tests added
+- panic handling in process job
 - upgrade ETH L1 bridge for withdrawals to work
 - added makefile and submodules
 - Endpoints for triggering processing and verification jobs
