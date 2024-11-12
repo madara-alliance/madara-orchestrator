@@ -413,7 +413,7 @@ pub mod test {
             aws_event_bridge_args: AWSEventBridgeCliArgs {
                 aws_event_bridge: true,
                 target_queue_name: Some("".to_string()),
-                cron_time: Some("".to_string()),
+                cron_time: Some("12".to_string()),
                 trigger_rule_name: Some("".to_string()),
             },
             aws_s3_args: AWSS3CliArgs { aws_s3: true, bucket_name: Some("".to_string()) },
