@@ -377,3 +377,190 @@ impl RunCmd {
         Ok(SNOSParams { rpc_for_snos: self.snos_args.rpc_for_snos.clone() })
     }
 }
+
+#[cfg(test)]
+pub mod test {
+
+    use rstest::{fixture, rstest};
+    use tracing::Level;
+    use url::Url;
+
+    use super::alert::aws_sns::AWSSNSCliArgs;
+    use super::aws_config::AWSConfigCliArgs;
+    use super::cron::event_bridge::AWSEventBridgeCliArgs;
+    use super::da::ethereum::EthereumDaCliArgs;
+    use super::database::mongodb::MongoDBCliArgs;
+    use super::instrumentation::InstrumentationCliArgs;
+    use super::prover::sharp::SharpCliArgs;
+    use super::queue::aws_sqs::AWSSQSCliArgs;
+    use super::server::ServerCliArgs;
+    use super::service::ServiceCliArgs;
+    use super::settlement::ethereum::EthereumSettlementCliArgs;
+    use super::settlement::starknet::StarknetSettlementCliArgs;
+    use super::snos::SNOSCliArgs;
+    use super::storage::aws_s3::AWSS3CliArgs;
+    use crate::cli::RunCmd;
+
+    // create a fixture for the CLI
+    #[fixture]
+    pub fn setup_cmd() -> RunCmd {
+        RunCmd {
+            aws_config_args: AWSConfigCliArgs {
+                aws_access_key_id: "".to_string(),
+                aws_secret_access_key: "".to_string(),
+                aws_region: "".to_string(),
+            },
+            aws_event_bridge_args: AWSEventBridgeCliArgs {
+                aws_event_bridge: true,
+                target_queue_name: Some("".to_string()),
+                cron_time: Some("".to_string()),
+                trigger_rule_name: Some("".to_string()),
+            },
+            aws_s3_args: AWSS3CliArgs { aws_s3: true, bucket_name: Some("".to_string()) },
+            aws_sqs_args: AWSSQSCliArgs {
+                aws_sqs: true,
+                queue_base_url: Some("".to_string()),
+                sqs_prefix: Some("".to_string()),
+                sqs_suffix: Some("".to_string()),
+            },
+            server_args: ServerCliArgs { host: "".to_string(), port: 0 },
+            aws_sns_args: AWSSNSCliArgs { aws_sns: true, sns_arn: Some("".to_string()) },
+
+            instrumentation_args: InstrumentationCliArgs {
+                otel_service_name: Some("".to_string()),
+                otel_collector_endpoint: None,
+                log_level: Level::INFO,
+            },
+
+            mongodb_args: MongoDBCliArgs {
+                mongodb: true,
+                mongodb_connection_url: Some("".to_string()),
+                mongodb_database_name: Some("".to_string()),
+            },
+
+            madara_rpc_url: Url::parse("http://localhost:8545").unwrap(),
+
+            sharp_args: SharpCliArgs {
+                sharp: true,
+                sharp_customer_id: Some("".to_string()),
+                sharp_url: Some(Url::parse("http://localhost:8545").unwrap()),
+                sharp_user_crt: Some("".to_string()),
+                sharp_user_key: Some("".to_string()),
+                sharp_rpc_node_url: Some(Url::parse("http://localhost:8545").unwrap()),
+                sharp_proof_layout: Some("".to_string()),
+                gps_verifier_contract_address: Some("".to_string()),
+                sharp_server_crt: Some("".to_string()),
+            },
+
+            starknet_args: StarknetSettlementCliArgs {
+                starknet_rpc_url: Some(Url::parse("http://localhost:8545").unwrap()),
+                starknet_private_key: Some("".to_string()),
+                starknet_account_address: Some("".to_string()),
+                starknet_cairo_core_contract_address: Some("".to_string()),
+                starknet_finality_retry_wait_in_secs: Some(0),
+                starknet_madara_binary_path: Some("".to_string()),
+                settle_on_starknet: false,
+            },
+
+            ethereum_args: EthereumSettlementCliArgs {
+                ethereum_rpc_url: Some(Url::parse("http://localhost:8545").unwrap()),
+                ethereum_private_key: Some("".to_string()),
+                l1_core_contract_address: Some("".to_string()),
+                starknet_operator_address: Some("".to_string()),
+                settle_on_ethereum: true,
+            },
+
+            ethereum_da_args: EthereumDaCliArgs {
+                da_on_ethereum: true,
+                ethereum_da_rpc_url: Some(Url::parse("http://localhost:8545").unwrap()),
+            },
+
+            snos_args: SNOSCliArgs { rpc_for_snos: Url::parse("http://localhost:8545").unwrap() },
+
+            service_args: ServiceCliArgs {
+                max_block_to_process: Some("".to_string()),
+                min_block_to_process: Some("".to_string()),
+            },
+        }
+    }
+
+    // Let's create a test for the CLI each validator
+
+    #[rstest]
+    fn test_validate_aws_config_params(setup_cmd: RunCmd) {
+        let aws_config_params = setup_cmd.validate_aws_config_params();
+        assert!(aws_config_params.is_ok());
+    }
+
+    #[rstest]
+    fn test_validate_alert_params(setup_cmd: RunCmd) {
+        let alert_params = setup_cmd.validate_alert_params();
+        assert!(alert_params.is_ok());
+    }
+
+    #[rstest]
+    fn test_validate_queue_params(setup_cmd: RunCmd) {
+        let queue_params = setup_cmd.validate_queue_params();
+        assert!(queue_params.is_ok());
+    }
+
+    #[rstest]
+    fn test_validate_storage_params(setup_cmd: RunCmd) {
+        let storage_params = setup_cmd.validate_storage_params();
+        assert!(storage_params.is_ok());
+    }
+
+    #[rstest]
+    fn test_validate_database_params(setup_cmd: RunCmd) {
+        let database_params = setup_cmd.validate_database_params();
+        assert!(database_params.is_ok());
+    }
+
+    #[rstest]
+    fn test_validate_da_params(setup_cmd: RunCmd) {
+        let da_params = setup_cmd.validate_da_params();
+        assert!(da_params.is_ok());
+    }
+
+    #[rstest]
+    fn test_validate_settlement_params(setup_cmd: RunCmd) {
+        let settlement_params = setup_cmd.validate_settlement_params();
+        assert!(settlement_params.is_ok());
+    }
+
+    #[rstest]
+    fn test_validate_prover_params(setup_cmd: RunCmd) {
+        let prover_params = setup_cmd.validate_prover_params();
+        assert!(prover_params.is_ok());
+    }
+
+    #[rstest]
+    fn test_validate_cron_params(setup_cmd: RunCmd) {
+        let cron_params = setup_cmd.validate_cron_params();
+        assert!(cron_params.is_ok());
+    }
+
+    #[rstest]
+    fn test_validate_instrumentation_params(setup_cmd: RunCmd) {
+        let instrumentation_params = setup_cmd.validate_instrumentation_params();
+        assert!(instrumentation_params.is_ok());
+    }
+
+    #[rstest]
+    fn test_validate_server_params(setup_cmd: RunCmd) {
+        let server_params = setup_cmd.validate_server_params();
+        assert!(server_params.is_ok());
+    }
+
+    #[rstest]
+    fn test_validate_snos_params(setup_cmd: RunCmd) {
+        let snos_params = setup_cmd.validate_snos_params();
+        assert!(snos_params.is_ok());
+    }
+
+    #[rstest]
+    fn test_validate_service_params(setup_cmd: RunCmd) {
+        let service_params = setup_cmd.validate_service_params();
+        assert!(service_params.is_ok());
+    }
+}
