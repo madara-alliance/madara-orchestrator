@@ -126,7 +126,6 @@ impl Setup {
 async fn test_orchestrator_workflow(#[case] l2_block_number: String) {
     // Fetching the env vars from the test env file as these will be used in
     // setting up of the test and during orchestrator run too.
-    use e2e_tests::node::OrchestratorMode;
     dotenvy::from_filename(".env.test").expect("Failed to load the .env file");
 
     let queue_params = AWSSQSValidatedArgs {
@@ -138,8 +137,7 @@ async fn test_orchestrator_workflow(#[case] l2_block_number: String) {
     let mut setup_config = Setup::new(l2_block_number.clone()).await;
     // Setup Cloud
     // Setup orchestrator cloud
-    let _orchestrator = Orchestrator::run(setup_config.envs(), OrchestratorMode::Setup);
-
+    Orchestrator::setup(setup_config.envs());
     println!("✅ Orchestrator cloud setup completed");
 
     // Step 1 : SNOS job runs =========================================
@@ -162,7 +160,7 @@ async fn test_orchestrator_workflow(#[case] l2_block_number: String) {
     println!("✅ Orchestrator setup completed.");
 
     // Run orchestrator
-    let mut orchestrator = Orchestrator::run(setup_config.envs(), OrchestratorMode::Run);
+    let mut orchestrator = Orchestrator::run(setup_config.envs());
     orchestrator.wait_till_started().await;
 
     println!("✅ Orchestrator started");

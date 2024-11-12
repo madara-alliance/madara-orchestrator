@@ -36,17 +36,15 @@ pub enum OrchestratorMode {
 }
 
 impl Orchestrator {
-    pub fn run(envs: Vec<(String, String)>, mode: OrchestratorMode) -> Self {
+    pub fn setup(envs: Vec<(String, String)>) {
         let port = get_free_port();
-        let address = format!("127.0.0.1:{}", port);
         let repository_root = &get_repository_root();
+        let port_str = format!("{}", port);
 
         std::env::set_current_dir(repository_root).expect("Failed to change working directory");
-
-        let port_str = format!("{}", port);
         let envs = [envs, vec![("MADARA_ORCHESTRATOR_PORT".to_string(), port_str)]].concat();
 
-        println!("Running orchestrator in {:?} mode", mode);
+        println!("Running orchestrator in Setup mode");
         let mut command = Command::new("cargo");
         command
             .arg("run")
@@ -57,7 +55,60 @@ impl Orchestrator {
             .arg("testing")
             .arg("--")
             // if mode::Run then --run else if mode::Setup then --setup
-            .arg(format!("--{}", mode))
+            .arg("--setup")
+            .arg("--settle-on-ethereum")
+            .arg("--aws-s3")
+            .arg("--aws-sqs")
+            .arg("--aws-sns")
+            .arg("--mongodb")
+            .arg("--sharp")
+            .arg("--da-on-ethereum")
+            .arg("--aws-event-bridge")
+            .current_dir(repository_root)
+            .envs(envs)
+            .stdout(Stdio::piped())
+            .stderr(Stdio::piped());
+
+        let mut process = command.spawn().expect("Failed to start process");
+
+        // Wait for the process to complete and get its exit status
+        let status = process.wait().expect("Failed to wait for process");
+
+        // You can check if the process succeeded
+        if status.success() {
+            println!("Setup Orchestrator completed successfully");
+        } else {
+            // Get the exit code if available
+            if let Some(code) = status.code() {
+                println!("Setup Orchestrator failed with exit code: {}", code);
+            } else {
+                println!("Setup Orchestrator terminated by signal");
+            }
+        }
+    }
+
+    pub fn run(envs: Vec<(String, String)>) -> Self {
+        let port = get_free_port();
+        let address = format!("127.0.0.1:{}", port);
+        let repository_root = &get_repository_root();
+
+        std::env::set_current_dir(repository_root).expect("Failed to change working directory");
+
+        let port_str = format!("{}", port);
+        let envs = [envs, vec![("MADARA_ORCHESTRATOR_PORT".to_string(), port_str)]].concat();
+
+        println!("Running orchestrator in Run mode");
+        let mut command = Command::new("cargo");
+        command
+            .arg("run")
+            .arg("--release")
+            .arg("--bin")
+            .arg("orchestrator")
+            .arg("--features")
+            .arg("testing")
+            .arg("--")
+            // if mode::Run then --run else if mode::Setup then --setup
+            .arg("--run")
             .arg("--settle-on-ethereum")
             .arg("--aws-s3")
             .arg("--aws-sqs")
