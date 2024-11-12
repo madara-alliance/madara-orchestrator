@@ -18,7 +18,8 @@ use crate::jobs::types::{ExternalId, JobItem, JobStatus, JobType, JobVerificatio
 use crate::jobs::{
     create_job, handle_job_failure, increment_key_in_metadata, process_job, verify_job, Job, JobError, MockJob,
 };
-use crate::queue::job_queue::{QueueNameForJobType, QueueType};
+use crate::queue::job_queue::QueueNameForJobType;
+use crate::queue::QueueType;
 use crate::tests::common::MessagePayloadType;
 use crate::tests::config::{ConfigType, TestConfigBuilder};
 

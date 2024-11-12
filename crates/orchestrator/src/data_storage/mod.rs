@@ -6,6 +6,8 @@ use bytes::Bytes;
 use color_eyre::Result;
 use mockall::automock;
 
+use crate::cli::storage::StorageParams;
+
 /// Data Storage Trait
 ///
 /// DataStorage trait contains the functions used to store and get the data from
@@ -20,5 +22,10 @@ use mockall::automock;
 pub trait DataStorage: Send + Sync {
     async fn get_data(&self, key: &str) -> Result<Bytes>;
     async fn put_data(&self, data: Bytes, key: &str) -> Result<()>;
-    async fn build_test_bucket(&self, bucket_name: &str) -> Result<()>;
+    async fn create_bucket(&self, bucket_name: &str) -> Result<()>;
+    async fn setup(&self, storage_params: &StorageParams) -> Result<()> {
+        match storage_params {
+            StorageParams::AWSS3(aws_s3_params) => self.create_bucket(&aws_s3_params.bucket_name).await,
+        }
+    }
 }

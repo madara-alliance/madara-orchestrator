@@ -1,6 +1,9 @@
+use std::time::Duration;
+
 use alert::AlertParams;
 use aws_config::{AWSConfigCliArgs, AWSConfigParams};
 use clap::{ArgGroup, Parser};
+use cron::event_bridge::AWSEventBridgeCliArgs;
 use da::DaParams;
 use database::DatabaseParams;
 use ethereum_da_client::EthereumDaValidatedArgs;
@@ -16,6 +19,8 @@ use url::Url;
 
 use crate::alerts::aws_sns::AWSSNSValidatedArgs;
 use crate::config::ServiceParams;
+use crate::cron::event_bridge::AWSEventBridgeValidatedArgs;
+use crate::cron::CronParams;
 use crate::data_storage::aws_s3::AWSS3ValidatedArgs;
 use crate::database::mongodb::MongoDBValidatedArgs;
 use crate::queue::sqs::AWSSQSValidatedArgs;
@@ -24,6 +29,7 @@ use crate::telemetry::InstrumentationParams;
 
 pub mod alert;
 pub mod aws_config;
+pub mod cron;
 pub mod da;
 pub mod database;
 pub mod instrumentation;
@@ -74,6 +80,12 @@ pub mod storage;
             .required(true)
             .multiple(false)
     ),
+    group(
+        ArgGroup::new("cron")
+            .args(&["aws_event_bridge"])
+            .required(true)
+            .multiple(false)
+    ),
 )]
 pub struct RunCmd {
     // AWS Config
@@ -114,6 +126,10 @@ pub struct RunCmd {
     // Prover
     #[clap(flatten)]
     pub sharp_args: prover::sharp::SharpCliArgs,
+
+    // Cron
+    #[clap(flatten)]
+    pub aws_event_bridge_args: AWSEventBridgeCliArgs,
 
     // SNOS
     #[clap(flatten)]
@@ -299,6 +315,33 @@ impl RunCmd {
             }))
         } else {
             Err("Only Sharp is supported as of now".to_string())
+        }
+    }
+
+    pub fn validate_cron_params(&self) -> Result<CronParams, String> {
+        if self.aws_event_bridge_args.aws_event_bridge {
+            Ok(CronParams::EventBridge(AWSEventBridgeValidatedArgs {
+                target_queue_name: self
+                    .aws_event_bridge_args
+                    .target_queue_name
+                    .clone()
+                    .expect("Target queue name is required"),
+                cron_time: Duration::from_secs(
+                    self.aws_event_bridge_args
+                        .cron_time
+                        .clone()
+                        .expect("Cron time is required")
+                        .parse::<u64>()
+                        .expect("Failed to parse cron time"),
+                ),
+                trigger_rule_name: self
+                    .aws_event_bridge_args
+                    .trigger_rule_name
+                    .clone()
+                    .expect("Trigger rule name is required"),
+            }))
+        } else {
+            Err("Only AWS Event Bridge is supported as of now".to_string())
         }
     }
 

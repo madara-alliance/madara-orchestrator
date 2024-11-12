@@ -21,8 +21,9 @@ use orchestrator::data_storage::DataStorage;
 use orchestrator::database::mongodb::MongoDBValidatedArgs;
 use orchestrator::jobs::constants::{JOB_METADATA_SNOS_BLOCK, JOB_METADATA_STATE_UPDATE_BLOCKS_TO_SETTLE_KEY};
 use orchestrator::jobs::types::{ExternalId, JobItem, JobStatus, JobType};
-use orchestrator::queue::job_queue::{JobQueueMessage, QueueType, WorkerTriggerType};
+use orchestrator::queue::job_queue::{JobQueueMessage, WorkerTriggerType};
 use orchestrator::queue::sqs::AWSSQSValidatedArgs;
+use orchestrator::queue::QueueType;
 use rstest::rstest;
 use serde::{Deserialize, Serialize};
 use serde_json::json;
@@ -486,7 +487,7 @@ pub async fn put_job_data_in_db_proving(mongo_db: &MongoDbServer, l2_block_numbe
 /// To set up s3 files needed for e2e test (test_orchestrator_workflow)
 #[allow(clippy::borrowed_box)]
 pub async fn setup_s3(s3_client: &Box<dyn DataStorage + Send + Sync>) -> color_eyre::Result<()> {
-    s3_client.build_test_bucket(&get_env_var_or_panic("MADARA_ORCHESTRATOR_AWS_S3_BUCKET_NAME")).await.unwrap();
+    s3_client.create_bucket(&get_env_var_or_panic("MADARA_ORCHESTRATOR_AWS_S3_BUCKET_NAME")).await.unwrap();
     Ok(())
 }
 

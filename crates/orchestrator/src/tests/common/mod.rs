@@ -22,7 +22,7 @@ use crate::database::mongodb::MongoDb;
 use crate::jobs::types::JobStatus::Created;
 use crate::jobs::types::JobType::DataSubmission;
 use crate::jobs::types::{ExternalId, JobItem};
-use crate::queue::job_queue::QueueType;
+use crate::queue::QueueType;
 
 #[fixture]
 pub fn default_job_item() -> JobItem {

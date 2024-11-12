@@ -26,7 +26,7 @@ use crate::workers::Worker;
 #[case(true)]
 #[tokio::test]
 async fn test_snos_worker(#[case] db_val: bool) -> Result<(), Box<dyn Error>> {
-    use crate::queue::job_queue::QueueType;
+    use crate::queue::QueueType;
 
     let server = MockServer::start();
     let da_client = MockDaClient::new();

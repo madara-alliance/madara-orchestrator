@@ -19,6 +19,7 @@ pub struct AWSConfigCliArgs {
     pub aws_region: String,
 }
 
+#[derive(Debug, Clone)]
 pub struct AWSConfigParams {
     pub aws_access_key_id: String,
     pub aws_secret_access_key: String,

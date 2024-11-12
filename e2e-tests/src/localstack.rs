@@ -12,8 +12,9 @@ use orchestrator::cli::aws_config::AWSConfigParams;
 use orchestrator::config::ProviderConfig;
 use orchestrator::data_storage::aws_s3::{AWSS3ValidatedArgs, AWSS3};
 use orchestrator::data_storage::DataStorage;
-use orchestrator::queue::job_queue::{JobQueueMessage, QueueType, WorkerTriggerMessage, WorkerTriggerType};
+use orchestrator::queue::job_queue::{JobQueueMessage, WorkerTriggerMessage, WorkerTriggerType};
 use orchestrator::queue::sqs::AWSSQSValidatedArgs;
+use orchestrator::queue::QueueType;
 
 /// LocalStack struct
 pub struct LocalStack {

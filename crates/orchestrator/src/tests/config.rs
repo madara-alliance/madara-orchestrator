@@ -391,7 +391,7 @@ pub mod implement_client {
             ConfigType::Actual => match storage_cfg {
                 StorageParams::AWSS3(aws_s3_params) => {
                     let storage = get_storage_client(aws_s3_params, provider_config).await;
-                    storage.as_ref().build_test_bucket(&aws_s3_params.bucket_name).await.unwrap();
+                    storage.as_ref().create_bucket(&aws_s3_params.bucket_name).await.unwrap();
                     storage
                 }
             },

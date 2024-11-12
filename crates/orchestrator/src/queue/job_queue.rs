@@ -7,11 +7,11 @@ use color_eyre::eyre::Context;
 use color_eyre::Result as EyreResult;
 use omniqueue::{Delivery, QueueError};
 use serde::{Deserialize, Deserializer, Serialize};
-use strum_macros::Display;
 use thiserror::Error;
 use tokio::time::sleep;
 use uuid::Uuid;
 
+use super::QueueType;
 use crate::config::Config;
 use crate::jobs::types::JobType;
 use crate::jobs::{handle_job_failure, process_job, verify_job, JobError, OtherError};
@@ -21,55 +21,6 @@ use crate::workers::proving::ProvingWorker;
 use crate::workers::snos::SnosWorker;
 use crate::workers::update_state::UpdateStateWorker;
 use crate::workers::Worker;
-
-#[derive(Display, Debug, Clone, PartialEq, Eq)]
-pub enum QueueType {
-    #[strum(serialize = "snos_job_processing")]
-    SnosJobProcessing,
-    #[strum(serialize = "snos_job_verification")]
-    SnosJobVerification,
-    #[strum(serialize = "proving_job_processing")]
-    ProvingJobProcessing,
-    #[strum(serialize = "proving_job_verification")]
-    ProvingJobVerification,
-    #[strum(serialize = "proof_registration_job_processing")]
-    ProofRegistrationJobProcessing,
-    #[strum(serialize = "proof_registration_job_verification")]
-    ProofRegistrationJobVerification,
-    #[strum(serialize = "data_submission_job_processing")]
-    DataSubmissionJobProcessing,
-    #[strum(serialize = "data_submission_job_verification")]
-    DataSubmissionJobVerification,
-    #[strum(serialize = "update_state_job_processing")]
-    UpdateStateJobProcessing,
-    #[strum(serialize = "update_state_job_verification")]
-    UpdateStateJobVerification,
-    #[strum(serialize = "job_handle_failure")]
-    JobHandleFailure,
-    #[strum(serialize = "worker_trigger")]
-    WorkerTrigger,
-}
-
-impl QueueType {
-    pub fn iter() -> impl Iterator<Item = QueueType> {
-        [
-            QueueType::SnosJobProcessing,
-            QueueType::SnosJobVerification,
-            QueueType::ProvingJobProcessing,
-            QueueType::ProvingJobVerification,
-            QueueType::ProofRegistrationJobProcessing,
-            QueueType::ProofRegistrationJobVerification,
-            QueueType::DataSubmissionJobProcessing,
-            QueueType::DataSubmissionJobVerification,
-            QueueType::UpdateStateJobProcessing,
-            QueueType::UpdateStateJobVerification,
-            QueueType::JobHandleFailure,
-            QueueType::WorkerTrigger,
-        ]
-        .iter()
-        .cloned()
-    }
-}
 
 #[derive(Error, Debug, PartialEq)]
 pub enum ConsumptionError {
