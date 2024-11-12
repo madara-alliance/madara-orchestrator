@@ -3,6 +3,7 @@ use std::process::{Child, Command, ExitStatus, Stdio};
 use std::thread;
 use std::time::Duration;
 
+use strum_macros::Display;
 use tokio::net::TcpStream;
 use url::Url;
 
@@ -26,8 +27,16 @@ impl Drop for Orchestrator {
     }
 }
 
+#[derive(Display, Debug, Clone, PartialEq, Eq)]
+pub enum OrchestratorMode {
+    #[strum(serialize = "run")]
+    Run,
+    #[strum(serialize = "setup")]
+    Setup,
+}
+
 impl Orchestrator {
-    pub fn run(envs: Vec<(String, String)>) -> Self {
+    pub fn run(envs: Vec<(String, String)>, mode: OrchestratorMode) -> Self {
         let port = get_free_port();
         let address = format!("127.0.0.1:{}", port);
         let repository_root = &get_repository_root();
@@ -37,6 +46,7 @@ impl Orchestrator {
         let port_str = format!("{}", port);
         let envs = [envs, vec![("MADARA_ORCHESTRATOR_PORT".to_string(), port_str)]].concat();
 
+        println!("Running orchestrator in {:?} mode", mode);
         let mut command = Command::new("cargo");
         command
             .arg("run")
@@ -46,6 +56,8 @@ impl Orchestrator {
             .arg("--features")
             .arg("testing")
             .arg("--")
+            // if mode::Run then --run else if mode::Setup then --setup
+            .arg(format!("--{}", mode))
             .arg("--settle-on-ethereum")
             .arg("--aws-s3")
             .arg("--aws-sqs")

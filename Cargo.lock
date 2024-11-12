@@ -4277,6 +4277,8 @@ dependencies = [
  "serde",
  "serde_json",
  "starknet",
+ "strum 0.26.2",
+ "strum_macros 0.26.4",
  "testcontainers",
  "tokio",
  "tokio-stream",

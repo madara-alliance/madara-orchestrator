@@ -70,7 +70,7 @@ impl QueueProvider for SqsQueue {
         };
         let sqs_client = Client::new(config);
         let res =
-            sqs_client.create_queue().queue_name(self.params.get_queue_url(queue_config.name.clone())).send().await?;
+            sqs_client.create_queue().queue_name(self.params.get_queue_name(queue_config.name.clone())).send().await?;
         let queue_url = res.queue_url().ok_or_else(|| eyre!("Not able to get queue url from result"))?;
 
         let mut attributes = HashMap::new();

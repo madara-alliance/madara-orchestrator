@@ -4,6 +4,7 @@ use orchestrator::cli::RunCmd;
 use orchestrator::config::init_config;
 use orchestrator::queue::init_consumers;
 use orchestrator::routes::setup_server;
+use orchestrator::setup::setup_cloud;
 use orchestrator::telemetry::{setup_analytics, shutdown_analytics};
 
 /// Start the server
@@ -15,6 +16,11 @@ async fn main() {
     dotenv().ok();
     // TODO: could this be an ARC ?
     let run_cmd: RunCmd = RunCmd::parse();
+
+    if run_cmd.setup {
+        setup_cloud(&run_cmd).await.expect("Failed to setup cloud");
+        return;
+    }
 
     // Analytics Setup
     let instrumentation_params = run_cmd.validate_instrumentation_params().expect("Invalid instrumentation params");

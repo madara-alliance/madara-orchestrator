@@ -3,32 +3,27 @@ use std::fs::File;
 use std::io::Read;
 use std::time::{Duration, Instant};
 
+use aws_config::meta::region::RegionProviderChain;
 use chrono::{SubsecRound, Utc};
 use e2e_tests::anvil::AnvilSetup;
-use e2e_tests::localstack::LocalStack;
 use e2e_tests::mock_server::MockResponseBodyType;
 use e2e_tests::sharp::SharpClient;
 use e2e_tests::starknet_client::StarknetClient;
 use e2e_tests::utils::{get_mongo_db_client, read_state_update_from_file, vec_u8_to_hex_string};
 use e2e_tests::{MongoDbServer, Orchestrator};
 use mongodb::bson::doc;
-use orchestrator::cli::aws_config::AWSConfigParams;
 use orchestrator::cli::database::DatabaseParams;
-use orchestrator::cli::queue::QueueParams;
-use orchestrator::cli::storage::StorageParams;
-use orchestrator::data_storage::aws_s3::AWSS3ValidatedArgs;
 use orchestrator::data_storage::DataStorage;
 use orchestrator::database::mongodb::MongoDBValidatedArgs;
 use orchestrator::jobs::constants::{JOB_METADATA_SNOS_BLOCK, JOB_METADATA_STATE_UPDATE_BLOCKS_TO_SETTLE_KEY};
 use orchestrator::jobs::types::{ExternalId, JobItem, JobStatus, JobType};
-use orchestrator::queue::job_queue::{JobQueueMessage, WorkerTriggerType};
+use orchestrator::queue::job_queue::JobQueueMessage;
 use orchestrator::queue::sqs::AWSSQSValidatedArgs;
 use orchestrator::queue::QueueType;
 use rstest::rstest;
 use serde::{Deserialize, Serialize};
 use serde_json::json;
 use starknet::core::types::{Felt, MaybePendingStateUpdate};
-use url::Url;
 use utils::env_utils::get_env_var_or_panic;
 use uuid::Uuid;
 
@@ -50,7 +45,6 @@ struct Setup {
     starknet_client: StarknetClient,
     sharp_client: SharpClient,
     env_vector: Vec<(String, String)>,
-    localstack_instance: LocalStack,
 }
 
 impl Setup {
@@ -60,24 +54,6 @@ impl Setup {
             connection_url: get_env_var_or_panic("MADARA_ORCHESTRATOR_MONGODB_CONNECTION_URL"),
             database_name: get_env_var_or_panic("MADARA_ORCHESTRATOR_DATABASE_NAME"),
         });
-
-        let storage_params = StorageParams::AWSS3(AWSS3ValidatedArgs {
-            bucket_name: get_env_var_or_panic("MADARA_ORCHESTRATOR_AWS_S3_BUCKET_NAME"),
-        });
-        let queue_params = QueueParams::AWSSQS(AWSSQSValidatedArgs {
-            queue_base_url: get_env_var_or_panic("MADARA_ORCHESTRATOR_SQS_BASE_QUEUE_URL"),
-            sqs_prefix: get_env_var_or_panic("MADARA_ORCHESTRATOR_SQS_PREFIX"),
-            sqs_suffix: get_env_var_or_panic("MADARA_ORCHESTRATOR_SQS_SUFFIX"),
-        });
-
-        let aws_config = AWSConfigParams {
-            aws_access_key_id: get_env_var_or_panic("AWS_ACCESS_KEY_ID"),
-            aws_secret_access_key: get_env_var_or_panic("AWS_SECRET_ACCESS_KEY"),
-            aws_region: get_env_var_or_panic("AWS_REGION"),
-            aws_endpoint_url: Url::parse(&get_env_var_or_panic("AWS_ENDPOINT_URL"))
-                .expect("Failed to parse AWS_ENDPOINT_URL"),
-            aws_default_region: get_env_var_or_panic("AWS_DEFAULT_REGION"),
-        };
 
         let DatabaseParams::MongoDB(mongodb_params) = db_params;
 
@@ -93,17 +69,6 @@ impl Setup {
         let anvil_setup = AnvilSetup::new();
         let (starknet_core_contract_address, verifier_contract_address) = anvil_setup.deploy_contracts().await;
         println!("✅ Anvil setup completed");
-
-        // Setting up LocalStack
-        let StorageParams::AWSS3(s3_params) = storage_params;
-        let QueueParams::AWSSQS(sqs_params) = queue_params;
-        let localstack_instance = LocalStack::new(aws_config, &s3_params).await;
-        localstack_instance.setup_sqs(&sqs_params).await.unwrap();
-        localstack_instance.delete_event_bridge_rule("worker_trigger_scheduled").await.unwrap();
-        localstack_instance.setup_event_bridge(WorkerTriggerType::Snos, &sqs_params).await.unwrap();
-        localstack_instance.setup_event_bridge(WorkerTriggerType::Proving, &sqs_params).await.unwrap();
-        localstack_instance.setup_event_bridge(WorkerTriggerType::DataSubmission, &sqs_params).await.unwrap();
-        localstack_instance.setup_event_bridge(WorkerTriggerType::UpdateState, &sqs_params).await.unwrap();
 
         let mut env_vec: Vec<(String, String)> =
             vec![("MADARA_ORCHESTRATOR_MONGODB_CONNECTION_URL".to_string(), mongo_db_instance.endpoint().to_string())];
@@ -134,7 +99,7 @@ impl Setup {
         let env_vec_2: Vec<(String, String)> = set_env_vars();
         env_vec.extend(env_vec_2);
 
-        Self { mongo_db_instance, starknet_client, sharp_client, env_vector: env_vec, localstack_instance }
+        Self { mongo_db_instance, starknet_client, sharp_client, env_vector: env_vec }
     }
 
     pub fn mongo_db_instance(&self) -> &MongoDbServer {
@@ -153,10 +118,6 @@ impl Setup {
     pub fn envs(&self) -> Vec<(String, String)> {
         self.env_vector.clone()
     }
-
-    pub fn localstack(&self) -> &LocalStack {
-        &self.localstack_instance
-    }
 }
 
 #[rstest]
@@ -165,6 +126,7 @@ impl Setup {
 async fn test_orchestrator_workflow(#[case] l2_block_number: String) {
     // Fetching the env vars from the test env file as these will be used in
     // setting up of the test and during orchestrator run too.
+    use e2e_tests::node::OrchestratorMode;
     dotenvy::from_filename(".env.test").expect("Failed to load the .env file");
 
     let queue_params = AWSSQSValidatedArgs {
@@ -174,13 +136,16 @@ async fn test_orchestrator_workflow(#[case] l2_block_number: String) {
     };
 
     let mut setup_config = Setup::new(l2_block_number.clone()).await;
-    // Setup S3
-    setup_s3(setup_config.localstack().s3_client()).await.unwrap();
+    // Setup Cloud
+    // Setup orchestrator cloud
+    let _orchestrator = Orchestrator::run(setup_config.envs(), OrchestratorMode::Setup);
+
+    println!("✅ Orchestrator cloud setup completed");
 
     // Step 1 : SNOS job runs =========================================
     // Updates the job in the db
     let job_id = put_job_data_in_db_snos(setup_config.mongo_db_instance(), l2_block_number.clone()).await;
-    put_snos_job_in_processing_queue(setup_config.localstack(), job_id, queue_params).await.unwrap();
+    put_snos_job_in_processing_queue(job_id, queue_params).await.unwrap();
 
     // Step 2: Proving Job ============================================
     // Mocking the endpoint
@@ -197,7 +162,7 @@ async fn test_orchestrator_workflow(#[case] l2_block_number: String) {
     println!("✅ Orchestrator setup completed.");
 
     // Run orchestrator
-    let mut orchestrator = Orchestrator::run(setup_config.envs());
+    let mut orchestrator = Orchestrator::run(setup_config.envs(), OrchestratorMode::Run);
     orchestrator.wait_till_started().await;
 
     println!("✅ Orchestrator started");
@@ -325,13 +290,21 @@ pub async fn put_job_data_in_db_snos(mongo_db: &MongoDbServer, l2_block_number: 
 
 /// Adding SNOS job in JOB_PROCESSING_QUEUE so that the job is triggered
 /// as soon as it is picked up by orchestrator
-pub async fn put_snos_job_in_processing_queue(
-    local_stack: &LocalStack,
-    id: Uuid,
-    queue_params: AWSSQSValidatedArgs,
-) -> color_eyre::Result<()> {
+pub async fn put_snos_job_in_processing_queue(id: Uuid, queue_params: AWSSQSValidatedArgs) -> color_eyre::Result<()> {
     let message = JobQueueMessage { id };
-    local_stack.put_message_in_queue(message, queue_params.get_queue_url(QueueType::SnosJobProcessing)).await?;
+    put_message_in_queue(message, queue_params.get_queue_url(QueueType::SnosJobProcessing)).await?;
+    Ok(())
+}
+
+pub async fn put_message_in_queue(message: JobQueueMessage, queue_url: String) -> color_eyre::Result<()> {
+    let region_provider = RegionProviderChain::default_provider().or_else("us-east-1");
+    let config = aws_config::from_env().region(region_provider).load().await;
+    let client = aws_sdk_sqs::Client::new(&config);
+
+    let rsp = client.send_message().queue_url(queue_url).message_body(serde_json::to_string(&message)?).send().await?;
+
+    println!("Successfully sent message with ID: {:?}", rsp.message_id());
+
     Ok(())
 }
 

@@ -45,6 +45,12 @@ pub mod storage;
 #[command(author, version, about, long_about = None)]
 #[clap(
     group(
+        ArgGroup::new("mode")
+            .args(&["run", "setup"])
+            .required(true)
+            .multiple(false)
+    ),
+    group(
         ArgGroup::new("settlement_layer")
             .args(&["settle_on_ethereum", "settle_on_starknet"])
             .required(true)
@@ -88,6 +94,13 @@ pub mod storage;
     ),
 )]
 pub struct RunCmd {
+    // Run mode
+    #[arg(long)]
+    pub run: bool,
+
+    #[arg(long)]
+    pub setup: bool,
+
     // AWS Config
     #[clap(flatten)]
     pub aws_config_args: AWSConfigCliArgs,
@@ -405,6 +418,8 @@ pub mod test {
     #[fixture]
     pub fn setup_cmd() -> RunCmd {
         RunCmd {
+            run: true,
+            setup: false,
             aws_config_args: AWSConfigCliArgs {
                 aws_access_key_id: "".to_string(),
                 aws_secret_access_key: "".to_string(),

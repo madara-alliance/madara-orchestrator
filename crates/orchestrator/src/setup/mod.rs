@@ -1,9 +1,9 @@
 use std::process::Command;
 use std::sync::Arc;
 
-use aws_config::{Region, SdkConfig};
-use aws_credential_types::Credentials;
-use aws_sdk_s3::config::SharedCredentialsProvider;
+use aws_config::environment::EnvironmentVariableCredentialsProvider;
+use aws_config::{from_env, Region, SdkConfig};
+use aws_credential_types::provider::ProvideCredentials;
 
 use crate::alerts::aws_sns::AWSSNS;
 use crate::alerts::Alerts;
@@ -33,29 +33,19 @@ async fn setup_config_from_params(client_type: ConfigType) -> SetupConfig {
     match client_type {
         ConfigType::AWS(aws_config) => {
             let region_provider = Region::new(aws_config.aws_region);
-            let sdk_config = SdkConfig::builder()
-                .region(region_provider)
-                .credentials_provider(SharedCredentialsProvider::new(Credentials::new(
-                    aws_config.aws_access_key_id,
-                    aws_config.aws_secret_access_key,
-                    None,
-                    None,
-                    "madara-orchestrator",
-                )))
-                .build();
-
-            SetupConfig::AWS(sdk_config)
+            let creds = EnvironmentVariableCredentialsProvider::new().provide_credentials().await.unwrap();
+            SetupConfig::AWS(from_env().region(region_provider).credentials_provider(creds).load().await)
         }
     }
 }
 
 // TODO : move this to main.rs after moving to clap.
 pub async fn setup_cloud(run_cmd: &RunCmd) -> color_eyre::Result<()> {
-    tracing::info!("Setting up cloud.");
+    println!("Setting up cloud.");
     let aws_config = run_cmd.validate_aws_config_params().expect("Failed to validate AWS config params");
     let provider_config = Arc::new(ProviderConfig::AWS(Box::new(get_aws_config(&aws_config).await)));
 
-    tracing::info!("Setting up data storage.");
+    println!("Setting up data storage.");
     let data_storage_params = run_cmd.validate_storage_params().expect("Failed to validate storage params");
 
     match data_storage_params {
@@ -64,9 +54,9 @@ pub async fn setup_cloud(run_cmd: &RunCmd) -> color_eyre::Result<()> {
             s3.setup(&StorageParams::AWSS3(aws_s3_params.clone())).await?
         }
     }
-    tracing::info!("Data storage setup completed ✅");
+    println!("Data storage setup completed ✅");
 
-    tracing::info!("Setting up queues");
+    println!("Setting up queues");
     let queue_params = run_cmd.validate_queue_params().expect("Failed to validate queue params");
     match queue_params {
         QueueParams::AWSSQS(aws_sqs_params) => {
@@ -75,9 +65,9 @@ pub async fn setup_cloud(run_cmd: &RunCmd) -> color_eyre::Result<()> {
             sqs.setup(config).await?
         }
     }
-    tracing::info!("Queues setup completed ✅");
+    println!("Queues setup completed ✅");
 
-    tracing::info!("Setting up cron");
+    println!("Setting up cron");
     let cron_params = run_cmd.validate_cron_params().expect("Failed to validate cron params");
     match cron_params {
         CronParams::EventBridge(aws_event_bridge_params) => {
@@ -86,9 +76,9 @@ pub async fn setup_cloud(run_cmd: &RunCmd) -> color_eyre::Result<()> {
             event_bridge.setup(config).await?
         }
     }
-    tracing::info!("Cron setup completed ✅");
+    println!("Cron setup completed ✅");
 
-    tracing::info!("Setting up alerts.");
+    println!("Setting up alerts.");
     let alert_params = run_cmd.validate_alert_params().expect("Failed to validate alert params");
     match alert_params {
         AlertParams::AWSSNS(aws_sns_params) => {
@@ -96,7 +86,7 @@ pub async fn setup_cloud(run_cmd: &RunCmd) -> color_eyre::Result<()> {
             sns.setup(AlertParams::AWSSNS(aws_sns_params.clone())).await?
         }
     }
-    tracing::info!("Alerts setup completed ✅");
+    println!("Alerts setup completed ✅");
 
     Ok(())
 }
