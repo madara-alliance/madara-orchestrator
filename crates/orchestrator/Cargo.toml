@@ -21,6 +21,7 @@ aws-config = { workspace = true, features = ["behavior-version-latest"] }
 aws-credential-types = { workspace = true, features = [
   "hardcoded-credentials",
 ] }
+aws-sdk-eventbridge.workspace = true
 aws-sdk-s3 = { workspace = true, features = ["behavior-version-latest"] }
 aws-sdk-sns = { workspace = true, features = ["behavior-version-latest"] }
 aws-sdk-sqs = { workspace = true }
