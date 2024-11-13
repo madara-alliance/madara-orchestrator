@@ -1,6 +1,6 @@
 use clap::Parser as _;
 use dotenvy::dotenv;
-use orchestrator::cli::RunCmd;
+use orchestrator::cli::{Cli, Commands, RunCmd, SetupCmd};
 use orchestrator::config::init_config;
 use orchestrator::queue::init_consumers;
 use orchestrator::routes::setup_server;
@@ -14,14 +14,20 @@ use orchestrator::telemetry::{setup_analytics, shutdown_analytics};
 #[allow(clippy::needless_return)]
 async fn main() {
     dotenv().ok();
-    // TODO: could this be an ARC ?
-    let run_cmd: RunCmd = RunCmd::parse();
 
-    if run_cmd.setup {
-        setup_cloud(&run_cmd).await.expect("Failed to setup cloud");
-        return;
+    let cli = Cli::parse();
+
+    match &cli.command {
+        Commands::Run { run_command } => {
+            run_orchestrator(run_command).await.expect("Failed to run orchestrator");
+        }
+        Commands::Setup { setup_command } => {
+            setup_orchestrator(setup_command).await.expect("Failed to setup orchestrator");
+        }
     }
+}
 
+async fn run_orchestrator(run_cmd: &RunCmd) -> color_eyre::Result<()> {
     // Analytics Setup
     let instrumentation_params = run_cmd.validate_instrumentation_params().expect("Invalid instrumentation params");
     let meter_provider = setup_analytics(&instrumentation_params);
@@ -30,7 +36,7 @@ async fn main() {
     color_eyre::install().expect("Unable to install color_eyre");
 
     // initial config setup
-    let config = init_config(&run_cmd).await.expect("Config instantiation failed");
+    let config = init_config(run_cmd).await.expect("Config instantiation failed");
     tracing::debug!(service = "orchestrator", "Configuration initialized");
 
     // initialize the server
@@ -52,4 +58,11 @@ async fn main() {
     // Analytics Shutdown
     shutdown_analytics(meter_provider, &instrumentation_params);
     tracing::info!(service = "orchestrator", "Orchestrator service shutting down");
+
+    Ok(())
+}
+
+async fn setup_orchestrator(setup_cmd: &SetupCmd) -> color_eyre::Result<()> {
+    setup_cloud(setup_cmd).await.expect("Failed to setup cloud");
+    Ok(())
 }

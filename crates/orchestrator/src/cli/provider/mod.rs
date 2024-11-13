@@ -1,6 +1,5 @@
 pub mod aws;
 
-
 #[derive(Debug, Clone)]
 pub enum ProviderValidatedArgs {
     AWS(AWSConfigValidatedArgs),

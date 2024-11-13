@@ -8,7 +8,7 @@ use crate::cli::alert::AlertValidatedArgs;
 use crate::cli::cron::CronValidatedArgs;
 use crate::cli::queue::QueueValidatedArgs;
 use crate::cli::storage::StorageValidatedArgs;
-use crate::cli::RunCmd;
+use crate::cli::SetupCmd;
 use crate::config::build_provider_config;
 use crate::cron::event_bridge::AWSEventBridge;
 use crate::cron::Cron;
@@ -23,11 +23,13 @@ pub enum SetupConfig {
 }
 
 // TODO : move this to main.rs after moving to clap.
-pub async fn setup_cloud(run_cmd: &RunCmd) -> color_eyre::Result<()> {
+pub async fn setup_cloud(run_cmd: &SetupCmd) -> color_eyre::Result<()> {
     println!("Setting up cloud.");
+    // AWS
     let provider_params = run_cmd.validate_provider_params().expect("Failed to validate provider params");
     let provider_config = build_provider_config(&provider_params).await;
 
+    // Data Storage
     println!("Setting up data storage.");
     let data_storage_params = run_cmd.validate_storage_params().expect("Failed to validate storage params");
     let aws_config = provider_config.get_aws_client_or_panic();
@@ -40,6 +42,7 @@ pub async fn setup_cloud(run_cmd: &RunCmd) -> color_eyre::Result<()> {
     }
     println!("Data storage setup completed ✅");
 
+    // Queues
     println!("Setting up queues");
     let queue_params = run_cmd.validate_queue_params().expect("Failed to validate queue params");
     match queue_params {
@@ -50,6 +53,7 @@ pub async fn setup_cloud(run_cmd: &RunCmd) -> color_eyre::Result<()> {
     }
     println!("Queues setup completed ✅");
 
+    // Cron
     println!("Setting up cron");
     let cron_params = run_cmd.validate_cron_params().expect("Failed to validate cron params");
     match cron_params {
@@ -61,6 +65,7 @@ pub async fn setup_cloud(run_cmd: &RunCmd) -> color_eyre::Result<()> {
     }
     println!("Cron setup completed ✅");
 
+    // Alerts
     println!("Setting up alerts.");
     let alert_params = run_cmd.validate_alert_params().expect("Failed to validate alert params");
     match alert_params {

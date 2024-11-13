@@ -7,7 +7,6 @@ use crate::queue::job_queue::{WorkerTriggerMessage, WorkerTriggerType};
 
 pub mod event_bridge;
 
-
 lazy_static! {
     pub static ref CRON_DURATION: Duration = Duration::from_mins(1);
     // TODO : we can take this from clap.
