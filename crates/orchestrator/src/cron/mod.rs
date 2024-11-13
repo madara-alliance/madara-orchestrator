@@ -1,17 +1,12 @@
 use std::time::Duration;
 
 use async_trait::async_trait;
-use event_bridge::AWSEventBridgeValidatedArgs;
 use lazy_static::lazy_static;
 
 use crate::queue::job_queue::{WorkerTriggerMessage, WorkerTriggerType};
 
 pub mod event_bridge;
 
-#[derive(Clone, Debug)]
-pub enum CronValidatedArgs {
-    AWSEventBridge(AWSEventBridgeValidatedArgs),
-}
 
 lazy_static! {
     pub static ref CRON_DURATION: Duration = Duration::from_mins(1);
