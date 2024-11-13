@@ -10,6 +10,7 @@ use mongodb::options::{
     UpdateOptions,
 };
 use mongodb::{bson, Client, Collection};
+use url::Url;
 use utils::ToDocument;
 use uuid::Uuid;
 
@@ -21,7 +22,7 @@ mod utils;
 
 #[derive(Debug, Clone)]
 pub struct MongoDBValidatedArgs {
-    pub connection_url: String,
+    pub connection_url: Url,
     pub database_name: String,
 }
 

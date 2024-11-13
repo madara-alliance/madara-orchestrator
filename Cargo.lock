@@ -9679,6 +9679,8 @@ dependencies = [
 name = "starknet-settlement-client"
 version = "0.1.0"
 dependencies = [
+ "alloy 0.2.1",
+ "alloy-primitives 0.7.7",
  "appchain-core-contract-client",
  "async-std",
  "async-trait",
@@ -10875,7 +10877,6 @@ checksum = "06abde3611657adf66d383f00b093d7faecc7fa57071cce2578660c9f1010821"
 name = "utils"
 version = "0.1.0"
 dependencies = [
- "clap",
  "color-eyre",
  "opentelemetry",
  "opentelemetry-appender-tracing",

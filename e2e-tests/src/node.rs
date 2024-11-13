@@ -36,15 +36,22 @@ pub enum OrchestratorMode {
 }
 
 impl Orchestrator {
-    pub fn setup(envs: Vec<(String, String)>) {
-        let port = get_free_port();
+    pub fn new(mode: OrchestratorMode, mut envs: Vec<(String, String)>) -> Option<Self> {
         let repository_root = &get_repository_root();
-        let port_str = format!("{}", port);
-
         std::env::set_current_dir(repository_root).expect("Failed to change working directory");
-        let envs = [envs, vec![("MADARA_ORCHESTRATOR_PORT".to_string(), port_str)]].concat();
 
-        println!("Running orchestrator in Setup mode");
+        let (mode_str, is_run_mode) = match mode {
+            OrchestratorMode::Setup => {
+                println!("Running orchestrator in Setup mode");
+                (OrchestratorMode::Setup.to_string(), false)
+            }
+            OrchestratorMode::Run => {
+                println!("Running orchestrator in Run mode");
+                (OrchestratorMode::Run.to_string(), true)
+            }
+        };
+
+        // Configure common command arguments
         let mut command = Command::new("cargo");
         command
             .arg("run")
@@ -53,100 +60,71 @@ impl Orchestrator {
             .arg("orchestrator")
             .arg("--features")
             .arg("testing")
+            .arg(mode_str)
             .arg("--")
-            // if mode::Run then --run else if mode::Setup then --setup
-            .arg("--setup")
+            .arg("--aws")
             .arg("--settle-on-ethereum")
             .arg("--aws-s3")
             .arg("--aws-sqs")
             .arg("--aws-sns")
             .arg("--mongodb")
             .arg("--sharp")
-            .arg("--da-on-ethereum")
-            .arg("--aws-event-bridge")
-            .current_dir(repository_root)
-            .envs(envs)
-            .stdout(Stdio::piped())
-            .stderr(Stdio::piped());
+            .arg("--da-on-ethereum");
+
+        // Add event bridge arg only for setup mode
+        if !is_run_mode {
+            command.arg("--aws-event-bridge");
+        }
+
+        // Configure run-specific settings
+        let address = if is_run_mode {
+            let port = get_free_port();
+            let addr = format!("127.0.0.1:{}", port);
+            envs.push(("MADARA_ORCHESTRATOR_PORT".to_string(), port.to_string()));
+            addr
+        } else {
+            String::new()
+        };
+
+        command.current_dir(repository_root).envs(envs).stdout(Stdio::piped()).stderr(Stdio::piped());
 
         let mut process = command.spawn().expect("Failed to start process");
 
-        // Wait for the process to complete and get its exit status
-        let status = process.wait().expect("Failed to wait for process");
+        if is_run_mode {
+            // Set up stdout and stderr handling for run mode
+            let stdout = process.stdout.take().expect("Failed to capture stdout");
+            thread::spawn(move || {
+                let reader = BufReader::new(stdout);
+                reader.lines().for_each(|line| {
+                    if let Ok(line) = line {
+                        println!("STDOUT: {}", line);
+                    }
+                });
+            });
 
-        // You can check if the process succeeded
-        if status.success() {
-            println!("Setup Orchestrator completed successfully");
+            let stderr = process.stderr.take().expect("Failed to capture stderr");
+            thread::spawn(move || {
+                let reader = BufReader::new(stderr);
+                reader.lines().for_each(|line| {
+                    if let Ok(line) = line {
+                        eprintln!("STDERR: {}", line);
+                    }
+                });
+            });
+
+            Some(Self { process, address })
         } else {
-            // Get the exit code if available
-            if let Some(code) = status.code() {
+            // Handle setup mode
+            let status = process.wait().expect("Failed to wait for process");
+            if status.success() {
+                println!("Setup Orchestrator completed successfully");
+            } else if let Some(code) = status.code() {
                 println!("Setup Orchestrator failed with exit code: {}", code);
             } else {
                 println!("Setup Orchestrator terminated by signal");
             }
+            None
         }
-    }
-
-    pub fn run(envs: Vec<(String, String)>) -> Self {
-        let port = get_free_port();
-        let address = format!("127.0.0.1:{}", port);
-        let repository_root = &get_repository_root();
-
-        std::env::set_current_dir(repository_root).expect("Failed to change working directory");
-
-        let port_str = format!("{}", port);
-        let envs = [envs, vec![("MADARA_ORCHESTRATOR_PORT".to_string(), port_str)]].concat();
-
-        println!("Running orchestrator in Run mode");
-        let mut command = Command::new("cargo");
-        command
-            .arg("run")
-            .arg("--release")
-            .arg("--bin")
-            .arg("orchestrator")
-            .arg("--features")
-            .arg("testing")
-            .arg("--")
-            // if mode::Run then --run else if mode::Setup then --setup
-            .arg("--run")
-            .arg("--settle-on-ethereum")
-            .arg("--aws-s3")
-            .arg("--aws-sqs")
-            .arg("--aws-sns")
-            .arg("--mongodb")
-            .arg("--sharp")
-            .arg("--da-on-ethereum")
-            .arg("--aws-event-bridge")
-            .current_dir(repository_root)
-            .envs(envs)
-            .stdout(Stdio::piped())
-            .stderr(Stdio::piped());
-
-        let mut process = command.spawn().expect("Failed to start process");
-
-        // Capture and print stdout
-        let stdout = process.stdout.take().expect("Failed to capture stdout");
-        thread::spawn(move || {
-            let reader = BufReader::new(stdout);
-            reader.lines().for_each(|line| {
-                if let Ok(line) = line {
-                    println!("STDOUT: {}", line);
-                }
-            });
-        });
-
-        // Capture and print stderr
-        let stderr = process.stderr.take().expect("Failed to capture stderr");
-        thread::spawn(move || {
-            let reader = BufReader::new(stderr);
-            reader.lines().for_each(|line| {
-                if let Ok(line) = line {
-                    eprintln!("STDERR: {}", line);
-                }
-            });
-        });
-
-        Self { process, address }
     }
 
     pub fn endpoint(&self) -> Url {

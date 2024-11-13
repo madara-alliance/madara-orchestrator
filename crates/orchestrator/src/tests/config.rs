@@ -2,6 +2,7 @@ use std::net::SocketAddr;
 use std::str::FromStr as _;
 use std::sync::Arc;
 
+use alloy::primitives::Address;
 use axum::Router;
 use da_client_interface::{DaClient, MockDaClient};
 use ethereum_da_client::EthereumDaValidatedArgs;
@@ -483,7 +484,8 @@ struct EnvParams {
 
 fn get_env_params() -> EnvParams {
     let db_params = DatabaseValidatedArgs::MongoDB(MongoDBValidatedArgs {
-        connection_url: get_env_var_or_panic("MADARA_ORCHESTRATOR_MONGODB_CONNECTION_URL"),
+        connection_url: Url::parse(&get_env_var_or_panic("MADARA_ORCHESTRATOR_MONGODB_CONNECTION_URL"))
+            .expect("Invalid MongoDB connection URL"),
         database_name: get_env_var_or_panic("MADARA_ORCHESTRATOR_DATABASE_NAME"),
     });
 
@@ -492,7 +494,8 @@ fn get_env_params() -> EnvParams {
     });
 
     let queue_params = QueueValidatedArgs::AWSSQS(AWSSQSValidatedArgs {
-        queue_base_url: get_env_var_or_panic("MADARA_ORCHESTRATOR_SQS_BASE_QUEUE_URL"),
+        queue_base_url: Url::parse(&get_env_var_or_panic("MADARA_ORCHESTRATOR_SQS_BASE_QUEUE_URL"))
+            .expect("Invalid queue base URL"),
         sqs_prefix: get_env_var_or_panic("MADARA_ORCHESTRATOR_SQS_PREFIX"),
         sqs_suffix: get_env_var_or_panic("MADARA_ORCHESTRATOR_SQS_SUFFIX"),
     });
@@ -516,8 +519,14 @@ fn get_env_params() -> EnvParams {
         ethereum_rpc_url: Url::parse(&get_env_var_or_panic("MADARA_ORCHESTRATOR_ETHEREUM_SETTLEMENT_RPC_URL"))
             .expect("Failed to parse MADARA_ORCHESTRATOR_ETHEREUM_RPC_URL"),
         ethereum_private_key: get_env_var_or_panic("MADARA_ORCHESTRATOR_ETHEREUM_PRIVATE_KEY"),
-        l1_core_contract_address: get_env_var_or_panic("MADARA_ORCHESTRATOR_L1_CORE_CONTRACT_ADDRESS"),
-        starknet_operator_address: get_env_var_or_panic("MADARA_ORCHESTRATOR_STARKNET_OPERATOR_ADDRESS"),
+        l1_core_contract_address: Address::from_str(&get_env_var_or_panic(
+            "MADARA_ORCHESTRATOR_L1_CORE_CONTRACT_ADDRESS",
+        ))
+        .expect("Invalid L1 core contract address"),
+        starknet_operator_address: Address::from_str(&get_env_var_or_panic(
+            "MADARA_ORCHESTRATOR_STARKNET_OPERATOR_ADDRESS",
+        ))
+        .expect("Invalid Starknet operator address"),
     });
 
     let snos_config = SNOSParams {

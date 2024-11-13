@@ -9,12 +9,12 @@ use color_eyre::Result as EyreResult;
 use lazy_static::lazy_static;
 use mockall::automock;
 use omniqueue::{Delivery, QueueError};
-use strum_macros::Display;
+use strum_macros::{Display, EnumIter};
 
 use crate::config::Config;
 use crate::jobs::JobError;
 
-#[derive(Display, Debug, Clone, PartialEq, Eq)]
+#[derive(Display, Debug, Clone, PartialEq, Eq, EnumIter)]
 pub enum QueueType {
     #[strum(serialize = "snos_job_processing")]
     SnosJobProcessing,
@@ -40,27 +40,6 @@ pub enum QueueType {
     JobHandleFailure,
     #[strum(serialize = "worker_trigger")]
     WorkerTrigger,
-}
-
-impl QueueType {
-    pub fn iter() -> impl Iterator<Item = QueueType> {
-        [
-            QueueType::SnosJobProcessing,
-            QueueType::SnosJobVerification,
-            QueueType::ProvingJobProcessing,
-            QueueType::ProvingJobVerification,
-            QueueType::ProofRegistrationJobProcessing,
-            QueueType::ProofRegistrationJobVerification,
-            QueueType::DataSubmissionJobProcessing,
-            QueueType::DataSubmissionJobVerification,
-            QueueType::UpdateStateJobProcessing,
-            QueueType::UpdateStateJobVerification,
-            QueueType::JobHandleFailure,
-            QueueType::WorkerTrigger,
-        ]
-        .iter()
-        .cloned()
-    }
 }
 
 #[derive(Clone)]

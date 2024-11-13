@@ -27,8 +27,4 @@ pub struct StarknetSettlementCliArgs {
     /// The number of seconds to wait for finality.
     #[arg(env = "MADARA_ORCHESTRATOR_STARKNET_FINALITY_RETRY_WAIT_IN_SECS", long)]
     pub starknet_finality_retry_wait_in_secs: Option<u64>,
-
-    /// The path to the Madara binary.
-    #[arg(env = "MADARA_ORCHESTRATOR_MADARA_BINARY_PATH", long)]
-    pub starknet_madara_binary_path: Option<String>,
 }

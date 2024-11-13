@@ -1,8 +1,10 @@
 use std::env;
 use std::path::Path;
+use std::str::FromStr as _;
 use std::sync::Arc;
 use std::time::Duration;
 
+use alloy_primitives::Address;
 use color_eyre::eyre::eyre;
 use rstest::{fixture, rstest};
 use settlement_client_interface::SettlementClient;
@@ -82,16 +84,19 @@ async fn setup(#[future] spin_up_madara: MadaraCmd) -> (LocalWalletSignerMiddlew
     let starknet_settlement_params: StarknetSettlementValidatedArgs = StarknetSettlementValidatedArgs {
         starknet_rpc_url: Url::parse(madara_process.rpc_url.as_ref()).unwrap(),
         starknet_private_key: get_env_var_or_panic("MADARA_ORCHESTRATOR_STARKNET_PRIVATE_KEY"),
-        starknet_account_address: get_env_var_or_panic("MADARA_ORCHESTRATOR_STARKNET_ACCOUNT_ADDRESS"),
-        starknet_cairo_core_contract_address: get_env_var_or_panic(
+        starknet_account_address: Address::from_str(&get_env_var_or_panic(
+            "MADARA_ORCHESTRATOR_STARKNET_ACCOUNT_ADDRESS",
+        ))
+        .unwrap(),
+        starknet_cairo_core_contract_address: Address::from_str(&get_env_var_or_panic(
             "MADARA_ORCHESTRATOR_STARKNET_CAIRO_CORE_CONTRACT_ADDRESS",
-        ),
+        ))
+        .unwrap(),
         starknet_finality_retry_wait_in_secs: get_env_var_or_panic(
             "MADARA_ORCHESTRATOR_STARKNET_FINALITY_RETRY_WAIT_IN_SECS",
         )
         .parse::<u64>()
         .unwrap(),
-        madara_binary_path: get_env_var_or_panic("MADARA_ORCHESTRATOR_MADARA_BINARY_PATH"),
     };
 
     let rpc_url = Url::parse(starknet_settlement_params.starknet_rpc_url.as_ref()).unwrap();
@@ -100,7 +105,7 @@ async fn setup(#[future] spin_up_madara: MadaraCmd) -> (LocalWalletSignerMiddlew
     let signer = LocalWallet::from(SigningKey::from_secret_scalar(
         Felt::from_hex(&starknet_settlement_params.starknet_private_key).expect("Invalid private key"),
     ));
-    let address = Felt::from_hex(&starknet_settlement_params.starknet_account_address).unwrap();
+    let address = Felt::from_hex(&starknet_settlement_params.starknet_account_address.to_string()).unwrap();
 
     let chain_id = provider.chain_id().await.unwrap();
     let mut account = SingleOwnerAccount::new(provider, signer, address, chain_id, ExecutionEncoding::New);
@@ -121,16 +126,19 @@ async fn test_settle(#[future] setup: (LocalWalletSignerMiddleware, MadaraCmd)) 
     let mut starknet_settlement_params: StarknetSettlementValidatedArgs = StarknetSettlementValidatedArgs {
         starknet_rpc_url: madara_process.rpc_url.clone(),
         starknet_private_key: get_env_var_or_panic("MADARA_ORCHESTRATOR_STARKNET_PRIVATE_KEY"),
-        starknet_account_address: get_env_var_or_panic("MADARA_ORCHESTRATOR_STARKNET_ACCOUNT_ADDRESS"),
-        starknet_cairo_core_contract_address: get_env_var_or_panic(
+        starknet_account_address: Address::from_str(&get_env_var_or_panic(
+            "MADARA_ORCHESTRATOR_STARKNET_ACCOUNT_ADDRESS",
+        ))
+        .unwrap(),
+        starknet_cairo_core_contract_address: Address::from_str(&get_env_var_or_panic(
             "MADARA_ORCHESTRATOR_STARKNET_CAIRO_CORE_CONTRACT_ADDRESS",
-        ),
+        ))
+        .unwrap(),
         starknet_finality_retry_wait_in_secs: get_env_var_or_panic(
             "MADARA_ORCHESTRATOR_STARKNET_FINALITY_RETRY_WAIT_IN_SECS",
         )
         .parse::<u64>()
         .unwrap(),
-        madara_binary_path: get_env_var_or_panic("MADARA_ORCHESTRATOR_MADARA_BINARY_PATH"),
     };
 
     let project_root = Path::new(env!("CARGO_MANIFEST_DIR")).ancestors().nth(3).unwrap();
@@ -162,7 +170,8 @@ async fn test_settle(#[future] setup: (LocalWalletSignerMiddleware, MadaraCmd)) 
     let deployed_address = deploy_v1.deployed_address();
 
     // env::set_var("STARKNET_CAIRO_CORE_CONTRACT_ADDRESS", deployed_address.to_hex_string());
-    starknet_settlement_params.starknet_cairo_core_contract_address = deployed_address.to_hex_string();
+    starknet_settlement_params.starknet_cairo_core_contract_address =
+        Address::from_str(&deployed_address.to_hex_string()).unwrap();
 
     let InvokeTransactionResult { transaction_hash: deploy_tx_hash } =
         deploy_v1.send().await.expect("Unable to deploy contract");

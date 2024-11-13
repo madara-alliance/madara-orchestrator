@@ -1,6 +1,8 @@
+use std::str::FromStr as _;
 use std::time::Duration;
 
 use alert::AlertValidatedArgs;
+use alloy::primitives::Address;
 use clap::{ArgGroup, Parser, Subcommand};
 use cron::event_bridge::AWSEventBridgeCliArgs;
 use cron::CronValidatedArgs;
@@ -179,7 +181,7 @@ impl RunCmd {
     }
 
     pub fn validate_alert_params(&self) -> Result<AlertValidatedArgs, String> {
-        if self.aws_sns_args.aws_sns {
+        if self.aws_sns_args.aws_sns && self.aws_config_args.aws {
             Ok(AlertValidatedArgs::AWSSNS(AWSSNSValidatedArgs {
                 topic_arn: self.aws_sns_args.sns_arn.clone().expect("SNS ARN is required"),
             }))
@@ -189,9 +191,12 @@ impl RunCmd {
     }
 
     pub fn validate_queue_params(&self) -> Result<QueueValidatedArgs, String> {
-        if self.aws_sqs_args.aws_sqs {
+        if self.aws_sqs_args.aws_sqs && self.aws_config_args.aws {
             Ok(QueueValidatedArgs::AWSSQS(AWSSQSValidatedArgs {
-                queue_base_url: self.aws_sqs_args.queue_base_url.clone().expect("Queue base URL is required"),
+                queue_base_url: Url::parse(
+                    &self.aws_sqs_args.queue_base_url.clone().expect("Queue base URL is required"),
+                )
+                .expect("Invalid queue base URL"),
                 sqs_prefix: self.aws_sqs_args.sqs_prefix.clone().expect("SQS prefix is required"),
                 sqs_suffix: self.aws_sqs_args.sqs_suffix.clone().expect("SQS suffix is required"),
             }))
@@ -201,7 +206,7 @@ impl RunCmd {
     }
 
     pub fn validate_storage_params(&self) -> Result<StorageValidatedArgs, String> {
-        if self.aws_s3_args.aws_s3 {
+        if self.aws_s3_args.aws_s3 && self.aws_config_args.aws {
             Ok(StorageValidatedArgs::AWSS3(AWSS3ValidatedArgs {
                 bucket_name: self.aws_s3_args.bucket_name.clone().expect("Bucket name is required"),
             }))
@@ -213,11 +218,10 @@ impl RunCmd {
     pub fn validate_database_params(&self) -> Result<DatabaseValidatedArgs, String> {
         if self.mongodb_args.mongodb {
             Ok(DatabaseValidatedArgs::MongoDB(MongoDBValidatedArgs {
-                connection_url: self
-                    .mongodb_args
-                    .mongodb_connection_url
-                    .clone()
-                    .expect("MongoDB connection URL is required"),
+                connection_url: Url::parse(
+                    &self.mongodb_args.mongodb_connection_url.clone().expect("MongoDB connection URL is required"),
+                )
+                .expect("Invalid MongoDB connection URL"),
                 database_name: self
                     .mongodb_args
                     .mongodb_database_name
@@ -244,67 +248,55 @@ impl RunCmd {
     }
 
     pub fn validate_settlement_params(&self) -> Result<settlement::SettlementValidatedArgs, String> {
-        match (self.ethereum_args.settle_on_ethereum, self.starknet_args.settle_on_starknet) {
-            (true, false) => {
-                let ethereum_params = EthereumSettlementValidatedArgs {
-                    ethereum_rpc_url: self
-                        .ethereum_args
-                        .ethereum_rpc_url
-                        .clone()
-                        .expect("Ethereum RPC URL is required"),
-                    ethereum_private_key: self
-                        .ethereum_args
-                        .ethereum_private_key
-                        .clone()
-                        .expect("Ethereum private key is required"),
-                    l1_core_contract_address: self
-                        .ethereum_args
-                        .l1_core_contract_address
-                        .clone()
-                        .expect("L1 core contract address is required"),
-                    starknet_operator_address: self
-                        .ethereum_args
-                        .starknet_operator_address
-                        .clone()
-                        .expect("Starknet operator address is required"),
-                };
-                Ok(SettlementValidatedArgs::Ethereum(ethereum_params))
-            }
-            (false, true) => {
-                let starknet_params = StarknetSettlementValidatedArgs {
-                    starknet_rpc_url: self
-                        .starknet_args
-                        .starknet_rpc_url
-                        .clone()
-                        .expect("Starknet RPC URL is required"),
-                    starknet_private_key: self
-                        .starknet_args
-                        .starknet_private_key
-                        .clone()
-                        .expect("Starknet private key is required"),
-                    starknet_account_address: self
-                        .starknet_args
-                        .starknet_account_address
-                        .clone()
-                        .expect("Starknet account address is required"),
-                    starknet_cairo_core_contract_address: self
+        if self.ethereum_args.settle_on_ethereum {
+            let l1_core_contract_address = Address::from_str(
+                &self.ethereum_args.l1_core_contract_address.clone().expect("L1 core contract address is required"),
+            )
+            .expect("Invalid L1 core contract address");
+            let starknet_operator_address = Address::from_str(
+                &self.ethereum_args.starknet_operator_address.clone().expect("Starknet operator address is required"),
+            )
+            .expect("Invalid Starknet operator address");
+
+            let ethereum_params = EthereumSettlementValidatedArgs {
+                ethereum_rpc_url: self.ethereum_args.ethereum_rpc_url.clone().expect("Ethereum RPC URL is required"),
+                ethereum_private_key: self
+                    .ethereum_args
+                    .ethereum_private_key
+                    .clone()
+                    .expect("Ethereum private key is required"),
+                l1_core_contract_address,
+                starknet_operator_address,
+            };
+            Ok(SettlementValidatedArgs::Ethereum(ethereum_params))
+        } else if self.starknet_args.settle_on_starknet {
+            let starknet_params = StarknetSettlementValidatedArgs {
+                starknet_rpc_url: self.starknet_args.starknet_rpc_url.clone().expect("Starknet RPC URL is required"),
+                starknet_private_key: self
+                    .starknet_args
+                    .starknet_private_key
+                    .clone()
+                    .expect("Starknet private key is required"),
+                starknet_account_address: Address::from_str(
+                    &self.starknet_args.starknet_account_address.clone().expect("Starknet account address is required"),
+                )
+                .expect("Invalid Starknet account address"),
+                starknet_cairo_core_contract_address: Address::from_str(
+                    &self
                         .starknet_args
                         .starknet_cairo_core_contract_address
                         .clone()
                         .expect("Starknet Cairo core contract address is required"),
-                    starknet_finality_retry_wait_in_secs: self
-                        .starknet_args
-                        .starknet_finality_retry_wait_in_secs
-                        .expect("Starknet finality retry wait in seconds is required"),
-                    madara_binary_path: self
-                        .starknet_args
-                        .starknet_madara_binary_path
-                        .clone()
-                        .expect("Starknet Madara binary path is required"),
-                };
-                Ok(SettlementValidatedArgs::Starknet(starknet_params))
-            }
-            (true, true) | (false, false) => Err("Exactly one settlement layer must be selected".to_string()),
+                )
+                .expect("Invalid Starknet Cairo core contract address"),
+                starknet_finality_retry_wait_in_secs: self
+                    .starknet_args
+                    .starknet_finality_retry_wait_in_secs
+                    .expect("Starknet finality retry wait in seconds is required"),
+            };
+            Ok(SettlementValidatedArgs::Starknet(starknet_params))
+        } else {
+            Err("Settlement layer is required".to_string())
         }
     }
 
@@ -339,7 +331,7 @@ impl RunCmd {
                 .instrumentation_args
                 .otel_service_name
                 .clone()
-                .expect("OTel service name is required"),
+                .expect("Otel service name is required"),
             otel_collector_endpoint: self.instrumentation_args.otel_collector_endpoint.clone(),
             log_level: self.instrumentation_args.log_level,
         })
@@ -440,7 +432,7 @@ impl SetupCmd {
     }
 
     pub fn validate_alert_params(&self) -> Result<AlertValidatedArgs, String> {
-        if self.aws_sns_args.aws_sns {
+        if self.aws_sns_args.aws_sns && self.aws_config_args.aws {
             Ok(AlertValidatedArgs::AWSSNS(AWSSNSValidatedArgs {
                 topic_arn: self.aws_sns_args.sns_arn.clone().expect("SNS ARN is required"),
             }))
@@ -450,9 +442,12 @@ impl SetupCmd {
     }
 
     pub fn validate_queue_params(&self) -> Result<QueueValidatedArgs, String> {
-        if self.aws_sqs_args.aws_sqs {
+        if self.aws_sqs_args.aws_sqs && self.aws_config_args.aws {
             Ok(QueueValidatedArgs::AWSSQS(AWSSQSValidatedArgs {
-                queue_base_url: self.aws_sqs_args.queue_base_url.clone().expect("Queue base URL is required"),
+                queue_base_url: Url::parse(
+                    &self.aws_sqs_args.queue_base_url.clone().expect("Queue base URL is required"),
+                )
+                .expect("Invalid queue base URL"),
                 sqs_prefix: self.aws_sqs_args.sqs_prefix.clone().expect("SQS prefix is required"),
                 sqs_suffix: self.aws_sqs_args.sqs_suffix.clone().expect("SQS suffix is required"),
             }))
@@ -462,7 +457,7 @@ impl SetupCmd {
     }
 
     pub fn validate_storage_params(&self) -> Result<StorageValidatedArgs, String> {
-        if self.aws_s3_args.aws_s3 {
+        if self.aws_s3_args.aws_s3 && self.aws_config_args.aws {
             Ok(StorageValidatedArgs::AWSS3(AWSS3ValidatedArgs {
                 bucket_name: self.aws_s3_args.bucket_name.clone().expect("Bucket name is required"),
             }))
@@ -472,7 +467,7 @@ impl SetupCmd {
     }
 
     pub fn validate_cron_params(&self) -> Result<CronValidatedArgs, String> {
-        if self.aws_event_bridge_args.aws_event_bridge {
+        if self.aws_event_bridge_args.aws_event_bridge && self.aws_config_args.aws {
             Ok(CronValidatedArgs::AWSEventBridge(AWSEventBridgeValidatedArgs {
                 target_queue_name: self
                     .aws_event_bridge_args
@@ -580,7 +575,6 @@ impl SetupCmd {
 //                 starknet_account_address: Some("".to_string()),
 //                 starknet_cairo_core_contract_address: Some("".to_string()),
 //                 starknet_finality_retry_wait_in_secs: Some(0),
-//                 starknet_madara_binary_path: Some("".to_string()),
 //                 settle_on_starknet: false,
 //             },
 

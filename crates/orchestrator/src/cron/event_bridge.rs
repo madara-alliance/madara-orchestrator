@@ -17,13 +17,19 @@ pub struct AWSEventBridgeValidatedArgs {
 }
 
 pub struct AWSEventBridge {
+    target_queue_name: String,
+    cron_time: Duration,
+    trigger_rule_name: String,
     client: EventBridgeClient,
     queue_client: SqsClient,
 }
 
 impl AWSEventBridge {
-    pub fn new_with_args(_params: &AWSEventBridgeValidatedArgs, aws_config: &SdkConfig) -> Self {
+    pub fn new_with_args(params: &AWSEventBridgeValidatedArgs, aws_config: &SdkConfig) -> Self {
         Self {
+            target_queue_name: params.target_queue_name.clone(),
+            cron_time: params.cron_time,
+            trigger_rule_name: params.trigger_rule_name.clone(),
             client: aws_sdk_eventbridge::Client::new(aws_config),
             queue_client: aws_sdk_sqs::Client::new(aws_config),
         }
@@ -33,24 +39,19 @@ impl AWSEventBridge {
 #[async_trait]
 #[allow(unreachable_patterns)]
 impl Cron for AWSEventBridge {
-    async fn create_cron(&self, cron_time: Duration, trigger_rule_name: String) -> color_eyre::Result<()> {
+    async fn create_cron(&self) -> color_eyre::Result<()> {
         self.client
             .put_rule()
-            .name(&trigger_rule_name)
-            .schedule_expression(duration_to_rate_string(cron_time))
+            .name(&self.trigger_rule_name)
+            .schedule_expression(duration_to_rate_string(self.cron_time))
             .state(RuleState::Enabled)
             .send()
             .await?;
 
         Ok(())
     }
-    async fn add_cron_target_queue(
-        &self,
-        target_queue_name: String,
-        message: String,
-        trigger_rule_name: String,
-    ) -> color_eyre::Result<()> {
-        let queue_url = self.queue_client.get_queue_url().queue_name(target_queue_name).send().await?;
+    async fn add_cron_target_queue(&self, message: String) -> color_eyre::Result<()> {
+        let queue_url = self.queue_client.get_queue_url().queue_name(&self.target_queue_name).send().await?;
 
         let queue_attributes = self
             .queue_client
@@ -67,7 +68,7 @@ impl Cron for AWSEventBridge {
 
         self.client
             .put_targets()
-            .rule(trigger_rule_name)
+            .rule(&self.trigger_rule_name)
             .targets(
                 Target::builder()
                     .id(uuid::Uuid::new_v4().to_string())

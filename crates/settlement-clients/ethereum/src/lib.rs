@@ -67,9 +67,9 @@ pub struct EthereumSettlementValidatedArgs {
 
     pub ethereum_private_key: String,
 
-    pub l1_core_contract_address: String,
+    pub l1_core_contract_address: Address,
 
-    pub starknet_operator_address: String,
+    pub starknet_operator_address: Address,
 }
 
 #[allow(dead_code)]
@@ -99,13 +99,8 @@ impl EthereumSettlementClient {
                 .on_http(settlement_cfg.ethereum_rpc_url.clone()),
         );
 
-        let core_contract_client = StarknetValidityContractClient::new(
-            Address::from_str(&settlement_cfg.l1_core_contract_address)
-                .expect("Failed to convert the validity contract address.")
-                .0
-                .into(),
-            filler_provider,
-        );
+        let core_contract_client =
+            StarknetValidityContractClient::new(settlement_cfg.l1_core_contract_address, filler_provider);
 
         EthereumSettlementClient { provider, core_contract_client, wallet, wallet_address, impersonate_account: None }
     }

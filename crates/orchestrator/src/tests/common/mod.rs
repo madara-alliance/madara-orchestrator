@@ -11,6 +11,7 @@ use chrono::{SubsecRound, Utc};
 use mongodb::Client;
 use rstest::*;
 use serde::Deserialize;
+use strum::IntoEnumIterator as _;
 
 use crate::cli::alert::AlertValidatedArgs;
 use crate::cli::database::DatabaseValidatedArgs;

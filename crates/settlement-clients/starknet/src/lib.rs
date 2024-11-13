@@ -5,6 +5,7 @@ pub mod tests;
 
 use std::sync::Arc;
 
+use alloy_primitives::Address;
 use appchain_core_contract_client::clients::StarknetCoreContractClient;
 use appchain_core_contract_client::interfaces::core_contract::CoreContract;
 use async_trait::async_trait;
@@ -43,16 +44,10 @@ use url::Url;
 #[derive(Clone, Debug)]
 pub struct StarknetSettlementValidatedArgs {
     pub starknet_rpc_url: Url,
-
     pub starknet_private_key: String,
-
-    pub starknet_account_address: String,
-
-    pub starknet_cairo_core_contract_address: String,
-
+    pub starknet_account_address: Address,
+    pub starknet_cairo_core_contract_address: Address,
     pub starknet_finality_retry_wait_in_secs: u64,
-
-    pub madara_binary_path: String,
 }
 
 // Assumed the contract called for settlement looks like:
@@ -63,7 +58,7 @@ impl StarknetSettlementClient {
         let provider: Arc<JsonRpcClient<HttpTransport>> =
             Arc::new(JsonRpcClient::new(HttpTransport::new(settlement_cfg.starknet_rpc_url.clone())));
 
-        let public_key = settlement_cfg.starknet_account_address.clone();
+        let public_key = settlement_cfg.starknet_account_address.clone().to_string();
         let signer_address = Felt::from_hex(&public_key).expect("invalid signer address");
 
         // TODO: Very insecure way of building the signer. Needs to be adjusted.
@@ -71,7 +66,7 @@ impl StarknetSettlementClient {
         let signer = Felt::from_hex(&private_key).expect("Invalid private key");
         let signer = LocalWallet::from(SigningKey::from_secret_scalar(signer));
 
-        let core_contract_address = Felt::from_hex(&settlement_cfg.starknet_cairo_core_contract_address)
+        let core_contract_address = Felt::from_hex(&settlement_cfg.starknet_cairo_core_contract_address.to_string())
             .expect("Invalid core contract address");
 
         let account: Arc<SingleOwnerAccount<Arc<JsonRpcClient<HttpTransport>>, LocalWallet>> =

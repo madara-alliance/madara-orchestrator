@@ -24,6 +24,7 @@ use rstest::rstest;
 use serde::{Deserialize, Serialize};
 use serde_json::json;
 use starknet::core::types::{Felt, MaybePendingStateUpdate};
+use url::Url;
 use utils::env_utils::get_env_var_or_panic;
 use uuid::Uuid;
 
@@ -51,7 +52,8 @@ impl Setup {
     /// Initialise a new setup
     pub async fn new(l2_block_number: String) -> Self {
         let db_params = DatabaseValidatedArgs::MongoDB(MongoDBValidatedArgs {
-            connection_url: get_env_var_or_panic("MADARA_ORCHESTRATOR_MONGODB_CONNECTION_URL"),
+            connection_url: Url::parse(&get_env_var_or_panic("MADARA_ORCHESTRATOR_MONGODB_CONNECTION_URL"))
+                .expect("Invalid MongoDB connection URL"),
             database_name: get_env_var_or_panic("MADARA_ORCHESTRATOR_DATABASE_NAME"),
         });
 
@@ -126,10 +128,13 @@ impl Setup {
 async fn test_orchestrator_workflow(#[case] l2_block_number: String) {
     // Fetching the env vars from the test env file as these will be used in
     // setting up of the test and during orchestrator run too.
+
+    use e2e_tests::node::OrchestratorMode;
     dotenvy::from_filename(".env.test").expect("Failed to load the .env file");
 
     let queue_params = AWSSQSValidatedArgs {
-        queue_base_url: get_env_var_or_panic("MADARA_ORCHESTRATOR_SQS_BASE_QUEUE_URL"),
+        queue_base_url: Url::parse(&get_env_var_or_panic("MADARA_ORCHESTRATOR_SQS_BASE_QUEUE_URL"))
+            .expect("Invalid queue base URL"),
         sqs_prefix: get_env_var_or_panic("MADARA_ORCHESTRATOR_SQS_PREFIX"),
         sqs_suffix: get_env_var_or_panic("MADARA_ORCHESTRATOR_SQS_SUFFIX"),
     };
@@ -137,7 +142,7 @@ async fn test_orchestrator_workflow(#[case] l2_block_number: String) {
     let mut setup_config = Setup::new(l2_block_number.clone()).await;
     // Setup Cloud
     // Setup orchestrator cloud
-    Orchestrator::setup(setup_config.envs());
+    Orchestrator::new(OrchestratorMode::Setup, setup_config.envs());
     println!("✅ Orchestrator cloud setup completed");
 
     // Step 1 : SNOS job runs =========================================
@@ -160,7 +165,8 @@ async fn test_orchestrator_workflow(#[case] l2_block_number: String) {
     println!("✅ Orchestrator setup completed.");
 
     // Run orchestrator
-    let mut orchestrator = Orchestrator::run(setup_config.envs());
+    let mut orchestrator =
+        Orchestrator::new(OrchestratorMode::Run, setup_config.envs()).expect("Failed to start orchestrator");
     orchestrator.wait_till_started().await;
 
     println!("✅ Orchestrator started");

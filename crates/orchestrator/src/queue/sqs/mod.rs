@@ -10,20 +10,21 @@ use color_eyre::Result;
 use omniqueue::backends::{SqsBackend, SqsConfig, SqsConsumer, SqsProducer};
 use omniqueue::{Delivery, QueueError};
 use serde::Serialize;
+use url::Url;
 
 use super::QueueType;
 use crate::queue::{QueueConfig, QueueProvider};
 
 #[derive(Debug, Clone, Serialize)]
 pub struct AWSSQSValidatedArgs {
-    pub queue_base_url: String,
+    pub queue_base_url: Url,
     pub sqs_prefix: String,
     pub sqs_suffix: String,
 }
 
 pub struct SqsQueue {
     client: Client,
-    queue_base_url: String,
+    queue_base_url: Url,
     sqs_prefix: String,
     sqs_suffix: String,
 }
