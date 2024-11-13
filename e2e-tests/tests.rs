@@ -317,14 +317,14 @@ pub async fn put_message_in_queue(message: JobQueueMessage, queue_url: String) -
 
     let rsp = client.send_message().queue_url(queue_url).message_body(serde_json::to_string(&message)?).send().await?;
 
-    println!("Successfully sent message with ID: {:?}", rsp.message_id());
+    println!("✅ Successfully sent message with ID: {:?}", rsp.message_id());
 
     Ok(())
 }
 
 /// Mocks the endpoint for sharp client
 pub async fn mock_proving_job_endpoint_output(sharp_client: &mut SharpClient) {
-    // Add job response
+    // Add job response,
     let add_job_response = json!(
         {
             "code" : "JOB_RECEIVED_SUCCESSFULLY"

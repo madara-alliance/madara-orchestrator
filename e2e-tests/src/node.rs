@@ -34,7 +34,6 @@ pub enum OrchestratorMode {
     #[strum(serialize = "setup")]
     Setup,
 }
-
 impl Orchestrator {
     pub fn new(mode: OrchestratorMode, mut envs: Vec<(String, String)>) -> Option<Self> {
         let repository_root = &get_repository_root();
@@ -55,18 +54,19 @@ impl Orchestrator {
             .arg("--features")
             .arg("testing")
             .arg(mode_str)
-            .arg("--")
             .arg("--aws")
-            .arg("--settle-on-ethereum")
             .arg("--aws-s3")
             .arg("--aws-sqs")
-            .arg("--aws-sns")
-            .arg("--mongodb")
-            .arg("--sharp")
-            .arg("--da-on-ethereum");
+            .arg("--aws-sns");
 
         // Add event bridge arg only for setup mode
-        if !is_run_mode {
+        if is_run_mode {
+            command.arg("--settle-on-ethereum");
+            command.arg("--da-on-ethereum");
+            command.arg("--sharp");
+            command.arg("--mongodb");
+            
+        } else {
             command.arg("--aws-event-bridge");
         }
 
@@ -80,34 +80,58 @@ impl Orchestrator {
             String::new()
         };
 
-        command.current_dir(repository_root).envs(envs).stdout(Stdio::piped()).stderr(Stdio::piped());
+        command.current_dir(repository_root).envs(envs);
+
+        // Handle stdout/stderr differently based on mode
+        if is_run_mode {
+            command.stdout(Stdio::piped()).stderr(Stdio::piped());
+        } else {
+            // For setup mode, inherit the stdio to show output directly
+            command.stdout(Stdio::inherit()).stderr(Stdio::inherit());
+        }
 
         let mut process = command.spawn().expect("Failed to start process");
 
-        // Set up stdout and stderr handling for run mode
-        let stdout = process.stdout.take().expect("Failed to capture stdout");
-        thread::spawn(move || {
-            let reader = BufReader::new(stdout);
-            reader.lines().for_each(|line| {
-                if let Ok(line) = line {
-                    println!("STDOUT: {}", line);
-                }
+        // Set up stdout and stderr handling only for run mode
+        if is_run_mode {
+            let stdout = process.stdout.take().expect("Failed to capture stdout");
+            thread::spawn(move || {
+                let reader = BufReader::new(stdout);
+                reader.lines().for_each(|line| {
+                    if let Ok(line) = line {
+                        println!("STDOUT: {}", line);
+                    }
+                });
             });
-        });
 
-        let stderr = process.stderr.take().expect("Failed to capture stderr");
-        thread::spawn(move || {
-            let reader = BufReader::new(stderr);
-            reader.lines().for_each(|line| {
-                if let Ok(line) = line {
-                    eprintln!("STDERR: {}", line);
-                }
+            let stderr = process.stderr.take().expect("Failed to capture stderr");
+            thread::spawn(move || {
+                let reader = BufReader::new(stderr);
+                reader.lines().for_each(|line| {
+                    if let Ok(line) = line {
+                        eprintln!("STDERR: {}", line);
+                    }
+                });
             });
-        });
+        }
 
-        if is_run_mode { Some(Self { process, address }) } else { None }
+        if is_run_mode { Some(Self { process, address }) } else { 
+            // Wait for the process to complete and get its exit status
+            let status = process.wait().expect("Failed to wait for process");
+            if status.success() {
+                println!("Orchestrator cloud setup completed ✅");
+            } else {
+                // Get the exit code if available
+                if let Some(code) = status.code() {
+                    println!("Orchestrator cloud setup failed with exit code: {}", code);
+                } else {
+                    println!("Orchestrator cloud setup terminated by signal");
+                }
+            }
+            None
+         }
     }
-
+    
     pub fn endpoint(&self) -> Url {
         Url::parse(&format!("http://{}", self.address)).unwrap()
     }

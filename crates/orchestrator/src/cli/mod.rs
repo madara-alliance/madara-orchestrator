@@ -114,7 +114,7 @@ pub enum Commands {
     ),
 )]
 pub struct RunCmd {
-    // AWS Config
+    // Provider Config
     #[clap(flatten)]
     pub aws_config_args: AWSConfigCliArgs,
 
