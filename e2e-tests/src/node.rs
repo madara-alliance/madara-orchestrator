@@ -40,16 +40,10 @@ impl Orchestrator {
         let repository_root = &get_repository_root();
         std::env::set_current_dir(repository_root).expect("Failed to change working directory");
 
-        let (mode_str, is_run_mode) = match mode {
-            OrchestratorMode::Setup => {
-                println!("Running orchestrator in Setup mode");
-                (OrchestratorMode::Setup.to_string(), false)
-            }
-            OrchestratorMode::Run => {
-                println!("Running orchestrator in Run mode");
-                (OrchestratorMode::Run.to_string(), true)
-            }
-        };
+        let is_run_mode = mode == OrchestratorMode::Run;
+        let mode_str = mode.to_string();
+
+        println!("Running orchestrator in {} mode", mode_str);
 
         // Configure common command arguments
         let mut command = Command::new("cargo");
@@ -90,41 +84,28 @@ impl Orchestrator {
 
         let mut process = command.spawn().expect("Failed to start process");
 
-        if is_run_mode {
-            // Set up stdout and stderr handling for run mode
-            let stdout = process.stdout.take().expect("Failed to capture stdout");
-            thread::spawn(move || {
-                let reader = BufReader::new(stdout);
-                reader.lines().for_each(|line| {
-                    if let Ok(line) = line {
-                        println!("STDOUT: {}", line);
-                    }
-                });
+        // Set up stdout and stderr handling for run mode
+        let stdout = process.stdout.take().expect("Failed to capture stdout");
+        thread::spawn(move || {
+            let reader = BufReader::new(stdout);
+            reader.lines().for_each(|line| {
+                if let Ok(line) = line {
+                    println!("STDOUT: {}", line);
+                }
             });
+        });
 
-            let stderr = process.stderr.take().expect("Failed to capture stderr");
-            thread::spawn(move || {
-                let reader = BufReader::new(stderr);
-                reader.lines().for_each(|line| {
-                    if let Ok(line) = line {
-                        eprintln!("STDERR: {}", line);
-                    }
-                });
+        let stderr = process.stderr.take().expect("Failed to capture stderr");
+        thread::spawn(move || {
+            let reader = BufReader::new(stderr);
+            reader.lines().for_each(|line| {
+                if let Ok(line) = line {
+                    eprintln!("STDERR: {}", line);
+                }
             });
+        });
 
-            Some(Self { process, address })
-        } else {
-            // Handle setup mode
-            let status = process.wait().expect("Failed to wait for process");
-            if status.success() {
-                println!("Setup Orchestrator completed successfully");
-            } else if let Some(code) = status.code() {
-                println!("Setup Orchestrator failed with exit code: {}", code);
-            } else {
-                println!("Setup Orchestrator terminated by signal");
-            }
-            None
-        }
+        if is_run_mode { Some(Self { process, address }) } else { None }
     }
 
     pub fn endpoint(&self) -> Url {

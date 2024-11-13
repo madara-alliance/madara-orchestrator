@@ -161,8 +161,14 @@ mod settlement_client_tests {
         let ethereum_settlement_params = EthereumSettlementValidatedArgs {
             ethereum_rpc_url: setup.rpc_url,
             ethereum_private_key: get_env_var_or_panic("MADARA_ORCHESTRATOR_ETHEREUM_PRIVATE_KEY"),
-            l1_core_contract_address: get_env_var_or_panic("MADARA_ORCHESTRATOR_L1_CORE_CONTRACT_ADDRESS"),
-            starknet_operator_address: get_env_var_or_panic("MADARA_ORCHESTRATOR_STARKNET_OPERATOR_ADDRESS"),
+            l1_core_contract_address: Address::from_str(&get_env_var_or_panic(
+                "MADARA_ORCHESTRATOR_L1_CORE_CONTRACT_ADDRESS",
+            ))
+            .expect("Invalid L1 core contract address"),
+            starknet_operator_address: Address::from_str(&get_env_var_or_panic(
+                "MADARA_ORCHESTRATOR_STARKNET_OPERATOR_ADDRESS",
+            ))
+            .expect("Invalid Starknet operator address"),
         };
 
         // Deploying a dummy contract
@@ -233,15 +239,21 @@ mod settlement_client_tests {
         let ethereum_settlement_params = EthereumSettlementValidatedArgs {
             ethereum_rpc_url: setup.rpc_url,
             ethereum_private_key: get_env_var_or_panic("MADARA_ORCHESTRATOR_ETHEREUM_PRIVATE_KEY"),
-            l1_core_contract_address: get_env_var_or_panic("MADARA_ORCHESTRATOR_L1_CORE_CONTRACT_ADDRESS"),
-            starknet_operator_address: get_env_var_or_panic("MADARA_ORCHESTRATOR_STARKNET_OPERATOR_ADDRESS"),
+            l1_core_contract_address: Address::from_str(&get_env_var_or_panic(
+                "MADARA_ORCHESTRATOR_L1_CORE_CONTRACT_ADDRESS",
+            ))
+            .expect("Invalid L1 core contract address"),
+            starknet_operator_address: Address::from_str(&get_env_var_or_panic(
+                "MADARA_ORCHESTRATOR_STARKNET_OPERATOR_ADDRESS",
+            ))
+            .expect("Invalid Starknet operator address"),
         };
 
         let ethereum_settlement_client = EthereumSettlementClient::with_test_params(
             setup.provider.clone(),
-            Address::from_str(&ethereum_settlement_params.l1_core_contract_address).unwrap(),
+            ethereum_settlement_params.l1_core_contract_address,
             ethereum_settlement_params.ethereum_rpc_url,
-            Some(Address::from_str(&ethereum_settlement_params.starknet_operator_address).unwrap()),
+            Some(ethereum_settlement_params.starknet_operator_address),
         );
 
         // let nonce = ethereum_settlement_client.get_nonce().await.expect("Unable to fetch nonce");
@@ -299,13 +311,19 @@ mod settlement_client_tests {
         let ethereum_settlement_params = EthereumSettlementValidatedArgs {
             ethereum_rpc_url: setup.rpc_url,
             ethereum_private_key: get_env_var_or_panic("MADARA_ORCHESTRATOR_ETHEREUM_PRIVATE_KEY"),
-            l1_core_contract_address: get_env_var_or_panic("MADARA_ORCHESTRATOR_L1_CORE_CONTRACT_ADDRESS"),
-            starknet_operator_address: get_env_var_or_panic("MADARA_ORCHESTRATOR_STARKNET_OPERATOR_ADDRESS"),
+            l1_core_contract_address: Address::from_str(&get_env_var_or_panic(
+                "MADARA_ORCHESTRATOR_L1_CORE_CONTRACT_ADDRESS",
+            ))
+            .expect("Invalid L1 core contract address"),
+            starknet_operator_address: Address::from_str(&get_env_var_or_panic(
+                "MADARA_ORCHESTRATOR_STARKNET_OPERATOR_ADDRESS",
+            ))
+            .expect("Invalid Starknet operator address"),
         };
 
         let ethereum_settlement_client = EthereumSettlementClient::with_test_params(
             setup.provider.clone(),
-            Address::from_str(&ethereum_settlement_params.l1_core_contract_address).unwrap(),
+            ethereum_settlement_params.l1_core_contract_address,
             ethereum_settlement_params.ethereum_rpc_url,
             None,
         );

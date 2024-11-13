@@ -1,9 +1,5 @@
-#[cfg(feature = "testing")]
-use std::str::FromStr;
 use std::sync::Arc;
 
-#[cfg(feature = "testing")]
-use alloy::primitives::Address;
 #[cfg(feature = "testing")]
 use alloy::providers::RootProvider;
 use aws_config::meta::region::RegionProviderChain;
@@ -295,9 +291,9 @@ pub async fn build_settlement_client(
             {
                 Ok(Box::new(EthereumSettlementClient::with_test_params(
                     RootProvider::new_http(ethereum_settlement_params.ethereum_rpc_url.clone()),
-                    Address::from_str(&ethereum_settlement_params.l1_core_contract_address)?,
+                    ethereum_settlement_params.l1_core_contract_address,
                     ethereum_settlement_params.ethereum_rpc_url.clone(),
-                    Some(Address::from_str(&ethereum_settlement_params.starknet_operator_address)?),
+                    Some(ethereum_settlement_params.starknet_operator_address),
                 )))
             }
         }
