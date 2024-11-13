@@ -12,7 +12,7 @@ pub struct AWSEventBridgeCliArgs {
     #[arg(env = "MADARA_ORCHESTRATOR_EVENT_BRIDGE_TARGET_QUEUE_NAME", long, default_value = Some("madara_orchestrator_worker_trigger_queue"), help = "The name of the SNS queue to send messages to from the event bridge.")]
     pub target_queue_name: Option<String>,
     /// The cron time for the event bridge trigger rule.
-    #[arg(env = "MADARA_ORCHESTRATOR_EVENT_BRIDGE_CRON_TIME", long, default_value = Some("300"), help = "The cron time for the event bridge trigger rule. Defaults to 10 seconds.")]
+    #[arg(env = "MADARA_ORCHESTRATOR_EVENT_BRIDGE_CRON_TIME", long, default_value = Some("60"), help = "The cron time for the event bridge trigger rule. Defaults to 10 seconds.")]
     pub cron_time: Option<String>,
 
     /// The name of the event bridge trigger rule.
