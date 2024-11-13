@@ -512,7 +512,7 @@ fn get_env_params() -> EnvParams {
     });
 
     let alert_params = AlertValidatedArgs::AWSSNS(AWSSNSValidatedArgs {
-        topic_arn: get_env_var_or_panic("MADARA_ORCHESTRATOR_AWS_SNS_ARN"),
+        topic_arn: get_env_var_or_panic("MADARA_ORCHESTRATOR_AWS_SNS_ARN_NAME"),
     });
 
     let settlement_params = SettlementValidatedArgs::Ethereum(EthereumSettlementValidatedArgs {
