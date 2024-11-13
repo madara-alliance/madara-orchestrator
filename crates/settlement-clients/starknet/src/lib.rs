@@ -59,7 +59,7 @@ pub struct StarknetSettlementValidatedArgs {
 // https://github.com/keep-starknet-strange/piltover
 
 impl StarknetSettlementClient {
-    pub async fn new_with_params(settlement_cfg: &StarknetSettlementValidatedArgs) -> Self {
+    pub async fn new_with_args(settlement_cfg: &StarknetSettlementValidatedArgs) -> Self {
         let provider: Arc<JsonRpcClient<HttpTransport>> =
             Arc::new(JsonRpcClient::new(HttpTransport::new(settlement_cfg.starknet_rpc_url.clone())));
 

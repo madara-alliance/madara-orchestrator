@@ -23,15 +23,16 @@ use starknet_settlement_client::StarknetSettlementClient;
 
 use crate::alerts::aws_sns::AWSSNS;
 use crate::alerts::Alerts;
-use crate::cli::alert::AlertParams;
-use crate::cli::aws_config::AWSConfigParams;
-use crate::cli::da::DaParams;
-use crate::cli::database::DatabaseParams;
-use crate::cli::prover::ProverParams;
-use crate::cli::queue::QueueParams;
-use crate::cli::settlement::SettlementParams;
+use crate::cli::alert::AlertValidatedArgs;
+use crate::cli::da::DaValidatedArgs;
+use crate::cli::database::DatabaseValidatedArgs;
+use crate::cli::prover::ProverValidatedArgs;
+use crate::cli::provider::aws::AWSConfigValidatedArgs;
+use crate::cli::provider::ProviderValidatedArgs;
+use crate::cli::queue::QueueValidatedArgs;
+use crate::cli::settlement::SettlementValidatedArgs;
 use crate::cli::snos::SNOSParams;
-use crate::cli::storage::StorageParams;
+use crate::cli::storage::StorageValidatedArgs;
 use crate::cli::RunCmd;
 use crate::data_storage::aws_s3::AWSS3;
 use crate::data_storage::DataStorage;
@@ -96,7 +97,7 @@ impl ProviderConfig {
 }
 
 /// To build a `SdkConfig` for AWS provider.
-pub async fn get_aws_config(aws_config: &AWSConfigParams) -> SdkConfig {
+pub async fn get_aws_config(aws_config: &AWSConfigValidatedArgs) -> SdkConfig {
     let region = aws_config.aws_region.clone();
     let region_provider = RegionProviderChain::first_try(Region::new(region)).or_default_provider();
     let credentials =
@@ -108,8 +109,8 @@ pub async fn get_aws_config(aws_config: &AWSConfigParams) -> SdkConfig {
 pub async fn init_config(run_cmd: &RunCmd) -> color_eyre::Result<Arc<Config>> {
     dotenv().ok();
 
-    let aws_config = &run_cmd.validate_aws_config_params().expect("Failed to validate AWS config params");
-    let provider_config = Arc::new(ProviderConfig::AWS(Box::new(get_aws_config(aws_config).await)));
+    let provider_params = run_cmd.validate_provider_params().expect("Failed to validate provider params");
+    let provider_config = build_provider_config(&provider_params).await;
 
     let orchestrator_params = OrchestratorParams {
         madara_rpc_url: run_cmd.madara_rpc_url.clone(),
@@ -118,7 +119,7 @@ pub async fn init_config(run_cmd: &RunCmd) -> color_eyre::Result<Arc<Config>> {
         server_config: run_cmd.validate_server_params().expect("Failed to validate server params"),
     };
 
-    let provider = JsonRpcClient::new(HttpTransport::new(orchestrator_params.madara_rpc_url.clone()));
+    let rpc_client = JsonRpcClient::new(HttpTransport::new(orchestrator_params.madara_rpc_url.clone()));
 
     // init database
     let database_params =
@@ -153,11 +154,11 @@ pub async fn init_config(run_cmd: &RunCmd) -> color_eyre::Result<Arc<Config>> {
     // us stop using the generic omniqueue abstractions for message ack/nack
     // init queue
     let queue_params = run_cmd.validate_queue_params().map_err(|e| eyre!("Failed to validate queue params: {e}"))?;
-    let queue = build_queue_client(&queue_params);
+    let queue = build_queue_client(&queue_params, provider_config.clone()).await;
 
     Ok(Arc::new(Config::new(
         orchestrator_params,
-        Arc::new(provider),
+        Arc::new(rpc_client),
         da_client,
         prover_client,
         settlement_client,
@@ -256,30 +257,40 @@ impl Config {
     }
 }
 
+/// Builds the provider config
+pub async fn build_provider_config(provider_params: &ProviderValidatedArgs) -> Arc<ProviderConfig> {
+    match provider_params {
+        ProviderValidatedArgs::AWS(aws_params) => {
+            Arc::new(ProviderConfig::AWS(Box::new(get_aws_config(aws_params).await)))
+        }
+    }
+}
+
 /// Builds the DA client based on the environment variable DA_LAYER
-// TODO: convert this to use new_with_params
-pub async fn build_da_client(da_params: &DaParams) -> Box<dyn DaClient + Send + Sync> {
+pub async fn build_da_client(da_params: &DaValidatedArgs) -> Box<dyn DaClient + Send + Sync> {
     match da_params {
-        DaParams::Ethereum(ethereum_da_params) => Box::new(EthereumDaClient::new_with_params(ethereum_da_params).await),
+        DaValidatedArgs::Ethereum(ethereum_da_params) => {
+            Box::new(EthereumDaClient::new_with_args(ethereum_da_params).await)
+        }
     }
 }
 
 /// Builds the prover service based on the environment variable PROVER_SERVICE
-pub fn build_prover_service(prover_params: &ProverParams) -> Box<dyn ProverClient> {
+pub fn build_prover_service(prover_params: &ProverValidatedArgs) -> Box<dyn ProverClient> {
     match prover_params {
-        ProverParams::Sharp(sharp_params) => Box::new(SharpProverService::new_with_params(sharp_params)),
+        ProverValidatedArgs::Sharp(sharp_params) => Box::new(SharpProverService::new_with_args(sharp_params)),
     }
 }
 
 /// Builds the settlement client depending on the env variable SETTLEMENT_LAYER
 pub async fn build_settlement_client(
-    settlement_params: &SettlementParams,
+    settlement_params: &SettlementValidatedArgs,
 ) -> color_eyre::Result<Box<dyn SettlementClient + Send + Sync>> {
     match settlement_params {
-        SettlementParams::Ethereum(ethereum_settlement_params) => {
+        SettlementValidatedArgs::Ethereum(ethereum_settlement_params) => {
             #[cfg(not(feature = "testing"))]
             {
-                Ok(Box::new(EthereumSettlementClient::new_with_params(ethereum_settlement_params)))
+                Ok(Box::new(EthereumSettlementClient::new_with_args(ethereum_settlement_params)))
             }
             #[cfg(feature = "testing")]
             {
@@ -291,38 +302,50 @@ pub async fn build_settlement_client(
                 )))
             }
         }
-        SettlementParams::Starknet(starknet_settlement_params) => {
-            Ok(Box::new(StarknetSettlementClient::new_with_params(starknet_settlement_params).await))
+        SettlementValidatedArgs::Starknet(starknet_settlement_params) => {
+            Ok(Box::new(StarknetSettlementClient::new_with_args(starknet_settlement_params).await))
         }
     }
 }
 
 pub async fn build_storage_client(
-    data_storage_params: &StorageParams,
+    data_storage_params: &StorageValidatedArgs,
     provider_config: Arc<ProviderConfig>,
 ) -> Box<dyn DataStorage + Send + Sync> {
     match data_storage_params {
-        StorageParams::AWSS3(aws_s3_params) => Box::new(AWSS3::new_with_params(aws_s3_params, provider_config).await),
+        StorageValidatedArgs::AWSS3(aws_s3_params) => {
+            let aws_config = provider_config.get_aws_client_or_panic();
+            Box::new(AWSS3::new_with_args(aws_s3_params, aws_config).await)
+        }
     }
 }
 
 pub async fn build_alert_client(
-    alert_params: &AlertParams,
+    alert_params: &AlertValidatedArgs,
     provider_config: Arc<ProviderConfig>,
 ) -> Box<dyn Alerts + Send + Sync> {
     match alert_params {
-        AlertParams::AWSSNS(aws_sns_params) => Box::new(AWSSNS::new_with_params(aws_sns_params, provider_config).await),
+        AlertValidatedArgs::AWSSNS(aws_sns_params) => {
+            let aws_config = provider_config.get_aws_client_or_panic();
+            Box::new(AWSSNS::new_with_args(aws_sns_params, aws_config).await)
+        }
     }
 }
 
-pub fn build_queue_client(queue_params: &QueueParams) -> Box<dyn QueueProvider + Send + Sync> {
+pub async fn build_queue_client(
+    queue_params: &QueueValidatedArgs,
+    provider_config: Arc<ProviderConfig>,
+) -> Box<dyn QueueProvider + Send + Sync> {
     match queue_params {
-        QueueParams::AWSSQS(aws_sqs_params) => Box::new(SqsQueue::new_with_params(aws_sqs_params.clone())),
+        QueueValidatedArgs::AWSSQS(aws_sqs_params) => {
+            let aws_config = provider_config.get_aws_client_or_panic();
+            Box::new(SqsQueue::new_with_args(aws_sqs_params.clone(), aws_config))
+        }
     }
 }
 
-pub async fn build_database_client(database_params: &DatabaseParams) -> Box<dyn Database + Send + Sync> {
+pub async fn build_database_client(database_params: &DatabaseValidatedArgs) -> Box<dyn Database + Send + Sync> {
     match database_params {
-        DatabaseParams::MongoDB(mongodb_params) => Box::new(MongoDb::new_with_params(mongodb_params).await),
+        DatabaseValidatedArgs::MongoDB(mongodb_params) => Box::new(MongoDb::new_with_args(mongodb_params).await),
     }
 }

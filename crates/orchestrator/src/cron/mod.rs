@@ -5,13 +5,12 @@ use event_bridge::AWSEventBridgeValidatedArgs;
 use lazy_static::lazy_static;
 
 use crate::queue::job_queue::{WorkerTriggerMessage, WorkerTriggerType};
-use crate::setup::SetupConfig;
 
 pub mod event_bridge;
 
 #[derive(Clone, Debug)]
-pub enum CronParams {
-    EventBridge(AWSEventBridgeValidatedArgs),
+pub enum CronValidatedArgs {
+    AWSEventBridge(AWSEventBridgeValidatedArgs),
 }
 
 lazy_static! {
@@ -29,24 +28,17 @@ lazy_static! {
 
 #[async_trait]
 pub trait Cron {
-    async fn create_cron(
-        &self,
-        config: &SetupConfig,
-        cron_time: Duration,
-        trigger_rule_name: String,
-    ) -> color_eyre::Result<()>;
+    async fn create_cron(&self, cron_time: Duration, trigger_rule_name: String) -> color_eyre::Result<()>;
     async fn add_cron_target_queue(
         &self,
-        config: &SetupConfig,
         target_queue_name: String,
         message: String,
         trigger_rule_name: String,
     ) -> color_eyre::Result<()>;
-    async fn setup(&self, config: SetupConfig) -> color_eyre::Result<()> {
-        self.create_cron(&config, *CRON_DURATION, WORKER_TRIGGER_RULE_NAME.clone()).await?;
+    async fn setup(&self) -> color_eyre::Result<()> {
+        self.create_cron(*CRON_DURATION, WORKER_TRIGGER_RULE_NAME.clone()).await?;
         for triggers in WORKER_TRIGGERS.iter() {
             self.add_cron_target_queue(
-                &config,
                 TARGET_QUEUE_NAME.clone(),
                 get_worker_trigger_message(triggers.clone())?,
                 WORKER_TRIGGER_RULE_NAME.clone(),

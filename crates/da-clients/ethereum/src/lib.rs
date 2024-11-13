@@ -25,13 +25,14 @@ pub const DA_SETTINGS_NAME: &str = "ethereum";
 
 pub struct EthereumDaClient {
     #[allow(dead_code)]
-    pub provider: RootProvider<Ethereum, Http<Client>>,
+    provider: RootProvider<Ethereum, Http<Client>>,
 }
 
 impl EthereumDaClient {
-    pub async fn new_with_params(ethereum_da_params: &EthereumDaValidatedArgs) -> Self {
+    pub async fn new_with_args(ethereum_da_params: &EthereumDaValidatedArgs) -> Self {
         let client = RpcClient::new_http(
-            Url::from_str(ethereum_da_params.ethereum_da_rpc_url.as_str()).expect("Failed to parse SETTLEMENT_RPC_URL"),
+            Url::from_str(ethereum_da_params.ethereum_da_rpc_url.as_str())
+                .expect("Failed to parse ethereum_da_rpc_url"),
         );
         let provider = ProviderBuilder::<_, Ethereum>::new().on_client(client);
         Self { provider }

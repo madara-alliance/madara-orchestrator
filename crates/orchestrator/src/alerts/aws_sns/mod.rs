@@ -1,22 +1,14 @@
-use std::sync::Arc;
-
 use async_trait::async_trait;
+use aws_config::SdkConfig;
 use aws_sdk_sns::Client;
 
 use crate::alerts::Alerts;
-use crate::config::ProviderConfig;
 
 #[derive(Debug, Clone)]
 pub struct AWSSNSValidatedArgs {
     // TODO: convert to ARN type, and validate it
     // NOTE: aws is using str to represent ARN : https://docs.aws.amazon.com/sdk-for-rust/latest/dg/rust_sns_code_examples.html
-    pub sns_arn: String,
-}
-
-impl AWSSNSValidatedArgs {
-    pub fn get_topic_name(&self) -> String {
-        self.sns_arn.split(":").last().unwrap().to_string()
-    }
+    pub topic_arn: String,
 }
 
 pub struct AWSSNS {
@@ -25,9 +17,8 @@ pub struct AWSSNS {
 }
 
 impl AWSSNS {
-    pub async fn new_with_params(aws_sns_params: &AWSSNSValidatedArgs, provider_config: Arc<ProviderConfig>) -> Self {
-        let config = provider_config.get_aws_client_or_panic();
-        Self { client: Client::new(config), topic_arn: aws_sns_params.sns_arn.clone() }
+    pub async fn new_with_args(aws_sns_params: &AWSSNSValidatedArgs, aws_config: &SdkConfig) -> Self {
+        Self { client: Client::new(aws_config), topic_arn: aws_sns_params.topic_arn.clone() }
     }
 }
 
@@ -43,5 +34,9 @@ impl Alerts for AWSSNS {
         let topic_arn = response.topic_arn().expect("Topic Not found");
         log::info!("SNS topic created. Topic ARN: {}", topic_arn);
         Ok(())
+    }
+
+    async fn get_topic_name(&self) -> String {
+        self.topic_arn.split(":").last().unwrap().to_string()
     }
 }

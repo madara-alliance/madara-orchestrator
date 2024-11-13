@@ -13,7 +13,6 @@ use strum_macros::Display;
 
 use crate::config::Config;
 use crate::jobs::JobError;
-use crate::setup::SetupConfig;
 
 #[derive(Display, Debug, Clone, PartialEq, Eq)]
 pub enum QueueType {
@@ -136,11 +135,11 @@ pub trait QueueProvider: Send + Sync {
     async fn send_message_to_queue(&self, queue: QueueType, payload: String, delay: Option<Duration>)
     -> EyreResult<()>;
     async fn consume_message_from_queue(&self, queue: QueueType) -> std::result::Result<Delivery, QueueError>;
-    async fn create_queue(&self, queue_config: &QueueConfig, config: &SetupConfig) -> EyreResult<()>;
-    async fn setup(&self, config: SetupConfig) -> EyreResult<()> {
+    async fn create_queue(&self, queue_config: &QueueConfig) -> EyreResult<()>;
+    async fn setup(&self) -> EyreResult<()> {
         // Creating the queues :
         for queue in QUEUES.iter() {
-            self.create_queue(queue, &config).await?;
+            self.create_queue(queue).await?;
         }
         Ok(())
     }

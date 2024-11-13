@@ -1,12 +1,10 @@
-use std::sync::Arc;
-
 use async_trait::async_trait;
+use aws_config::SdkConfig;
 use aws_sdk_s3::primitives::ByteStream;
 use aws_sdk_s3::Client;
 use bytes::Bytes;
 use color_eyre::Result;
 
-use crate::config::ProviderConfig;
 use crate::data_storage::DataStorage;
 
 pub const S3_SETTINGS_NAME: &str = "s3";
@@ -27,8 +25,7 @@ pub struct AWSS3 {
 /// - initializing a new AWS S3 client
 impl AWSS3 {
     /// To init the struct with main settings
-    pub async fn new_with_params(s3_config: &AWSS3ValidatedArgs, provider_config: Arc<ProviderConfig>) -> Self {
-        let aws_config = provider_config.get_aws_client_or_panic();
+    pub async fn new_with_args(s3_config: &AWSS3ValidatedArgs, aws_config: &SdkConfig) -> Self {
         // Building AWS S3 config
         let mut s3_config_builder = aws_sdk_s3::config::Builder::from(aws_config);
         // this is necessary for it to work with localstack in test cases

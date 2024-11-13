@@ -18,15 +18,15 @@ use utils::env_utils::{get_env_var_optional, get_env_var_or_default, get_env_var
 
 use crate::alerts::aws_sns::AWSSNSValidatedArgs;
 use crate::alerts::Alerts;
-use crate::cli::alert::AlertParams;
-use crate::cli::aws_config::AWSConfigParams;
-use crate::cli::da::DaParams;
-use crate::cli::database::DatabaseParams;
-use crate::cli::prover::ProverParams;
-use crate::cli::queue::QueueParams;
-use crate::cli::settlement::SettlementParams;
+use crate::cli::alert::AlertValidatedArgs;
+use crate::cli::da::DaValidatedArgs;
+use crate::cli::database::DatabaseValidatedArgs;
+use crate::cli::prover::ProverValidatedArgs;
+use crate::cli::provider::aws::AWSConfigValidatedArgs;
+use crate::cli::queue::QueueValidatedArgs;
+use crate::cli::settlement::SettlementValidatedArgs;
 use crate::cli::snos::SNOSParams;
-use crate::cli::storage::StorageParams;
+use crate::cli::storage::StorageValidatedArgs;
 use crate::config::{get_aws_config, Config, OrchestratorParams, ProviderConfig, ServiceParams};
 use crate::data_storage::aws_s3::AWSS3ValidatedArgs;
 use crate::data_storage::{DataStorage, MockDataStorage};
@@ -235,7 +235,8 @@ impl TestConfigBuilder {
 
         let database = implement_client::init_database(database_type, &params.db_params).await;
 
-        let queue = implement_client::init_queue_client(queue_type, params.queue_params.clone()).await;
+        let queue =
+            implement_client::init_queue_client(queue_type, params.queue_params.clone(), provider_config.clone()).await;
         // Deleting and Creating the queues in sqs.
 
         create_queues(provider_config.clone(), &params.queue_params)
@@ -302,13 +303,13 @@ pub mod implement_client {
 
     use super::{ConfigType, MockType};
     use crate::alerts::{Alerts, MockAlerts};
-    use crate::cli::alert::AlertParams;
-    use crate::cli::da::DaParams;
-    use crate::cli::database::DatabaseParams;
-    use crate::cli::prover::ProverParams;
-    use crate::cli::queue::QueueParams;
-    use crate::cli::settlement::SettlementParams;
-    use crate::cli::storage::StorageParams;
+    use crate::cli::alert::AlertValidatedArgs;
+    use crate::cli::da::DaValidatedArgs;
+    use crate::cli::database::DatabaseValidatedArgs;
+    use crate::cli::prover::ProverValidatedArgs;
+    use crate::cli::queue::QueueValidatedArgs;
+    use crate::cli::settlement::SettlementValidatedArgs;
+    use crate::cli::storage::StorageValidatedArgs;
     use crate::config::{
         build_alert_client, build_da_client, build_database_client, build_prover_service, build_queue_client,
         build_settlement_client, ProviderConfig,
@@ -340,7 +341,7 @@ pub mod implement_client {
     implement_mock_client_conversion!(SettlementClient, SettlementClient);
     implement_mock_client_conversion!(DaClient, DaClient);
 
-    pub(crate) async fn init_da_client(service: ConfigType, da_params: &DaParams) -> Box<dyn DaClient> {
+    pub(crate) async fn init_da_client(service: ConfigType, da_params: &DaValidatedArgs) -> Box<dyn DaClient> {
         match service {
             ConfigType::Mock(client) => client.into(),
             ConfigType::Actual => build_da_client(da_params).await,
@@ -350,7 +351,7 @@ pub mod implement_client {
 
     pub(crate) async fn init_settlement_client(
         service: ConfigType,
-        settlement_cfg: &SettlementParams,
+        settlement_cfg: &SettlementValidatedArgs,
     ) -> Box<dyn SettlementClient> {
         match service {
             ConfigType::Mock(client) => client.into(),
@@ -361,7 +362,10 @@ pub mod implement_client {
         }
     }
 
-    pub(crate) async fn init_prover_client(service: ConfigType, prover_params: &ProverParams) -> Box<dyn ProverClient> {
+    pub(crate) async fn init_prover_client(
+        service: ConfigType,
+        prover_params: &ProverValidatedArgs,
+    ) -> Box<dyn ProverClient> {
         match service {
             ConfigType::Mock(client) => client.into(),
             ConfigType::Actual => build_prover_service(prover_params),
@@ -371,7 +375,7 @@ pub mod implement_client {
 
     pub(crate) async fn init_alerts(
         service: ConfigType,
-        alert_params: &AlertParams,
+        alert_params: &AlertValidatedArgs,
         provider_config: Arc<ProviderConfig>,
     ) -> Box<dyn Alerts> {
         match service {
@@ -383,13 +387,13 @@ pub mod implement_client {
 
     pub(crate) async fn init_storage_client(
         service: ConfigType,
-        storage_cfg: &StorageParams,
+        storage_cfg: &StorageValidatedArgs,
         provider_config: Arc<ProviderConfig>,
     ) -> Box<dyn DataStorage> {
         match service {
             ConfigType::Mock(client) => client.into(),
             ConfigType::Actual => match storage_cfg {
-                StorageParams::AWSS3(aws_s3_params) => {
+                StorageValidatedArgs::AWSS3(aws_s3_params) => {
                     let storage = get_storage_client(aws_s3_params, provider_config).await;
                     storage.as_ref().create_bucket(&aws_s3_params.bucket_name).await.unwrap();
                     storage
@@ -399,15 +403,22 @@ pub mod implement_client {
         }
     }
 
-    pub(crate) async fn init_queue_client(service: ConfigType, queue_params: QueueParams) -> Box<dyn QueueProvider> {
+    pub(crate) async fn init_queue_client(
+        service: ConfigType,
+        queue_params: QueueValidatedArgs,
+        provider_config: Arc<ProviderConfig>,
+    ) -> Box<dyn QueueProvider> {
         match service {
             ConfigType::Mock(client) => client.into(),
-            ConfigType::Actual => build_queue_client(&queue_params),
+            ConfigType::Actual => build_queue_client(&queue_params, provider_config).await,
             ConfigType::Dummy => Box::new(MockQueueProvider::new()),
         }
     }
 
-    pub(crate) async fn init_database(service: ConfigType, database_params: &DatabaseParams) -> Box<dyn Database> {
+    pub(crate) async fn init_database(
+        service: ConfigType,
+        database_params: &DatabaseValidatedArgs,
+    ) -> Box<dyn Database> {
         match service {
             ConfigType::Mock(client) => client.into(),
             ConfigType::Actual => build_database_client(database_params).await,
@@ -457,53 +468,51 @@ pub mod implement_client {
 }
 
 struct EnvParams {
-    aws_params: AWSConfigParams,
-    alert_params: AlertParams,
-    queue_params: QueueParams,
-    storage_params: StorageParams,
-    db_params: DatabaseParams,
-    da_params: DaParams,
-    settlement_params: SettlementParams,
-    prover_params: ProverParams,
+    aws_params: AWSConfigValidatedArgs,
+    alert_params: AlertValidatedArgs,
+    queue_params: QueueValidatedArgs,
+    storage_params: StorageValidatedArgs,
+    db_params: DatabaseValidatedArgs,
+    da_params: DaValidatedArgs,
+    settlement_params: SettlementValidatedArgs,
+    prover_params: ProverValidatedArgs,
     orchestrator_params: OrchestratorParams,
     #[allow(dead_code)]
     instrumentation_params: InstrumentationParams,
 }
 
 fn get_env_params() -> EnvParams {
-    let db_params = DatabaseParams::MongoDB(MongoDBValidatedArgs {
+    let db_params = DatabaseValidatedArgs::MongoDB(MongoDBValidatedArgs {
         connection_url: get_env_var_or_panic("MADARA_ORCHESTRATOR_MONGODB_CONNECTION_URL"),
         database_name: get_env_var_or_panic("MADARA_ORCHESTRATOR_DATABASE_NAME"),
     });
 
-    let storage_params = StorageParams::AWSS3(AWSS3ValidatedArgs {
+    let storage_params = StorageValidatedArgs::AWSS3(AWSS3ValidatedArgs {
         bucket_name: get_env_var_or_panic("MADARA_ORCHESTRATOR_AWS_S3_BUCKET_NAME"),
     });
 
-    let queue_params = QueueParams::AWSSQS(AWSSQSValidatedArgs {
+    let queue_params = QueueValidatedArgs::AWSSQS(AWSSQSValidatedArgs {
         queue_base_url: get_env_var_or_panic("MADARA_ORCHESTRATOR_SQS_BASE_QUEUE_URL"),
         sqs_prefix: get_env_var_or_panic("MADARA_ORCHESTRATOR_SQS_PREFIX"),
         sqs_suffix: get_env_var_or_panic("MADARA_ORCHESTRATOR_SQS_SUFFIX"),
     });
 
-    let aws_params = AWSConfigParams {
+    let aws_params = AWSConfigValidatedArgs {
         aws_access_key_id: get_env_var_or_panic("AWS_ACCESS_KEY_ID"),
         aws_secret_access_key: get_env_var_or_panic("AWS_SECRET_ACCESS_KEY"),
         aws_region: get_env_var_or_panic("AWS_REGION"),
-        aws_endpoint_url: Url::parse(&get_env_var_or_panic("AWS_ENDPOINT_URL"))
-            .expect("Failed to parse AWS_ENDPOINT_URL"),
-        aws_default_region: get_env_var_or_panic("AWS_DEFAULT_REGION"),
     };
 
-    let da_params = DaParams::Ethereum(EthereumDaValidatedArgs {
+    let da_params = DaValidatedArgs::Ethereum(EthereumDaValidatedArgs {
         ethereum_da_rpc_url: Url::parse(&get_env_var_or_panic("MADARA_ORCHESTRATOR_ETHEREUM_DA_RPC_URL"))
             .expect("Failed to parse MADARA_ORCHESTRATOR_ETHEREUM_RPC_URL"),
     });
 
-    let alert_params =
-        AlertParams::AWSSNS(AWSSNSValidatedArgs { sns_arn: get_env_var_or_panic("MADARA_ORCHESTRATOR_AWS_SNS_ARN") });
+    let alert_params = AlertValidatedArgs::AWSSNS(AWSSNSValidatedArgs {
+        topic_arn: get_env_var_or_panic("MADARA_ORCHESTRATOR_AWS_SNS_ARN"),
+    });
 
-    let settlement_params = SettlementParams::Ethereum(EthereumSettlementValidatedArgs {
+    let settlement_params = SettlementValidatedArgs::Ethereum(EthereumSettlementValidatedArgs {
         ethereum_rpc_url: Url::parse(&get_env_var_or_panic("MADARA_ORCHESTRATOR_ETHEREUM_SETTLEMENT_RPC_URL"))
             .expect("Failed to parse MADARA_ORCHESTRATOR_ETHEREUM_RPC_URL"),
         ethereum_private_key: get_env_var_or_panic("MADARA_ORCHESTRATOR_ETHEREUM_PRIVATE_KEY"),
@@ -547,7 +556,7 @@ fn get_env_params() -> EnvParams {
         log_level: Level::from_str(&get_env_var_or_default("RUST_LOG", "info")).expect("Failed to parse RUST_LOG"),
     };
 
-    let prover_params = ProverParams::Sharp(SharpValidatedArgs {
+    let prover_params = ProverValidatedArgs::Sharp(SharpValidatedArgs {
         sharp_customer_id: get_env_var_or_panic("MADARA_ORCHESTRATOR_SHARP_CUSTOMER_ID"),
         sharp_url: Url::parse(&get_env_var_or_panic("MADARA_ORCHESTRATOR_SHARP_URL"))
             .expect("Failed to parse MADARA_ORCHESTRATOR_SHARP_URL"),

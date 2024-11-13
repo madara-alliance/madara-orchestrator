@@ -1,26 +1,27 @@
 use std::time::Duration;
 
-use alert::AlertParams;
-use aws_config::{AWSConfigCliArgs, AWSConfigParams};
+use alert::AlertValidatedArgs;
 use clap::{ArgGroup, Parser};
 use cron::event_bridge::AWSEventBridgeCliArgs;
-use da::DaParams;
-use database::DatabaseParams;
+use da::DaValidatedArgs;
+use database::DatabaseValidatedArgs;
 use ethereum_da_client::EthereumDaValidatedArgs;
 use ethereum_settlement_client::EthereumSettlementValidatedArgs;
-use prover::ProverParams;
-use queue::QueueParams;
-use settlement::SettlementParams;
+use prover::ProverValidatedArgs;
+use provider::aws::{AWSConfigCliArgs, AWSConfigValidatedArgs};
+use provider::ProviderValidatedArgs;
+use queue::QueueValidatedArgs;
+use settlement::SettlementValidatedArgs;
 use sharp_service::SharpValidatedArgs;
 use snos::SNOSParams;
 use starknet_settlement_client::StarknetSettlementValidatedArgs;
-use storage::StorageParams;
+use storage::StorageValidatedArgs;
 use url::Url;
 
 use crate::alerts::aws_sns::AWSSNSValidatedArgs;
 use crate::config::ServiceParams;
 use crate::cron::event_bridge::AWSEventBridgeValidatedArgs;
-use crate::cron::CronParams;
+use crate::cron::CronValidatedArgs;
 use crate::data_storage::aws_s3::AWSS3ValidatedArgs;
 use crate::database::mongodb::MongoDBValidatedArgs;
 use crate::queue::sqs::AWSSQSValidatedArgs;
@@ -28,12 +29,12 @@ use crate::routes::ServerParams;
 use crate::telemetry::InstrumentationParams;
 
 pub mod alert;
-pub mod aws_config;
 pub mod cron;
 pub mod da;
 pub mod database;
 pub mod instrumentation;
 pub mod prover;
+pub mod provider;
 pub mod queue;
 pub mod server;
 pub mod service;
@@ -47,6 +48,13 @@ pub mod storage;
     group(
         ArgGroup::new("mode")
             .args(&["run", "setup"])
+            .required(true)
+            .multiple(false)
+    ),
+
+    group(
+        ArgGroup::new("provider")
+            .args(&["aws"])
             .required(true)
             .multiple(false)
     ),
@@ -106,10 +114,10 @@ pub struct RunCmd {
     pub aws_config_args: AWSConfigCliArgs,
 
     // Settlement Layer
-    #[command(flatten)]
+    #[clap(flatten)]
     ethereum_args: settlement::ethereum::EthereumSettlementCliArgs,
 
-    #[command(flatten)]
+    #[clap(flatten)]
     starknet_args: settlement::starknet::StarknetSettlementCliArgs,
 
     // Storage
@@ -159,36 +167,31 @@ pub struct RunCmd {
 }
 
 impl RunCmd {
-    pub fn validate_aws_config_params(&self) -> Result<AWSConfigParams, String> {
-        let aws_endpoint_url =
-            Url::parse("http://localhost.localstack.cloud:4566").expect("Failed to parse AWS endpoint URL");
-        let aws_default_region = "localhost".to_string();
-
-        tracing::warn!("Setting AWS_ENDPOINT_URL to {} for AWS SDK to use", aws_endpoint_url);
-        tracing::warn!("Setting AWS_DEFAULT_REGION to {} for Omniqueue to use", aws_default_region);
-
-        Ok(AWSConfigParams {
-            aws_access_key_id: self.aws_config_args.aws_access_key_id.clone(),
-            aws_secret_access_key: self.aws_config_args.aws_secret_access_key.clone(),
-            aws_region: self.aws_config_args.aws_region.clone(),
-            aws_endpoint_url,
-            aws_default_region,
-        })
+    pub fn validate_provider_params(&self) -> Result<ProviderValidatedArgs, String> {
+        if self.aws_config_args.aws {
+            Ok(ProviderValidatedArgs::AWS(AWSConfigValidatedArgs {
+                aws_access_key_id: self.aws_config_args.aws_access_key_id.clone(),
+                aws_secret_access_key: self.aws_config_args.aws_secret_access_key.clone(),
+                aws_region: self.aws_config_args.aws_region.clone(),
+            }))
+        } else {
+            Err("Only AWS is supported as of now".to_string())
+        }
     }
 
-    pub fn validate_alert_params(&self) -> Result<AlertParams, String> {
+    pub fn validate_alert_params(&self) -> Result<AlertValidatedArgs, String> {
         if self.aws_sns_args.aws_sns {
-            Ok(AlertParams::AWSSNS(AWSSNSValidatedArgs {
-                sns_arn: self.aws_sns_args.sns_arn.clone().expect("SNS ARN is required"),
+            Ok(AlertValidatedArgs::AWSSNS(AWSSNSValidatedArgs {
+                topic_arn: self.aws_sns_args.sns_arn.clone().expect("SNS ARN is required"),
             }))
         } else {
             Err("Only AWS SNS is supported as of now".to_string())
         }
     }
 
-    pub fn validate_queue_params(&self) -> Result<QueueParams, String> {
+    pub fn validate_queue_params(&self) -> Result<QueueValidatedArgs, String> {
         if self.aws_sqs_args.aws_sqs {
-            Ok(QueueParams::AWSSQS(AWSSQSValidatedArgs {
+            Ok(QueueValidatedArgs::AWSSQS(AWSSQSValidatedArgs {
                 queue_base_url: self.aws_sqs_args.queue_base_url.clone().expect("Queue base URL is required"),
                 sqs_prefix: self.aws_sqs_args.sqs_prefix.clone().expect("SQS prefix is required"),
                 sqs_suffix: self.aws_sqs_args.sqs_suffix.clone().expect("SQS suffix is required"),
@@ -198,9 +201,9 @@ impl RunCmd {
         }
     }
 
-    pub fn validate_storage_params(&self) -> Result<StorageParams, String> {
+    pub fn validate_storage_params(&self) -> Result<StorageValidatedArgs, String> {
         if self.aws_s3_args.aws_s3 {
-            Ok(StorageParams::AWSS3(AWSS3ValidatedArgs {
+            Ok(StorageValidatedArgs::AWSS3(AWSS3ValidatedArgs {
                 bucket_name: self.aws_s3_args.bucket_name.clone().expect("Bucket name is required"),
             }))
         } else {
@@ -208,9 +211,9 @@ impl RunCmd {
         }
     }
 
-    pub fn validate_database_params(&self) -> Result<DatabaseParams, String> {
+    pub fn validate_database_params(&self) -> Result<DatabaseValidatedArgs, String> {
         if self.mongodb_args.mongodb {
-            Ok(DatabaseParams::MongoDB(MongoDBValidatedArgs {
+            Ok(DatabaseValidatedArgs::MongoDB(MongoDBValidatedArgs {
                 connection_url: self
                     .mongodb_args
                     .mongodb_connection_url
@@ -227,9 +230,9 @@ impl RunCmd {
         }
     }
 
-    pub fn validate_da_params(&self) -> Result<DaParams, String> {
+    pub fn validate_da_params(&self) -> Result<DaValidatedArgs, String> {
         if self.ethereum_da_args.da_on_ethereum {
-            Ok(DaParams::Ethereum(EthereumDaValidatedArgs {
+            Ok(DaValidatedArgs::Ethereum(EthereumDaValidatedArgs {
                 ethereum_da_rpc_url: self
                     .ethereum_da_args
                     .ethereum_da_rpc_url
@@ -241,7 +244,7 @@ impl RunCmd {
         }
     }
 
-    pub fn validate_settlement_params(&self) -> Result<settlement::SettlementParams, String> {
+    pub fn validate_settlement_params(&self) -> Result<settlement::SettlementValidatedArgs, String> {
         match (self.ethereum_args.settle_on_ethereum, self.starknet_args.settle_on_starknet) {
             (true, false) => {
                 let ethereum_params = EthereumSettlementValidatedArgs {
@@ -266,7 +269,7 @@ impl RunCmd {
                         .clone()
                         .expect("Starknet operator address is required"),
                 };
-                Ok(SettlementParams::Ethereum(ethereum_params))
+                Ok(SettlementValidatedArgs::Ethereum(ethereum_params))
             }
             (false, true) => {
                 let starknet_params = StarknetSettlementValidatedArgs {
@@ -300,15 +303,15 @@ impl RunCmd {
                         .clone()
                         .expect("Starknet Madara binary path is required"),
                 };
-                Ok(SettlementParams::Starknet(starknet_params))
+                Ok(SettlementValidatedArgs::Starknet(starknet_params))
             }
             (true, true) | (false, false) => Err("Exactly one settlement layer must be selected".to_string()),
         }
     }
 
-    pub fn validate_prover_params(&self) -> Result<ProverParams, String> {
+    pub fn validate_prover_params(&self) -> Result<ProverValidatedArgs, String> {
         if self.sharp_args.sharp {
-            Ok(ProverParams::Sharp(SharpValidatedArgs {
+            Ok(ProverValidatedArgs::Sharp(SharpValidatedArgs {
                 sharp_customer_id: self.sharp_args.sharp_customer_id.clone().expect("Sharp customer ID is required"),
                 sharp_url: self.sharp_args.sharp_url.clone().expect("Sharp URL is required"),
                 sharp_user_crt: self.sharp_args.sharp_user_crt.clone().expect("Sharp user certificate is required"),
@@ -331,9 +334,9 @@ impl RunCmd {
         }
     }
 
-    pub fn validate_cron_params(&self) -> Result<CronParams, String> {
+    pub fn validate_cron_params(&self) -> Result<CronValidatedArgs, String> {
         if self.aws_event_bridge_args.aws_event_bridge {
-            Ok(CronParams::EventBridge(AWSEventBridgeValidatedArgs {
+            Ok(CronValidatedArgs::AWSEventBridge(AWSEventBridgeValidatedArgs {
                 target_queue_name: self
                     .aws_event_bridge_args
                     .target_queue_name
@@ -399,12 +402,12 @@ pub mod test {
     use url::Url;
 
     use super::alert::aws_sns::AWSSNSCliArgs;
-    use super::aws_config::AWSConfigCliArgs;
     use super::cron::event_bridge::AWSEventBridgeCliArgs;
     use super::da::ethereum::EthereumDaCliArgs;
     use super::database::mongodb::MongoDBCliArgs;
     use super::instrumentation::InstrumentationCliArgs;
     use super::prover::sharp::SharpCliArgs;
+    use super::provider::aws::AWSConfigCliArgs;
     use super::queue::aws_sqs::AWSSQSCliArgs;
     use super::server::ServerCliArgs;
     use super::service::ServiceCliArgs;
@@ -421,6 +424,7 @@ pub mod test {
             run: true,
             setup: false,
             aws_config_args: AWSConfigCliArgs {
+                aws: true,
                 aws_access_key_id: "".to_string(),
                 aws_secret_access_key: "".to_string(),
                 aws_region: "".to_string(),
@@ -502,9 +506,9 @@ pub mod test {
     // Let's create a test for the CLI each validator
 
     #[rstest]
-    fn test_validate_aws_config_params(setup_cmd: RunCmd) {
-        let aws_config_params = setup_cmd.validate_aws_config_params();
-        assert!(aws_config_params.is_ok());
+    fn test_validate_provider_params(setup_cmd: RunCmd) {
+        let provider_params = setup_cmd.validate_provider_params();
+        assert!(provider_params.is_ok());
     }
 
     #[rstest]

@@ -12,9 +12,9 @@ use mongodb::Client;
 use rstest::*;
 use serde::Deserialize;
 
-use crate::cli::alert::AlertParams;
-use crate::cli::database::DatabaseParams;
-use crate::cli::queue::QueueParams;
+use crate::cli::alert::AlertValidatedArgs;
+use crate::cli::database::DatabaseValidatedArgs;
+use crate::cli::queue::QueueValidatedArgs;
 use crate::config::ProviderConfig;
 use crate::data_storage::aws_s3::{AWSS3ValidatedArgs, AWSS3};
 use crate::data_storage::DataStorage;
@@ -49,11 +49,11 @@ pub fn custom_job_item(default_job_item: JobItem, #[default(String::from("0"))] 
 
 pub async fn create_sns_arn(
     provider_config: Arc<ProviderConfig>,
-    alert_params: &AlertParams,
+    alert_params: &AlertValidatedArgs,
 ) -> Result<(), SdkError<CreateTopicError>> {
-    let AlertParams::AWSSNS(aws_sns_params) = alert_params;
+    let AlertValidatedArgs::AWSSNS(aws_sns_params) = alert_params;
     let sns_client = get_sns_client(provider_config.get_aws_client_or_panic()).await;
-    sns_client.create_topic().name(aws_sns_params.get_topic_name()).send().await?;
+    sns_client.create_topic().name(aws_sns_params.topic_arn.clone()).send().await?;
     Ok(())
 }
 
@@ -61,10 +61,10 @@ pub async fn get_sns_client(aws_config: &SdkConfig) -> aws_sdk_sns::client::Clie
     aws_sdk_sns::Client::new(aws_config)
 }
 
-pub async fn drop_database(database_params: &DatabaseParams) -> color_eyre::Result<()> {
+pub async fn drop_database(database_params: &DatabaseValidatedArgs) -> color_eyre::Result<()> {
     match database_params {
-        DatabaseParams::MongoDB(mongodb_params) => {
-            let db_client: Client = MongoDb::new_with_params(mongodb_params).await.client();
+        DatabaseValidatedArgs::MongoDB(mongodb_params) => {
+            let db_client: Client = MongoDb::new_with_args(mongodb_params).await.client();
             // dropping all the collection.
             // use .collection::<JobItem>("<collection_name>")
             // if only particular collection is to be dropped
@@ -76,9 +76,12 @@ pub async fn drop_database(database_params: &DatabaseParams) -> color_eyre::Resu
 
 // SQS structs & functions
 
-pub async fn create_queues(provider_config: Arc<ProviderConfig>, queue_params: &QueueParams) -> color_eyre::Result<()> {
+pub async fn create_queues(
+    provider_config: Arc<ProviderConfig>,
+    queue_params: &QueueValidatedArgs,
+) -> color_eyre::Result<()> {
     match queue_params {
-        QueueParams::AWSSQS(aws_sqs_params) => {
+        QueueValidatedArgs::AWSSQS(aws_sqs_params) => {
             let sqs_client = get_sqs_client(provider_config).await;
 
             // Dropping sqs queues
@@ -93,7 +96,7 @@ pub async fn create_queues(provider_config: Arc<ProviderConfig>, queue_params: &
             }
 
             for queue_type in QueueType::iter() {
-                let queue_name = aws_sqs_params.get_queue_name(queue_type);
+                let queue_name = format!("{}_{}_{}", aws_sqs_params.sqs_prefix, queue_type, aws_sqs_params.sqs_suffix);
                 sqs_client.create_queue().queue_name(queue_name).send().await?;
             }
         }
@@ -116,5 +119,6 @@ pub async fn get_storage_client(
     storage_cfg: &AWSS3ValidatedArgs,
     provider_config: Arc<ProviderConfig>,
 ) -> Box<dyn DataStorage + Send + Sync> {
-    Box::new(AWSS3::new_with_params(storage_cfg, provider_config).await)
+    let aws_config = provider_config.get_aws_client_or_panic();
+    Box::new(AWSS3::new_with_args(storage_cfg, aws_config).await)
 }

@@ -31,7 +31,7 @@ pub struct MongoDb {
 }
 
 impl MongoDb {
-    pub async fn new_with_params(mongodb_params: &MongoDBValidatedArgs) -> Self {
+    pub async fn new_with_args(mongodb_params: &MongoDBValidatedArgs) -> Self {
         let mut client_options =
             ClientOptions::parse(mongodb_params.connection_url.clone()).await.expect("Failed to parse MongoDB Url");
         // Set the server_api field of the client_options object to set the version of the Stable API on the

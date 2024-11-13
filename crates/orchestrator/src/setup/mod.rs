@@ -1,20 +1,16 @@
 use std::process::Command;
-use std::sync::Arc;
 
-use aws_config::environment::EnvironmentVariableCredentialsProvider;
-use aws_config::{from_env, Region, SdkConfig};
-use aws_credential_types::provider::ProvideCredentials;
+use aws_config::SdkConfig;
 
 use crate::alerts::aws_sns::AWSSNS;
 use crate::alerts::Alerts;
-use crate::cli::alert::AlertParams;
-use crate::cli::aws_config::AWSConfigParams;
-use crate::cli::queue::QueueParams;
-use crate::cli::storage::StorageParams;
+use crate::cli::alert::AlertValidatedArgs;
+use crate::cli::queue::QueueValidatedArgs;
+use crate::cli::storage::StorageValidatedArgs;
 use crate::cli::RunCmd;
-use crate::config::{get_aws_config, ProviderConfig};
+use crate::config::build_provider_config;
 use crate::cron::event_bridge::AWSEventBridge;
-use crate::cron::{Cron, CronParams};
+use crate::cron::{Cron, CronValidatedArgs};
 use crate::data_storage::aws_s3::AWSS3;
 use crate::data_storage::DataStorage;
 use crate::queue::sqs::SqsQueue;
@@ -25,33 +21,20 @@ pub enum SetupConfig {
     AWS(SdkConfig),
 }
 
-pub enum ConfigType {
-    AWS(AWSConfigParams),
-}
-
-async fn setup_config_from_params(client_type: ConfigType) -> SetupConfig {
-    match client_type {
-        ConfigType::AWS(aws_config) => {
-            let region_provider = Region::new(aws_config.aws_region);
-            let creds = EnvironmentVariableCredentialsProvider::new().provide_credentials().await.unwrap();
-            SetupConfig::AWS(from_env().region(region_provider).credentials_provider(creds).load().await)
-        }
-    }
-}
-
 // TODO : move this to main.rs after moving to clap.
 pub async fn setup_cloud(run_cmd: &RunCmd) -> color_eyre::Result<()> {
     println!("Setting up cloud.");
-    let aws_config = run_cmd.validate_aws_config_params().expect("Failed to validate AWS config params");
-    let provider_config = Arc::new(ProviderConfig::AWS(Box::new(get_aws_config(&aws_config).await)));
+    let provider_params = run_cmd.validate_provider_params().expect("Failed to validate provider params");
+    let provider_config = build_provider_config(&provider_params).await;
 
     println!("Setting up data storage.");
     let data_storage_params = run_cmd.validate_storage_params().expect("Failed to validate storage params");
+    let aws_config = provider_config.get_aws_client_or_panic();
 
     match data_storage_params {
-        StorageParams::AWSS3(aws_s3_params) => {
-            let s3 = Box::new(AWSS3::new_with_params(&aws_s3_params, provider_config.clone()).await);
-            s3.setup(&StorageParams::AWSS3(aws_s3_params.clone())).await?
+        StorageValidatedArgs::AWSS3(aws_s3_params) => {
+            let s3 = Box::new(AWSS3::new_with_args(&aws_s3_params, aws_config).await);
+            s3.setup(&StorageValidatedArgs::AWSS3(aws_s3_params.clone())).await?
         }
     }
     println!("Data storage setup completed ✅");
@@ -59,10 +42,9 @@ pub async fn setup_cloud(run_cmd: &RunCmd) -> color_eyre::Result<()> {
     println!("Setting up queues");
     let queue_params = run_cmd.validate_queue_params().expect("Failed to validate queue params");
     match queue_params {
-        QueueParams::AWSSQS(aws_sqs_params) => {
-            let config = setup_config_from_params(ConfigType::AWS(aws_config.clone())).await;
-            let sqs = Box::new(SqsQueue::new_with_params(aws_sqs_params));
-            sqs.setup(config).await?
+        QueueValidatedArgs::AWSSQS(aws_sqs_params) => {
+            let sqs = Box::new(SqsQueue::new_with_args(aws_sqs_params, aws_config));
+            sqs.setup().await?
         }
     }
     println!("Queues setup completed ✅");
@@ -70,10 +52,10 @@ pub async fn setup_cloud(run_cmd: &RunCmd) -> color_eyre::Result<()> {
     println!("Setting up cron");
     let cron_params = run_cmd.validate_cron_params().expect("Failed to validate cron params");
     match cron_params {
-        CronParams::EventBridge(aws_event_bridge_params) => {
-            let config = setup_config_from_params(ConfigType::AWS(aws_config)).await;
-            let event_bridge = Box::new(AWSEventBridge::new_with_params(&aws_event_bridge_params));
-            event_bridge.setup(config).await?
+        CronValidatedArgs::AWSEventBridge(aws_event_bridge_params) => {
+            let aws_config = provider_config.get_aws_client_or_panic();
+            let event_bridge = Box::new(AWSEventBridge::new_with_args(&aws_event_bridge_params, aws_config));
+            event_bridge.setup().await?
         }
     }
     println!("Cron setup completed ✅");
@@ -81,9 +63,10 @@ pub async fn setup_cloud(run_cmd: &RunCmd) -> color_eyre::Result<()> {
     println!("Setting up alerts.");
     let alert_params = run_cmd.validate_alert_params().expect("Failed to validate alert params");
     match alert_params {
-        AlertParams::AWSSNS(aws_sns_params) => {
-            let sns = Box::new(AWSSNS::new_with_params(&aws_sns_params, provider_config).await);
-            sns.setup(AlertParams::AWSSNS(aws_sns_params.clone())).await?
+        AlertValidatedArgs::AWSSNS(aws_sns_params) => {
+            let aws_config = provider_config.get_aws_client_or_panic();
+            let sns = Box::new(AWSSNS::new_with_args(&aws_sns_params, aws_config).await);
+            sns.setup().await?
         }
     }
     println!("Alerts setup completed ✅");

@@ -28,7 +28,7 @@ impl SharpClient {
     /// and then copy it and paste it into .env file :
     ///
     /// `cat <file_name> | base64`
-    pub fn new_with_params(url: Url, sharp_params: &SharpValidatedArgs) -> Self {
+    pub fn new_with_args(url: Url, sharp_params: &SharpValidatedArgs) -> Self {
         // Getting the cert files from the .env and then decoding it from base64
 
         let cert = general_purpose::STANDARD

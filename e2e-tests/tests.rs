@@ -12,7 +12,7 @@ use e2e_tests::starknet_client::StarknetClient;
 use e2e_tests::utils::{get_mongo_db_client, read_state_update_from_file, vec_u8_to_hex_string};
 use e2e_tests::{MongoDbServer, Orchestrator};
 use mongodb::bson::doc;
-use orchestrator::cli::database::DatabaseParams;
+use orchestrator::cli::database::DatabaseValidatedArgs;
 use orchestrator::data_storage::DataStorage;
 use orchestrator::database::mongodb::MongoDBValidatedArgs;
 use orchestrator::jobs::constants::{JOB_METADATA_SNOS_BLOCK, JOB_METADATA_STATE_UPDATE_BLOCKS_TO_SETTLE_KEY};
@@ -50,12 +50,12 @@ struct Setup {
 impl Setup {
     /// Initialise a new setup
     pub async fn new(l2_block_number: String) -> Self {
-        let db_params = DatabaseParams::MongoDB(MongoDBValidatedArgs {
+        let db_params = DatabaseValidatedArgs::MongoDB(MongoDBValidatedArgs {
             connection_url: get_env_var_or_panic("MADARA_ORCHESTRATOR_MONGODB_CONNECTION_URL"),
             database_name: get_env_var_or_panic("MADARA_ORCHESTRATOR_DATABASE_NAME"),
         });
 
-        let DatabaseParams::MongoDB(mongodb_params) = db_params;
+        let DatabaseValidatedArgs::MongoDB(mongodb_params) = db_params;
 
         let mongo_db_instance = MongoDbServer::run(mongodb_params);
         println!("✅ Mongo DB setup completed");
@@ -290,7 +290,17 @@ pub async fn put_job_data_in_db_snos(mongo_db: &MongoDbServer, l2_block_number: 
 /// as soon as it is picked up by orchestrator
 pub async fn put_snos_job_in_processing_queue(id: Uuid, queue_params: AWSSQSValidatedArgs) -> color_eyre::Result<()> {
     let message = JobQueueMessage { id };
-    put_message_in_queue(message, queue_params.get_queue_url(QueueType::SnosJobProcessing)).await?;
+    put_message_in_queue(
+        message,
+        format!(
+            "{}/{}_{}_{}",
+            queue_params.queue_base_url,
+            queue_params.sqs_prefix,
+            QueueType::SnosJobProcessing,
+            queue_params.sqs_suffix
+        ),
+    )
+    .await?;
     Ok(())
 }
 

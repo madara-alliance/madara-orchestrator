@@ -5,7 +5,7 @@ pub mod ethereum;
 pub mod starknet;
 
 #[derive(Clone, Debug)]
-pub enum SettlementParams {
+pub enum SettlementValidatedArgs {
     Ethereum(EthereumSettlementValidatedArgs),
     Starknet(StarknetSettlementValidatedArgs),
 }
