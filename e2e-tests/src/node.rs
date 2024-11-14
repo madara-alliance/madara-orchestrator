@@ -37,6 +37,7 @@ pub enum OrchestratorMode {
 impl Orchestrator {
     pub fn new(mode: OrchestratorMode, mut envs: Vec<(String, String)>) -> Option<Self> {
         let repository_root = &get_repository_root();
+        let mut address = String::new();
         std::env::set_current_dir(repository_root).expect("Failed to change working directory");
 
         let is_run_mode = mode == OrchestratorMode::Run;
@@ -65,34 +66,24 @@ impl Orchestrator {
             command.arg("--da-on-ethereum");
             command.arg("--sharp");
             command.arg("--mongodb");
-            
-        } else {
-            command.arg("--aws-event-bridge");
-        }
 
-        // Configure run-specific settings
-        let address = if is_run_mode {
             let port = get_free_port();
             let addr = format!("127.0.0.1:{}", port);
             envs.push(("MADARA_ORCHESTRATOR_PORT".to_string(), port.to_string()));
-            addr
-        } else {
-            String::new()
-        };
+            address = addr;
 
-        command.current_dir(repository_root).envs(envs);
-
-        // Handle stdout/stderr differently based on mode
-        if is_run_mode {
             command.stdout(Stdio::piped()).stderr(Stdio::piped());
         } else {
+            command.arg("--aws-event-bridge");
+
             // For setup mode, inherit the stdio to show output directly
             command.stdout(Stdio::inherit()).stderr(Stdio::inherit());
         }
 
+        command.current_dir(repository_root).envs(envs);
+
         let mut process = command.spawn().expect("Failed to start process");
 
-        // Set up stdout and stderr handling only for run mode
         if is_run_mode {
             let stdout = process.stdout.take().expect("Failed to capture stdout");
             thread::spawn(move || {
@@ -113,9 +104,8 @@ impl Orchestrator {
                     }
                 });
             });
-        }
-
-        if is_run_mode { Some(Self { process, address }) } else { 
+            Some(Self { process, address })
+        } else {
             // Wait for the process to complete and get its exit status
             let status = process.wait().expect("Failed to wait for process");
             if status.success() {
@@ -129,9 +119,9 @@ impl Orchestrator {
                 }
             }
             None
-         }
+        }
     }
-    
+
     pub fn endpoint(&self) -> Url {
         Url::parse(&format!("http://{}", self.address)).unwrap()
     }

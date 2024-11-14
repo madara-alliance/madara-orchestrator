@@ -45,7 +45,7 @@ struct Setup {
     mongo_db_instance: MongoDbServer,
     starknet_client: StarknetClient,
     sharp_client: SharpClient,
-    env_vector: Vec<(String, String)>,
+    env_vector: HashMap<String, String>,
 }
 
 impl Setup {
@@ -72,34 +72,38 @@ impl Setup {
         let (starknet_core_contract_address, verifier_contract_address) = anvil_setup.deploy_contracts().await;
         println!("✅ Anvil setup completed");
 
-        let mut env_vec: Vec<(String, String)> =
-            vec![("MADARA_ORCHESTRATOR_MONGODB_CONNECTION_URL".to_string(), mongo_db_instance.endpoint().to_string())];
+        let mut env_vec: HashMap<String, String> = HashMap::new();
+
+        let env_vars = dotenvy::vars();
+        for (key, value) in env_vars {
+            env_vec.insert(key, value);
+        }
+
+        env_vec
+            .insert("MADARA_ORCHESTRATOR_MONGODB_CONNECTION_URL".to_string(), mongo_db_instance.endpoint().to_string());
 
         // Adding other values to the environment variables vector
-        env_vec.push(("MADARA_ORCHESTRATOR_ETHEREUM_SETTLEMENT_RPC_URL".to_string(), anvil_setup.rpc_url.to_string()));
-        env_vec.push(("MADARA_ORCHESTRATOR_SHARP_URL".to_string(), sharp_client.url()));
+        env_vec.insert("MADARA_ORCHESTRATOR_ETHEREUM_SETTLEMENT_RPC_URL".to_string(), anvil_setup.rpc_url.to_string());
+        env_vec.insert("MADARA_ORCHESTRATOR_SHARP_URL".to_string(), sharp_client.url());
 
         // Adding impersonation for operator as our own address here.
         // As we are using test contracts thus we don't need any impersonation.
         // But that logic is being used in integration tests so to keep that. We
         // add this address here.
         // Anvil.addresses[0]
-        env_vec.push((
+        env_vec.insert(
             "MADARA_ORCHESTRATOR_STARKNET_OPERATOR_ADDRESS".to_string(),
             "0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266".to_string(),
-        ));
-        env_vec.push((
+        );
+        env_vec.insert(
             "MADARA_ORCHESTRATOR_GPS_VERIFIER_CONTRACT_ADDRESS".to_string(),
             verifier_contract_address.to_string(),
-        ));
-        env_vec.push((
+        );
+        env_vec.insert(
             "MADARA_ORCHESTRATOR_L1_CORE_CONTRACT_ADDRESS".to_string(),
             starknet_core_contract_address.to_string(),
-        ));
-        env_vec.push(("MADARA_ORCHESTRATOR_MAX_BLOCK_NO_TO_PROCESS".to_string(), l2_block_number));
-
-        let env_vec_2: Vec<(String, String)> = set_env_vars();
-        env_vec.extend(env_vec_2);
+        );
+        env_vec.insert("MADARA_ORCHESTRATOR_MAX_BLOCK_NO_TO_PROCESS".to_string(), l2_block_number);
 
         Self { mongo_db_instance, starknet_client, sharp_client, env_vector: env_vec }
     }
@@ -118,7 +122,7 @@ impl Setup {
     }
 
     pub fn envs(&self) -> Vec<(String, String)> {
-        self.env_vector.clone()
+        self.env_vector.iter().map(|(k, v)| (k.clone(), v.clone())).collect()
     }
 }
 
@@ -476,116 +480,4 @@ pub async fn put_job_data_in_db_proving(mongo_db: &MongoDbServer, l2_block_numbe
 pub async fn setup_s3(s3_client: &Box<dyn DataStorage + Send + Sync>) -> color_eyre::Result<()> {
     s3_client.create_bucket(&get_env_var_or_panic("MADARA_ORCHESTRATOR_AWS_S3_BUCKET_NAME")).await.unwrap();
     Ok(())
-}
-
-fn set_env_vars() -> Vec<(String, String)> {
-    let env_vec: Vec<(String, String)> = vec![
-        // AWS Config
-        ("AWS_ACCESS_KEY_ID".to_string(), get_env_var_or_panic("AWS_ACCESS_KEY_ID")),
-        ("AWS_SECRET_ACCESS_KEY".to_string(), get_env_var_or_panic("AWS_SECRET_ACCESS_KEY")),
-        ("AWS_REGION".to_string(), get_env_var_or_panic("AWS_REGION")),
-        ("AWS_ENDPOINT_URL".to_string(), get_env_var_or_panic("AWS_ENDPOINT_URL")),
-        ("AWS_DEFAULT_REGION".to_string(), get_env_var_or_panic("AWS_DEFAULT_REGION")),
-        // Alerts
-        ("MADARA_ORCHESTRATOR_AWS_SNS_ARN".to_string(), get_env_var_or_panic("MADARA_ORCHESTRATOR_AWS_SNS_ARN")),
-        // Data Availability
-        (
-            "MADARA_ORCHESTRATOR_ETHEREUM_DA_RPC_URL".to_string(),
-            get_env_var_or_panic("MADARA_ORCHESTRATOR_ETHEREUM_DA_RPC_URL"),
-        ),
-        // Database
-        // ("MADARA_ORCHESTRATOR_MONGODB_CONNECTION_URL".to_string(),
-        // get_env_var_or_panic("MADARA_ORCHESTRATOR_MONGODB_CONNECTION_URL")),
-        ("MADARA_ORCHESTRATOR_DATABASE_NAME".to_string(), get_env_var_or_panic("MADARA_ORCHESTRATOR_DATABASE_NAME")),
-        // Prover
-        (
-            "MADARA_ORCHESTRATOR_SHARP_CUSTOMER_ID".to_string(),
-            get_env_var_or_panic("MADARA_ORCHESTRATOR_SHARP_CUSTOMER_ID"),
-        ),
-        // ("MADARA_ORCHESTRATOR_SHARP_URL".to_string(), get_env_var_or_panic("MADARA_ORCHESTRATOR_SHARP_URL")),
-        ("MADARA_ORCHESTRATOR_SHARP_USER_CRT".to_string(), get_env_var_or_panic("MADARA_ORCHESTRATOR_SHARP_USER_CRT")),
-        ("MADARA_ORCHESTRATOR_SHARP_USER_KEY".to_string(), get_env_var_or_panic("MADARA_ORCHESTRATOR_SHARP_USER_KEY")),
-        (
-            "MADARA_ORCHESTRATOR_SHARP_SERVER_CRT".to_string(),
-            get_env_var_or_panic("MADARA_ORCHESTRATOR_SHARP_SERVER_CRT"),
-        ),
-        (
-            "MADARA_ORCHESTRATOR_SHARP_RPC_NODE_URL".to_string(),
-            get_env_var_or_panic("MADARA_ORCHESTRATOR_SHARP_RPC_NODE_URL"),
-        ),
-        (
-            "MADARA_ORCHESTRATOR_SHARP_PROOF_LAYOUT".to_string(),
-            get_env_var_or_panic("MADARA_ORCHESTRATOR_SHARP_PROOF_LAYOUT"),
-        ),
-        // ("MADARA_ORCHESTRATOR_GPS_VERIFIER_CONTRACT_ADDRESS".to_string(),
-        // get_env_var_or_panic("MADARA_ORCHESTRATOR_GPS_VERIFIER_CONTRACT_ADDRESS")),
-
-        // Queue
-        ("MADARA_ORCHESTRATOR_SQS_PREFIX".to_string(), get_env_var_or_panic("MADARA_ORCHESTRATOR_SQS_PREFIX")),
-        ("MADARA_ORCHESTRATOR_SQS_SUFFIX".to_string(), get_env_var_or_panic("MADARA_ORCHESTRATOR_SQS_SUFFIX")),
-        (
-            "MADARA_ORCHESTRATOR_SQS_BASE_QUEUE_URL".to_string(),
-            get_env_var_or_panic("MADARA_ORCHESTRATOR_SQS_BASE_QUEUE_URL"),
-        ),
-        // Settlement - Ethereum
-        // ("MADARA_ORCHESTRATOR_ETHEREUM_SETTLEMENT_RPC_URL".to_string(),
-        // get_env_var_or_panic("MADARA_ORCHESTRATOR_ETHEREUM_SETTLEMENT_RPC_URL")),
-        (
-            "MADARA_ORCHESTRATOR_ETHEREUM_PRIVATE_KEY".to_string(),
-            get_env_var_or_panic("MADARA_ORCHESTRATOR_ETHEREUM_PRIVATE_KEY"),
-        ),
-        // ("MADARA_ORCHESTRATOR_L1_CORE_CONTRACT_ADDRESS".to_string(),
-        // get_env_var_or_panic("MADARA_ORCHESTRATOR_L1_CORE_CONTRACT_ADDRESS")),
-        // ("MADARA_ORCHESTRATOR_STARKNET_OPERATOR_ADDRESS".to_string(),
-        // get_env_var_or_panic("MADARA_ORCHESTRATOR_STARKNET_OPERATOR_ADDRESS")),
-
-        // Settlement - Starknet
-        (
-            "MADARA_ORCHESTRATOR_STARKNET_SETTLEMENT_RPC_URL".to_string(),
-            get_env_var_or_panic("MADARA_ORCHESTRATOR_STARKNET_SETTLEMENT_RPC_URL"),
-        ),
-        (
-            "MADARA_ORCHESTRATOR_STARKNET_PRIVATE_KEY".to_string(),
-            get_env_var_or_panic("MADARA_ORCHESTRATOR_STARKNET_PRIVATE_KEY"),
-        ),
-        (
-            "MADARA_ORCHESTRATOR_STARKNET_ACCOUNT_ADDRESS".to_string(),
-            get_env_var_or_panic("MADARA_ORCHESTRATOR_STARKNET_ACCOUNT_ADDRESS"),
-        ),
-        (
-            "MADARA_ORCHESTRATOR_STARKNET_CAIRO_CORE_CONTRACT_ADDRESS".to_string(),
-            get_env_var_or_panic("MADARA_ORCHESTRATOR_STARKNET_CAIRO_CORE_CONTRACT_ADDRESS"),
-        ),
-        (
-            "MADARA_ORCHESTRATOR_STARKNET_FINALITY_RETRY_WAIT_IN_SECS".to_string(),
-            get_env_var_or_panic("MADARA_ORCHESTRATOR_STARKNET_FINALITY_RETRY_WAIT_IN_SECS"),
-        ),
-        // (
-        //     "MADARA_ORCHESTRATOR_MADARA_BINARY_PATH".to_string(),
-        //     get_env_var_or_panic("MADARA_ORCHESTRATOR_MADARA_BINARY_PATH"),
-        // ),
-        // Storage
-        (
-            "MADARA_ORCHESTRATOR_AWS_S3_BUCKET_NAME".to_string(),
-            get_env_var_or_panic("MADARA_ORCHESTRATOR_AWS_S3_BUCKET_NAME"),
-        ),
-        // Instrumentation
-        (
-            "MADARA_ORCHESTRATOR_OTEL_SERVICE_NAME".to_string(),
-            get_env_var_or_panic("MADARA_ORCHESTRATOR_OTEL_SERVICE_NAME"),
-        ),
-        // Server
-        ("MADARA_ORCHESTRATOR_HOST".to_string(), get_env_var_or_panic("MADARA_ORCHESTRATOR_HOST")),
-        ("MADARA_ORCHESTRATOR_PORT".to_string(), get_env_var_or_panic("MADARA_ORCHESTRATOR_PORT")),
-        // Service
-        // ("MADARA_ORCHESTRATOR_MAX_BLOCK_NO_TO_PROCESS".to_string(),
-        // get_env_var_or_panic("MADARA_ORCHESTRATOR_MAX_BLOCK_NO_TO_PROCESS")),
-        // (
-        //     "MADARA_ORCHESTRATOR_MIN_BLOCK_NO_TO_PROCESS".to_string(),
-        //     get_env_var_or_panic("MADARA_ORCHESTRATOR_MIN_BLOCK_NO_TO_PROCESS"),
-        // ),
-        // SNOS
-        ("MADARA_ORCHESTRATOR_RPC_FOR_SNOS".to_string(), get_env_var_or_panic("MADARA_ORCHESTRATOR_RPC_FOR_SNOS")),
-    ];
-    env_vec
 }

@@ -1,32 +1,18 @@
-use std::str::FromStr as _;
-use std::time::Duration;
-
 use alert::AlertValidatedArgs;
-use alloy::primitives::Address;
 use clap::{ArgGroup, Parser, Subcommand};
 use cron::event_bridge::AWSEventBridgeCliArgs;
 use cron::CronValidatedArgs;
 use da::DaValidatedArgs;
 use database::DatabaseValidatedArgs;
-use ethereum_da_client::EthereumDaValidatedArgs;
-use ethereum_settlement_client::EthereumSettlementValidatedArgs;
 use prover::ProverValidatedArgs;
 use provider::aws::AWSConfigCliArgs;
-use provider::{AWSConfigValidatedArgs, ProviderValidatedArgs};
+use provider::ProviderValidatedArgs;
 use queue::QueueValidatedArgs;
-use settlement::SettlementValidatedArgs;
-use sharp_service::SharpValidatedArgs;
 use snos::SNOSParams;
-use starknet_settlement_client::StarknetSettlementValidatedArgs;
 use storage::StorageValidatedArgs;
 use url::Url;
 
-use crate::alerts::aws_sns::AWSSNSValidatedArgs;
 use crate::config::ServiceParams;
-use crate::cron::event_bridge::AWSEventBridgeValidatedArgs;
-use crate::data_storage::aws_s3::AWSS3ValidatedArgs;
-use crate::database::mongodb::MongoDBValidatedArgs;
-use crate::queue::sqs::AWSSQSValidatedArgs;
 use crate::routes::ServerParams;
 use crate::telemetry::InstrumentationParams;
 
@@ -169,192 +155,51 @@ pub struct RunCmd {
 
 impl RunCmd {
     pub fn validate_provider_params(&self) -> Result<ProviderValidatedArgs, String> {
-        if self.aws_config_args.aws {
-            Ok(ProviderValidatedArgs::AWS(AWSConfigValidatedArgs {
-                aws_access_key_id: self.aws_config_args.aws_access_key_id.clone(),
-                aws_secret_access_key: self.aws_config_args.aws_secret_access_key.clone(),
-                aws_region: self.aws_config_args.aws_region.clone(),
-            }))
-        } else {
-            Err("Only AWS is supported as of now".to_string())
-        }
+        validate_params::validate_provider_params(&self.aws_config_args)
     }
 
     pub fn validate_alert_params(&self) -> Result<AlertValidatedArgs, String> {
-        if self.aws_sns_args.aws_sns && self.aws_config_args.aws {
-            Ok(AlertValidatedArgs::AWSSNS(AWSSNSValidatedArgs {
-                topic_arn: self.aws_sns_args.sns_arn.clone().expect("SNS ARN is required"),
-            }))
-        } else {
-            Err("Only AWS SNS is supported as of now".to_string())
-        }
+        validate_params::validate_alert_params(&self.aws_sns_args, &self.aws_config_args)
     }
 
     pub fn validate_queue_params(&self) -> Result<QueueValidatedArgs, String> {
-        if self.aws_sqs_args.aws_sqs && self.aws_config_args.aws {
-            Ok(QueueValidatedArgs::AWSSQS(AWSSQSValidatedArgs {
-                queue_base_url: Url::parse(
-                    &self.aws_sqs_args.queue_base_url.clone().expect("Queue base URL is required"),
-                )
-                .expect("Invalid queue base URL"),
-                sqs_prefix: self.aws_sqs_args.sqs_prefix.clone().expect("SQS prefix is required"),
-                sqs_suffix: self.aws_sqs_args.sqs_suffix.clone().expect("SQS suffix is required"),
-            }))
-        } else {
-            Err("Only AWS SQS is supported as of now".to_string())
-        }
+        validate_params::validate_queue_params(&self.aws_sqs_args, &self.aws_config_args)
     }
 
     pub fn validate_storage_params(&self) -> Result<StorageValidatedArgs, String> {
-        if self.aws_s3_args.aws_s3 && self.aws_config_args.aws {
-            Ok(StorageValidatedArgs::AWSS3(AWSS3ValidatedArgs {
-                bucket_name: self.aws_s3_args.bucket_name.clone().expect("Bucket name is required"),
-            }))
-        } else {
-            Err("Only AWS S3 is supported as of now".to_string())
-        }
+        validate_params::validate_storage_params(&self.aws_s3_args, &self.aws_config_args)
     }
 
     pub fn validate_database_params(&self) -> Result<DatabaseValidatedArgs, String> {
-        if self.mongodb_args.mongodb {
-            Ok(DatabaseValidatedArgs::MongoDB(MongoDBValidatedArgs {
-                connection_url: Url::parse(
-                    &self.mongodb_args.mongodb_connection_url.clone().expect("MongoDB connection URL is required"),
-                )
-                .expect("Invalid MongoDB connection URL"),
-                database_name: self
-                    .mongodb_args
-                    .mongodb_database_name
-                    .clone()
-                    .expect("MongoDB database name is required"),
-            }))
-        } else {
-            Err("Only MongoDB is supported as of now".to_string())
-        }
+        validate_params::validate_database_params(&self.mongodb_args)
     }
 
     pub fn validate_da_params(&self) -> Result<DaValidatedArgs, String> {
-        if self.ethereum_da_args.da_on_ethereum {
-            Ok(DaValidatedArgs::Ethereum(EthereumDaValidatedArgs {
-                ethereum_da_rpc_url: self
-                    .ethereum_da_args
-                    .ethereum_da_rpc_url
-                    .clone()
-                    .expect("Ethereum DA RPC URL is required"),
-            }))
-        } else {
-            Err("Only Ethereum is supported as of now".to_string())
-        }
+        validate_params::validate_da_params(&self.ethereum_da_args)
     }
 
     pub fn validate_settlement_params(&self) -> Result<settlement::SettlementValidatedArgs, String> {
-        if self.ethereum_args.settle_on_ethereum {
-            let l1_core_contract_address = Address::from_str(
-                &self.ethereum_args.l1_core_contract_address.clone().expect("L1 core contract address is required"),
-            )
-            .expect("Invalid L1 core contract address");
-            let starknet_operator_address = Address::from_str(
-                &self.ethereum_args.starknet_operator_address.clone().expect("Starknet operator address is required"),
-            )
-            .expect("Invalid Starknet operator address");
-
-            let ethereum_params = EthereumSettlementValidatedArgs {
-                ethereum_rpc_url: self.ethereum_args.ethereum_rpc_url.clone().expect("Ethereum RPC URL is required"),
-                ethereum_private_key: self
-                    .ethereum_args
-                    .ethereum_private_key
-                    .clone()
-                    .expect("Ethereum private key is required"),
-                l1_core_contract_address,
-                starknet_operator_address,
-            };
-            Ok(SettlementValidatedArgs::Ethereum(ethereum_params))
-        } else if self.starknet_args.settle_on_starknet {
-            let starknet_params = StarknetSettlementValidatedArgs {
-                starknet_rpc_url: self.starknet_args.starknet_rpc_url.clone().expect("Starknet RPC URL is required"),
-                starknet_private_key: self
-                    .starknet_args
-                    .starknet_private_key
-                    .clone()
-                    .expect("Starknet private key is required"),
-                starknet_account_address: Address::from_str(
-                    &self.starknet_args.starknet_account_address.clone().expect("Starknet account address is required"),
-                )
-                .expect("Invalid Starknet account address"),
-                starknet_cairo_core_contract_address: Address::from_str(
-                    &self
-                        .starknet_args
-                        .starknet_cairo_core_contract_address
-                        .clone()
-                        .expect("Starknet Cairo core contract address is required"),
-                )
-                .expect("Invalid Starknet Cairo core contract address"),
-                starknet_finality_retry_wait_in_secs: self
-                    .starknet_args
-                    .starknet_finality_retry_wait_in_secs
-                    .expect("Starknet finality retry wait in seconds is required"),
-            };
-            Ok(SettlementValidatedArgs::Starknet(starknet_params))
-        } else {
-            Err("Settlement layer is required".to_string())
-        }
+        validate_params::validate_settlement_params(&self.ethereum_args, &self.starknet_args)
     }
 
     pub fn validate_prover_params(&self) -> Result<ProverValidatedArgs, String> {
-        if self.sharp_args.sharp {
-            Ok(ProverValidatedArgs::Sharp(SharpValidatedArgs {
-                sharp_customer_id: self.sharp_args.sharp_customer_id.clone().expect("Sharp customer ID is required"),
-                sharp_url: self.sharp_args.sharp_url.clone().expect("Sharp URL is required"),
-                sharp_user_crt: self.sharp_args.sharp_user_crt.clone().expect("Sharp user certificate is required"),
-                sharp_user_key: self.sharp_args.sharp_user_key.clone().expect("Sharp user key is required"),
-                sharp_rpc_node_url: self.sharp_args.sharp_rpc_node_url.clone().expect("Sharp RPC node URL is required"),
-                sharp_proof_layout: self.sharp_args.sharp_proof_layout.clone().expect("Sharp proof layout is required"),
-                gps_verifier_contract_address: self
-                    .sharp_args
-                    .gps_verifier_contract_address
-                    .clone()
-                    .expect("GPS verifier contract address is required"),
-                sharp_server_crt: self
-                    .sharp_args
-                    .sharp_server_crt
-                    .clone()
-                    .expect("Sharp server certificate is required"),
-            }))
-        } else {
-            Err("Only Sharp is supported as of now".to_string())
-        }
+        validate_params::validate_prover_params(&self.sharp_args)
     }
 
     pub fn validate_instrumentation_params(&self) -> Result<InstrumentationParams, String> {
-        Ok(InstrumentationParams {
-            otel_service_name: self
-                .instrumentation_args
-                .otel_service_name
-                .clone()
-                .expect("Otel service name is required"),
-            otel_collector_endpoint: self.instrumentation_args.otel_collector_endpoint.clone(),
-            log_level: self.instrumentation_args.log_level,
-        })
+        validate_params::validate_instrumentation_params(&self.instrumentation_args)
     }
 
     pub fn validate_server_params(&self) -> Result<ServerParams, String> {
-        Ok(ServerParams { host: self.server_args.host.clone(), port: self.server_args.port })
+        validate_params::validate_server_params(&self.server_args)
     }
 
     pub fn validate_service_params(&self) -> Result<ServiceParams, String> {
-        Ok(ServiceParams {
-            // return None if the value is empty string
-            max_block_to_process: self.service_args.max_block_to_process.clone().and_then(|s| {
-                if s.is_empty() { None } else { Some(s.parse::<u64>().expect("Failed to parse max block to process")) }
-            }),
-            min_block_to_process: self.service_args.min_block_to_process.clone().and_then(|s| {
-                if s.is_empty() { None } else { Some(s.parse::<u64>().expect("Failed to parse min block to process")) }
-            }),
-        })
+        validate_params::validate_service_params(&self.service_args)
     }
 
     pub fn validate_snos_params(&self) -> Result<SNOSParams, String> {
-        Ok(SNOSParams { rpc_for_snos: self.snos_args.rpc_for_snos.clone() })
+        validate_params::validate_snos_params(&self.snos_args)
     }
 }
 
@@ -420,70 +265,144 @@ pub struct SetupCmd {
 
 impl SetupCmd {
     pub fn validate_provider_params(&self) -> Result<ProviderValidatedArgs, String> {
-        if self.aws_config_args.aws {
+        validate_params::validate_provider_params(&self.aws_config_args)
+    }
+
+    pub fn validate_storage_params(&self) -> Result<StorageValidatedArgs, String> {
+        validate_params::validate_storage_params(&self.aws_s3_args, &self.aws_config_args)
+    }
+
+    pub fn validate_queue_params(&self) -> Result<QueueValidatedArgs, String> {
+        validate_params::validate_queue_params(&self.aws_sqs_args, &self.aws_config_args)
+    }
+
+    pub fn validate_alert_params(&self) -> Result<AlertValidatedArgs, String> {
+        validate_params::validate_alert_params(&self.aws_sns_args, &self.aws_config_args)
+    }
+
+    pub fn validate_cron_params(&self) -> Result<CronValidatedArgs, String> {
+        validate_params::validate_cron_params(&self.aws_event_bridge_args, &self.aws_config_args)
+    }
+}
+
+pub mod validate_params {
+    use std::str::FromStr as _;
+    use std::time::Duration;
+
+    use alloy::primitives::Address;
+    use ethereum_da_client::EthereumDaValidatedArgs;
+    use ethereum_settlement_client::EthereumSettlementValidatedArgs;
+    use sharp_service::SharpValidatedArgs;
+    use starknet_settlement_client::StarknetSettlementValidatedArgs;
+    use url::Url;
+
+    use super::alert::aws_sns::AWSSNSCliArgs;
+    use super::alert::AlertValidatedArgs;
+    use super::cron::event_bridge::AWSEventBridgeCliArgs;
+    use super::cron::CronValidatedArgs;
+    use super::da::ethereum::EthereumDaCliArgs;
+    use super::da::DaValidatedArgs;
+    use super::database::mongodb::MongoDBCliArgs;
+    use super::database::DatabaseValidatedArgs;
+    use super::instrumentation::InstrumentationCliArgs;
+    use super::prover::sharp::SharpCliArgs;
+    use super::prover::ProverValidatedArgs;
+    use super::provider::aws::AWSConfigCliArgs;
+    use super::provider::{AWSConfigValidatedArgs, ProviderValidatedArgs};
+    use super::queue::aws_sqs::AWSSQSCliArgs;
+    use super::queue::QueueValidatedArgs;
+    use super::server::ServerCliArgs;
+    use super::service::ServiceCliArgs;
+    use super::settlement::ethereum::EthereumSettlementCliArgs;
+    use super::settlement::starknet::StarknetSettlementCliArgs;
+    use super::settlement::SettlementValidatedArgs;
+    use super::snos::{SNOSCliArgs, SNOSParams};
+    use super::storage::aws_s3::AWSS3CliArgs;
+    use super::storage::StorageValidatedArgs;
+    use crate::alerts::aws_sns::AWSSNSValidatedArgs;
+    use crate::config::ServiceParams;
+    use crate::cron::event_bridge::AWSEventBridgeValidatedArgs;
+    use crate::data_storage::aws_s3::AWSS3ValidatedArgs;
+    use crate::database::mongodb::MongoDBValidatedArgs;
+    use crate::queue::sqs::AWSSQSValidatedArgs;
+    use crate::routes::ServerParams;
+    use crate::telemetry::InstrumentationParams;
+
+    pub(crate) fn validate_provider_params(
+        aws_config_args: &AWSConfigCliArgs,
+    ) -> Result<ProviderValidatedArgs, String> {
+        if aws_config_args.aws {
             Ok(ProviderValidatedArgs::AWS(AWSConfigValidatedArgs {
-                aws_access_key_id: self.aws_config_args.aws_access_key_id.clone(),
-                aws_secret_access_key: self.aws_config_args.aws_secret_access_key.clone(),
-                aws_region: self.aws_config_args.aws_region.clone(),
+                aws_access_key_id: aws_config_args.aws_access_key_id.clone(),
+                aws_secret_access_key: aws_config_args.aws_secret_access_key.clone(),
+                aws_region: aws_config_args.aws_region.clone(),
             }))
         } else {
             Err("Only AWS is supported as of now".to_string())
         }
     }
 
-    pub fn validate_alert_params(&self) -> Result<AlertValidatedArgs, String> {
-        if self.aws_sns_args.aws_sns && self.aws_config_args.aws {
+    pub(crate) fn validate_alert_params(
+        aws_sns_args: &AWSSNSCliArgs,
+        aws_config_args: &AWSConfigCliArgs,
+    ) -> Result<AlertValidatedArgs, String> {
+        if aws_sns_args.aws_sns && aws_config_args.aws {
             Ok(AlertValidatedArgs::AWSSNS(AWSSNSValidatedArgs {
-                topic_arn: self.aws_sns_args.sns_arn.clone().expect("SNS ARN is required"),
+                topic_arn: aws_sns_args.sns_arn.clone().expect("SNS ARN is required"),
             }))
         } else {
             Err("Only AWS SNS is supported as of now".to_string())
         }
     }
 
-    pub fn validate_queue_params(&self) -> Result<QueueValidatedArgs, String> {
-        if self.aws_sqs_args.aws_sqs && self.aws_config_args.aws {
+    pub(crate) fn validate_queue_params(
+        aws_sqs_args: &AWSSQSCliArgs,
+        aws_config_args: &AWSConfigCliArgs,
+    ) -> Result<QueueValidatedArgs, String> {
+        if aws_sqs_args.aws_sqs && aws_config_args.aws {
             Ok(QueueValidatedArgs::AWSSQS(AWSSQSValidatedArgs {
-                queue_base_url: Url::parse(
-                    &self.aws_sqs_args.queue_base_url.clone().expect("Queue base URL is required"),
-                )
-                .expect("Invalid queue base URL"),
-                sqs_prefix: self.aws_sqs_args.sqs_prefix.clone().expect("SQS prefix is required"),
-                sqs_suffix: self.aws_sqs_args.sqs_suffix.clone().expect("SQS suffix is required"),
+                queue_base_url: Url::parse(&aws_sqs_args.queue_base_url.clone().expect("Queue base URL is required"))
+                    .expect("Invalid queue base URL"),
+                sqs_prefix: aws_sqs_args.sqs_prefix.clone().expect("SQS prefix is required"),
+                sqs_suffix: aws_sqs_args.sqs_suffix.clone().expect("SQS suffix is required"),
             }))
         } else {
             Err("Only AWS SQS is supported as of now".to_string())
         }
     }
 
-    pub fn validate_storage_params(&self) -> Result<StorageValidatedArgs, String> {
-        if self.aws_s3_args.aws_s3 && self.aws_config_args.aws {
+    pub(crate) fn validate_storage_params(
+        aws_s3_args: &AWSS3CliArgs,
+        aws_config_args: &AWSConfigCliArgs,
+    ) -> Result<StorageValidatedArgs, String> {
+        if aws_s3_args.aws_s3 && aws_config_args.aws {
             Ok(StorageValidatedArgs::AWSS3(AWSS3ValidatedArgs {
-                bucket_name: self.aws_s3_args.bucket_name.clone().expect("Bucket name is required"),
+                bucket_name: aws_s3_args.bucket_name.clone().expect("Bucket name is required"),
             }))
         } else {
             Err("Only AWS S3 is supported as of now".to_string())
         }
     }
 
-    pub fn validate_cron_params(&self) -> Result<CronValidatedArgs, String> {
-        if self.aws_event_bridge_args.aws_event_bridge && self.aws_config_args.aws {
+    pub(crate) fn validate_cron_params(
+        aws_event_bridge_args: &AWSEventBridgeCliArgs,
+        aws_config_args: &AWSConfigCliArgs,
+    ) -> Result<CronValidatedArgs, String> {
+        if aws_event_bridge_args.aws_event_bridge && aws_config_args.aws {
             Ok(CronValidatedArgs::AWSEventBridge(AWSEventBridgeValidatedArgs {
-                target_queue_name: self
-                    .aws_event_bridge_args
+                target_queue_name: aws_event_bridge_args
                     .target_queue_name
                     .clone()
                     .expect("Target queue name is required"),
                 cron_time: Duration::from_secs(
-                    self.aws_event_bridge_args
+                    aws_event_bridge_args
                         .cron_time
                         .clone()
                         .expect("Cron time is required")
                         .parse::<u64>()
                         .expect("Failed to parse cron time"),
                 ),
-                trigger_rule_name: self
-                    .aws_event_bridge_args
+                trigger_rule_name: aws_event_bridge_args
                     .trigger_rule_name
                     .clone()
                     .expect("Trigger rule name is required"),
@@ -492,191 +411,400 @@ impl SetupCmd {
             Err("Only AWS Event Bridge is supported as of now".to_string())
         }
     }
+
+    pub(crate) fn validate_database_params(mongodb_args: &MongoDBCliArgs) -> Result<DatabaseValidatedArgs, String> {
+        if mongodb_args.mongodb {
+            Ok(DatabaseValidatedArgs::MongoDB(MongoDBValidatedArgs {
+                connection_url: Url::parse(
+                    &mongodb_args.mongodb_connection_url.clone().expect("MongoDB connection URL is required"),
+                )
+                .expect("Invalid MongoDB connection URL"),
+                database_name: mongodb_args.mongodb_database_name.clone().expect("MongoDB database name is required"),
+            }))
+        } else {
+            Err("Only MongoDB is supported as of now".to_string())
+        }
+    }
+
+    pub(crate) fn validate_da_params(ethereum_da_args: &EthereumDaCliArgs) -> Result<DaValidatedArgs, String> {
+        if ethereum_da_args.da_on_ethereum {
+            Ok(DaValidatedArgs::Ethereum(EthereumDaValidatedArgs {
+                ethereum_da_rpc_url: ethereum_da_args
+                    .ethereum_da_rpc_url
+                    .clone()
+                    .expect("Ethereum DA RPC URL is required"),
+            }))
+        } else {
+            Err("Only Ethereum is supported as of now".to_string())
+        }
+    }
+
+    pub(crate) fn validate_settlement_params(
+        ethereum_args: &EthereumSettlementCliArgs,
+        starknet_args: &StarknetSettlementCliArgs,
+    ) -> Result<SettlementValidatedArgs, String> {
+        if ethereum_args.settle_on_ethereum {
+            if starknet_args.settle_on_starknet {
+                return Err("Cannot settle on both Ethereum and Starknet".to_string());
+            }
+            let l1_core_contract_address = Address::from_str(
+                &ethereum_args.l1_core_contract_address.clone().expect("L1 core contract address is required"),
+            )
+            .expect("Invalid L1 core contract address");
+            let starknet_operator_address = Address::from_str(
+                &ethereum_args.starknet_operator_address.clone().expect("Starknet operator address is required"),
+            )
+            .expect("Invalid Starknet operator address");
+
+            let ethereum_params = EthereumSettlementValidatedArgs {
+                ethereum_rpc_url: ethereum_args.ethereum_rpc_url.clone().expect("Ethereum RPC URL is required"),
+                ethereum_private_key: ethereum_args
+                    .ethereum_private_key
+                    .clone()
+                    .expect("Ethereum private key is required"),
+                l1_core_contract_address,
+                starknet_operator_address,
+            };
+            Ok(SettlementValidatedArgs::Ethereum(ethereum_params))
+        } else if starknet_args.settle_on_starknet {
+            if ethereum_args.settle_on_ethereum {
+                return Err("Cannot settle on both Starknet and Ethereum".to_string());
+            }
+            let starknet_params = StarknetSettlementValidatedArgs {
+                starknet_rpc_url: starknet_args.starknet_rpc_url.clone().expect("Starknet RPC URL is required"),
+                starknet_private_key: starknet_args
+                    .starknet_private_key
+                    .clone()
+                    .expect("Starknet private key is required"),
+                starknet_account_address: starknet_args
+                    .starknet_account_address
+                    .clone()
+                    .expect("Starknet account address is required"),
+                starknet_cairo_core_contract_address: starknet_args
+                    .starknet_cairo_core_contract_address
+                    .clone()
+                    .expect("Starknet Cairo core contract address is required"),
+                starknet_finality_retry_wait_in_secs: starknet_args
+                    .starknet_finality_retry_wait_in_secs
+                    .expect("Starknet finality retry wait in seconds is required"),
+            };
+            Ok(SettlementValidatedArgs::Starknet(starknet_params))
+        } else {
+            Err("Settlement layer is required".to_string())
+        }
+    }
+
+    pub(crate) fn validate_prover_params(sharp_args: &SharpCliArgs) -> Result<ProverValidatedArgs, String> {
+        if sharp_args.sharp {
+            Ok(ProverValidatedArgs::Sharp(SharpValidatedArgs {
+                sharp_customer_id: sharp_args.sharp_customer_id.clone().expect("Sharp customer ID is required"),
+                sharp_url: sharp_args.sharp_url.clone().expect("Sharp URL is required"),
+                sharp_user_crt: sharp_args.sharp_user_crt.clone().expect("Sharp user certificate is required"),
+                sharp_user_key: sharp_args.sharp_user_key.clone().expect("Sharp user key is required"),
+                sharp_rpc_node_url: sharp_args.sharp_rpc_node_url.clone().expect("Sharp RPC node URL is required"),
+                sharp_proof_layout: sharp_args.sharp_proof_layout.clone().expect("Sharp proof layout is required"),
+                gps_verifier_contract_address: sharp_args
+                    .gps_verifier_contract_address
+                    .clone()
+                    .expect("GPS verifier contract address is required"),
+                sharp_server_crt: sharp_args.sharp_server_crt.clone().expect("Sharp server certificate is required"),
+            }))
+        } else {
+            Err("Only Sharp is supported as of now".to_string())
+        }
+    }
+
+    pub(crate) fn validate_instrumentation_params(
+        instrumentation_args: &InstrumentationCliArgs,
+    ) -> Result<InstrumentationParams, String> {
+        Ok(InstrumentationParams {
+            otel_service_name: instrumentation_args.otel_service_name.clone().expect("Otel service name is required"),
+            otel_collector_endpoint: instrumentation_args.otel_collector_endpoint.clone(),
+            log_level: instrumentation_args.log_level,
+        })
+    }
+
+    pub(crate) fn validate_server_params(server_args: &ServerCliArgs) -> Result<ServerParams, String> {
+        Ok(ServerParams { host: server_args.host.clone(), port: server_args.port })
+    }
+
+    pub(crate) fn validate_service_params(service_args: &ServiceCliArgs) -> Result<ServiceParams, String> {
+        Ok(ServiceParams {
+            // return None if the value is empty string
+            max_block_to_process: service_args.max_block_to_process.clone().and_then(|s| {
+                if s.is_empty() { None } else { Some(s.parse::<u64>().expect("Failed to parse max block to process")) }
+            }),
+            min_block_to_process: service_args.min_block_to_process.clone().and_then(|s| {
+                if s.is_empty() { None } else { Some(s.parse::<u64>().expect("Failed to parse min block to process")) }
+            }),
+        })
+    }
+
+    pub(crate) fn validate_snos_params(snos_args: &SNOSCliArgs) -> Result<SNOSParams, String> {
+        Ok(SNOSParams { rpc_for_snos: snos_args.rpc_for_snos.clone() })
+    }
+
+    #[cfg(test)]
+    pub mod test {
+
+        use rstest::rstest;
+        use tracing::Level;
+        use url::Url;
+
+        use crate::cli::alert::aws_sns::AWSSNSCliArgs;
+        use crate::cli::cron::event_bridge::AWSEventBridgeCliArgs;
+        use crate::cli::da::ethereum::EthereumDaCliArgs;
+        use crate::cli::database::mongodb::MongoDBCliArgs;
+        use crate::cli::instrumentation::InstrumentationCliArgs;
+        use crate::cli::prover::sharp::SharpCliArgs;
+        use crate::cli::provider::aws::AWSConfigCliArgs;
+        use crate::cli::queue::aws_sqs::AWSSQSCliArgs;
+        use crate::cli::server::ServerCliArgs;
+        use crate::cli::service::ServiceCliArgs;
+        use crate::cli::settlement::ethereum::EthereumSettlementCliArgs;
+        use crate::cli::settlement::starknet::StarknetSettlementCliArgs;
+        use crate::cli::snos::SNOSCliArgs;
+        use crate::cli::storage::aws_s3::AWSS3CliArgs;
+        use crate::cli::validate_params::{
+            validate_alert_params, validate_cron_params, validate_da_params, validate_database_params,
+            validate_instrumentation_params, validate_prover_params, validate_provider_params, validate_queue_params,
+            validate_server_params, validate_service_params, validate_settlement_params, validate_snos_params,
+            validate_storage_params,
+        };
+
+        #[rstest]
+        #[case(true)]
+        #[case(false)]
+        fn test_validate_provider_params(#[case] is_aws: bool) {
+            let aws_config_args: AWSConfigCliArgs = AWSConfigCliArgs {
+                aws: is_aws,
+                aws_access_key_id: "".to_string(),
+                aws_secret_access_key: "".to_string(),
+                aws_region: "".to_string(),
+            };
+
+            let provider_params = validate_provider_params(&aws_config_args);
+            if is_aws {
+                assert!(provider_params.is_ok());
+            } else {
+                assert!(provider_params.is_err());
+            }
+        }
+
+        #[rstest]
+        #[case(true, true)]
+        #[case(true, false)]
+        #[case(false, true)]
+        #[case(false, false)]
+        fn test_validate_alert_params(#[case] is_aws: bool, #[case] is_sns: bool) {
+            let aws_config_args: AWSConfigCliArgs = AWSConfigCliArgs {
+                aws: is_aws,
+                aws_access_key_id: "".to_string(),
+                aws_secret_access_key: "".to_string(),
+                aws_region: "".to_string(),
+            };
+            let aws_sns_args: AWSSNSCliArgs = AWSSNSCliArgs { aws_sns: is_sns, sns_arn: Some("".to_string()) };
+
+            let alert_params = validate_alert_params(&aws_sns_args, &aws_config_args);
+            if is_aws && is_sns {
+                assert!(alert_params.is_ok());
+            } else {
+                assert!(alert_params.is_err());
+            }
+        }
+
+        #[rstest]
+        #[case(true, true)]
+        #[case(true, false)]
+        #[case(false, true)]
+        #[case(false, false)]
+        fn test_validate_queue_params(#[case] is_aws: bool, #[case] is_sqs: bool) {
+            let aws_config_args: AWSConfigCliArgs = AWSConfigCliArgs {
+                aws: is_aws,
+                aws_access_key_id: "".to_string(),
+                aws_secret_access_key: "".to_string(),
+                aws_region: "".to_string(),
+            };
+            let aws_sqs_args: AWSSQSCliArgs = AWSSQSCliArgs {
+                aws_sqs: is_sqs,
+                queue_base_url: Some("http://sqs.us-east-1.localhost.localstack.cloud:4566/000000000000".to_string()),
+                sqs_prefix: Some("".to_string()),
+                sqs_suffix: Some("".to_string()),
+            };
+            let queue_params = validate_queue_params(&aws_sqs_args, &aws_config_args);
+            if is_aws && is_sqs {
+                assert!(queue_params.is_ok());
+            } else {
+                assert!(queue_params.is_err());
+            }
+        }
+
+        #[rstest]
+        #[case(true, true)]
+        #[case(true, false)]
+        #[case(false, true)]
+        #[case(false, false)]
+        fn test_validate_storage_params(#[case] is_aws: bool, #[case] is_s3: bool) {
+            let aws_s3_args: AWSS3CliArgs = AWSS3CliArgs { aws_s3: is_s3, bucket_name: Some("".to_string()) };
+            let aws_config_args: AWSConfigCliArgs = AWSConfigCliArgs {
+                aws: is_aws,
+                aws_access_key_id: "".to_string(),
+                aws_secret_access_key: "".to_string(),
+                aws_region: "".to_string(),
+            };
+            let storage_params = validate_storage_params(&aws_s3_args, &aws_config_args);
+            if is_aws && is_s3 {
+                assert!(storage_params.is_ok());
+            } else {
+                assert!(storage_params.is_err());
+            }
+        }
+
+        #[rstest]
+        #[case(true)]
+        #[case(false)]
+        fn test_validate_database_params(#[case] is_mongodb: bool) {
+            let mongodb_args: MongoDBCliArgs = MongoDBCliArgs {
+                mongodb: is_mongodb,
+                mongodb_connection_url: Some("mongodb://localhost:27017".to_string()),
+                mongodb_database_name: Some("orchestrator".to_string()),
+            };
+            let database_params = validate_database_params(&mongodb_args);
+            if is_mongodb {
+                assert!(database_params.is_ok());
+            } else {
+                assert!(database_params.is_err());
+            }
+        }
+
+        #[rstest]
+        #[case(true)]
+        #[case(false)]
+        fn test_validate_da_params(#[case] is_ethereum: bool) {
+            let ethereum_da_args: EthereumDaCliArgs = EthereumDaCliArgs {
+                da_on_ethereum: is_ethereum,
+                ethereum_da_rpc_url: Some(Url::parse("http://localhost:8545").unwrap()),
+            };
+            let da_params = validate_da_params(&ethereum_da_args);
+            if is_ethereum {
+                assert!(da_params.is_ok());
+            } else {
+                assert!(da_params.is_err());
+            }
+        }
+
+        #[rstest]
+        #[case(true, false)]
+        #[case(false, true)]
+        #[case(false, false)]
+        #[case(true, true)]
+        fn test_validate_settlement_params(#[case] is_ethereum: bool, #[case] is_starknet: bool) {
+            let ethereum_args: EthereumSettlementCliArgs = EthereumSettlementCliArgs {
+                ethereum_rpc_url: Some(Url::parse("http://localhost:8545").unwrap()),
+                ethereum_private_key: Some("".to_string()),
+                l1_core_contract_address: Some("0xE2Bb56ee936fd6433DC0F6e7e3b8365C906AA057".to_string()),
+                starknet_operator_address: Some("0x5b98B836969A60FEC50Fa925905Dd1D382a7db43".to_string()),
+                settle_on_ethereum: is_ethereum,
+            };
+            let starknet_args: StarknetSettlementCliArgs = StarknetSettlementCliArgs {
+                starknet_rpc_url: Some(Url::parse("http://localhost:8545").unwrap()),
+                starknet_private_key: Some("".to_string()),
+                starknet_account_address: Some("".to_string()),
+                starknet_cairo_core_contract_address: Some("".to_string()),
+                starknet_finality_retry_wait_in_secs: Some(0),
+                settle_on_starknet: is_starknet,
+            };
+            let settlement_params = validate_settlement_params(&ethereum_args, &starknet_args);
+            if is_ethereum ^ is_starknet {
+                assert!(settlement_params.is_ok());
+            } else {
+                assert!(settlement_params.is_err());
+            }
+        }
+
+        #[rstest]
+        #[case(true)]
+        #[case(false)]
+        fn test_validate_prover_params(#[case] is_sharp: bool) {
+            let sharp_args: SharpCliArgs = SharpCliArgs {
+                sharp: is_sharp,
+                sharp_customer_id: Some("".to_string()),
+                sharp_url: Some(Url::parse("http://localhost:8545").unwrap()),
+                sharp_user_crt: Some("".to_string()),
+                sharp_user_key: Some("".to_string()),
+                sharp_rpc_node_url: Some(Url::parse("http://localhost:8545").unwrap()),
+                sharp_proof_layout: Some("".to_string()),
+                gps_verifier_contract_address: Some("".to_string()),
+                sharp_server_crt: Some("".to_string()),
+            };
+            let prover_params = validate_prover_params(&sharp_args);
+            if is_sharp {
+                assert!(prover_params.is_ok());
+            } else {
+                assert!(prover_params.is_err());
+            }
+        }
+
+        #[rstest]
+        #[case(true)]
+        #[case(false)]
+        fn test_validate_cron_params(#[case] is_aws: bool) {
+            let aws_event_bridge_args: AWSEventBridgeCliArgs = AWSEventBridgeCliArgs {
+                aws_event_bridge: is_aws,
+                target_queue_name: Some(String::from("test")),
+                cron_time: Some(String::from("12")),
+                trigger_rule_name: Some(String::from("test")),
+            };
+            let aws_config_args: AWSConfigCliArgs = AWSConfigCliArgs {
+                aws: is_aws,
+                aws_access_key_id: "".to_string(),
+                aws_secret_access_key: "".to_string(),
+                aws_region: "".to_string(),
+            };
+            let cron_params = validate_cron_params(&aws_event_bridge_args, &aws_config_args);
+            if is_aws {
+                assert!(cron_params.is_ok());
+            } else {
+                assert!(cron_params.is_err());
+            }
+        }
+
+        #[rstest]
+        fn test_validate_instrumentation_params() {
+            let instrumentation_args: InstrumentationCliArgs = InstrumentationCliArgs {
+                otel_service_name: Some("".to_string()),
+                otel_collector_endpoint: None,
+                log_level: Level::INFO,
+            };
+            let instrumentation_params = validate_instrumentation_params(&instrumentation_args);
+            assert!(instrumentation_params.is_ok());
+        }
+
+        #[rstest]
+        fn test_validate_server_params() {
+            let server_args: ServerCliArgs = ServerCliArgs { host: "".to_string(), port: 0 };
+            let server_params = validate_server_params(&server_args);
+            assert!(server_params.is_ok());
+        }
+
+        #[rstest]
+        fn test_validate_snos_params() {
+            let snos_args: SNOSCliArgs = SNOSCliArgs { rpc_for_snos: Url::parse("http://localhost:8545").unwrap() };
+            let snos_params = validate_snos_params(&snos_args);
+            assert!(snos_params.is_ok());
+        }
+
+        #[rstest]
+        fn test_validate_service_params() {
+            let service_args: ServiceCliArgs = ServiceCliArgs {
+                max_block_to_process: Some("66645".to_string()),
+                min_block_to_process: Some("100".to_string()),
+            };
+            let service_params = validate_service_params(&service_args);
+            assert!(service_params.is_ok());
+            let service_params = service_params.unwrap();
+            assert_eq!(service_params.max_block_to_process, Some(66645));
+            assert_eq!(service_params.min_block_to_process, Some(100));
+        }
+    }
 }
-
-// #[cfg(test)]
-// pub mod test {
-
-//     use rstest::{fixture, rstest};
-//     use tracing::Level;
-//     use url::Url;
-
-//     use super::alert::aws_sns::AWSSNSCliArgs;
-//     use super::cron::event_bridge::AWSEventBridgeCliArgs;
-//     use super::da::ethereum::EthereumDaCliArgs;
-//     use super::database::mongodb::MongoDBCliArgs;
-//     use super::instrumentation::InstrumentationCliArgs;
-//     use super::prover::sharp::SharpCliArgs;
-//     use super::provider::aws::AWSConfigCliArgs;
-//     use super::queue::aws_sqs::AWSSQSCliArgs;
-//     use super::server::ServerCliArgs;
-//     use super::service::ServiceCliArgs;
-//     use super::settlement::ethereum::EthereumSettlementCliArgs;
-//     use super::settlement::starknet::StarknetSettlementCliArgs;
-//     use super::snos::SNOSCliArgs;
-//     use super::storage::aws_s3::AWSS3CliArgs;
-//     use crate::cli::RunCmd;
-
-//     // create a fixture for the CLI
-//     #[fixture]
-//     pub fn setup_cmd() -> RunCmd {
-//         RunCmd {
-//             aws_config_args: AWSConfigCliArgs {
-//                 aws: true,
-//                 aws_access_key_id: "".to_string(),
-//                 aws_secret_access_key: "".to_string(),
-//                 aws_region: "".to_string(),
-//             },
-//             aws_event_bridge_args: AWSEventBridgeCliArgs {
-//                 aws_event_bridge: true,
-//                 target_queue_name: Some("".to_string()),
-//                 cron_time: Some("12".to_string()),
-//                 trigger_rule_name: Some("".to_string()),
-//             },
-//             aws_s3_args: AWSS3CliArgs { aws_s3: true, bucket_name: Some("".to_string()) },
-//             aws_sqs_args: AWSSQSCliArgs {
-//                 aws_sqs: true,
-//                 queue_base_url: Some("".to_string()),
-//                 sqs_prefix: Some("".to_string()),
-//                 sqs_suffix: Some("".to_string()),
-//             },
-//             server_args: ServerCliArgs { host: "".to_string(), port: 0 },
-//             aws_sns_args: AWSSNSCliArgs { aws_sns: true, sns_arn: Some("".to_string()) },
-
-//             instrumentation_args: InstrumentationCliArgs {
-//                 otel_service_name: Some("".to_string()),
-//                 otel_collector_endpoint: None,
-//                 log_level: Level::INFO,
-//             },
-
-//             mongodb_args: MongoDBCliArgs {
-//                 mongodb: true,
-//                 mongodb_connection_url: Some("".to_string()),
-//                 mongodb_database_name: Some("".to_string()),
-//             },
-
-//             madara_rpc_url: Url::parse("http://localhost:8545").unwrap(),
-
-//             sharp_args: SharpCliArgs {
-//                 sharp: true,
-//                 sharp_customer_id: Some("".to_string()),
-//                 sharp_url: Some(Url::parse("http://localhost:8545").unwrap()),
-//                 sharp_user_crt: Some("".to_string()),
-//                 sharp_user_key: Some("".to_string()),
-//                 sharp_rpc_node_url: Some(Url::parse("http://localhost:8545").unwrap()),
-//                 sharp_proof_layout: Some("".to_string()),
-//                 gps_verifier_contract_address: Some("".to_string()),
-//                 sharp_server_crt: Some("".to_string()),
-//             },
-
-//             starknet_args: StarknetSettlementCliArgs {
-//                 starknet_rpc_url: Some(Url::parse("http://localhost:8545").unwrap()),
-//                 starknet_private_key: Some("".to_string()),
-//                 starknet_account_address: Some("".to_string()),
-//                 starknet_cairo_core_contract_address: Some("".to_string()),
-//                 starknet_finality_retry_wait_in_secs: Some(0),
-//                 settle_on_starknet: false,
-//             },
-
-//             ethereum_args: EthereumSettlementCliArgs {
-//                 ethereum_rpc_url: Some(Url::parse("http://localhost:8545").unwrap()),
-//                 ethereum_private_key: Some("".to_string()),
-//                 l1_core_contract_address: Some("".to_string()),
-//                 starknet_operator_address: Some("".to_string()),
-//                 settle_on_ethereum: true,
-//             },
-
-//             ethereum_da_args: EthereumDaCliArgs {
-//                 da_on_ethereum: true,
-//                 ethereum_da_rpc_url: Some(Url::parse("http://localhost:8545").unwrap()),
-//             },
-
-//             snos_args: SNOSCliArgs { rpc_for_snos: Url::parse("http://localhost:8545").unwrap() },
-
-//             service_args: ServiceCliArgs {
-//                 max_block_to_process: Some("".to_string()),
-//                 min_block_to_process: Some("".to_string()),
-//             },
-//         }
-//     }
-
-//     // Let's create a test for the CLI each validator
-
-//     #[rstest]
-//     fn test_validate_provider_params(setup_cmd: RunCmd) {
-//         let provider_params = setup_cmd.validate_provider_params();
-//         assert!(provider_params.is_ok());
-//     }
-
-//     #[rstest]
-//     fn test_validate_alert_params(setup_cmd: RunCmd) {
-//         let alert_params = setup_cmd.validate_alert_params();
-//         assert!(alert_params.is_ok());
-//     }
-
-//     #[rstest]
-//     fn test_validate_queue_params(setup_cmd: RunCmd) {
-//         let queue_params = setup_cmd.validate_queue_params();
-//         assert!(queue_params.is_ok());
-//     }
-
-//     #[rstest]
-//     fn test_validate_storage_params(setup_cmd: RunCmd) {
-//         let storage_params = setup_cmd.validate_storage_params();
-//         assert!(storage_params.is_ok());
-//     }
-
-//     #[rstest]
-//     fn test_validate_database_params(setup_cmd: RunCmd) {
-//         let database_params = setup_cmd.validate_database_params();
-//         assert!(database_params.is_ok());
-//     }
-
-//     #[rstest]
-//     fn test_validate_da_params(setup_cmd: RunCmd) {
-//         let da_params = setup_cmd.validate_da_params();
-//         assert!(da_params.is_ok());
-//     }
-
-//     #[rstest]
-//     fn test_validate_settlement_params(setup_cmd: RunCmd) {
-//         let settlement_params = setup_cmd.validate_settlement_params();
-//         assert!(settlement_params.is_ok());
-//     }
-
-//     #[rstest]
-//     fn test_validate_prover_params(setup_cmd: RunCmd) {
-//         let prover_params = setup_cmd.validate_prover_params();
-//         assert!(prover_params.is_ok());
-//     }
-
-//     #[rstest]
-//     fn test_validate_cron_params(setup_cmd: RunCmd) {
-//         let cron_params = setup_cmd.validate_cron_params();
-//         assert!(cron_params.is_ok());
-//     }
-
-//     #[rstest]
-//     fn test_validate_instrumentation_params(setup_cmd: RunCmd) {
-//         let instrumentation_params = setup_cmd.validate_instrumentation_params();
-//         assert!(instrumentation_params.is_ok());
-//     }
-
-//     #[rstest]
-//     fn test_validate_server_params(setup_cmd: RunCmd) {
-//         let server_params = setup_cmd.validate_server_params();
-//         assert!(server_params.is_ok());
-//     }
-
-//     #[rstest]
-//     fn test_validate_snos_params(setup_cmd: RunCmd) {
-//         let snos_params = setup_cmd.validate_snos_params();
-//         assert!(snos_params.is_ok());
-//     }
-
-//     #[rstest]
-//     fn test_validate_service_params(setup_cmd: RunCmd) {
-//         let service_params = setup_cmd.validate_service_params();
-//         assert!(service_params.is_ok());
-//     }
-// }

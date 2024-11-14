@@ -5,7 +5,6 @@ pub mod tests;
 
 use std::sync::Arc;
 
-use alloy_primitives::Address;
 use appchain_core_contract_client::clients::StarknetCoreContractClient;
 use appchain_core_contract_client::interfaces::core_contract::CoreContract;
 use async_trait::async_trait;
@@ -45,8 +44,8 @@ use url::Url;
 pub struct StarknetSettlementValidatedArgs {
     pub starknet_rpc_url: Url,
     pub starknet_private_key: String,
-    pub starknet_account_address: Address,
-    pub starknet_cairo_core_contract_address: Address,
+    pub starknet_account_address: String,
+    pub starknet_cairo_core_contract_address: String,
     pub starknet_finality_retry_wait_in_secs: u64,
 }
 

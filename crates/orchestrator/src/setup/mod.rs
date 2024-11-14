@@ -23,15 +23,15 @@ pub enum SetupConfig {
 }
 
 // TODO : move this to main.rs after moving to clap.
-pub async fn setup_cloud(run_cmd: &SetupCmd) -> color_eyre::Result<()> {
+pub async fn setup_cloud(setup_cmd: &SetupCmd) -> color_eyre::Result<()> {
     println!("Setting up cloud. ⏳");
     // AWS
-    let provider_params = run_cmd.validate_provider_params().expect("Failed to validate provider params");
+    let provider_params = setup_cmd.validate_provider_params().expect("Failed to validate provider params");
     let provider_config = build_provider_config(&provider_params).await;
 
     // Data Storage
     println!("Setting up data storage. ⏳");
-    let data_storage_params = run_cmd.validate_storage_params().expect("Failed to validate storage params");
+    let data_storage_params = setup_cmd.validate_storage_params().expect("Failed to validate storage params");
     let aws_config = provider_config.get_aws_client_or_panic();
 
     match data_storage_params {
@@ -44,7 +44,7 @@ pub async fn setup_cloud(run_cmd: &SetupCmd) -> color_eyre::Result<()> {
 
     // Queues
     println!("Setting up queues. ⏳");
-    let queue_params = run_cmd.validate_queue_params().expect("Failed to validate queue params");
+    let queue_params = setup_cmd.validate_queue_params().expect("Failed to validate queue params");
     match queue_params {
         QueueValidatedArgs::AWSSQS(aws_sqs_params) => {
             let sqs = Box::new(SqsQueue::new_with_args(aws_sqs_params, aws_config));
@@ -55,7 +55,7 @@ pub async fn setup_cloud(run_cmd: &SetupCmd) -> color_eyre::Result<()> {
 
     // Cron
     println!("Setting up cron. ⏳");
-    let cron_params = run_cmd.validate_cron_params().expect("Failed to validate cron params");
+    let cron_params = setup_cmd.validate_cron_params().expect("Failed to validate cron params");
     match cron_params {
         CronValidatedArgs::AWSEventBridge(aws_event_bridge_params) => {
             let aws_config = provider_config.get_aws_client_or_panic();
@@ -67,7 +67,7 @@ pub async fn setup_cloud(run_cmd: &SetupCmd) -> color_eyre::Result<()> {
 
     // Alerts
     println!("Setting up alerts. ⏳");
-    let alert_params = run_cmd.validate_alert_params().expect("Failed to validate alert params");
+    let alert_params = setup_cmd.validate_alert_params().expect("Failed to validate alert params");
     match alert_params {
         AlertValidatedArgs::AWSSNS(aws_sns_params) => {
             let aws_config = provider_config.get_aws_client_or_panic();
