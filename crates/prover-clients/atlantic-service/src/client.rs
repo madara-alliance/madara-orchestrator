@@ -25,7 +25,7 @@ trait ProvingLayer: Send + Sync {
 struct EthereumLayer;
 impl ProvingLayer for EthereumLayer {
     fn customize_request<'a>(&self, request: RequestBuilder<'a>) -> RequestBuilder<'a> {
-        request.path("/l1/atlantic-query/proof_generation_verification")
+        request.path("/l1/atlantic-query/proof-generation-verification")
     }
 }
 
