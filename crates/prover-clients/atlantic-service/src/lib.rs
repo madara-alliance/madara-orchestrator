@@ -42,6 +42,8 @@ impl ProverClient for AtlanticProverService {
                 // sleep for 2 seconds to make sure the job is submitted
                 tokio::time::sleep(tokio::time::Duration::from_secs(2)).await;
                 let atlantic_job_response = self.atlantic_client.add_job(pie_file_path, proof_layout).await?;
+                // sleep for 2 seconds to make sure the job is submitted
+                tokio::time::sleep(tokio::time::Duration::from_secs(2)).await;
                 log::debug!("Successfully submitted task to atlantic: {:?}", atlantic_job_response);
                 // The temporary file will be automatically deleted when `temp_file` goes out of scope
                 Ok(atlantic_job_response.sharp_query_id)
