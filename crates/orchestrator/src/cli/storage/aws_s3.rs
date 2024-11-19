@@ -2,7 +2,7 @@ use clap::Args;
 
 /// Parameters used to config AWS S3.
 #[derive(Debug, Clone, Args)]
-#[group(requires_all = ["bucket_name"])]
+#[group()]
 pub struct AWSS3CliArgs {
     /// Use the AWS s3 client
     #[arg(long)]
