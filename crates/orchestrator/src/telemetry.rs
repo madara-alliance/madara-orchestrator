@@ -21,6 +21,13 @@ pub struct OTELConfig {
     service_name: String,
 }
 
+#[derive(Debug, Clone)]
+pub struct InstrumentationParams {
+    pub otel_service_name: String,
+    pub otel_collector_endpoint: Option<Url>,
+    pub log_level: Level,
+}
+
 pub fn setup_analytics(instrumentation: &InstrumentationParams) -> Option<SdkMeterProvider> {
     let otel_config = get_otel_config(instrumentation);
     let level = instrumentation.log_level;
@@ -219,11 +226,4 @@ mod tests {
 
         register_metric!(ORCHESTRATOR_METRICS, OrchestratorMetrics);
     }
-}
-
-#[derive(Debug, Clone)]
-pub struct InstrumentationParams {
-    pub otel_service_name: String,
-    pub otel_collector_endpoint: Option<Url>,
-    pub log_level: Level,
 }

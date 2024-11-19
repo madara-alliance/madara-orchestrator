@@ -21,8 +21,6 @@ pub struct EthereumDaValidatedArgs {
     pub ethereum_da_rpc_url: Url,
 }
 
-pub const DA_SETTINGS_NAME: &str = "ethereum";
-
 pub struct EthereumDaClient {
     #[allow(dead_code)]
     provider: RootProvider<Ethereum, Http<Client>>,

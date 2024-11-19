@@ -28,9 +28,11 @@ type ProviderT = RootProvider<TransportT>;
 
 impl FactChecker {
     pub fn new(sharp_rpc_node_url: Url, gps_verifier_contract_address: String) -> Self {
-        let provider = ProviderBuilder::new().on_http(sharp_rpc_node_url.clone());
-        let fact_registry =
-            FactRegistry::new(Address::from_str(gps_verifier_contract_address.as_str()).unwrap(), provider);
+        let provider = ProviderBuilder::new().on_http(sharp_rpc_node_url);
+        let fact_registry = FactRegistry::new(
+            Address::from_str(gps_verifier_contract_address.as_str()).expect("Invalid GPS verifier contract address"),
+            provider,
+        );
         Self { fact_registry }
     }
 

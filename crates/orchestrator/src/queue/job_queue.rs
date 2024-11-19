@@ -193,7 +193,7 @@ where
     Fut: Future<Output = color_eyre::Result<()>> + Send,
 {
     tracing::debug!("Consuming from queue {:?}", queue);
-    let delivery = get_delivery_from_queue(queue.clone(), config.clone()).await?;
+    let delivery = get_delivery_from_queue(queue, Arc::clone(&config)).await?;
 
     let message = match delivery {
         DeliveryReturnType::Message(message) => message,

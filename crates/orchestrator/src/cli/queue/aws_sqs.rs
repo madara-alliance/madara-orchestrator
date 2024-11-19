@@ -8,7 +8,7 @@ pub struct AWSSQSCliArgs {
     #[arg(long)]
     pub aws_sqs: bool,
 
-    /// The name of the S3 bucket.
+    /// The prefix of the queue.
     #[arg(env = "MADARA_ORCHESTRATOR_SQS_PREFIX", long, default_value = Some("madara_orchestrator"))]
     pub sqs_prefix: Option<String>,
 

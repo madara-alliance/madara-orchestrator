@@ -1,6 +1,6 @@
 use clap::Args;
 
-/// Parameters used to config AWS SNS.
+/// CLI arguments for the aws event bridge.
 #[derive(Debug, Clone, Args)]
 #[group()]
 pub struct AWSEventBridgeCliArgs {
@@ -8,7 +8,7 @@ pub struct AWSEventBridgeCliArgs {
     #[arg(long)]
     pub aws_event_bridge: bool,
 
-    /// The name of the S3 bucket.
+    /// The name of the queue for the event bridge
     #[arg(env = "MADARA_ORCHESTRATOR_EVENT_BRIDGE_TARGET_QUEUE_NAME", long, default_value = Some("madara_orchestrator_worker_trigger_queue"), help = "The name of the SNS queue to send messages to from the event bridge.")]
     pub target_queue_name: Option<String>,
     /// The cron time for the event bridge trigger rule.

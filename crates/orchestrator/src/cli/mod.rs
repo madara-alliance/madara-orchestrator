@@ -443,54 +443,51 @@ pub mod validate_params {
         ethereum_args: &EthereumSettlementCliArgs,
         starknet_args: &StarknetSettlementCliArgs,
     ) -> Result<SettlementValidatedArgs, String> {
-        if ethereum_args.settle_on_ethereum {
-            if starknet_args.settle_on_starknet {
-                return Err("Cannot settle on both Ethereum and Starknet".to_string());
-            }
-            let l1_core_contract_address = Address::from_str(
-                &ethereum_args.l1_core_contract_address.clone().expect("L1 core contract address is required"),
-            )
-            .expect("Invalid L1 core contract address");
-            let starknet_operator_address = Address::from_str(
-                &ethereum_args.starknet_operator_address.clone().expect("Starknet operator address is required"),
-            )
-            .expect("Invalid Starknet operator address");
+        match (ethereum_args.settle_on_ethereum, starknet_args.settle_on_starknet) {
+            (true, true) => Err("Cannot settle on both Ethereum and Starknet".to_string()),
+            (true, false) => {
+                let l1_core_contract_address = Address::from_str(
+                    &ethereum_args.l1_core_contract_address.clone().expect("L1 core contract address is required"),
+                )
+                .expect("Invalid L1 core contract address");
+                let starknet_operator_address = Address::from_str(
+                    &ethereum_args.starknet_operator_address.clone().expect("Starknet operator address is required"),
+                )
+                .expect("Invalid Starknet operator address");
 
-            let ethereum_params = EthereumSettlementValidatedArgs {
-                ethereum_rpc_url: ethereum_args.ethereum_rpc_url.clone().expect("Ethereum RPC URL is required"),
-                ethereum_private_key: ethereum_args
-                    .ethereum_private_key
-                    .clone()
-                    .expect("Ethereum private key is required"),
-                l1_core_contract_address,
-                starknet_operator_address,
-            };
-            Ok(SettlementValidatedArgs::Ethereum(ethereum_params))
-        } else if starknet_args.settle_on_starknet {
-            if ethereum_args.settle_on_ethereum {
-                return Err("Cannot settle on both Starknet and Ethereum".to_string());
+                let ethereum_params = EthereumSettlementValidatedArgs {
+                    ethereum_rpc_url: ethereum_args.ethereum_rpc_url.clone().expect("Ethereum RPC URL is required"),
+                    ethereum_private_key: ethereum_args
+                        .ethereum_private_key
+                        .clone()
+                        .expect("Ethereum private key is required"),
+                    l1_core_contract_address,
+                    starknet_operator_address,
+                };
+                Ok(SettlementValidatedArgs::Ethereum(ethereum_params))
             }
-            let starknet_params = StarknetSettlementValidatedArgs {
-                starknet_rpc_url: starknet_args.starknet_rpc_url.clone().expect("Starknet RPC URL is required"),
-                starknet_private_key: starknet_args
-                    .starknet_private_key
-                    .clone()
-                    .expect("Starknet private key is required"),
-                starknet_account_address: starknet_args
-                    .starknet_account_address
-                    .clone()
-                    .expect("Starknet account address is required"),
-                starknet_cairo_core_contract_address: starknet_args
-                    .starknet_cairo_core_contract_address
-                    .clone()
-                    .expect("Starknet Cairo core contract address is required"),
-                starknet_finality_retry_wait_in_secs: starknet_args
-                    .starknet_finality_retry_wait_in_secs
-                    .expect("Starknet finality retry wait in seconds is required"),
-            };
-            Ok(SettlementValidatedArgs::Starknet(starknet_params))
-        } else {
-            Err("Settlement layer is required".to_string())
+            (false, true) => {
+                let starknet_params = StarknetSettlementValidatedArgs {
+                    starknet_rpc_url: starknet_args.starknet_rpc_url.clone().expect("Starknet RPC URL is required"),
+                    starknet_private_key: starknet_args
+                        .starknet_private_key
+                        .clone()
+                        .expect("Starknet private key is required"),
+                    starknet_account_address: starknet_args
+                        .starknet_account_address
+                        .clone()
+                        .expect("Starknet account address is required"),
+                    starknet_cairo_core_contract_address: starknet_args
+                        .starknet_cairo_core_contract_address
+                        .clone()
+                        .expect("Starknet Cairo core contract address is required"),
+                    starknet_finality_retry_wait_in_secs: starknet_args
+                        .starknet_finality_retry_wait_in_secs
+                        .expect("Starknet finality retry wait in seconds is required"),
+                };
+                Ok(SettlementValidatedArgs::Starknet(starknet_params))
+            }
+            (false, false) => Err("Settlement layer is required".to_string()),
         }
     }
 

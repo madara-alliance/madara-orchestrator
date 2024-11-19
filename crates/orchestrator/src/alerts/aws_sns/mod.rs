@@ -37,6 +37,6 @@ impl Alerts for AWSSNS {
     }
 
     async fn get_topic_name(&self) -> String {
-        self.topic_arn.split(":").last().unwrap().to_string()
+        self.topic_arn.split(":").last().expect("Failed to get last part of topic ARN").to_string()
     }
 }

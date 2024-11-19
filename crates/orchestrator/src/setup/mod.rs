@@ -24,13 +24,13 @@ pub enum SetupConfig {
 
 // TODO : move this to main.rs after moving to clap.
 pub async fn setup_cloud(setup_cmd: &SetupCmd) -> color_eyre::Result<()> {
-    println!("Setting up cloud. ⏳");
+    tracing::info!("Setting up cloud. ⏳");
     // AWS
     let provider_params = setup_cmd.validate_provider_params().expect("Failed to validate provider params");
     let provider_config = build_provider_config(&provider_params).await;
 
     // Data Storage
-    println!("Setting up data storage. ⏳");
+    tracing::info!("Setting up data storage. ⏳");
     let data_storage_params = setup_cmd.validate_storage_params().expect("Failed to validate storage params");
     let aws_config = provider_config.get_aws_client_or_panic();
 
@@ -40,10 +40,10 @@ pub async fn setup_cloud(setup_cmd: &SetupCmd) -> color_eyre::Result<()> {
             s3.setup(&StorageValidatedArgs::AWSS3(aws_s3_params.clone())).await?
         }
     }
-    println!("Data storage setup completed ✅");
+    tracing::info!("Data storage setup completed ✅");
 
     // Queues
-    println!("Setting up queues. ⏳");
+    tracing::info!("Setting up queues. ⏳");
     let queue_params = setup_cmd.validate_queue_params().expect("Failed to validate queue params");
     match queue_params {
         QueueValidatedArgs::AWSSQS(aws_sqs_params) => {
@@ -51,10 +51,10 @@ pub async fn setup_cloud(setup_cmd: &SetupCmd) -> color_eyre::Result<()> {
             sqs.setup().await?
         }
     }
-    println!("Queues setup completed ✅");
+    tracing::info!("Queues setup completed ✅");
 
     // Cron
-    println!("Setting up cron. ⏳");
+    tracing::info!("Setting up cron. ⏳");
     let cron_params = setup_cmd.validate_cron_params().expect("Failed to validate cron params");
     match cron_params {
         CronValidatedArgs::AWSEventBridge(aws_event_bridge_params) => {
@@ -63,10 +63,10 @@ pub async fn setup_cloud(setup_cmd: &SetupCmd) -> color_eyre::Result<()> {
             event_bridge.setup().await?
         }
     }
-    println!("Cron setup completed ✅");
+    tracing::info!("Cron setup completed ✅");
 
     // Alerts
-    println!("Setting up alerts. ⏳");
+    tracing::info!("Setting up alerts. ⏳");
     let alert_params = setup_cmd.validate_alert_params().expect("Failed to validate alert params");
     match alert_params {
         AlertValidatedArgs::AWSSNS(aws_sns_params) => {
@@ -75,7 +75,7 @@ pub async fn setup_cloud(setup_cmd: &SetupCmd) -> color_eyre::Result<()> {
             sns.setup().await?
         }
     }
-    println!("Alerts setup completed ✅");
+    tracing::info!("Alerts setup completed ✅");
 
     Ok(())
 }

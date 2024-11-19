@@ -34,8 +34,8 @@ impl Worker for SnosWorker {
         let latest_job_in_db = config.database().get_latest_job_by_type(JobType::SnosRun).await?;
 
         let latest_job_id = match latest_job_in_db {
-            Some(job) => job.internal_id.parse::<u64>().unwrap(),
-            None => "0".to_string().parse::<u64>().unwrap(),
+            Some(job) => job.internal_id.parse::<u64>().expect("Failed to parse job internal ID to u64"),
+            None => "0".to_string().parse::<u64>().expect("Failed to parse '0' to u64"),
         };
 
         // To be used when testing in specific block range
