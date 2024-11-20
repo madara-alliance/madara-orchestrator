@@ -83,7 +83,6 @@ impl HttpClient {
     /// # Panics
     /// Panics if the provided base URL is invalid
     pub fn builder(base_url: &str) -> HttpClientBuilder {
-        println!("HttpClient builder created with base url: {:?}", base_url);
         HttpClientBuilder::new(Url::parse(base_url).expect("Invalid base URL"))
     }
 
