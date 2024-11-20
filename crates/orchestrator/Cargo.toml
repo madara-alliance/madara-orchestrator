@@ -32,6 +32,7 @@ bytes.workspace = true
 c-kzg = { workspace = true }
 cairo-vm = { workspace = true }
 chrono = { workspace = true }
+clap = { workspace = true }
 color-eyre = { workspace = true }
 da-client-interface = { workspace = true }
 dotenvy = { workspace = true }
@@ -63,6 +64,7 @@ starknet = { workspace = true }
 starknet-core = { workspace = true }
 starknet-os = { workspace = true }
 starknet-settlement-client = { workspace = true }
+strum = { workspace = true }
 strum_macros = { workspace = true }
 tempfile = { workspace = true }
 thiserror = { workspace = true }

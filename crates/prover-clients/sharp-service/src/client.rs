@@ -4,11 +4,11 @@ use cairo_vm::types::layout_name::LayoutName;
 use reqwest::{Certificate, Identity, Method, StatusCode};
 use url::Url;
 use utils::http_client::HttpClient;
-use utils::settings::Settings;
 use uuid::Uuid;
 
 use crate::error::SharpError;
 use crate::types::{SharpAddJobResponse, SharpGetStatusResponse};
+use crate::SharpValidatedArgs;
 
 /// SHARP API async wrapper
 pub struct SharpClient {
@@ -26,20 +26,20 @@ impl SharpClient {
     /// and then copy it and paste it into .env file :
     ///
     /// `cat <file_name> | base64`
-    pub fn new_with_settings(url: Url, settings: &impl Settings) -> Self {
+    pub fn new_with_args(url: Url, sharp_params: &SharpValidatedArgs) -> Self {
         // Getting the cert files from the .env and then decoding it from base64
 
         let cert = general_purpose::STANDARD
-            .decode(settings.get_settings_or_panic("SHARP_USER_CRT"))
+            .decode(sharp_params.sharp_user_crt.clone())
             .expect("Failed to decode certificate");
         let key = general_purpose::STANDARD
-            .decode(settings.get_settings_or_panic("SHARP_USER_KEY"))
+            .decode(sharp_params.sharp_user_key.clone())
             .expect("Failed to decode sharp user key");
         let server_cert = general_purpose::STANDARD
-            .decode(settings.get_settings_or_panic("SHARP_SERVER_CRT"))
+            .decode(sharp_params.sharp_server_crt.clone())
             .expect("Failed to decode sharp server certificate");
 
-        let customer_id = settings.get_settings_or_panic("SHARP_CUSTOMER_ID");
+        let customer_id = sharp_params.sharp_customer_id.clone();
 
         let identity =
             Identity::from_pkcs8_pem(&cert, &key).expect("Failed to build the identity from certificate and key");

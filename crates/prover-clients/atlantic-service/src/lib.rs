@@ -1,5 +1,4 @@
 pub mod client;
-pub mod config;
 pub mod error;
 mod types;
 use async_trait::async_trait;
@@ -7,17 +6,28 @@ use cairo_vm::types::layout_name::LayoutName;
 use gps_fact_checker::FactChecker;
 use prover_client_interface::{ProverClient, ProverClientError, Task, TaskStatus};
 use tempfile::NamedTempFile;
-use utils::settings::Settings;
+use url::Url;
 
 use crate::client::AtlanticClient;
-use crate::config::AtlanticConfig;
 
 pub const ATLANTIC_SETTINGS_NAME: &str = "atlantic";
+
+#[derive(Debug, Clone)]
+pub struct AtlanticValidatedArgs {
+    pub atlantic_api_key: String,
+    pub atlantic_service_url: Url,
+    pub atlantic_rpc_node_url: Url,
+    pub atlantic_verifier_contract_address: String,
+    pub atlantic_settlement_layer: String,
+    pub atlantic_mock_fact_hash: String,
+    pub atlantic_prover_type: String,
+}
 
 /// Atlantic is a SHARP wrapper service hosted by Herodotus.
 pub struct AtlanticProverService {
     pub atlantic_client: AtlanticClient,
     pub fact_checker: FactChecker,
+    pub atlantic_api_key: String,
 }
 
 #[async_trait]
@@ -41,7 +51,8 @@ impl ProverClient for AtlanticProverService {
 
                 // sleep for 2 seconds to make sure the job is submitted
                 tokio::time::sleep(tokio::time::Duration::from_secs(2)).await;
-                let atlantic_job_response = self.atlantic_client.add_job(pie_file_path, proof_layout).await?;
+                let atlantic_job_response =
+                    self.atlantic_client.add_job(pie_file_path, proof_layout, self.atlantic_api_key.clone()).await?;
                 // sleep for 2 seconds to make sure the job is submitted
                 tokio::time::sleep(tokio::time::Duration::from_secs(2)).await;
                 log::debug!("Successfully submitted task to atlantic: {:?}", atlantic_job_response);
@@ -77,29 +88,29 @@ impl ProverClient for AtlanticProverService {
 }
 
 impl AtlanticProverService {
-    pub fn new(atlantic_client: AtlanticClient, fact_checker: FactChecker) -> Self {
-        Self { atlantic_client, fact_checker }
+    pub fn new(atlantic_client: AtlanticClient, fact_checker: FactChecker, atlantic_api_key: String) -> Self {
+        Self { atlantic_client, fact_checker, atlantic_api_key }
     }
 
-    pub fn new_with_settings(settings: &impl Settings) -> Self {
-        let atlantic_config = AtlanticConfig::new_with_settings(settings)
-            .expect("Not able to create Atlantic Prover Service from given settings.");
+    pub fn new_with_args(atlantic_params: &AtlanticValidatedArgs) -> Self {
         let atlantic_client =
-            AtlanticClient::new_with_settings(atlantic_config.service_url, atlantic_config.settlement_layer);
+            AtlanticClient::new_with_args(atlantic_params.atlantic_service_url.clone(), atlantic_params);
 
-        let fact_checker = FactChecker::new(atlantic_config.rpc_node_url, atlantic_config.verifier_address);
+        let fact_checker = FactChecker::new(
+            atlantic_params.atlantic_rpc_node_url.clone(),
+            atlantic_params.atlantic_verifier_contract_address.clone(),
+        );
 
-        Self::new(atlantic_client, fact_checker)
+        Self::new(atlantic_client, fact_checker, atlantic_params.atlantic_api_key.clone())
     }
 
-    pub fn with_test_settings(settings: &impl Settings, port: u16) -> Self {
-        let atlantic_config = AtlanticConfig::new_with_settings(settings)
-            .expect("Not able to create SharpProverService from given settings.");
-        let atlantic_client = AtlanticClient::new_with_settings(
-            format!("http://127.0.0.1:{}", port).parse().unwrap(),
-            atlantic_config.settlement_layer,
+    pub fn with_test_params(port: u16, atlantic_params: &AtlanticValidatedArgs) -> Self {
+        let atlantic_client =
+            AtlanticClient::new_with_args(format!("http://127.0.0.1:{}", port).parse().unwrap(), atlantic_params);
+        let fact_checker = FactChecker::new(
+            atlantic_params.atlantic_rpc_node_url.clone(),
+            atlantic_params.atlantic_verifier_contract_address.clone(),
         );
-        let fact_checker = FactChecker::new(atlantic_config.rpc_node_url, atlantic_config.verifier_address);
-        Self::new(atlantic_client, fact_checker)
+        Self::new(atlantic_client, fact_checker, "random_api_key".to_string())
     }
 }

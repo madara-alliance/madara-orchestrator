@@ -3,12 +3,11 @@ use std::path::Path;
 use cairo_vm::types::layout_name::LayoutName;
 use reqwest::Method;
 use url::Url;
-use utils::env_utils::get_env_var_or_panic;
 use utils::http_client::{HttpClient, RequestBuilder};
 
-use crate::config::SettlementLayer;
 use crate::error::AtlanticError;
 use crate::types::{AtlanticAddJobResponse, AtlanticGetStatusResponse};
+use crate::AtlanticValidatedArgs;
 
 #[derive(Debug, strum_macros::EnumString)]
 enum ProverType {
@@ -44,9 +43,9 @@ pub struct AtlanticClient {
 
 impl AtlanticClient {
     /// We need to set up the client with the API_KEY.
-    pub fn new_with_settings(url: Url, settlement_layer: SettlementLayer) -> Self {
-        let mock_fact_hash = get_env_var_or_panic("MOCK_FACT_HASH");
-        let prover_type = get_env_var_or_panic("PROVER_TYPE");
+    pub fn new_with_args(url: Url, atlantic_params: &AtlanticValidatedArgs) -> Self {
+        let mock_fact_hash = atlantic_params.atlantic_mock_fact_hash.clone();
+        let prover_type = atlantic_params.atlantic_prover_type.clone();
 
         let client = HttpClient::builder(url.as_str())
             .default_form_data("mockFactHash", &mock_fact_hash)
@@ -54,9 +53,10 @@ impl AtlanticClient {
             .build()
             .expect("Failed to build HTTP client");
 
-        let proving_layer: Box<dyn ProvingLayer> = match settlement_layer {
-            SettlementLayer::Ethereum => Box::new(EthereumLayer),
-            SettlementLayer::Starknet => Box::new(StarknetLayer),
+        let proving_layer: Box<dyn ProvingLayer> = match atlantic_params.atlantic_settlement_layer.as_str() {
+            "ethereum" => Box::new(EthereumLayer),
+            "starknet" => Box::new(StarknetLayer),
+            _ => panic!("proving layer not correct"),
         };
 
         Self { client, proving_layer }
@@ -66,9 +66,8 @@ impl AtlanticClient {
         &self,
         pie_file: &Path,
         proof_layout: LayoutName,
+        atlantic_api_key: String,
     ) -> Result<AtlanticAddJobResponse, AtlanticError> {
-        let api_key = get_env_var_or_panic("ATLANTIC_API_KEY");
-
         let proof_layout = match proof_layout {
             LayoutName::dynamic => "dynamic",
             _ => proof_layout.to_str(),
@@ -80,7 +79,7 @@ impl AtlanticClient {
                 self.client
                     .request()
                     .method(Method::POST)
-                    .query_param("apiKey", &api_key)
+                    .query_param("apiKey", &atlantic_api_key)
                     .form_file("pieFile", pie_file, "pie.zip")
                     .form_text("layout", proof_layout),
             )

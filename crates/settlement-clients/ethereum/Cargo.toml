@@ -4,9 +4,8 @@ version.workspace = true
 edition.workspace = true
 
 [dependencies]
-alloy-primitives = { workspace = true }
-
 alloy = { workspace = true, features = ["full", "node-bindings"] }
+alloy-primitives = { workspace = true, default-features = false }
 async-trait = { workspace = true }
 bytes = { workspace = true }
 c-kzg = { workspace = true }

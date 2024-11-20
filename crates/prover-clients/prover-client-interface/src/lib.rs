@@ -34,8 +34,6 @@ pub enum TaskStatus {
 pub enum ProverClientError {
     #[error("Internal prover error: {0}")]
     Internal(#[source] Box<dyn std::error::Error + Send + Sync + 'static>),
-    #[error("Settings provider error: {0}")]
-    SettingsProvider(#[from] utils::settings::SettingsProviderError),
     #[error("Task is invalid: {0}")]
     TaskInvalid(String),
     #[error("Fact checker error: {0}")]

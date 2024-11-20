@@ -4265,6 +4265,7 @@ dependencies = [
  "aws-sdk-sqs",
  "bytes",
  "chrono",
+ "clap",
  "color-eyre",
  "dotenvy",
  "env_logger",
@@ -4278,6 +4279,8 @@ dependencies = [
  "serde",
  "serde_json",
  "starknet",
+ "strum 0.26.3",
+ "strum_macros 0.26.4",
  "testcontainers",
  "tokio",
  "tokio-stream",
@@ -6887,6 +6890,7 @@ dependencies = [
  "c-kzg",
  "cairo-vm 1.0.1 (git+https://github.com/Moonsong-Labs/cairo-vm?branch=herman%2Ffix-pie-serialization)",
  "chrono",
+ "clap",
  "color-eyre",
  "da-client-interface",
  "dotenvy",
@@ -6926,6 +6930,7 @@ dependencies = [
  "starknet-core 0.9.0",
  "starknet-os",
  "starknet-settlement-client",
+ "strum 0.26.3",
  "strum_macros 0.26.4",
  "tempfile",
  "thiserror",
@@ -9606,6 +9611,8 @@ dependencies = [
 name = "starknet-settlement-client"
 version = "0.1.0"
 dependencies = [
+ "alloy 0.2.1",
+ "alloy-primitives 0.7.7",
  "appchain-core-contract-client",
  "async-std",
  "async-trait",

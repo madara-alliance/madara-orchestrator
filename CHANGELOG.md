@@ -7,12 +7,14 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 ## Added
 
 - tests: http_client tests added
+- Added Atlantic proving service integration
 - setup functions added for cloud and db
+- Added cli args support for all the services
+- Setup functions added for cloud and db
 - panic handling in process job
 - upgrade ETH L1 bridge for withdrawals to work
 - added makefile and submodules
 - Endpoints for triggering processing and verification jobs
-- Added Atlantic proving service integration
 - Add multiple queues for processing and verification based on job type
 - added logs
 - added MongoDB migrations using nodejs
