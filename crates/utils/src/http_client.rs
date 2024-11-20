@@ -560,13 +560,13 @@ mod http_client_tests {
 
         // Getting the cert files from the .env.test and then decoding it from base64
         let cert = general_purpose::STANDARD
-            .decode(std::env::var("SHARP_USER_CRT").unwrap())
+            .decode(std::env::var("MADARA_ORCHESTRATOR_SHARP_USER_CRT").unwrap())
             .expect("Failed to decode certificate");
         let key = general_purpose::STANDARD
-            .decode(std::env::var("SHARP_USER_KEY").unwrap())
+            .decode(std::env::var("MADARA_ORCHESTRATOR_SHARP_USER_KEY").unwrap())
             .expect("Failed to decode sharp user key");
         let server_cert = general_purpose::STANDARD
-            .decode(std::env::var("SHARP_SERVER_CRT").unwrap())
+            .decode(std::env::var("MADARA_ORCHESTRATOR_SHARP_SERVER_CRT").unwrap())
             .expect("Failed to decode sharp server certificate");
 
         let identity =
