@@ -22,7 +22,6 @@ pub enum SetupConfig {
     AWS(SdkConfig),
 }
 
-// TODO : move this to main.rs after moving to clap.
 // Note: we are using println! instead of tracing::info! because telemetry is not yet initialized
 // and it get initialized during the run_orchestrator function.
 pub async fn setup_cloud(setup_cmd: &SetupCmd) -> color_eyre::Result<()> {
