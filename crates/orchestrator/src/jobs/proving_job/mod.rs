@@ -128,6 +128,9 @@ impl Job for ProvingJob {
                 Ok(JobVerificationStatus::Pending)
             }
             TaskStatus::Succeeded => {
+                // TODO: call isValid on the contract over here to cross-verify whether the proof was registered on
+                // chain or not
+
                 tracing::info!(log_type = "completed", category = "proving", function_type = "verify_job", job_id = ?job.id,  block_no = %internal_id,     "Proving job verification completed.");
                 Ok(JobVerificationStatus::Verified)
             }

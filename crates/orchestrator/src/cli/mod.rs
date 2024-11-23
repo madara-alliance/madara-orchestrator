@@ -89,7 +89,7 @@ pub enum Commands {
     ),
     group(
         ArgGroup::new("prover")
-            .args(&["sharp"])
+            .args(&["sharp", "atlantic"])
             .required(true)
             .multiple(false)
     ),
