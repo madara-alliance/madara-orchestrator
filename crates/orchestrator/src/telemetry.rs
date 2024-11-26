@@ -142,7 +142,6 @@ fn init_logs(otel_config: &OTELConfig) -> Result<LoggerProvider, opentelemetry::
 #[cfg(test)]
 mod tests {
     use once_cell::sync::Lazy;
-    
     use utils::metrics::lib::Metrics;
     use utils::register_metric;
 

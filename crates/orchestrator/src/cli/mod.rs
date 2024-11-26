@@ -612,7 +612,6 @@ pub mod validate_params {
     pub mod test {
 
         use rstest::rstest;
-        
         use url::Url;
 
         use crate::cli::alert::aws_sns::AWSSNSCliArgs;
