@@ -12,7 +12,7 @@ jobs:
 
     services:
       localstack:
-        image: localstack/localstack@sha256:e5f984056f8e1f3ea0d0c595dd6a02846f2a665443bab18110a487b065f8164f
+        image: localstack/localstack@sha256:763947722c6c8d33d5fbf7e8d52b4bddec5be35274a0998fdc6176d733375314
         
         env:
           DEFAULT_REGION: us-east-1
