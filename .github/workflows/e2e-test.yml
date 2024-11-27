@@ -12,7 +12,8 @@ jobs:
 
     services:
       localstack:
-        image: localstack/localstack
+        image: localstack/localstack@sha256:e5f984056f8e1f3ea0d0c595dd6a02846f2a665443bab18110a487b065f8164f
+        
         env:
           DEFAULT_REGION: us-east-1
           AWS_ACCESS_KEY_ID: "AWS_ACCESS_KEY_ID"
