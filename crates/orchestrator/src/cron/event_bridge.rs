@@ -64,7 +64,7 @@ impl Cron for AWSEventBridge {
 
         // Create the EventBridge target with the input transformer
         let input_transformer =
-            InputTransformer::builder().input_paths_map("$.time", "time").input_template(message).build()?;
+            InputTransformer::builder().input_paths_map("time","$.time").input_template(message).build()?;
 
         self.client
             .put_targets()

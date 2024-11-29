@@ -80,13 +80,16 @@ impl<'de> Deserialize<'de> for WorkerTriggerMessage {
     where
         D: Deserializer<'de>,
     {
-        let s = String::deserialize(deserializer)?;
-        let s = s.trim_start_matches('{').trim_end_matches('}');
-        let parts: Vec<&str> = s.split(':').collect();
-        if parts.len() != 2 || parts[0] != "worker" {
-            return Err(serde::de::Error::custom("Invalid format"));
+        #[derive(Deserialize, Debug)]
+        struct Helper {
+            worker: String,
         }
-        Ok(WorkerTriggerMessage { worker: WorkerTriggerType::from_str(parts[1]).map_err(serde::de::Error::custom)? })
+
+        let helper = Helper::deserialize(deserializer)?;
+        println!("Message received from Worker Trigger Queue: {:?}", helper);
+        Ok(WorkerTriggerMessage {
+            worker: WorkerTriggerType::from_str(&helper.worker).map_err(serde::de::Error::custom)?
+        })
     }
 }
 
