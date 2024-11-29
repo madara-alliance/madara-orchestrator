@@ -2,7 +2,7 @@ use serde::{Deserialize, Serialize};
 #[derive(Default, Debug, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct AtlanticAddJobResponse {
-    pub sharp_query_id: String,
+    pub atlantic_query_id: String,
 }
 
 #[derive(Default, Debug, Clone, Serialize, Deserialize)]

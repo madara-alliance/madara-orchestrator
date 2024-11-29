@@ -1779,7 +1779,7 @@ dependencies = [
  "alloy 0.2.1",
  "async-trait",
  "base64 0.22.1",
- "cairo-vm 1.0.1 (git+https://github.com/Moonsong-Labs/cairo-vm?branch=herman%2Ffix-pie-serialization)",
+ "cairo-vm 1.0.1 (git+https://github.com/Moonsong-Labs/cairo-vm?branch=notlesh%2Fsnos-2024-11-04)",
  "chrono",
  "color-eyre",
  "dotenvy",
@@ -3378,7 +3378,7 @@ dependencies = [
 [[package]]
 name = "cairo-type-derive"
 version = "0.1.0"
-source = "git+https://github.com/Mohiiit/snos?rev=2dcd3b0f0c6bfa368a802de12de29cd124c72bb8#2dcd3b0f0c6bfa368a802de12de29cd124c72bb8"
+source = "git+https://github.com/keep-starknet-strange/snos?rev=23879ebc79d9572ce11f2c9768ffeea7a8455efa#23879ebc79d9572ce11f2c9768ffeea7a8455efa"
 dependencies = [
  "proc-macro2",
  "quote",
@@ -3419,7 +3419,7 @@ dependencies = [
 [[package]]
 name = "cairo-vm"
 version = "1.0.1"
-source = "git+https://github.com/Moonsong-Labs/cairo-vm?branch=herman%2Ffix-pie-serialization#6036ab9533e1754f1612fbea9c9d2a27063ca5f8"
+source = "git+https://github.com/Moonsong-Labs/cairo-vm?branch=notlesh%2Fsnos-2024-11-04#1fa902bafae507424b5ea83a625830ffe6b0eca5"
 dependencies = [
  "anyhow",
  "ark-ff 0.4.2",
@@ -4516,7 +4516,7 @@ dependencies = [
  "async-trait",
  "bytes",
  "c-kzg",
- "cairo-vm 1.0.1 (git+https://github.com/Moonsong-Labs/cairo-vm?branch=herman%2Ffix-pie-serialization)",
+ "cairo-vm 1.0.1 (git+https://github.com/Moonsong-Labs/cairo-vm?branch=notlesh%2Fsnos-2024-11-04)",
  "color-eyre",
  "dotenvy",
  "lazy_static",
@@ -5074,7 +5074,7 @@ dependencies = [
  "aws-config",
  "aws-sdk-s3",
  "bincode 1.3.3",
- "cairo-vm 1.0.1 (git+https://github.com/Moonsong-Labs/cairo-vm?branch=herman%2Ffix-pie-serialization)",
+ "cairo-vm 1.0.1 (git+https://github.com/Moonsong-Labs/cairo-vm?branch=notlesh%2Fsnos-2024-11-04)",
  "dotenvy",
  "itertools 0.13.0",
  "log",
@@ -6888,7 +6888,7 @@ dependencies = [
  "bincode 1.3.3",
  "bytes",
  "c-kzg",
- "cairo-vm 1.0.1 (git+https://github.com/Moonsong-Labs/cairo-vm?branch=herman%2Ffix-pie-serialization)",
+ "cairo-vm 1.0.1 (git+https://github.com/Moonsong-Labs/cairo-vm?branch=notlesh%2Fsnos-2024-11-04)",
  "chrono",
  "clap",
  "color-eyre",
@@ -7677,13 +7677,13 @@ dependencies = [
 [[package]]
 name = "prove_block"
 version = "0.1.0"
-source = "git+https://github.com/Mohiiit/snos?rev=2dcd3b0f0c6bfa368a802de12de29cd124c72bb8#2dcd3b0f0c6bfa368a802de12de29cd124c72bb8"
+source = "git+https://github.com/keep-starknet-strange/snos?rev=23879ebc79d9572ce11f2c9768ffeea7a8455efa#23879ebc79d9572ce11f2c9768ffeea7a8455efa"
 dependencies = [
  "anyhow",
  "blockifier",
  "cairo-lang-starknet-classes",
  "cairo-lang-utils",
- "cairo-vm 1.0.1 (git+https://github.com/Moonsong-Labs/cairo-vm?branch=herman%2Ffix-pie-serialization)",
+ "cairo-vm 1.0.1 (git+https://github.com/Moonsong-Labs/cairo-vm?branch=notlesh%2Fsnos-2024-11-04)",
  "clap",
  "env_logger",
  "futures-core",
@@ -7712,7 +7712,7 @@ name = "prover-client-interface"
 version = "0.1.0"
 dependencies = [
  "async-trait",
- "cairo-vm 1.0.1 (git+https://github.com/Moonsong-Labs/cairo-vm?branch=herman%2Ffix-pie-serialization)",
+ "cairo-vm 1.0.1 (git+https://github.com/Moonsong-Labs/cairo-vm?branch=notlesh%2Fsnos-2024-11-04)",
  "gps-fact-checker",
  "mockall",
  "starknet-os",
@@ -8140,7 +8140,7 @@ dependencies = [
 [[package]]
 name = "rpc-client"
 version = "0.1.0"
-source = "git+https://github.com/Mohiiit/snos?rev=2dcd3b0f0c6bfa368a802de12de29cd124c72bb8#2dcd3b0f0c6bfa368a802de12de29cd124c72bb8"
+source = "git+https://github.com/keep-starknet-strange/snos?rev=23879ebc79d9572ce11f2c9768ffeea7a8455efa#23879ebc79d9572ce11f2c9768ffeea7a8455efa"
 dependencies = [
  "log",
  "reqwest 0.11.27",
@@ -8155,7 +8155,7 @@ dependencies = [
 [[package]]
 name = "rpc-replay"
 version = "0.1.0"
-source = "git+https://github.com/Mohiiit/snos?rev=2dcd3b0f0c6bfa368a802de12de29cd124c72bb8#2dcd3b0f0c6bfa368a802de12de29cd124c72bb8"
+source = "git+https://github.com/keep-starknet-strange/snos?rev=23879ebc79d9572ce11f2c9768ffeea7a8455efa#23879ebc79d9572ce11f2c9768ffeea7a8455efa"
 dependencies = [
  "blockifier",
  "cairo-lang-starknet-classes",
@@ -9086,7 +9086,7 @@ dependencies = [
  "alloy 0.2.1",
  "async-trait",
  "base64 0.22.1",
- "cairo-vm 1.0.1 (git+https://github.com/Moonsong-Labs/cairo-vm?branch=herman%2Ffix-pie-serialization)",
+ "cairo-vm 1.0.1 (git+https://github.com/Moonsong-Labs/cairo-vm?branch=notlesh%2Fsnos-2024-11-04)",
  "color-eyre",
  "dotenvy",
  "gps-fact-checker",
@@ -9518,7 +9518,7 @@ dependencies = [
 [[package]]
 name = "starknet-os"
 version = "0.1.0"
-source = "git+https://github.com/Mohiiit/snos?rev=2dcd3b0f0c6bfa368a802de12de29cd124c72bb8#2dcd3b0f0c6bfa368a802de12de29cd124c72bb8"
+source = "git+https://github.com/keep-starknet-strange/snos?rev=23879ebc79d9572ce11f2c9768ffeea7a8455efa#23879ebc79d9572ce11f2c9768ffeea7a8455efa"
 dependencies = [
  "anyhow",
  "ark-ec",
@@ -9533,7 +9533,7 @@ dependencies = [
  "cairo-lang-starknet",
  "cairo-lang-starknet-classes",
  "cairo-type-derive",
- "cairo-vm 1.0.1 (git+https://github.com/Moonsong-Labs/cairo-vm?branch=herman%2Ffix-pie-serialization)",
+ "cairo-vm 1.0.1 (git+https://github.com/Moonsong-Labs/cairo-vm?branch=notlesh%2Fsnos-2024-11-04)",
  "futures",
  "futures-util",
  "heck 0.4.1",
@@ -9567,11 +9567,11 @@ dependencies = [
 [[package]]
 name = "starknet-os-types"
 version = "0.1.0"
-source = "git+https://github.com/Mohiiit/snos?rev=2dcd3b0f0c6bfa368a802de12de29cd124c72bb8#2dcd3b0f0c6bfa368a802de12de29cd124c72bb8"
+source = "git+https://github.com/keep-starknet-strange/snos?rev=23879ebc79d9572ce11f2c9768ffeea7a8455efa#23879ebc79d9572ce11f2c9768ffeea7a8455efa"
 dependencies = [
  "blockifier",
  "cairo-lang-starknet-classes",
- "cairo-vm 1.0.1 (git+https://github.com/Moonsong-Labs/cairo-vm?branch=herman%2Ffix-pie-serialization)",
+ "cairo-vm 1.0.1 (git+https://github.com/Moonsong-Labs/cairo-vm?branch=notlesh%2Fsnos-2024-11-04)",
  "flate2",
  "num-bigint",
  "serde",
