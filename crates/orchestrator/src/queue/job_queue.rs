@@ -261,7 +261,8 @@ where
                 .await
                 .map_err(|e| ConsumptionError::Other(OtherError::from(e)))?;
 
-            match message.nack().await {
+            // not using `nack` as we dont' want retries in case of failures
+            match message.ack().await {
                 Ok(_) => Err(ConsumptionError::FailedToHandleJob {
                     job_id: job_message.id,
                     error_msg: "Job handling failed, message nack-ed".to_string(),
@@ -305,7 +306,8 @@ where
                 .await
                 .map_err(|e| ConsumptionError::Other(OtherError::from(e)))?;
 
-            message.nack().await.map_err(|(e, _)| ConsumptionError::Other(OtherError::from(e.to_string())))?;
+            // not using `nack` as we dont' want retries in case of failures
+            message.ack().await.map_err(|(e, _)| ConsumptionError::Other(OtherError::from(e.to_string())))?;
             Err(ConsumptionError::FailedToSpawnWorker {
                 worker_trigger_type: job_message.worker,
                 error_msg: "Worker handling failed, message nack-ed".to_string(),

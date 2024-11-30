@@ -101,7 +101,11 @@ impl Worker for UpdateStateWorker {
             }
         }
 
-        let blocks_to_process: Vec<u64> = find_successive_blocks_in_vector(blocks_to_process);
+        let mut blocks_to_process: Vec<u64> = find_successive_blocks_in_vector(blocks_to_process);
+
+        if blocks_to_process.len() > 10 {
+            blocks_to_process = blocks_to_process.into_iter().take(10).collect();
+        }
 
         let mut metadata = HashMap::new();
         metadata.insert(
