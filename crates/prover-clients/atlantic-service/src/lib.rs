@@ -12,7 +12,7 @@ use tempfile::NamedTempFile;
 use url::Url;
 
 use crate::client::AtlanticClient;
-use crate::types::SharpQueryStatus;
+use crate::types::AtlanticQueryStatus;
 
 pub const ATLANTIC_SETTINGS_NAME: &str = "atlantic";
 
@@ -71,8 +71,8 @@ impl ProverClient for AtlanticProverService {
         let res = self.atlantic_client.get_job_status(job_key).await?;
         // TODO:
         match res.atlantic_query.status {
-            SharpQueryStatus::InProgress => Ok(TaskStatus::Processing),
-            SharpQueryStatus::Done => {
+            AtlanticQueryStatus::InProgress => Ok(TaskStatus::Processing),
+            AtlanticQueryStatus::Done => {
                 let fact = B256::from_str(fact).map_err(|e| ProverClientError::FailedToConvertFact(e.to_string()))?;
                 if self.fact_checker.is_valid(&fact).await? {
                     Ok(TaskStatus::Succeeded)
@@ -80,7 +80,7 @@ impl ProverClient for AtlanticProverService {
                     Ok(TaskStatus::Failed(format!("Fact {} is not valid or not registered", hex::encode(fact))))
                 }
             }
-            SharpQueryStatus::Failed => {
+            AtlanticQueryStatus::Failed => {
                 Ok(TaskStatus::Failed("Task failed while processing on Atlantic side".to_string()))
             }
         }

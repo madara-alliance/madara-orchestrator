@@ -21,8 +21,8 @@ pub struct AtlanticGetStatusResponse {
 pub struct AtlanticQuery {
     pub id: String,
     pub submitted_by_client: String,
-    pub status: SharpQueryStatus,
-    pub step: SharpQueryStep,
+    pub status: AtlanticQueryStatus,
+    pub step: Option<AtlanticQueryStep>,
     pub program_hash: Option<String>,
     pub layout: Option<String>,
     pub program_fact_hash: Option<String>,
@@ -30,12 +30,12 @@ pub struct AtlanticQuery {
     pub prover: String,
     pub chain: String,
     pub price: String,
-    pub steps: Vec<SharpQueryStep>,
+    pub steps: Vec<AtlanticQueryStep>,
 }
 
 #[derive(Debug, Clone, Deserialize)]
 #[serde(rename_all = "SCREAMING_SNAKE_CASE")]
-pub enum SharpQueryStatus {
+pub enum AtlanticQueryStatus {
     InProgress,
     Done,
     Failed,
@@ -43,7 +43,7 @@ pub enum SharpQueryStatus {
 
 #[derive(Debug, Clone, Deserialize)]
 #[serde(rename_all = "SCREAMING_SNAKE_CASE")]
-pub enum SharpQueryStep {
+pub enum AtlanticQueryStep {
     ProofGeneration,
     FactHashGeneration,
     FactHashRegistration,

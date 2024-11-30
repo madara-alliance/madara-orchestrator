@@ -14,15 +14,15 @@ const { v4 } = require("uuid");
 
 // using default anvil key which has funds
 const MADARA_ORCHESTRATOR_ETHEREUM_PRIVATE_KEY =
-  "0xa26de79601ae771b9cdedd6066eabcb217dcfa37dcc76e77274c1699d39";
-const eth_provider = new ethers.JsonRpcProvider("https://eth-sepolia.g.alchemy.com/v2/svwTUdkIFaUUtn-0-UzsM9ee6q");
+  "0xa26de79601ae771b9cdedd6d110f066dcc76e77274c1699d39";
+const eth_provider = new ethers.JsonRpcProvider("https://eth-sepolia.g.alchemy.com/v2/svwTUduh3Uutn-0-UzsM9ee6q");
 const wallet = new ethers.Wallet(
   MADARA_ORCHESTRATOR_ETHEREUM_PRIVATE_KEY,
   eth_provider,
 );
 
 const starknet_provider = new starknet.RpcProvider({
-  nodeUrl: "https://madara-testing-dev.karnot.xyz/",
+  nodeUrl: "https://madara-testing.karnot.xyz/",
 });
 // TODO: fetch these from bootstrapper output
 const ETHEREUM_APP_CHAIN_ADDRESS =
@@ -852,4 +852,4 @@ async function main() {
   await setupMongoDb(block_number - 1);
 }
 
-overrideStateOnCoreContract(0, "0x7eba03961275def4fec9a4efb23e1682696b5338");
+overrideStateOnCoreContract(0, "0xdf1b0c727a66da2bf7652f449e765e2cf4e7a023");
