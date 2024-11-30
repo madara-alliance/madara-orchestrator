@@ -94,7 +94,7 @@ impl Worker for UpdateStateWorker {
                 }
             }
             None => {
-                if blocks_to_process[0] != 0 {
+                if blocks_to_process[0] != 0 && blocks_to_process[0] != 1 {
                     log::warn!("DA job for the first block is not yet completed. Returning safely...");
                     return Ok(());
                 }

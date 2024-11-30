@@ -66,8 +66,7 @@ async fn atlantic_client_get_task_status_works() {
     };
     let atlantic_service = AtlanticProverService::new_with_args(&atlantic_params);
 
-    let atlantic_query_id = "01JDNKT9AFV3HFW0WRWCH7S2FV";
+    let atlantic_query_id = "01JDWSD2N44D4D49SHY3JEB9B0";
     let task_result = atlantic_service.atlantic_client.get_job_status(atlantic_query_id).await;
-
     assert!(task_result.is_ok());
 }
