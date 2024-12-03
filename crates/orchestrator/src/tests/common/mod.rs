@@ -2,7 +2,11 @@ pub mod constants;
 
 use std::collections::HashMap;
 use std::sync::Arc;
+use std::time::Duration;
 
+use async_std::task::sleep;
+use aws_sdk_s3::types::Object;
+use color_eyre::eyre::Context;
 use ::uuid::Uuid;
 use aws_config::SdkConfig;
 use aws_sdk_sns::error::SdkError;
@@ -11,11 +15,13 @@ use chrono::{SubsecRound, Utc};
 use mongodb::Client;
 use rstest::*;
 use serde::Deserialize;
+use aws_sdk_s3::Client as S3Client;
 use strum::IntoEnumIterator as _;
 
 use crate::cli::alert::AlertValidatedArgs;
 use crate::cli::database::DatabaseValidatedArgs;
 use crate::cli::queue::QueueValidatedArgs;
+use crate::cli::storage::StorageValidatedArgs;
 use crate::config::ProviderConfig;
 use crate::data_storage::aws_s3::{AWSS3ValidatedArgs, AWSS3};
 use crate::data_storage::DataStorage;
@@ -74,6 +80,70 @@ pub async fn drop_database(database_params: &DatabaseValidatedArgs) -> color_eyr
         }
     }
     Ok(())
+}
+
+pub async fn delete_storage(provider_config: Arc<ProviderConfig>, data_storage_args : &StorageValidatedArgs)-> color_eyre::Result<()> {
+    match data_storage_args {
+        StorageValidatedArgs::AWSS3(s3_params) => {
+
+            let bucket_name = s3_params.bucket_name.clone();
+            let aws_config = provider_config.get_aws_client_or_panic();
+
+            let mut s3_config_builder = aws_sdk_s3::config::Builder::from(aws_config);
+            // this is necessary for it to work with localstack in test cases
+            s3_config_builder.set_force_path_style(Some(true));
+            let client = S3Client::from_conf(s3_config_builder.build());
+
+            // Check if bucket exists
+            match client.head_bucket().bucket(&bucket_name).send().await {
+                Ok(_) => {
+                    println!("Bucket exists, proceeding with deletion");
+                }
+                Err(e) => {
+                    println!("Bucket '{}' does not exist or is not accessible: {}", &bucket_name, e);
+                    return  Ok(());
+                }
+            }
+
+            // First, delete all objects in the bucket (required for non-empty buckets)
+            let objects = client
+                .list_objects_v2()
+                .bucket(&bucket_name)
+                .send()
+                .await?
+                .contents()
+                .to_vec();
+
+            // If there are objects, delete them
+            if !objects.is_empty() {
+                let objects_to_delete: Vec<_> = objects
+                    .iter()
+                    .map(|obj| {
+                        aws_sdk_s3::types::ObjectIdentifier::builder()
+                            .key(obj.key().unwrap_or_default())
+                            .build().expect("Could not build object builder")
+                    })
+                    .collect();
+
+                let delete = aws_sdk_s3::types::Delete::builder()
+                .set_objects(Some(objects_to_delete))
+                .build()?;
+            
+                client
+                    .delete_objects()
+                    .bucket(&bucket_name)
+                    .delete(delete)
+                    .send()
+                    .await?;
+            }
+
+            // After deleting all objects, delete the bucket itself
+            client.delete_bucket().bucket(&bucket_name).send().await?;
+
+            Ok(())
+        }
+    }
+
 }
 
 // SQS structs & functions

@@ -39,6 +39,8 @@ use crate::routes::{get_server_url, setup_server, ServerParams};
 use crate::telemetry::InstrumentationParams;
 use crate::tests::common::{create_queues, create_sns_arn, drop_database};
 
+use super::common::delete_storage;
+
 // Inspiration : https://rust-unofficial.github.io/patterns/patterns/creational/builder.html
 // TestConfigBuilder allows to heavily customise the global configs based on the test's requirement.
 // Eg: We want to mock only the da client and leave rest to be as it is, use mock_da_client.
@@ -229,6 +231,9 @@ impl TestConfigBuilder {
             implement_client::init_settlement_client(settlement_client_type, &params.settlement_params).await;
 
         let prover_client = implement_client::init_prover_client(prover_client_type, &params.prover_params).await;
+
+        // Delete the Storage before use
+        delete_storage(provider_config.clone(), &params.storage_params).await.expect("Could not delete storage");
 
         // External Dependencies
         let storage =
