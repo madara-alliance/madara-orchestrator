@@ -41,6 +41,8 @@ aws-sdk-s3 = { version = "1.38.0", features = ["behavior-version-latest"] }
 aws-sdk-eventbridge = { version = "1.41.0", features = [
   "behavior-version-latest",
 ] }
+aws-sdk-iam = "1.52.0"
+aws-sdk-scheduler = "1.49.0"
 aws-sdk-sns = { version = "1.40.0", features = ["behavior-version-latest"] }
 aws-credential-types = { version = "1.2.1", features = [
   "hardcoded-credentials",

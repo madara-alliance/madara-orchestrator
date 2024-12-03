@@ -55,16 +55,16 @@ pub async fn setup_cloud(setup_cmd: &SetupCmd) -> color_eyre::Result<()> {
     println!("Queues setup completed ✅");
 
     // Cron
-    // println!("Setting up cron. ⏳");
-    // let cron_params = setup_cmd.validate_cron_params().expect("Failed to validate cron params");
-    // match cron_params {
-    //     CronValidatedArgs::AWSEventBridge(aws_event_bridge_params) => {
-    //         let aws_config = provider_config.get_aws_client_or_panic();
-    //         let event_bridge = Box::new(AWSEventBridge::new_with_args(&aws_event_bridge_params, aws_config));
-    //         event_bridge.setup().await?
-    //     }
-    // }
-    // println!("Cron setup completed ✅");
+    println!("Setting up cron. ⏳");
+    let cron_params = setup_cmd.validate_cron_params().expect("Failed to validate cron params");
+    match cron_params {
+        CronValidatedArgs::AWSEventBridge(aws_event_bridge_params) => {
+            let aws_config = provider_config.get_aws_client_or_panic();
+            let event_bridge = Box::new(AWSEventBridge::new_with_args(&aws_event_bridge_params, aws_config));
+            event_bridge.setup().await?
+        }
+    }
+    println!("Cron setup completed ✅");
 
     // Alerts
     println!("Setting up alerts. ⏳");

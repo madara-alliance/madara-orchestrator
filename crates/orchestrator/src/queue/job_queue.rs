@@ -7,6 +7,7 @@ use color_eyre::eyre::Context;
 use color_eyre::Result as EyreResult;
 use omniqueue::{Delivery, QueueError};
 use serde::{Deserialize, Deserializer, Serialize};
+use strum::Display;
 use thiserror::Error;
 use tokio::time::sleep;
 use uuid::Uuid;
@@ -42,12 +43,17 @@ pub struct JobQueueMessage {
     pub id: Uuid,
 }
 
-#[derive(Debug, Serialize, Deserialize, PartialEq, Clone)]
+#[derive(Debug, Serialize, Deserialize, PartialEq, Clone, Display)]
 pub enum WorkerTriggerType {
+    #[strum(serialize = "snos")]
     Snos,
+    #[strum(serialize = "proving")]
     Proving,
+    #[strum(serialize = "proofregisteration")]
     ProofRegistration,
+    #[strum(serialize = "datasubmission")]
     DataSubmission,
+    #[strum(serialize = "updatestate")]
     UpdateState,
 }
 
