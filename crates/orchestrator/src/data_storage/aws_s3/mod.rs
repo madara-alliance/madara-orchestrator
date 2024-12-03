@@ -79,20 +79,20 @@ impl DataStorage for AWSS3 {
         Ok(())
     }
 
-    async fn create_bucket(&self, bucket_name: &str) -> Result<()> {       
-        let create_bucket_config = 
+    async fn create_bucket(&self, bucket_name: &str) -> Result<()> {
+        let create_bucket_config =
             Some(CreateBucketConfiguration::builder()
             // TODO: assign region based on env
                 .location_constraint(BucketLocationConstraint::UsWest1)
                 .build());
-    
+
         self.client
             .create_bucket()
             .bucket(bucket_name)
             .set_create_bucket_configuration(create_bucket_config)
             .send()
             .await?;
-    
+
         Ok(())
     }
 }

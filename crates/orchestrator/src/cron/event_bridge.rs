@@ -3,15 +3,15 @@ use std::time::Duration;
 use async_std::task::sleep;
 use async_trait::async_trait;
 use aws_config::SdkConfig;
-use aws_sdk_scheduler::{types::{FlexibleTimeWindow, FlexibleTimeWindowMode, Target}, Client as SchedulerClient};
+use aws_sdk_scheduler::types::{FlexibleTimeWindow, FlexibleTimeWindowMode, Target};
+use aws_sdk_scheduler::Client as SchedulerClient;
 use aws_sdk_sqs::types::QueueAttributeName;
 use aws_sdk_sqs::Client as SqsClient;
 use color_eyre::eyre::Ok;
 
+use super::{get_worker_trigger_message, TriggerArns};
 use crate::cron::Cron;
 use crate::queue::job_queue::WorkerTriggerType;
-
-use super::{get_worker_trigger_message, TriggerArns};
 
 #[derive(Clone, Debug)]
 pub struct AWSEventBridgeValidatedArgs {
@@ -71,7 +71,8 @@ impl Cron for AWSEventBridge {
             }]
         }"#;
 
-        let create_role_resp = self.iam_client
+        let create_role_resp = self
+            .iam_client
             .create_role()
             .role_name(&role_name)
             .assume_role_policy_document(assume_role_policy)
@@ -81,7 +82,8 @@ impl Cron for AWSEventBridge {
         let role_arn = create_role_resp.role().unwrap().arn();
 
         // Create policy document for SQS access
-        let policy_document = format!(r#"{{
+        let policy_document = format!(
+            r#"{{
             "Version": "2012-10-17",
             "Statement": [{{
                 "Effect": "Allow",
@@ -90,43 +92,35 @@ impl Cron for AWSEventBridge {
                 ],
                 "Resource": "{}"
             }}]
-        }}"#, queue_arn);
+        }}"#,
+            queue_arn
+        );
 
         let policy_name = format!("worker-trigger-policy-{}", uuid::Uuid::new_v4());
-        
+
         // Create and attach the policy
-        let policy_resp = self.iam_client
-            .create_policy()
-            .policy_name(&policy_name)
-            .policy_document(&policy_document)
-            .send()
-            .await?;
+        let policy_resp =
+            self.iam_client.create_policy().policy_name(&policy_name).policy_document(&policy_document).send().await?;
 
         let policy_arn = policy_resp.policy().unwrap().arn().unwrap().to_string();
 
         // Attach the policy to the role
-        self.iam_client
-        .attach_role_policy()
-        .role_name(&role_name)
-        .policy_arn(&policy_arn)
-        .send()
-        .await?;
+        self.iam_client.attach_role_policy().role_name(&role_name).policy_arn(&policy_arn).send().await?;
 
         sleep(Duration::from_secs(100)).await;
 
-        Ok(TriggerArns {
-            queue_arn : queue_arn.to_string(),
-            role_arn : role_arn.to_string()
-        })
+        Ok(TriggerArns { queue_arn: queue_arn.to_string(), role_arn: role_arn.to_string() })
     }
 
-    async fn add_cron_target_queue(&self, trigger_type: &WorkerTriggerType, trigger_arns : &TriggerArns) -> color_eyre::Result<()> {
-        let trigger_name = format!("{}-{}",self.trigger_rule_name, trigger_type); 
+    async fn add_cron_target_queue(
+        &self,
+        trigger_type: &WorkerTriggerType,
+        trigger_arns: &TriggerArns,
+    ) -> color_eyre::Result<()> {
+        let trigger_name = format!("{}-{}", self.trigger_rule_name, trigger_type);
 
         // Set flexible time window (you can adjust this as needed)
-        let flexible_time_window = FlexibleTimeWindow::builder()
-            .mode(FlexibleTimeWindowMode::Off)
-            .build()?;
+        let flexible_time_window = FlexibleTimeWindow::builder().mode(FlexibleTimeWindowMode::Off).build()?;
 
         let message = get_worker_trigger_message(trigger_type.clone())?;
 

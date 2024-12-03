@@ -16,13 +16,17 @@ lazy_static! {
 
 #[derive(Debug, Clone)]
 pub struct TriggerArns {
-    queue_arn : String,
-    role_arn : String
+    queue_arn: String,
+    role_arn: String,
 }
 #[async_trait]
 pub trait Cron {
     async fn create_cron(&self) -> color_eyre::Result<TriggerArns>;
-    async fn add_cron_target_queue(&self, trigger_type: &WorkerTriggerType, trigger_arns : &TriggerArns) -> color_eyre::Result<()>;
+    async fn add_cron_target_queue(
+        &self,
+        trigger_type: &WorkerTriggerType,
+        trigger_arns: &TriggerArns,
+    ) -> color_eyre::Result<()>;
     async fn setup(&self) -> color_eyre::Result<()> {
         let trigger_arns = self.create_cron().await?;
         for trigger in WORKER_TRIGGERS.iter() {

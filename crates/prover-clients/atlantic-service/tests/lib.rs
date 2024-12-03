@@ -48,7 +48,6 @@ async fn atlantic_client_submit_task_when_mock_works() {
     submit_mock.assert();
 }
 
-
 #[tokio::test]
 async fn atlantic_client_get_task_status_works() {
     let _ = env_logger::try_init();
