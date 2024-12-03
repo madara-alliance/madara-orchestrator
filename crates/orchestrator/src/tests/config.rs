@@ -17,6 +17,7 @@ use starknet::providers::JsonRpcClient;
 use url::Url;
 use utils::env_utils::{get_env_var_optional, get_env_var_or_panic};
 
+use super::common::delete_storage;
 use crate::alerts::aws_sns::AWSSNSValidatedArgs;
 use crate::alerts::Alerts;
 use crate::cli::alert::AlertValidatedArgs;
@@ -38,8 +39,6 @@ use crate::queue::{MockQueueProvider, QueueProvider};
 use crate::routes::{get_server_url, setup_server, ServerParams};
 use crate::telemetry::InstrumentationParams;
 use crate::tests::common::{create_queues, create_sns_arn, drop_database};
-
-use super::common::delete_storage;
 
 // Inspiration : https://rust-unofficial.github.io/patterns/patterns/creational/builder.html
 // TestConfigBuilder allows to heavily customise the global configs based on the test's requirement.

@@ -45,7 +45,7 @@ pub async fn setup_cloud(setup_cmd: &SetupCmd) -> color_eyre::Result<()> {
     println!("Queues setup completed ✅");
 
     sleep(Duration::from_secs(20)).await;
-  
+
     // Data Storage
     println!("Setting up data storage. ⏳");
     let data_storage_params = setup_cmd.validate_storage_params().expect("Failed to validate storage params");
