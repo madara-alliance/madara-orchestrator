@@ -146,7 +146,7 @@ impl Cron for AWSEventBridge {
     }
 }
 
-fn duration_to_rate_string(duration: Duration) -> String {
+pub fn duration_to_rate_string(duration: Duration) -> String {
     let total_secs = duration.as_secs();
     let total_mins = duration.as_secs() / 60;
     let total_hours = duration.as_secs() / 3600;

@@ -1,7 +1,7 @@
 use async_trait::async_trait;
 use lazy_static::lazy_static;
 
-use crate::queue::job_queue::{WorkerTriggerMessage, WorkerTriggerType};
+use crate::queue::job_queue::WorkerTriggerType;
 
 pub mod event_bridge;
 
@@ -36,7 +36,6 @@ pub trait Cron {
     }
 }
 
-fn get_worker_trigger_message(worker_trigger_type: WorkerTriggerType) -> color_eyre::Result<String> {
-    let message = WorkerTriggerMessage { worker: worker_trigger_type };
-    Ok(serde_json::to_string(&message)?)
+pub fn get_worker_trigger_message(worker_trigger_type: WorkerTriggerType) -> color_eyre::Result<String> {
+    Ok(worker_trigger_type.to_string())
 }

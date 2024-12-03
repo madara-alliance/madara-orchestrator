@@ -45,15 +45,15 @@ pub struct JobQueueMessage {
 
 #[derive(Debug, Serialize, Deserialize, PartialEq, Clone, Display)]
 pub enum WorkerTriggerType {
-    #[strum(serialize = "snos")]
+    #[strum(serialize = "Snos")]
     Snos,
-    #[strum(serialize = "proving")]
+    #[strum(serialize = "Proving")]
     Proving,
-    #[strum(serialize = "proofregisteration")]
+    #[strum(serialize = "ProofRegistration")]
     ProofRegistration,
-    #[strum(serialize = "datasubmission")]
+    #[strum(serialize = "DataSubmission")]
     DataSubmission,
-    #[strum(serialize = "updatestate")]
+    #[strum(serialize = "UpdateState")]
     UpdateState,
 }
 
@@ -230,11 +230,14 @@ fn parse_job_message(message: &Delivery) -> Result<Option<JobQueueMessage>, Cons
         .map_err(|e| ConsumptionError::Other(OtherError::from(e)))
 }
 
+/// Using string since localstack currently is instable with deserializing maps.
+/// Change this to accept a map after localstack is stable
 fn parse_worker_message(message: &Delivery) -> Result<Option<WorkerTriggerMessage>, ConsumptionError> {
-    message
-        .payload_serde_json()
-        .wrap_err("Payload Serde Error")
-        .map_err(|e| ConsumptionError::Other(OtherError::from(e)))
+    let message: String =
+        message.payload_serde_json().expect("message processing failed").expect("message unwrapping failed");
+    let trigger_type = WorkerTriggerType::from_str(message.as_str()).expect("trigger type unwrapping failed");
+
+    Ok(Some(WorkerTriggerMessage { worker: trigger_type }))
 }
 
 async fn handle_job_message<F, Fut>(
