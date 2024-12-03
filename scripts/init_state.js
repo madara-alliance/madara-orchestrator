@@ -15,7 +15,9 @@ const { v4 } = require("uuid");
 // using default anvil key which has funds
 const MADARA_ORCHESTRATOR_ETHEREUM_PRIVATE_KEY =
   "0xa26de79601ae771b9cdedd6d110f066dcc76e77274c1699d39";
-const eth_provider = new ethers.JsonRpcProvider("https://eth-sepolia.g.alchemy.com/v2/svwTUduh3Uutn-0-UzsM9ee6q");
+const eth_provider = new ethers.JsonRpcProvider(
+  "https://eth-sepolia.g.alchemy.com/v2/svwTUduh3Uutn-0-UzsM9ee6q",
+);
 const wallet = new ethers.Wallet(
   MADARA_ORCHESTRATOR_ETHEREUM_PRIVATE_KEY,
   eth_provider,

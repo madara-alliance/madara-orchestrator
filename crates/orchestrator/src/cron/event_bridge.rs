@@ -107,7 +107,7 @@ impl Cron for AWSEventBridge {
         // Attach the policy to the role
         self.iam_client.attach_role_policy().role_name(&role_name).policy_arn(&policy_arn).send().await?;
 
-        sleep(Duration::from_secs(100)).await;
+        sleep(Duration::from_secs(60)).await;
 
         Ok(TriggerArns { queue_arn: queue_arn.to_string(), role_arn: role_arn.to_string() })
     }
