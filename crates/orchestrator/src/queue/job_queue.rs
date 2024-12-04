@@ -90,9 +90,7 @@ impl<'de> Deserialize<'de> for WorkerTriggerMessage {
         struct Helper {
             worker: String,
         }
-
         let helper = Helper::deserialize(deserializer)?;
-        println!("Message received from Worker Trigger Queue: {:?}", helper);
         Ok(WorkerTriggerMessage {
             worker: WorkerTriggerType::from_str(&helper.worker).map_err(serde::de::Error::custom)?,
         })
