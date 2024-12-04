@@ -231,10 +231,11 @@ fn parse_job_message(message: &Delivery) -> Result<Option<JobQueueMessage>, Cons
 /// Using string since localstack currently is instable with deserializing maps.
 /// Change this to accept a map after localstack is stable
 fn parse_worker_message(message: &Delivery) -> Result<Option<WorkerTriggerMessage>, ConsumptionError> {
-    let message: String =
-        message.payload_serde_json().expect("message processing failed").expect("message unwrapping failed");
-    let trigger_type = WorkerTriggerType::from_str(message.as_str()).expect("trigger type unwrapping failed");
-
+    let payload = message
+        .borrow_payload()
+        .ok_or_else(|| ConsumptionError::Other(OtherError::from("Empty payload".to_string())))?;
+    let message_string = String::from_utf8_lossy(payload).to_string().trim_matches('\"').to_string();
+    let trigger_type = WorkerTriggerType::from_str(message_string.as_str()).expect("trigger type unwrapping failed");
     Ok(Some(WorkerTriggerMessage { worker: trigger_type }))
 }
 
