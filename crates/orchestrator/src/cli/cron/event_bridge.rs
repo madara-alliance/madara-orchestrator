@@ -20,7 +20,7 @@ pub struct AWSEventBridgeCliArgs {
     pub trigger_rule_name: Option<String>,
 
     /// The name of the queue for the event bridge
-    #[arg(env = "MADARA_ORCHESTRATOR_EVENT_BRIDGE_TRIGGER_ROLE_NAME", long, default_value = Some("madara-orchestrator-worker-trigger-role"), help = "The name of the Trigger Role to assign to the event bridge")]
+    #[arg(env = "MADARA_ORCHESTRATOR_EVENT_BRIDGE_TRIGGER_ROLE_NAME", long, default_value = Some("worker-trigger-role"), help = "The name of the Trigger Role to assign to the event bridge")]
     pub trigger_role_name: Option<String>,
 
     /// The name of the queue for the event bridge
