@@ -18,6 +18,8 @@ pub struct AWSEventBridgeValidatedArgs {
     pub target_queue_name: String,
     pub cron_time: Duration,
     pub trigger_rule_name: String,
+    pub trigger_role_name: String,
+    pub trigger_policy_name: String,
 }
 
 pub struct AWSEventBridge {
@@ -27,6 +29,8 @@ pub struct AWSEventBridge {
     client: SchedulerClient,
     queue_client: SqsClient,
     iam_client: aws_sdk_iam::Client,
+    trigger_role_name: String,
+    trigger_policy_name: String,
 }
 
 impl AWSEventBridge {
@@ -38,6 +42,8 @@ impl AWSEventBridge {
             client: aws_sdk_scheduler::Client::new(aws_config),
             queue_client: aws_sdk_sqs::Client::new(aws_config),
             iam_client: aws_sdk_iam::Client::new(aws_config),
+            trigger_role_name: params.trigger_role_name.clone(),
+            trigger_policy_name: params.trigger_policy_name.clone(),
         }
     }
 }
@@ -59,7 +65,7 @@ impl Cron for AWSEventBridge {
         let queue_arn = queue_attributes.attributes().unwrap().get(&QueueAttributeName::QueueArn).unwrap();
 
         // Create IAM role for EventBridge
-        let role_name = format!("worker-trigger-role-{}", uuid::Uuid::new_v4());
+        let role_name = format!("{}-{}", self.trigger_role_name, uuid::Uuid::new_v4());
         let assume_role_policy = r#"{
             "Version": "2012-10-17",
             "Statement": [{
@@ -96,7 +102,7 @@ impl Cron for AWSEventBridge {
             queue_arn
         );
 
-        let policy_name = format!("worker-trigger-policy-{}", uuid::Uuid::new_v4());
+        let policy_name = format!("{}-{}", self.trigger_policy_name, uuid::Uuid::new_v4());
 
         // Create and attach the policy
         let policy_resp =
@@ -146,7 +152,7 @@ impl Cron for AWSEventBridge {
     }
 }
 
-pub fn duration_to_rate_string(duration: Duration) -> String {
+fn duration_to_rate_string(duration: Duration) -> String {
     let total_secs = duration.as_secs();
     let total_mins = duration.as_secs() / 60;
     let total_hours = duration.as_secs() / 3600;

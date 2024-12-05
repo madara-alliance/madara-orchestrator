@@ -421,6 +421,16 @@ pub mod validate_params {
                     .trigger_rule_name
                     .clone()
                     .expect("Trigger rule name is required"),
+
+                trigger_role_name: aws_event_bridge_args
+                    .trigger_role_name
+                    .clone()
+                    .expect("Trigger role name is required"),
+
+                trigger_policy_name: aws_event_bridge_args
+                    .trigger_policy_name
+                    .clone()
+                    .expect("Trigger policy name is required"),
             }))
         } else {
             Err("Only AWS Event Bridge is supported as of now".to_string())
@@ -831,6 +841,8 @@ pub mod validate_params {
                 target_queue_name: Some(String::from("test")),
                 cron_time: Some(String::from("12")),
                 trigger_rule_name: Some(String::from("test")),
+                trigger_role_name: Some(String::from("test-role")),
+                trigger_policy_name: Some(String::from("test-policy")),
             };
             let aws_config_args: AWSConfigCliArgs = AWSConfigCliArgs {
                 aws: is_aws,

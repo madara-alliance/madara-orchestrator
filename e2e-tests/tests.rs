@@ -175,7 +175,10 @@ async fn test_orchestrator_workflow(#[case] l2_block_number: String) {
     let target_queue_name = &get_env_var_or_panic("MADARA_ORCHESTRATOR_EVENT_BRIDGE_TARGET_QUEUE_NAME");
 
     // Setup eventbridge rules
-    create_eventbridge_rule(trigger_rule_name, target_queue_name).await.expect("Unable to create event bridge rule");
+    create_eventbridge_rule(trigger_rule_name, target_queue_name).await.expect(
+        "Unable to create
+    event bridge rule",
+    );
 
     // Run orchestrator
     let mut orchestrator =

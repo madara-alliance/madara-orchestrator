@@ -44,6 +44,7 @@ pub async fn setup_cloud(setup_cmd: &SetupCmd) -> color_eyre::Result<()> {
     }
     println!("Queues setup completed ✅");
 
+    // Waiting for few seconds to let AWS index the queues
     sleep(Duration::from_secs(20)).await;
 
     // Data Storage
@@ -58,10 +59,10 @@ pub async fn setup_cloud(setup_cmd: &SetupCmd) -> color_eyre::Result<()> {
     }
     println!("Data storage setup completed ✅");
 
-    sleep(Duration::from_secs(20)).await;
-
     // Cron
     println!("Setting up cron. ⏳");
+    // Sleeping for few seconds to let AWS index the newly created queues to be used for setting up cron
+    sleep(Duration::from_secs(100)).await;
     let cron_params = setup_cmd.validate_cron_params().expect("Failed to validate cron params");
     match cron_params {
         CronValidatedArgs::AWSEventBridge(aws_event_bridge_params) => {
@@ -71,8 +72,6 @@ pub async fn setup_cloud(setup_cmd: &SetupCmd) -> color_eyre::Result<()> {
         }
     }
     println!("Cron setup completed ✅");
-
-    sleep(Duration::from_secs(20)).await;
 
     // Alerts
     println!("Setting up alerts. ⏳");

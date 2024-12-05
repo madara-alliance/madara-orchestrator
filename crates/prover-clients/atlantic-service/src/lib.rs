@@ -69,7 +69,6 @@ impl ProverClient for AtlanticProverService {
     #[tracing::instrument(skip(self))]
     async fn get_task_status(&self, job_key: &str, fact: &str) -> Result<TaskStatus, ProverClientError> {
         let res = self.atlantic_client.get_job_status(job_key).await?;
-        // TODO:
         match res.atlantic_query.status {
             AtlanticQueryStatus::InProgress => Ok(TaskStatus::Processing),
             AtlanticQueryStatus::Done => {
@@ -84,10 +83,6 @@ impl ProverClient for AtlanticProverService {
                 Ok(TaskStatus::Failed("Task failed while processing on Atlantic side".to_string()))
             }
         }
-
-        // TODO: Commented the above code since, atlantic infra is not able
-        // to prove snos blocks currently so to run e2e tests returning Succeeded.
-        // Ok(TaskStatus::Succeeded)
     }
 }
 
