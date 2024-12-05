@@ -52,7 +52,6 @@ struct Setup {
 }
 
 impl Setup {
-    /// Initialise a new setup
     pub async fn new(l2_block_number: String) -> Self {
         let db_params = DatabaseValidatedArgs::MongoDB(MongoDBValidatedArgs {
             connection_url: Url::parse(&get_env_var_or_panic("MADARA_ORCHESTRATOR_MONGODB_CONNECTION_URL"))
