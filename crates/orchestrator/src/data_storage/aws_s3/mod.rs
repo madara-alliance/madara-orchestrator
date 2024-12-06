@@ -1,6 +1,9 @@
+use std::str::FromStr;
+
 use async_trait::async_trait;
 use aws_config::SdkConfig;
 use aws_sdk_s3::primitives::ByteStream;
+use aws_sdk_s3::types::{BucketLocationConstraint, CreateBucketConfiguration};
 use aws_sdk_s3::Client;
 use bytes::Bytes;
 use color_eyre::Result;
@@ -12,12 +15,14 @@ pub const S3_SETTINGS_NAME: &str = "s3";
 #[derive(Debug, Clone)]
 pub struct AWSS3ValidatedArgs {
     pub bucket_name: String,
+    pub bucket_location_constraint: String,
 }
 
 /// AWSS3 represents AWS S3 client object containing the client and the config itself.
 pub struct AWSS3 {
     client: Client,
     bucket: String,
+    bucket_location_constraint: String,
 }
 
 /// Implementation for AWS S3 client. Contains the function for :
@@ -31,7 +36,11 @@ impl AWSS3 {
         // this is necessary for it to work with localstack in test cases
         s3_config_builder.set_force_path_style(Some(true));
         let client = Client::from_conf(s3_config_builder.build());
-        Self { client, bucket: s3_config.bucket_name.clone() }
+        Self {
+            client,
+            bucket: s3_config.bucket_name.clone(),
+            bucket_location_constraint: s3_config.bucket_location_constraint.clone(),
+        }
     }
 }
 
@@ -79,7 +88,20 @@ impl DataStorage for AWSS3 {
     }
 
     async fn create_bucket(&self, bucket_name: &str) -> Result<()> {
-        self.client.create_bucket().bucket(bucket_name).send().await?;
+        let create_bucket_config = Some(
+            CreateBucketConfiguration::builder()
+            // TODO: assign region based on env
+                .location_constraint(BucketLocationConstraint::from_str(self.bucket_location_constraint.as_str()).expect("Could not decode location constraint"))
+                .build(),
+        );
+
+        self.client
+            .create_bucket()
+            .bucket(bucket_name)
+            .set_create_bucket_configuration(create_bucket_config)
+            .send()
+            .await?;
+
         Ok(())
     }
 }
