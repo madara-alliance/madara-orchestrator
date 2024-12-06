@@ -2,11 +2,13 @@ use std::collections::HashMap;
 use std::sync::Arc;
 
 use async_trait::async_trait;
+use opentelemetry::KeyValue;
 
 use crate::config::Config;
 use crate::jobs::constants::JOB_METADATA_STATE_UPDATE_BLOCKS_TO_SETTLE_KEY;
 use crate::jobs::create_job;
 use crate::jobs::types::{JobStatus, JobType};
+use crate::metrics::ORCHESTRATOR_METRICS;
 use crate::workers::Worker;
 
 pub struct UpdateStateWorker;
@@ -116,9 +118,15 @@ impl Worker for UpdateStateWorker {
         // Creating a single job for all the pending blocks.
         let new_job_id = blocks_to_process[0].to_string();
         match create_job(JobType::StateTransition, new_job_id.clone(), metadata, config.clone()).await {
-            Ok(_) => tracing::info!(job_id = %new_job_id, "Successfully created new state transition job"),
+            Ok(_) => tracing::info!(block_id = %new_job_id, "Successfully created new state transition job"),
             Err(e) => {
                 tracing::error!(job_id = %new_job_id, error = %e, "Failed to create new state transition job");
+                let attributes = [
+                    KeyValue::new("operation_job_type", format!("{:?}", JobType::SnosRun)),
+                    KeyValue::new("operation_type", format!("{:?}", "create_job")),
+                    KeyValue::new("operation_internal_id", format!("{:?}", new_job_id.to_string())),
+                ];
+                ORCHESTRATOR_METRICS.failed_jobs.add(1.0, &attributes);
                 return Err(e.into());
             }
         }
