@@ -495,6 +495,7 @@ fn get_env_params() -> EnvParams {
 
     let storage_params = StorageValidatedArgs::AWSS3(AWSS3ValidatedArgs {
         bucket_name: get_env_var_or_panic("MADARA_ORCHESTRATOR_AWS_S3_BUCKET_NAME"),
+        bucket_location_constraint: get_env_var_or_panic("MADARA_ORCHESTRATOR_AWS_BUCKET_LOCATION_CONSTRAINT"),
     });
 
     let queue_params = QueueValidatedArgs::AWSSQS(AWSSQSValidatedArgs {

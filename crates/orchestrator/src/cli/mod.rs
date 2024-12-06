@@ -393,6 +393,10 @@ pub mod validate_params {
         if aws_s3_args.aws_s3 && aws_config_args.aws {
             Ok(StorageValidatedArgs::AWSS3(AWSS3ValidatedArgs {
                 bucket_name: aws_s3_args.bucket_name.clone().expect("Bucket name is required"),
+                bucket_location_constraint: aws_s3_args
+                    .bucket_location_constraint
+                    .clone()
+                    .expect("Bucket Location Constraint is required"),
             }))
         } else {
             Err("Only AWS S3 is supported as of now".to_string())
@@ -719,7 +723,11 @@ pub mod validate_params {
         #[case(false, true)]
         #[case(false, false)]
         fn test_validate_storage_params(#[case] is_aws: bool, #[case] is_s3: bool) {
-            let aws_s3_args: AWSS3CliArgs = AWSS3CliArgs { aws_s3: is_s3, bucket_name: Some("".to_string()) };
+            let aws_s3_args: AWSS3CliArgs = AWSS3CliArgs {
+                aws_s3: is_s3,
+                bucket_name: Some("".to_string()),
+                bucket_location_constraint: Some("".to_string()),
+            };
             let aws_config_args: AWSConfigCliArgs = AWSConfigCliArgs {
                 aws: is_aws,
                 aws_access_key_id: "".to_string(),
