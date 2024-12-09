@@ -87,20 +87,19 @@ impl DataStorage for AWSS3 {
     }
 
     async fn create_bucket(&self, bucket_name: &str) -> Result<()> {
-        let create_bucket_config = if self.bucket_location_constraint.as_str() == "us-east-1" {
-            Some(CreateBucketConfiguration::builder().build())
-        } else {
-            Some(
-                CreateBucketConfiguration::builder()
-                    .location_constraint(self.bucket_location_constraint.clone())
-                    .build(),
-            )
-        };
+        if self.bucket_location_constraint.as_str() == "us-east-1" {
+            self.client.create_bucket().bucket(bucket_name).send().await?;
+            return Ok(());
+        }
+
+        let bucket_configuration = Some(
+            CreateBucketConfiguration::builder().location_constraint(self.bucket_location_constraint.clone()).build(),
+        );
 
         self.client
             .create_bucket()
             .bucket(bucket_name)
-            .set_create_bucket_configuration(create_bucket_config)
+            .set_create_bucket_configuration(bucket_configuration)
             .send()
             .await?;
 
