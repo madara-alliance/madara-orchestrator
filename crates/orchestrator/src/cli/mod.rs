@@ -393,10 +393,6 @@ pub mod validate_params {
         if aws_s3_args.aws_s3 && aws_config_args.aws {
             Ok(StorageValidatedArgs::AWSS3(AWSS3ValidatedArgs {
                 bucket_name: aws_s3_args.bucket_name.clone().expect("Bucket name is required"),
-                bucket_location_constraint: aws_s3_args
-                    .bucket_location_constraint
-                    .clone()
-                    .expect("Bucket Location Constraint is required"),
             }))
         } else {
             Err("Only AWS S3 is supported as of now".to_string())

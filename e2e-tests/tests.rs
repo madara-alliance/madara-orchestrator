@@ -174,7 +174,7 @@ async fn test_orchestrator_workflow(#[case] l2_block_number: String) {
     let target_queue_name = &get_env_var_or_panic("MADARA_ORCHESTRATOR_EVENT_BRIDGE_TARGET_QUEUE_NAME");
 
     // Setup eventbridge rules
-    create_eventbridge_rule(trigger_rule_name, target_queue_name).await.expect(
+    create_event_bridge_rule(trigger_rule_name, target_queue_name).await.expect(
         "Unable to create
     event bridge rule",
     );
@@ -239,7 +239,7 @@ async fn test_orchestrator_workflow(#[case] l2_block_number: String) {
 
 /// Function that adds rules to tests for localstack
 /// This can be removed after https://github.com/localstack/localstack/issues/9861 is closed
-async fn create_eventbridge_rule(trigger_rule_name: &String, target_queue_name: &String) -> color_eyre::Result<()> {
+async fn create_event_bridge_rule(trigger_rule_name: &String, target_queue_name: &String) -> color_eyre::Result<()> {
     let aws_config = &aws_config::from_env().load().await;
 
     let queue_client = aws_sdk_sqs::Client::new(aws_config);

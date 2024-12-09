@@ -44,16 +44,12 @@ pub struct JobQueueMessage {
 }
 
 #[derive(Debug, Serialize, Deserialize, PartialEq, Clone, Display)]
+#[strum(serialize_all = "PascalCase")]
 pub enum WorkerTriggerType {
-    #[strum(serialize = "Snos")]
     Snos,
-    #[strum(serialize = "Proving")]
     Proving,
-    #[strum(serialize = "ProofRegistration")]
     ProofRegistration,
-    #[strum(serialize = "DataSubmission")]
     DataSubmission,
-    #[strum(serialize = "UpdateState")]
     UpdateState,
 }
 
