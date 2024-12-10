@@ -1,11 +1,14 @@
 # Madara Orchestrator 🎭
 
 The Madara orchestrator is designed to be an additional service which runs in
-parallel to Madara and handles various critical jobs that ensure proper block processing, proof generation, data submission and state transitions.
+parallel to Madara and handles various critical jobs that ensure proper block
+processing, proof generation, data submission and state transitions.
 
 ## 📋 Overview
 
-The Madara Orchestrator coordinates and triggers five primary jobs in sequence, managing their execution through a centralized queue system, alowing for multiple orchestrator to run together!
+The Madara Orchestrator coordinates and triggers five primary jobs in sequence,
+managing their execution through a centralized queue system, alowing
+for multiple orchestrator to run together!
 
 1. **SNOS (Starknet OS) Job** 🔄
 
@@ -42,7 +45,8 @@ Each job is managed through a queue-based system where the orchestrator:
 
 ### Job Processing Model
 
-The orchestrator implements a queue-based architecture where each job type follows a three-phase execution model:
+The orchestrator implements a queue-based architecture where each job type
+follows a three-phase execution model:
 
 1. **Creation**: Jobs are spawned based on block availability
 2. **Processing**: Core job logic execution
@@ -92,13 +96,15 @@ The system uses dedicated queues for managing different job phases:
 
 ### Setup Mode
 
-Setup mode configures the required AWS services and dependencies. Use the following command:
+Setup mode configures the required AWS services and dependencies.
+Use the following command:
 
 ```bash
 cargo run --release --bin orchestrator setup --aws --aws-s3 --aws-sqs --aws-sns --aws-event-bridge
 ```
 
-Note: Setup mode is currently in development. A fresh setup is required if the process fails mid-way.
+Note: Setup mode is currently in development. A fresh setup is required
+if the process fails mid-way.
 
 ### Run Mode
 
@@ -154,7 +160,8 @@ RUST_LOG=info cargo run --release --bin orchestrator run --atlantic --aws --sett
 
 ## ⚙️ Configuration
 
-The orchestrator uses environment variables for configuration. Create a `.env` file with the following sections:
+The orchestrator uses environment variables for configuration.
+Create a `.env` file with the following sections:
 
 ### AWS Configuration
 
@@ -185,7 +192,8 @@ MADARA_ORCHESTRATOR_MONGODB_CONNECTION_URL=mongodb://localhost:27017
 MADARA_ORCHESTRATOR_DATABASE_NAME=orchestrator
 ```
 
-For a complete list of configuration options, refer to the `.env.example` file in the repository.
+For a complete list of configuration options, refer to the `.env.example` file
+in the repository.
 
 ## 🔍 Monitoring
 
@@ -243,7 +251,8 @@ RUST_LOG=info cargo test --features testing test_orchestrator_workflow -- --noca
 
 #### Running Integration and Unit Tests
 
-The orchestrator uses LLVM coverage testing to ensure comprehensive test coverage of the codebase.
+The orchestrator uses LLVM coverage testing to ensure comprehensive test coverage
+of the codebase.
 
 ```bash
 RUST_LOG=debug RUST_BACKTRACE=1 cargo llvm-cov nextest \
@@ -265,7 +274,8 @@ This command:
 - Continues testing even if failures occur
 - Enables debug logging and full backtraces for better error diagnosis
 
-The coverage report (`lcov.info`) can be used with various code coverage visualization tools.
+The coverage report (`lcov.info`) can be used with various code coverage
+visualization tools.
 
 ## 📓 More Information
 
