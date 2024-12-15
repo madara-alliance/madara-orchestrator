@@ -365,7 +365,7 @@ pub async fn verify_job(id: Uuid, config: Arc<Config>) -> Result<(), JobError> {
                     .map(|start| Utc::now().timestamp_millis() - start)
                 {
                     Some(time_taken) => ORCHESTRATOR_METRICS.proving_time.record(time_taken as f64, &[]),
-                    None => eprintln!("Failed to calculate proving time: Invalid or missing processing time"),
+                    None => tracing::warn!("Failed to calculate proving time: Invalid or missing processing time"),
                 }
             }
             let mut metadata = job.metadata.clone();
