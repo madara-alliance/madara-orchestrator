@@ -7,7 +7,7 @@ use std::time::{Duration, Instant};
 use async_trait::async_trait;
 use chrono::Utc;
 use color_eyre::eyre::{eyre, Context};
-use constants::JOB_METADATA_FAILURE_REASON;
+use constants::{JOB_METADATA_ERROR, JOB_METADATA_FAILURE_REASON, JOB_METADATA_PROCESSING_COMPLETED_AT};
 use conversion::parse_string;
 use da_job::DaError;
 use futures::FutureExt;
@@ -236,7 +236,8 @@ pub async fn process_job(id: Uuid, config: Arc<Config>) -> Result<(), JobError> 
         Ok(Ok(external_id)) => {
             tracing::debug!(job_id = ?id, "Successfully processed job");
             // Add the time of processing to the metadata.
-            job.metadata.insert("processing_completed_at".to_string(), Utc::now().timestamp_millis().to_string());
+            job.metadata
+                .insert(JOB_METADATA_PROCESSING_COMPLETED_AT.to_string(), Utc::now().timestamp_millis().to_string());
             external_id
         }
         Ok(Err(e)) => {
@@ -357,7 +358,7 @@ pub async fn verify_job(id: Uuid, config: Arc<Config>) -> Result<(), JobError> {
             tracing::info!(job_id = ?id, "Job verified successfully");
             match job
                 .metadata
-                .get("processing_completed_at")
+                .get(JOB_METADATA_PROCESSING_COMPLETED_AT)
                 .and_then(|time| time.parse::<i64>().ok())
                 .map(|start| Utc::now().timestamp_millis() - start)
             {
@@ -383,7 +384,7 @@ pub async fn verify_job(id: Uuid, config: Arc<Config>) -> Result<(), JobError> {
         JobVerificationStatus::Rejected(e) => {
             tracing::warn!(job_id = ?id, error = ?e, "Job verification rejected");
             let mut new_job = job.clone();
-            new_job.metadata.insert("error".to_string(), e);
+            new_job.metadata.insert(JOB_METADATA_ERROR.to_string(), e);
             new_job.status = JobStatus::VerificationFailed;
 
             let process_attempts = get_u64_from_metadata(&job.metadata, JOB_PROCESS_ATTEMPT_METADATA_KEY)
