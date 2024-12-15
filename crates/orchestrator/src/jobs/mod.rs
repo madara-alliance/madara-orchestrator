@@ -236,9 +236,7 @@ pub async fn process_job(id: Uuid, config: Arc<Config>) -> Result<(), JobError> 
         Ok(Ok(external_id)) => {
             tracing::debug!(job_id = ?id, "Successfully processed job");
             // Add the time of processing to the metadata.
-            if job.job_type == JobType::ProofCreation {
-                job.metadata.insert("processing_completed_at".to_string(), Utc::now().timestamp_millis().to_string());
-            }
+            job.metadata.insert("processing_completed_at".to_string(), Utc::now().timestamp_millis().to_string());
             external_id
         }
         Ok(Err(e)) => {
@@ -357,16 +355,16 @@ pub async fn verify_job(id: Uuid, config: Arc<Config>) -> Result<(), JobError> {
     match verification_status {
         JobVerificationStatus::Verified => {
             tracing::info!(job_id = ?id, "Job verified successfully");
-            if job.job_type == JobType::ProofCreation {
-                match job
-                    .metadata
-                    .get("processing_completed_at")
-                    .and_then(|time| time.parse::<i64>().ok())
-                    .map(|start| Utc::now().timestamp_millis() - start)
-                {
-                    Some(time_taken) => ORCHESTRATOR_METRICS.proving_time.record(time_taken as f64, &[]),
-                    None => tracing::warn!("Failed to calculate proving time: Invalid or missing processing time"),
-                }
+            match job
+                .metadata
+                .get("processing_completed_at")
+                .and_then(|time| time.parse::<i64>().ok())
+                .map(|start| Utc::now().timestamp_millis() - start)
+            {
+                Some(time_taken) => ORCHESTRATOR_METRICS
+                    .verification_time
+                    .record(time_taken as f64, &[KeyValue::new("operation_job_type", format!("{:?}", job.job_type))]),
+                None => tracing::warn!("Failed to calculate verification time: Invalid or missing processing time"),
             }
             let mut metadata = job.metadata.clone();
             metadata.remove("processing_completed_at");
