@@ -12,6 +12,7 @@ pub struct OrchestratorMetrics {
     pub successful_job_operations: Counter<f64>,
     pub failed_job_operations: Counter<f64>,
     pub failed_jobs: Counter<f64>,
+    pub proving_time: Gauge<f64>,
     pub jobs_response_time: Gauge<f64>,
     pub db_calls_response_time: Gauge<f64>,
 }
@@ -57,18 +58,25 @@ impl Metrics for OrchestratorMetrics {
             "jobs".to_string(),
         );
 
+        let proving_time = register_gauge_metric_instrument(
+            &orchestrator_meter,
+            "proving_time".to_string(),
+            "A gauge to show the time taken for proving task".to_string(),
+            "ms".to_string(),
+        );
+
         let jobs_response_time = register_gauge_metric_instrument(
             &orchestrator_meter,
             "jobs_response_time".to_string(),
             "A gauge to show response time of jobs over time".to_string(),
-            "Time".to_string(),
+            "s".to_string(),
         );
 
         let db_calls_response_time = register_gauge_metric_instrument(
             &orchestrator_meter,
             "db_calls_response_time".to_string(),
             "A gauge to show response time of jobs over time".to_string(),
-            "Time".to_string(),
+            "s".to_string(),
         );
 
         Self {
@@ -76,6 +84,7 @@ impl Metrics for OrchestratorMetrics {
             successful_job_operations,
             failed_job_operations,
             failed_jobs,
+            proving_time,
             jobs_response_time,
             db_calls_response_time,
         }

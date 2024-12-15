@@ -5,6 +5,7 @@ use std::sync::Arc;
 use std::time::{Duration, Instant};
 
 use async_trait::async_trait;
+use chrono::Utc;
 use color_eyre::eyre::{eyre, Context};
 use constants::JOB_METADATA_FAILURE_REASON;
 use conversion::parse_string;
@@ -234,6 +235,10 @@ pub async fn process_job(id: Uuid, config: Arc<Config>) -> Result<(), JobError> 
     let external_id = match AssertUnwindSafe(job_handler.process_job(config.clone(), &mut job)).catch_unwind().await {
         Ok(Ok(external_id)) => {
             tracing::debug!(job_id = ?id, "Successfully processed job");
+            // Add the time of processing to the metadata.
+            if job.job_type == JobType::ProofCreation {
+                job.metadata.insert("processing_completed_at".to_string(), Utc::now().timestamp_millis().to_string());
+            }
             external_id
         }
         Ok(Err(e)) => {
@@ -352,9 +357,25 @@ pub async fn verify_job(id: Uuid, config: Arc<Config>) -> Result<(), JobError> {
     match verification_status {
         JobVerificationStatus::Verified => {
             tracing::info!(job_id = ?id, "Job verified successfully");
+            if job.job_type == JobType::ProofCreation {
+                match job
+                    .metadata
+                    .get("processing_completed_at")
+                    .and_then(|time| time.parse::<i64>().ok())
+                    .map(|start| Utc::now().timestamp_millis() - start)
+                {
+                    Some(time_taken) => ORCHESTRATOR_METRICS.proving_time.record(time_taken as f64, &[]),
+                    None => eprintln!("Failed to calculate proving time: Invalid or missing processing time"),
+                }
+            }
+            let mut metadata = job.metadata.clone();
+            metadata.remove("processing_completed_at");
             config
                 .database()
-                .update_job(&job, JobItemUpdates::new().update_status(JobStatus::Completed).build())
+                .update_job(
+                    &job,
+                    JobItemUpdates::new().update_metadata(metadata).update_status(JobStatus::Completed).build(),
+                )
                 .await
                 .map_err(|e| {
                     tracing::error!(job_id = ?id, error = ?e, "Failed to update job status to Completed");
