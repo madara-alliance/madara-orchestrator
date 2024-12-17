@@ -1,60 +1,42 @@
 # Madara Orchestrator 🎭
 
-The Madara orchestrator is designed to be an additional service which runs in
-parallel to Madara and handles various critical jobs that ensure proper block
-processing, proof generation, data submission and state transitions.
+Madara Orchestrator is a service that runs parallel to Madara, managing critical jobs for block processing, proof generation, data submission, and state transitions.
 
-## 📋 Overview
+> 📝 **Note**: These instructions are verified for Ubuntu systems. While most steps remain similar for macOS, some package names and installation commands may differ.
 
-The Madara Orchestrator coordinates and triggers five primary jobs in sequence,
-managing their execution through a centralized queue system, alowing
-for multiple orchestrator to run together!
+## Table of Contents
 
-1. **SNOS (Starknet OS) Job** 🔄
+- [Overview](#overview)
+- [Architecture](#architecture)
+- [Build Requirements](#build-requirements)
+- [Building from Source](#building-from-source)
+- [Deployment](#deployment)
+  - [Local Development](#local-development)
+  - [Production](#production)
+- [Configuration](#configuration)
+- [Testing](#testing)
+- [Monitoring](#monitoring)
+- [Error Handling](#error-handling)
 
-   - Identifies blocks that need processing.
-   - Triggers SNOS run on identified blocks.
-   - Tracks SNOS execution status and PIE (Program Independent Execution) generation
+## Overview
 
-2. **Proving Job** ✅
+The Madara Orchestrator coordinates five primary jobs through a centralized queue system:
 
-   - Coordinates proof generation by submitting PIE to proving services
-   - Tracks proof generation progress and completion
+1. **SNOS (Starknet OS) Job**: Processes blocks and generates Program Independent Execution (PIE)
+2. **Proving Job**: Manages proof generation using PIE
+3. **Data Submission Job**: Handles state updates for availability layers (Currently supports Ethereum EIP-4844)
+4. **State Transition Job**: Manages state transitions with settlement layers (Ethereum and Starknet)
 
-3. **Data Submission Job** 📤
-
-   - Manages state update data preparation for availability layers
-   - If needed, coordinates blob submission to data availability layers
-   - Currently integrates with Ethereum (EIP-4844 blob transactions)
-   - Additional DA layer integrations in development (e.g., Celestia)
-
-4. **State Transition Job** 🔄
-   - Coordinates state transitions with settlement layers
-   - Manages proof and state update submissions
-   - Handles integration with Ethereum and Starknet settlement layers
-
-Each job is managed through a queue-based system where the orchestrator:
-
-- Determines when and which blocks need processing
-- Triggers the appropriate services
-- Monitors job progress
-- Manages job dependencies and sequencing
-- Handles retries and failure cases
-
-## 🏛️ Architecture
+## Architecture
 
 ### Job Processing Model
 
-The orchestrator implements a queue-based architecture where each job type
-follows a three-phase execution model:
-
-1. **Creation**: Jobs are spawned based on block availability
-2. **Processing**: Core job logic execution
-3. **Verification**: Result validation and confirmation
+The orchestrator uses a queue-based architecture with three execution phases:
+1. Creation: Jobs are spawned based on block availability
+2. Processing: Core job logic execution
+3. Verification: Result validation and confirmation
 
 ### Queue Structure
-
-The system uses dedicated queues for managing different job phases:
 
 - Worker Trigger Queue
 - SNOS Processing/Verification Queues
@@ -65,218 +47,236 @@ The system uses dedicated queues for managing different job phases:
 
 ### Workflow
 
-1. Cron jobs trigger worker tasks via the worker-trigger queue
-2. Workers determine block-level job requirements
+1. Cron jobs trigger worker tasks
+2. Workers determine block-level requirements
 3. Jobs are created and added to processing queues
 4. Processed jobs move to verification queues
-5. Verified jobs are marked as complete in the database
+5. Verified jobs are marked complete in the database
 
-## 🛠️ Technical Requirements
+## Build Requirements
 
-### Prerequisites
+### System Dependencies
+> For macOS users, use `brew install` instead of `apt install` for these dependencies.
 
-1. **Madara Node**
+- Build essentials (`build-essential`)
+- OpenSSL (`libssl-dev`)
+- Package config (`pkg-config`)
+- Python 3.9 with development files
+- GMP library (`libgmp-dev`)
 
-   - Required for block processing
-   - Follow setup instructions at [Madara Documentation](https://github.com/madara-alliance/madara)
+### Core Dependencies
+- [Git](https://git-scm.com/book/en/v2/Getting-Started-Installing-Git)
+- [Rust](https://www.rust-lang.org/tools/install)
+- [Madara Node](https://github.com/madara-alliance/madara)
+- Prover Service (ATLANTIC)
 
-2. **Prover Service**
+## Building from Source
 
-   - ATLANTIC must be running
+1. **Install System Dependencies**
+   ```bash
+   # Ubuntu/Debian
+   sudo apt-get update
+   sudo apt install build-essential openssl pkg-config libssl-dev
+   sudo apt install python3.9 python3.9-venv python3.9-distutils libgmp-dev python3.9-dev
 
-3. **Infrastructure Dependencies**
-   - MongoDB for job management
-   - AWS services (or Localstack for local development):
-     - SQS for queues
-     - S3 for data storage
-     - SNS for alerts
-     - EventBridge for scheduling
+   # For macOS
+   brew install openssl pkg-config gmp python@3.9
+   ```
 
-## 🚀 Installation & Setup
+2. **Install Rust** (Cross-platform)
+   ```bash
+   curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh
+   source ~/.bashrc  # Or source ~/.zshrc for macOS
+   ```
 
-### Setup Mode
+3. **Clone Repository**
+   ```bash
+   git clone https://github.com/madara-alliance/madara-orchestrator.git
+   cd madara-orchestrator
+   git submodule update --init
+   ```
 
-Setup mode configures the required AWS services and dependencies.
-Use the following command:
+4. **Build SNOS**
+   ```bash
+   make snos
+   ```
 
-```bash
-cargo run --release --bin orchestrator setup --aws --aws-s3 --aws-sqs --aws-sns --aws-event-bridge
-```
+5. **Build Project**
+   ```bash
+   cargo build --release
+   ```
 
-Note: Setup mode is currently in development. A fresh setup is required
-if the process fails mid-way.
+## Deployment
 
-### Run Mode
+### Local Development
 
-Run mode executes the orchestrator's job processing workflow. Example command:
+#### Additional Requirements
+1. **Docker** - For running local services
+2. **MongoDB** - For job management
+3. **Localstack** - For simulating AWS services
+4. **Anvil** - For local Ethereum node
+5. **Foundry** - For Ethereum development tools
 
-```bash
-RUST_LOG=info cargo run --release --bin orchestrator run --atlantic --aws --settle-on-ethereum --aws-s3 --aws-sqs --aws-sns --da-on-ethereum --mongodb
-```
+#### Setup Steps
 
-### Command Line Options
+1. **Install Docker** (Cross-platform)
+   Follow the official installation guides:
+   - [Ubuntu Installation Guide](https://docs.docker.com/engine/install/ubuntu/#install-using-the-repository)
+   - [macOS Installation Guide](https://docs.docker.com/desktop/install/mac-install/)
 
-1. **Prover Services** (choose one):
+2. **Install Foundry** (Cross-platform)
+   ```bash
+   curl -L https://foundry.paradigm.xyz | bash
+   foundryup
+   ```
 
-   - `--atlantic`: Use Atlantic prover
-   - `--sharp`: Use SHARP prover
+3. **Start Local Services**
+   ```bash
+   # Start MongoDB
+   docker run -d -p 27017:27017 mongo
 
-2. **Settlement Layer** (choose one):
+   # Start Localstack
+   docker run -d -p 4566:4566 localstack/localstack@sha256:763947722c6c8d33d5fbf7e8d52b4bddec5be35274a0998fdc6176d733375314
 
-   - `--settle-on-ethereum`: Use Ethereum
-   - `--settle-on-starknet`: Use Starknet
+   # Start Anvil in a separate terminal
+   anvil --block-time 1
+   ```
 
-3. **Data Availability**:
+4. **Initialize Local Infrastructure**
+   ```bash
+   cargo run --release --bin orchestrator setup --aws --aws-s3 --aws-sqs --aws-sns --aws-event-bridge
+   ```
 
-   - `--da-on-ethereum`: Use Ethereum
+5. **Run Orchestrator Locally**
+   ```bash
+   RUST_LOG=info cargo run --release --bin orchestrator run \
+       --atlantic \
+       --aws \
+       --settle-on-ethereum \
+       --aws-s3 \
+       --aws-sqs \
+       --aws-sns \
+       --da-on-ethereum \
+       --mongodb
+   ```
 
-4. **Infrastructure**:
+### Production
 
-   - `--aws`: Use AWS services (or Localstack)
+#### Requirements
+- AWS Account with access to:
+  - S3
+  - SQS
+  - SNS
+  - EventBridge
+- MongoDB instance
+- Ethereum RPC endpoint
+- ATLANTIC prover service access
 
-5. **Data Storage**:
+#### Deployment Steps
 
-   - `--aws-s3`: Store state updates and program outputs
+1. **Configure AWS Services**
+   See [Configuration](#configuration) section for required environment variables.
+   ```bash
+   cargo run --release --bin orchestrator setup \
+       --aws \
+       --aws-s3 \
+       --aws-sqs \
+       --aws-sns \
+       --aws-event-bridge
+   ```
 
-6. **Database**:
+2. **Run Orchestrator**
+   ```bash
+   RUST_LOG=info cargo run --release --bin orchestrator run \
+       --atlantic \
+       --aws \
+       --settle-on-ethereum \
+       --aws-s3 \
+       --aws-sqs \
+       --aws-sns \
+       --da-on-ethereum \
+       --mongodb
+   ```
 
-   - `--mongodb`: Store job information
+## Configuration
 
-7. **Queue System**:
+Create a `.env` file with appropriate values for your environment:
 
-   - `--aws-sqs`: Message queue service
-
-8. **Alerting**:
-
-   - `--aws-sns`: Notification service
-
-9. **Scheduling**:
-
-   - `--aws-event-bridge`: Cron job scheduling
-
-10. **Monitoring**:
-    - `--otel-service-name`: OpenTelemetry service name
-    - `--otel-collector-endpoint`: OpenTelemetry collector endpoint
-
-## ⚙️ Configuration
-
-The orchestrator uses environment variables for configuration.
-Create a `.env` file with the following sections:
-
-### AWS Configuration
-
+### Production Environment
 ```env
+# AWS Configuration
 AWS_ACCESS_KEY_ID=<your-key>
 AWS_SECRET_ACCESS_KEY=<your-secret>
 AWS_REGION=<your-region>
-```
 
-Note: These configurations are also picked up from
-
-### Prover Configuration
-
-```env
-# SHARP Configuration
-MADARA_ORCHESTRATOR_SHARP_CUSTOMER_ID=<customer-id>
-MADARA_ORCHESTRATOR_SHARP_URL=<sharp-url>
-# or
-# ATLANTIC Configuration
+# Prover Configuration
 MADARA_ORCHESTRATOR_ATLANTIC_API_KEY=<api-key>
 MADARA_ORCHESTRATOR_ATLANTIC_SERVICE_URL=<service-url>
+
+# Database Configuration
+MADARA_ORCHESTRATOR_MONGODB_CONNECTION_URL=<production-mongodb-url>
+MADARA_ORCHESTRATOR_DATABASE_NAME=orchestrator
+
+# RPC Configuration
+MADARA_ORCHESTRATOR_ETHEREUM_SETTLEMENT_RPC_URL=<ethereum-rpc-url>
+MADARA_ORCHESTRATOR_RPC_FOR_SNOS=<snos-rpc-url>
 ```
 
-### Database Configuration
-
+### Local Development
 ```env
+# AWS Configuration (Localstack)
+AWS_ACCESS_KEY_ID=test
+AWS_SECRET_ACCESS_KEY=test
+AWS_REGION=us-east-1
+
+# Database Configuration
 MADARA_ORCHESTRATOR_MONGODB_CONNECTION_URL=mongodb://localhost:27017
 MADARA_ORCHESTRATOR_DATABASE_NAME=orchestrator
+
+# RPC Configuration
+MADARA_ORCHESTRATOR_ETHEREUM_SETTLEMENT_RPC_URL=http://localhost:8545
+MADARA_ORCHESTRATOR_RPC_FOR_SNOS=<local-snos-rpc-url>
 ```
 
-For a complete list of configuration options, refer to the `.env.example` file
-in the repository.
+## Testing
 
-## 🔍 Monitoring
+### Local Environment Tests
+Requires [local services](#local-development) to be running (MongoDB, Localstack, Anvil)
 
-The orchestrator includes a telemetry system that tracks:
+1. **E2E Tests**
+   ```bash
+   RUST_LOG=info cargo test --features testing test_orchestrator_workflow -- --nocapture
+   ```
 
+2. **Integration and Unit Tests**
+   ```bash
+   RUST_LOG=debug RUST_BACKTRACE=1 cargo llvm-cov nextest \
+       --release \
+       --features testing \
+       --lcov \
+       --output-path lcov.info \
+       --test-threads=1 \
+       --workspace \
+       --exclude=e2e-tests \
+       --no-fail-fast
+   ```
+
+## Monitoring
+
+The orchestrator includes [OpenTelemetry](https://opentelemetry.io/) integration for monitoring:
 - Job execution metrics
-- Processing time statistics
+- Processing time statistics 
 - RPC performance metrics
 
-OpenTelemetry integration is available for detailed monitoring.
-It requires a `Otel-collector` url to be able to send metrics/logs/traces.
+Configure monitoring using:
+- `--otel-service-name`: OpenTelemetry service name
+- `--otel-collector-endpoint`: OpenTelemetry collector endpoint
 
-## 🐛 Error Handling
+## Error Handling
 
-- Failed jobs are moved to a dedicated failure handling queue
+- Failed jobs move to a dedicated failure queue (see [Queue Structure](#queue-structure))
 - Automatic retry mechanism with configurable intervals
-- Failed jobs are tracked in the database for manual inspection after maximum retries
-- Integrated telemetry system for monitoring job failures
+- Failed jobs tracked in database after maximum retries
+- Integrated telemetry for failure monitoring (see [Monitoring](#monitoring))
 
-## 🧪 Testing
-
-The Madara Orchestrator supports three types of tests:
-
-### Types of Tests
-
-1. **E2E Tests** 🔄
-
-   - End-to-end workflow testing
-   - Tests orchestrator functionality on block 66645 of Starknet
-   - Uses mocked proving endpoints
-
-2. **Integration & Unit Tests** 🔌
-
-### Running Tests
-
-#### Required Services
-
-- MongoDB running on port 27017
-- Localstack running on port 4566
-- Anvil (local Ethereum node)
-
-#### Environment Configuration
-
-```bash
-export MADARA_ORCHESTRATOR_ETHEREUM_SETTLEMENT_RPC_URL=<ethereum-rpc-url>
-export MADARA_ORCHESTRATOR_RPC_FOR_SNOS=<snos-rpc-url>
-export AWS_REGION=us-east-1
-```
-
-#### Running E2E Tests
-
-```bash
-RUST_LOG=info cargo test --features testing test_orchestrator_workflow -- --nocapture
-```
-
-#### Running Integration and Unit Tests
-
-The orchestrator uses LLVM coverage testing to ensure comprehensive test coverage
-of the codebase.
-
-```bash
-RUST_LOG=debug RUST_BACKTRACE=1 cargo llvm-cov nextest \
-    --release \
-    --features testing \
-    --lcov \
-    --output-path lcov.info \
-    --test-threads=1 \
-    --workspace \
-    --exclude=e2e-tests \
-    --no-fail-fast
-```
-
-This command:
-
-- Generates detailed coverage reports in LCOV format
-- Excludes E2E tests from coverage analysis
-- Runs tests sequentially (single thread)
-- Continues testing even if failures occur
-- Enables debug logging and full backtraces for better error diagnosis
-
-The coverage report (`lcov.info`) can be used with various code coverage
-visualization tools.
-
-## 📓 More Information
-
-- Read the architecture present at `./docs/orchestrator_da_sequencer_diagram.png`
+For additional architectural details, refer to `./docs/orchestrator_da_sequencer_diagram.png`
