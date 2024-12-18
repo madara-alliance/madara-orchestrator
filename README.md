@@ -4,7 +4,7 @@ The Madara orchestrator is designed to be an additional service which runs in
 parallel to Madara and handles various critical jobs that ensure proper block
 processing, proof generation, data submission and state transitions.
 
-> 📝 **Note**: These instructions are verified for Ubuntu systems. While most steps remain similar
+> 📝 **Note**: These instructions are verified for Ubuntu systems with AMD64 architecture. While most steps remain similar
 > for macOS, some package names and installation commands may differ.
 
 ## Table of Contents
@@ -129,15 +129,19 @@ The system uses dedicated queues for managing different job phases:
   - SNS for alerts
   - EventBridge for scheduling
 
-> 🚨 **Important Note**: Currently, Madara doesn't support the `get_storage_proof` endpoint.
+> 🚨 **Important Note**: SNOS requires the `get_storage_proof` RPC endpoint to function.
+> Currently, this endpoint is not implemented in Madara.
 >
-> Therefore, you need to run Pathfinder alongside Madara:
+> 🚧 Until madara implements the `get_storage_proof` endpoint, you need to run Pathfinder alongside Madara:
 >
 > - Madara will run in sequencer mode
 > - Pathfinder will sync with Madara
 > - The orchestrator will use Pathfinder's RPC URL for SNOS and state update fetching
 >
-> This setup ensures proper functionality until the `get_storage_proof` endpoint is implemented in Madara.
+> This setup is temporary until either:
+>
+> 1. SNOS is adapted to work without the `get_storage_proof` endpoint, or
+> 2. The `get_storage_proof` endpoint is implemented in Madara
 
 ## 🚀 Installation & Setup
 
@@ -212,41 +216,89 @@ The system uses dedicated queues for managing different job phases:
 
 4. **Setup Mock Proving Service**
 
+   🚧 This setup is for development purposes only:
+
    ```bash
-   # Create a simple HTTP server that always returns 200
-   # Example using Python
-   python3 -m http.server 8888 &
+   # Start the mock prover service using Docker
+   docker run -d -p 6000:6000 ocdbytes/mock-prover:latest
 
    # Set the mock prover URL in your .env
-   MADARA_ORCHESTRATOR_ATLANTIC_SERVICE_URL=http://localhost:8888
+   MADARA_ORCHESTRATOR_SHARP_URL=http://localhost:6000
    ```
 
-5. **Deploy Mock Verifier Contract**
+5. **Run Pathfinder** (Choose one method)
 
-   You can deploy the mock verifier contract in two ways:
+   > 🚨 **Important Note**:
+   >
+   > - Pathfinder requires a WebSocket Ethereum endpoint (`ethereum.url`). Since Anvil doesn't support WebSocket yet,
+   >   you'll need to provide a different Ethereum endpoint (e.g., Alchemy, Infura). This is okay for local development
+   >   as Pathfinder only uses this for block header verification.
+   > - Make sure `chain-id` matches your Madara chain ID (default: `MADARA_DEVNET`)
+   > - The `gateway-url` and `feeder-gateway-url` should point to your local Madara node (default: `http://localhost:8080`)
 
-   a. **Using Test Implementation**
-
-   - Reference the implementation in `e2e-tests/tests.rs` which contains `AnvilSetup`
-   - This handles the deployment of both the StarkNet core contract and verifier contract
-
-   ```rust
-   // From e2e-tests/tests.rs
-   let anvil_setup = AnvilSetup::new();
-   let (starknet_core_contract_address, verifier_contract_address) = anvil_setup.deploy_contracts().await;
-   ```
-
-   b. **Manual Deployment**
-
-   - Alternatively, you can deploy the mock verifier directly using Foundry
-   - The contract should implement the same interface as used in the tests
-   - Set the deployed address in your environment:
+   a. **From Source** (Recommended for development)
 
    ```bash
-   MADARA_ORCHESTRATOR_VERIFIER_ADDRESS=<deployed-contract-address>
+   # Clone the repository
+   git clone https://github.com/eqlabs/pathfinder.git
+   cd pathfinder
+
+   # Run pathfinder
+   cargo run --bin pathfinder -- \
+       --network custom \
+       --chain-id MADARA_DEVNET \
+       --ethereum.url wss://eth-sepolia.g.alchemy.com/v2/xxx \  # Replace with your Ethereum endpoint
+       --gateway-url http://localhost:8080/gateway \
+       --feeder-gateway-url http://localhost:8080/feeder_gateway \
+       --storage.state-tries archive \
+       --data-directory ~/Desktop/pathfinder_db/ \
+       --http-rpc 127.0.0.1:9545
    ```
 
-Note: The mock services are intended for development and testing purposes only.
+   b. **Using Docker**
+
+   ```bash
+   # Create data directory
+   mkdir -p ~/pathfinder_data
+
+   # Run pathfinder container
+   docker run \
+       --name pathfinder \
+       --restart unless-stopped \
+       -p 9545:9545 \
+       --user "$(id -u):$(id -g)" \
+       -e RUST_LOG=info \
+       -v ~/pathfinder_data:/usr/share/pathfinder/data \
+       eqlabs/pathfinder \
+       --network custom \
+       --chain-id MADARA_DEVNET \
+       --ethereum.url wss://eth-sepolia.g.alchemy.com/v2/xxx \  # Replace with your Ethereum endpoint
+       --gateway-url http://localhost:8080/gateway \
+       --feeder-gateway-url http://localhost:8080/feeder_gateway \
+       --storage.state-tries archive
+   ```
+
+6. **Deploy Mock Verifier Contract**
+
+   🚧 For development purposes, you can deploy the mock verifier contract using:
+
+   ```bash
+   ./scripts/dummy_contract_deployment.sh http://localhost:9944 0
+   ```
+
+   This script:
+
+   - Takes the Madara endpoint and block number as parameters
+   - Automatically deploys both the verifier contract and core contract
+   - Sets up the necessary contract relationships
+   - The deployed contract addresses will be output to the console
+
+   ```bash
+   MADARA_ORCHESTRATOR_L1_CORE_CONTRACT_ADDRESS=<deployed-core-contract-address>
+   MADARA_ORCHESTRATOR_VERIFIER_ADDRESS=<deployed-verifier-address>
+   ```
+
+🚧 Note: The mock services are intended for development and testing purposes only.
 In production, you'll need to use actual proving services and verifier contracts.
 
 ### Setup Mode
@@ -267,7 +319,7 @@ Run mode executes the orchestrator's job processing workflow. Example command:
 
 ```bash
 RUST_LOG=info cargo run --release --bin orchestrator run \
-    --atlantic \
+    --sharp \
     --aws \
     --settle-on-ethereum \
     --aws-s3 \
@@ -381,6 +433,8 @@ It requires a `Otel-collector` url to be able to send metrics/logs/traces.
 
 ### Local Environment Setup
 
+🚧 This setup is for development purposes. For production deployment, please refer to our deployment documentation.
+
 Before running tests, ensure you have:
 
 1. **Required Services Running**:
@@ -400,6 +454,8 @@ Before running tests, ensure you have:
 ### Types of Tests
 
 1. **E2E Tests** 🔄
+
+   🚧 Development test environment:
 
    - End-to-end workflow testing
    - Tests orchestrator functionality on block 66645 of Starknet
