@@ -174,6 +174,7 @@ The system uses dedicated queues for managing different job phases:
    ```
 
 5. **Build Project**
+
    ```bash
    cargo build --release
    ```
@@ -384,6 +385,7 @@ Before running tests, ensure you have:
    - Anvil (local Ethereum node)
 
 2. **Environment Configuration**:
+
    ```bash
    export MADARA_ORCHESTRATOR_ETHEREUM_SETTLEMENT_RPC_URL=<ethereum-rpc-url>
    export MADARA_ORCHESTRATOR_RPC_FOR_SNOS=<snos-rpc-url>
