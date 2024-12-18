@@ -129,7 +129,9 @@ The system uses dedicated queues for managing different job phases:
   - SNS for alerts
   - EventBridge for scheduling
 
-> 🚨 **Important Note**: Currently, Madara doesn't support the `get_storage_proof` endpoint. Therefore, you need to run Pathfinder alongside Madara:
+> 🚨 **Important Note**: Currently, Madara doesn't support the `get_storage_proof` endpoint.
+>
+> Therefore, you need to run Pathfinder alongside Madara:
 >
 > - Madara will run in sequencer mode
 > - Pathfinder will sync with Madara
@@ -244,7 +246,8 @@ The system uses dedicated queues for managing different job phases:
    MADARA_ORCHESTRATOR_VERIFIER_ADDRESS=<deployed-contract-address>
    ```
 
-Note: The mock services are intended for development and testing purposes only. In production, you'll need to use actual proving services and verifier contracts.
+Note: The mock services are intended for development and testing purposes only.
+In production, you'll need to use actual proving services and verifier contracts.
 
 ### Setup Mode
 
