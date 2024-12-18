@@ -4,7 +4,8 @@ The Madara orchestrator is designed to be an additional service which runs in
 parallel to Madara and handles various critical jobs that ensure proper block
 processing, proof generation, data submission and state transitions.
 
-> 📝 **Note**: These instructions are verified for Ubuntu systems. While most steps remain similar for macOS, some package names and installation commands may differ.
+> 📝 **Note**: These instructions are verified for Ubuntu systems. While most steps remain similar
+> for macOS, some package names and installation commands may differ.
 
 ## Table of Contents
 
@@ -330,7 +331,8 @@ AWS_SECRET_ACCESS_KEY=<your-secret>
 AWS_REGION=<your-region>
 ```
 
-Note: These configurations are also picked up from your AWS credentials file (~/.aws/credentials) or environment variables if not specified in the .env file.
+Note: These configurations are also picked up from your AWS credentials file (~/.aws/credentials)
+or environment variables if not specified in the .env file.
 
 ### Prover Configuration
 
@@ -432,7 +434,8 @@ This command:
 - Excludes E2E tests from coverage analysis
 - Runs tests sequentially (single thread)
 - Continues testing even if failures occur
-- Enables debug logging and full backtraces for better error diagnosis
+- Enables debug logging and full backtraces for better error
+  diagnosis
 
 The coverage report (`lcov.info`) can be used with various code coverage
 visualization tools.
