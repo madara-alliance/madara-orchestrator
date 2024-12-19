@@ -232,7 +232,7 @@ The system uses dedicated queues for managing different job phases:
    >
    > - Pathfinder requires a WebSocket Ethereum endpoint (`ethereum.url`). Since Anvil doesn't support WebSocket yet,
    >   you'll need to provide a different Ethereum endpoint (e.g., Alchemy, Infura). This is okay for local development
-   >   as Pathfinder only uses this for block header verification.
+   >   as Pathfinder only uses this to get the state update from core contract.
    > - Make sure `chain-id` matches your Madara chain ID (default: `MADARA_DEVNET`)
    > - The `gateway-url` and `feeder-gateway-url` should point to your local Madara node (default: `http://localhost:8080`)
 
