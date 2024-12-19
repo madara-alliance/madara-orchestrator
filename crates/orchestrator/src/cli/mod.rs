@@ -246,7 +246,7 @@ impl RunCmd {
     ),
     group(
         ArgGroup::new("cron")
-            .args(&["aws_event_bridge"])
+            .args(&["aws_event_bridge_rule", "aws_event_bridge_schedule"])
             .required(true)
             .multiple(false)
             .requires("provider")
@@ -336,7 +336,7 @@ pub mod validate_params {
     use crate::alerts::aws_sns::AWSSNSValidatedArgs;
     use crate::cli::prover_layout::ProverLayoutCliArgs;
     use crate::config::ServiceParams;
-    use crate::cron::event_bridge::AWSEventBridgeValidatedArgs;
+    use crate::cron::event_bridge::{AWSEventBridgeValidatedArgs, EventBridgeType};
     use crate::data_storage::aws_s3::AWSS3ValidatedArgs;
     use crate::database::mongodb::MongoDBValidatedArgs;
     use crate::queue::sqs::AWSSQSValidatedArgs;
@@ -403,8 +403,19 @@ pub mod validate_params {
         aws_event_bridge_args: &AWSEventBridgeCliArgs,
         aws_config_args: &AWSConfigCliArgs,
     ) -> Result<CronValidatedArgs, String> {
-        if aws_event_bridge_args.aws_event_bridge && aws_config_args.aws {
+        if (aws_event_bridge_args.aws_event_bridge_rule || aws_event_bridge_args.aws_event_bridge_schedule)
+            && aws_config_args.aws
+        {
+            let cron_type = if aws_event_bridge_args.aws_event_bridge_rule {
+                EventBridgeType::Rule
+            } else if aws_event_bridge_args.aws_event_bridge_schedule {
+                EventBridgeType::Schedule
+            } else {
+                panic!("No Cron service selected!")
+            };
+
             Ok(CronValidatedArgs::AWSEventBridge(AWSEventBridgeValidatedArgs {
+                cron_type,
                 target_queue_name: aws_event_bridge_args
                     .target_queue_name
                     .clone()
@@ -841,7 +852,8 @@ pub mod validate_params {
         #[case(false)]
         fn test_validate_cron_params(#[case] is_aws: bool) {
             let aws_event_bridge_args: AWSEventBridgeCliArgs = AWSEventBridgeCliArgs {
-                aws_event_bridge: is_aws,
+                aws_event_bridge_rule: is_aws,
+                aws_event_bridge_schedule: !is_aws,
                 target_queue_name: Some(String::from("test")),
                 cron_time: Some(String::from("12")),
                 trigger_rule_name: Some(String::from("test")),

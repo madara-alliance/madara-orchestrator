@@ -2,11 +2,14 @@ use clap::Args;
 
 /// CLI arguments for the aws event bridge.
 #[derive(Debug, Clone, Args)]
-#[group()]
 pub struct AWSEventBridgeCliArgs {
-    /// Use the AWS Event Bridge client
+    /// Use the AWS Event Bridge Rule client
     #[arg(long)]
-    pub aws_event_bridge: bool,
+    pub aws_event_bridge_rule: bool,
+
+    /// Use the AWS Event Bridge Schedule client
+    #[arg(long)]
+    pub aws_event_bridge_schedule: bool,
 
     /// The name of the queue for the event bridge
     #[arg(env = "MADARA_ORCHESTRATOR_EVENT_BRIDGE_TARGET_QUEUE_NAME", long, default_value = Some("madara_orchestrator_worker_trigger_queue"), help = "The name of the SNS queue to send messages to from the event bridge.")]
