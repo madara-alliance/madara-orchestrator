@@ -58,7 +58,8 @@ impl Orchestrator {
             .arg("--aws")
             .arg("--aws-s3")
             .arg("--aws-sqs")
-            .arg("--aws-sns");
+            .arg("--aws-sns")
+            .arg("--aws-event-bridge-rule");
 
         // Add event bridge arg only for setup mode
         if is_run_mode {
