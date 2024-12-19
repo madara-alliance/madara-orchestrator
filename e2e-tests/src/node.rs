@@ -58,8 +58,7 @@ impl Orchestrator {
             .arg("--aws")
             .arg("--aws-s3")
             .arg("--aws-sqs")
-            .arg("--aws-sns")
-            .arg("--aws-event-bridge-rule");
+            .arg("--aws-sns");
 
         // Add event bridge arg only for setup mode
         if is_run_mode {
@@ -75,7 +74,7 @@ impl Orchestrator {
 
             command.stdout(Stdio::piped()).stderr(Stdio::piped());
         } else {
-            command.arg("--aws-event-bridge");
+            command.arg("--aws-event-bridge-rule");
 
             // For setup mode, inherit the stdio to show output directly
             command.stdout(Stdio::inherit()).stderr(Stdio::inherit());

@@ -307,7 +307,7 @@ Setup mode configures the required AWS services and dependencies.
 Use the following command:
 
 ```bash
-cargo run --release --bin orchestrator setup --aws --aws-s3 --aws-sqs --aws-sns --aws-event-bridge
+cargo run --release --bin orchestrator setup --aws --aws-s3 --aws-sqs --aws-sns --aws-event-bridge-rule
 ```
 
 Note: Setup mode is currently in development. A fresh setup is required

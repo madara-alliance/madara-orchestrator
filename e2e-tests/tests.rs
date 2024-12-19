@@ -167,9 +167,6 @@ async fn test_orchestrator_workflow(#[case] l2_block_number: String) {
 
     println!("✅ Orchestrator setup completed.");
 
-    let trigger_rule_name = &get_env_var_or_panic("MADARA_ORCHESTRATOR_EVENT_BRIDGE_TRIGGER_RULE_NAME");
-    let target_queue_name = &get_env_var_or_panic("MADARA_ORCHESTRATOR_EVENT_BRIDGE_TARGET_QUEUE_NAME");
-
     // Run orchestrator
     let mut orchestrator =
         Orchestrator::new(OrchestratorMode::Run, setup_config.envs()).expect("Failed to start orchestrator");
