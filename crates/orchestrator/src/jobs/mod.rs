@@ -468,10 +468,9 @@ pub async fn verify_job(id: Uuid, config: Arc<Config>) -> Result<(), JobError> {
         }
     };
 
-    attributes.push(KeyValue::new(
-        "operation_job_status",
-        format!("{}", operation_job_status.expect("operation_job_status not found")),
-    ));
+    if let Some(job_status) = operation_job_status {
+        attributes.push(KeyValue::new("operation_job_status", format!("{}", job_status)));
+    }
 
     tracing::info!(log_type = "completed", category = "general", function_type = "verify_job", block_no = %internal_id, "General verify job completed for block");
     let duration = start.elapsed();
