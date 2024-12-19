@@ -69,7 +69,7 @@ impl ProverClient for AtlanticProverService {
     #[tracing::instrument(skip(self))]
     async fn get_task_status(&self, job_key: &str, fact: &str) -> Result<TaskStatus, ProverClientError> {
         let res = self.atlantic_client.get_job_status(job_key).await?;
-        tracing::info!(">>>>> got response from the service: {:?}", res);
+        tracing::info!(">>>>> got response from the service: {:?} with the key: {:?}", res, job_key);
         match res.atlantic_query.status {
             AtlanticQueryStatus::InProgress => Ok(TaskStatus::Processing),
             AtlanticQueryStatus::Done => {

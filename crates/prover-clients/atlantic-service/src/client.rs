@@ -107,7 +107,7 @@ impl AtlanticClient {
             .send()
             .await
             .map_err(AtlanticError::GetJobStatusFailure)?;
-        tracing::info!(">>>>>> response of the atlantic service has been: {:?}", response);
+        tracing::info!(">>>>>> response of the atlantic service has been: {:?} with the key: {:?}", response, job_key);
 
         if response.status().is_success() {
             response.json().await.map_err(AtlanticError::GetJobStatusFailure)
