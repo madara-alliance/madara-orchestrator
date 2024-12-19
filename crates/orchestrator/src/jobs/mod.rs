@@ -440,33 +440,38 @@ pub async fn verify_job(id: Uuid, config: Arc<Config>) -> Result<(), JobError> {
                         JobError::Other(OtherError(e))
                     })?;
                 operation_job_status = Some(JobStatus::VerificationTimeout);
-                return Ok(());
-            }
-            let metadata = increment_key_in_metadata(&job.metadata, JOB_VERIFICATION_ATTEMPT_METADATA_KEY)?;
+            } else {
+                let metadata = increment_key_in_metadata(&job.metadata, JOB_VERIFICATION_ATTEMPT_METADATA_KEY)?;
 
-            config.database().update_job(&job, JobItemUpdates::new().update_metadata(metadata).build()).await.map_err(
-                |e| {
-                    tracing::error!(job_id = ?id, error = ?e, "Failed to update job metadata");
+                config
+                    .database()
+                    .update_job(&job, JobItemUpdates::new().update_metadata(metadata).build())
+                    .await
+                    .map_err(|e| {
+                        tracing::error!(job_id = ?id, error = ?e, "Failed to update job metadata");
+                        JobError::Other(OtherError(e))
+                    })?;
+
+                tracing::debug!(job_id = ?id, "Adding job back to verification queue");
+                add_job_to_verification_queue(
+                    job.id,
+                    &job.job_type,
+                    Duration::from_secs(job_handler.verification_polling_delay_seconds()),
+                    config.clone(),
+                )
+                .await
+                .map_err(|e| {
+                    tracing::error!(job_id = ?id, error = ?e, "Failed to add job to verification queue");
                     JobError::Other(OtherError(e))
-                },
-            )?;
-
-            tracing::debug!(job_id = ?id, "Adding job back to verification queue");
-            add_job_to_verification_queue(
-                job.id,
-                &job.job_type,
-                Duration::from_secs(job_handler.verification_polling_delay_seconds()),
-                config.clone(),
-            )
-            .await
-            .map_err(|e| {
-                tracing::error!(job_id = ?id, error = ?e, "Failed to add job to verification queue");
-                JobError::Other(OtherError(e))
-            })?;
+                })?;
+            }
         }
     };
 
-    attributes.push(KeyValue::new("operation_job_status", format!("{:?}", operation_job_status)));
+    attributes.push(KeyValue::new(
+        "operation_job_status",
+        format!("{}", operation_job_status.expect("operation_job_status not found")),
+    ));
 
     tracing::info!(log_type = "completed", category = "general", function_type = "verify_job", block_no = %internal_id, "General verify job completed for block");
     let duration = start.elapsed();
