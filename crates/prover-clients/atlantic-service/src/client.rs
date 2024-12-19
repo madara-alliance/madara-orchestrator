@@ -96,6 +96,7 @@ impl AtlanticClient {
     }
 
     pub async fn get_job_status(&self, job_key: &str) -> Result<AtlanticGetStatusResponse, AtlanticError> {
+        tracing::info!(">>>>> atlantic job task status called with the key: {:?}", job_key);
         let response = self
             .client
             .request()
@@ -106,6 +107,7 @@ impl AtlanticClient {
             .send()
             .await
             .map_err(AtlanticError::GetJobStatusFailure)?;
+        tracing::info!(">>>>>> response of the atlantic service has been: {:?}", response);
 
         if response.status().is_success() {
             response.json().await.map_err(AtlanticError::GetJobStatusFailure)
