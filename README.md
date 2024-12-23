@@ -311,11 +311,15 @@ Setup mode configures the required AWS services and dependencies.
 Use the following command:
 
 ```bash
-cargo run --release --bin orchestrator setup --aws --aws-s3 --aws-sqs --aws-sns --aws-event-bridge-rule
+cargo run --release --bin orchestrator setup --aws --aws-s3 --aws-sqs --aws-sns --aws-event-bridge --event-bridge-type rule
 ```
 
-Note: Setup mode is currently in development. A fresh setup is required
-if the process fails mid-way.
+> 🚨 **Note**:
+>
+> - Setup mode is currently in development. A fresh setup is required
+>   if the process fails mid-way.
+> - The `event-bridge-type` needs to be `rule` in case of localstack.
+> - The `event-bridge-type` should be `schedule` in case of AWS.
 
 ### Run Mode
 
@@ -369,9 +373,10 @@ RUST_LOG=info cargo run --release --bin orchestrator run \
 
    - `--aws-sns`: Notification service
 
-9. **Scheduling**:
+9. **Event Bridge Scheduling**:
 
-   - `--aws-event-bridge`: Cron job scheduling
+   - `--aws-event-bridge`: Enable AWS Event Bridge
+   - `--event-bridge-type`: Specify the type of Event Bridge (rule or schedule)
 
 10. **Monitoring**:
     - `--otel-service-name`: OpenTelemetry service name

@@ -12,7 +12,7 @@ use super::{get_worker_trigger_message, TriggerArns};
 use crate::cron::Cron;
 use crate::queue::job_queue::WorkerTriggerType;
 
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, clap::ValueEnum)]
 pub enum EventBridgeType {
     Rule,
     Schedule,

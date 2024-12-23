@@ -74,8 +74,9 @@ impl Orchestrator {
 
             command.stdout(Stdio::piped()).stderr(Stdio::piped());
         } else {
-            command.arg("--aws-event-bridge-rule");
-
+            command.arg("--aws-event-bridge");
+            command.arg("--event-bridge-type");
+            command.arg("rule");
             // For setup mode, inherit the stdio to show output directly
             command.stdout(Stdio::inherit()).stderr(Stdio::inherit());
         }
