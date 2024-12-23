@@ -159,6 +159,8 @@ The system uses dedicated queues for managing different job phases:
    brew install openssl pkg-config gmp python@3.9
    ```
 
+   > 🚨 **Note**: python 3.9 is required for the `SNOS` to create `os_latest.json` hence the `python3.9` in the above command.
+
 2. **Install Rust** (Cross-platform)
 
    ```bash
@@ -179,6 +181,8 @@ The system uses dedicated queues for managing different job phases:
    ```bash
    make snos
    ```
+
+   > 🚨 **Note**: python 3.9 is required for the `SNOS` to create `os_latest.json`
 
 5. **Build Project**
 
