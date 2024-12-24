@@ -85,8 +85,7 @@ impl AtlanticClient {
             )
             .send()
             .await
-            .map_err(AtlanticError::AddJobFailure)
-            .expect("Failed to add job");
+            .map_err(AtlanticError::AddJobFailure)?;
 
         if response.status().is_success() {
             response.json().await.map_err(AtlanticError::AddJobFailure)

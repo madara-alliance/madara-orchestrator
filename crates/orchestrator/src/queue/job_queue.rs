@@ -231,7 +231,8 @@ fn parse_worker_message(message: &Delivery) -> Result<Option<WorkerTriggerMessag
         .borrow_payload()
         .ok_or_else(|| ConsumptionError::Other(OtherError::from("Empty payload".to_string())))?;
     let message_string = String::from_utf8_lossy(payload).to_string().trim_matches('\"').to_string();
-    let trigger_type = WorkerTriggerType::from_str(message_string.as_str()).expect("trigger type unwrapping failed");
+    let trigger_type = WorkerTriggerType::from_str(message_string.as_str())
+        .map_err(|e| ConsumptionError::Other(OtherError::from(e)))?;
     Ok(Some(WorkerTriggerMessage { worker: trigger_type }))
 }
 
