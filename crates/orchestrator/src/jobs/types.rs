@@ -103,6 +103,8 @@ pub enum JobStatus {
     VerificationFailed,
     /// The job failed completing
     Failed,
+    /// The job is being retried
+    RetryAttempt,
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone, PartialEq, Eq)]

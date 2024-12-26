@@ -209,8 +209,8 @@ pub async fn process_job(id: Uuid, config: Arc<Config>) -> Result<(), JobError> 
     match job.status {
         // we only want to process jobs that are in the created or verification failed state.
         // verification failed state means that the previous processing failed and we want to retry
-        JobStatus::Created | JobStatus::VerificationFailed => {
-            tracing::info!(job_id = ?id, status = ?job.status, "Job status is Created or VerificationFailed, proceeding with processing");
+        JobStatus::Created | JobStatus::VerificationFailed | JobStatus::RetryAttempt => {
+            tracing::info!(job_id = ?id, status = ?job.status, "Job status is Created or VerificationFailed or RetryAttempt, proceeding with processing");
         }
         _ => {
             tracing::warn!(job_id = ?id, status = ?job.status, "Job status is Invalid. Cannot process.");

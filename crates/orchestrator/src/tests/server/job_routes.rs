@@ -119,6 +119,44 @@ async fn test_trigger_verify_job(#[future] setup_trigger: (SocketAddr, Arc<Confi
     }
 }
 
+#[tokio::test]
+#[rstest]
+async fn test_trigger_retry_job(#[future] setup_trigger: (SocketAddr, Arc<Config>)) {
+    let (addr, config) = setup_trigger.await;
+
+    let job_type = JobType::DataSubmission;
+
+    // Create a failed job
+    let job_item = build_job_item(job_type.clone(), JobStatus::Failed, 1);
+    let mut job_handler = MockJob::new();
+
+    // We expect process_job to be called since retry triggers processing
+    job_handler.expect_process_job().times(1).returning(move |_, _| Ok("0xbeef".to_string()));
+    job_handler.expect_verification_polling_delay_seconds().return_const(1u64);
+
+    config.database().create_job(job_item.clone()).await.unwrap();
+    let job_id = job_item.clone().id;
+
+    let job_handler: Arc<Box<dyn Job>> = Arc::new(Box::new(job_handler));
+    let ctx = mock_factory::get_job_handler_context();
+    ctx.expect().times(1).with(eq(job_type)).returning(move |_| Arc::clone(&job_handler));
+
+    let client = hyper::Client::new();
+    let response = client
+        .request(Request::builder().uri(format!("http://{}/jobs/{}/retry", addr, job_id)).body(Body::empty()).unwrap())
+        .await
+        .unwrap();
+
+    // assertions
+    if let Some(job_fetched) = config.database().get_job_by_id(job_id).await.unwrap() {
+        assert_eq!(response.status(), 200);
+        assert_eq!(job_fetched.id, job_item.id);
+        assert_eq!(job_fetched.status, JobStatus::PendingVerification);
+    } else {
+        panic!("Could not get job from database")
+    }
+}
+
 #[rstest]
 #[tokio::test]
 async fn test_init_consumer() {
