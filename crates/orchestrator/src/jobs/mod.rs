@@ -333,8 +333,8 @@ pub async fn verify_job(id: Uuid, config: Arc<Config>) -> Result<(), JobError> {
     tracing::Span::current().record("internal_id", job.internal_id.clone());
 
     match job.status {
-        JobStatus::PendingVerification => {
-            tracing::debug!(job_id = ?id, "Job status is PendingVerification, proceeding with verification");
+        JobStatus::PendingVerification | JobStatus::VerificationTimeout => {
+            tracing::info!(job_id = ?id, status = ?job.status, "Job status is PendingVerification or VerificationTimeout, proceeding with verification");
         }
         _ => {
             tracing::error!(job_id = ?id, status = ?job.status, "Invalid job status for verification");
