@@ -6,6 +6,8 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ## Added
 
+- readme: setup instructions added
+- Added : Grafana dashboard
 - tests: http_client tests added
 - Added Atlantic proving service integration
 - setup functions added for cloud and db
@@ -48,6 +50,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ## Changed
 
+- refactor: Readme and .env.example
 - refactor: http_mock version updated
 - refactor: prover-services renamed to prover-clients
 - refactor: update json made generic to update any json file
@@ -80,6 +83,8 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ## Fixed
 
+- refactor: instrumentation
+- `is_worker_enabled` status check moved from `VerificationFailed` to `Failed`
 - refactor: static attributes for telemetry
 - refactor: aws setup for Event Bridge
 - refactor: RUST_LOG filtering support
