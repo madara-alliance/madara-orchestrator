@@ -297,7 +297,7 @@ pub async fn process_job(id: Uuid, config: Arc<Config>) -> Result<(), JobError> 
         JobError::Other(OtherError(e))
     })?;
 
-    let attributes =  vec![
+    let attributes = vec![
         KeyValue::new("operation_job_type", format!("{:?}", job.job_type)),
         KeyValue::new("operation_type", "process_job"),
     ];
@@ -499,8 +499,11 @@ pub async fn handle_job_failure(id: Uuid, config: Arc<Config>) -> Result<(), Job
 
 fn register_block_gauge(job: &JobItem, attributes: &Vec<KeyValue>) -> Result<(), JobError> {
     let block_number = if let JobType::StateTransition = job.job_type {
-        parse_string(job.external_id.unwrap_string()
-            .map_err(|e| JobError::Other(OtherError::from(format!("Could not parse string: {e}"))))?)
+        parse_string(
+            job.external_id
+                .unwrap_string()
+                .map_err(|e| JobError::Other(OtherError::from(format!("Could not parse string: {e}"))))?,
+        )
     } else {
         parse_string(&job.internal_id)
     }?;
