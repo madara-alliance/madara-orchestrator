@@ -497,7 +497,7 @@ pub async fn handle_job_failure(id: Uuid, config: Arc<Config>) -> Result<(), Job
         .await
 }
 
-fn register_block_gauge(job: &JobItem, attributes: &Vec<KeyValue>) -> Result<(), JobError> {
+fn register_block_gauge(job: &JobItem, attributes: &[KeyValue]) -> Result<(), JobError> {
     let block_number = if let JobType::StateTransition = job.job_type {
         parse_string(
             job.external_id
