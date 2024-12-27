@@ -37,6 +37,7 @@ color-eyre = { workspace = true }
 da-client-interface = { workspace = true }
 dotenvy = { workspace = true }
 ethereum-da-client = { workspace = true, optional = true }
+starknet-da-client = { workspace = true, optional = true }
 ethereum-settlement-client = { workspace = true }
 futures = { workspace = true }
 hex = { workspace = true }
@@ -94,8 +95,9 @@ tracing-opentelemetry = { workspace = true }
 tracing-subscriber = { workspace = true, features = ["env-filter"] }
 
 [features]
-default = ["ethereum", "with_mongodb", "with_sqs"]
+default = ["ethereum", "with_mongodb", "with_sqs", "starknet"]
 ethereum = ["ethereum-da-client"]
+starknet = ["starknet-da-client"]
 with_mongodb = ["mongodb"]
 with_sqs = ["omniqueue"]
 testing = []

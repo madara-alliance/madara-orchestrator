@@ -106,11 +106,18 @@ impl Job for SnosJob {
         let snos_url = config.snos_config().rpc_for_snos.to_string();
         let snos_url = snos_url.trim_end_matches('/');
         tracing::debug!(job_id = %job.internal_id, "Calling prove_block function");
-        let (cairo_pie, snos_output) =
-            prove_block(COMPILED_OS, block_number, snos_url, LayoutName::all_cairo, false).await.map_err(|e| {
-                tracing::error!(job_id = %job.internal_id, error = %e, "SNOS execution failed");
-                SnosError::SnosExecutionError { internal_id: job.internal_id.clone(), message: e.to_string() }
-            })?;
+        let (cairo_pie, snos_output) = prove_block(
+            COMPILED_OS,
+            block_number,
+            snos_url,
+            LayoutName::all_cairo,
+            config.snos_config().snos_full_output,
+        )
+        .await
+        .map_err(|e| {
+            tracing::error!(job_id = %job.internal_id, error = %e, "SNOS execution failed");
+            SnosError::SnosExecutionError { internal_id: job.internal_id.clone(), message: e.to_string() }
+        })?;
         tracing::debug!(job_id = %job.internal_id, "prove_block function completed successfully");
 
         let fact_info = get_fact_info(&cairo_pie, None)?;

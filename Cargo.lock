@@ -6977,6 +6977,7 @@ dependencies = [
  "sharp-service",
  "starknet",
  "starknet-core 0.9.0",
+ "starknet-da-client",
  "starknet-os",
  "starknet-settlement-client",
  "strum 0.26.3",
@@ -9516,6 +9517,36 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "bcde6bd74269b8161948190ace6cf069ef20ac6e79cd2ba09b320efa7500b6de"
 dependencies = [
  "starknet-types-core",
+]
+
+[[package]]
+name = "starknet-da-client"
+version = "0.1.0"
+dependencies = [
+ "alloy 0.1.0",
+ "async-trait",
+ "c-kzg",
+ "color-eyre",
+ "da-client-interface",
+ "dotenvy",
+ "mockall",
+ "opentelemetry",
+ "opentelemetry-appender-tracing",
+ "opentelemetry-otlp",
+ "opentelemetry-semantic-conventions",
+ "opentelemetry_sdk",
+ "reqwest 0.12.7",
+ "rstest 0.22.0",
+ "serde",
+ "starknet",
+ "tokio",
+ "tokio-test",
+ "tracing",
+ "tracing-core",
+ "tracing-opentelemetry",
+ "tracing-subscriber",
+ "url",
+ "utils",
 ]
 
 [[package]]
