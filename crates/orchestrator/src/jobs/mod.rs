@@ -208,7 +208,7 @@ pub async fn process_job(id: Uuid, config: Arc<Config>) -> Result<(), JobError> 
     tracing::debug!(job_id = ?id, status = ?job.status, "Current job status");
     match job.status {
         // Only process jobs that need initial processing or require a retry
-        JobStatus::Created | JobStatus::VerificationFailed | JobStatus::RetryAttempt => {
+        JobStatus::Created | JobStatus::VerificationFailed | JobStatus::PendingRetry => {
             tracing::info!(job_id = ?id, status = ?job.status, "Processing job");
         }
         _ => {
@@ -477,6 +477,67 @@ pub async fn verify_job(id: Uuid, config: Arc<Config>) -> Result<(), JobError> {
     ORCHESTRATOR_METRICS.jobs_response_time.record(duration.as_secs_f64(), &attributes);
     ORCHESTRATOR_METRICS.block_gauge.record(parse_string(&job.internal_id)?, &attributes);
     Ok(())
+}
+
+/// Retries a failed job by reprocessing it.
+/// Only jobs with Failed status can be retried.
+#[tracing::instrument(skip(config), fields(category = "general"), ret, err)]
+pub async fn retry_job(id: Uuid, config: Arc<Config>) -> Result<(), JobError> {
+    let job = get_job(id, config.clone()).await?;
+    let internal_id = job.internal_id.clone();
+    tracing::info!(
+        log_type = "starting",
+        category = "general",
+        function_type = "retry_job",
+        block_no = %internal_id,
+        "General retry job started for block"
+    );
+
+    if job.status != JobStatus::Failed {
+        tracing::error!(
+            job_id = ?id,
+            status = ?job.status,
+            "Cannot retry job: invalid status"
+        );
+        return Err(JobError::InvalidStatus { id, job_status: job.status });
+    }
+
+    // Update job status to PendingRetry before processing
+    config
+        .database()
+        .update_job(&job, JobItemUpdates::new().update_status(JobStatus::PendingRetry).build())
+        .await
+        .map_err(|e| {
+            tracing::error!(
+                job_id = ?id,
+                error = ?e,
+                "Failed to update job status to PendingRetry"
+            );
+            JobError::Other(OtherError(e))
+        })?;
+
+    let result = process_job(job.id, config.clone()).await;
+
+    if let Err(e) = &result {
+        tracing::error!(
+            log_type = "error",
+            category = "general",
+            function_type = "retry_job",
+            block_no = %internal_id,
+            error = %e,
+            "General retry job failed for block"
+        );
+    } else {
+        tracing::info!(
+            log_type = "completed",
+            category = "general",
+            function_type = "retry_job",
+            block_no = %internal_id,
+            "General retry job completed for block"
+        );
+    }
+
+    result
 }
 
 /// Terminates the job and updates the status of the job in the DB.

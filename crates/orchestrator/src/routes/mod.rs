@@ -2,56 +2,22 @@ use std::net::SocketAddr;
 use std::sync::Arc;
 
 use app_routes::{app_router, handler_404};
-use axum::http::StatusCode;
-use axum::response::{IntoResponse, Response};
-use axum::{Json, Router};
+use axum::Router;
 use job_routes::job_router;
-use serde::Serialize;
 
 use crate::config::Config;
 
 pub mod app_routes;
+pub mod error;
 pub mod job_routes;
+pub mod types;
+
+pub use error::JobRouteError;
 
 #[derive(Debug, Clone)]
 pub struct ServerParams {
     pub host: String,
     pub port: u16,
-}
-
-#[derive(Debug, Serialize)]
-struct ApiResponse<T>
-where
-    T: Serialize,
-{
-    data: Option<T>,
-    error: Option<String>,
-}
-
-impl<T> ApiResponse<T>
-where
-    T: Serialize,
-{
-    pub fn success(data: T) -> Self {
-        Self { data: Some(data), error: None }
-    }
-
-    pub fn error(message: impl Into<String>) -> Self {
-        Self { data: None, error: Some(message.into()) }
-    }
-}
-
-impl<T> IntoResponse for ApiResponse<T>
-where
-    T: Serialize,
-{
-    fn into_response(self) -> Response {
-        let status = if self.error.is_some() { StatusCode::INTERNAL_SERVER_ERROR } else { StatusCode::OK };
-
-        let json = Json(self);
-
-        (status, json).into_response()
-    }
 }
 
 pub async fn setup_server(config: Arc<Config>) -> SocketAddr {

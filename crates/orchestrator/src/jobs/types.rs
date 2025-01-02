@@ -104,7 +104,7 @@ pub enum JobStatus {
     /// The job failed completing
     Failed,
     /// The job is being retried
-    RetryAttempt,
+    PendingRetry,
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone, PartialEq, Eq)]

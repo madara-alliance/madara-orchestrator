@@ -3,140 +3,89 @@ use std::sync::Arc;
 use axum::extract::{Path, State};
 use axum::response::IntoResponse;
 use axum::routing::get;
-use axum::Router;
+use axum::{Json, Router};
 use opentelemetry::KeyValue;
-use serde::{Deserialize, Serialize};
+use tracing::{error, info, instrument};
 use uuid::Uuid;
 
-use super::ApiResponse;
+use super::error::JobRouteError;
+use super::types::{ApiResponse, JobId, JobRouteResult};
 use crate::config::Config;
-use crate::jobs::types::{JobItemUpdates, JobStatus};
-use crate::jobs::{process_job, verify_job, JobError};
+use crate::jobs::{process_job, retry_job, verify_job};
 use crate::metrics::ORCHESTRATOR_METRICS;
 
-#[derive(Deserialize)]
-struct JobId {
-    id: String,
-}
-
-#[derive(Serialize)]
-struct JobApiResponse {
-    job_id: String,
-    status: String,
-}
-
+#[instrument(skip(config), fields(job_id = %id))]
 async fn handle_process_job_request(
     Path(JobId { id }): Path<JobId>,
     State(config): State<Arc<Config>>,
-) -> impl IntoResponse {
-    // Parse UUID
-    let job_id = match Uuid::parse_str(&id) {
-        Ok(id) => id,
-        Err(_) => {
-            return ApiResponse::<JobApiResponse>::error((JobError::InvalidId { id }).to_string()).into_response();
-        }
-    };
+) -> JobRouteResult {
+    let job_id = Uuid::parse_str(&id).map_err(|_| JobRouteError::InvalidId(id.clone()))?;
 
-    // Process job
     match process_job(job_id, config).await {
         Ok(_) => {
-            let response = JobApiResponse { job_id: job_id.to_string(), status: "completed".to_string() };
-            ApiResponse::success(response).into_response()
+            info!("Job processed successfully");
+            ORCHESTRATOR_METRICS.successful_job_operations.add(1.0, &[KeyValue::new("operation_type", "process_job")]);
+
+            Ok(Json(ApiResponse::success()).into_response())
         }
         Err(e) => {
+            error!(error = %e, "Failed to process job");
             ORCHESTRATOR_METRICS.failed_job_operations.add(1.0, &[KeyValue::new("operation_type", "process_job")]);
-            ApiResponse::<JobApiResponse>::error(e.to_string()).into_response()
+            Err(JobRouteError::ProcessingError(e.to_string()))
         }
     }
 }
 
+#[instrument(skip(config), fields(job_id = %id))]
 async fn handle_verify_job_request(
     Path(JobId { id }): Path<JobId>,
     State(config): State<Arc<Config>>,
-) -> impl IntoResponse {
-    // Parse UUID
-    let job_id = match Uuid::parse_str(&id) {
-        Ok(id) => id,
-        Err(_) => {
-            return ApiResponse::<JobApiResponse>::error((JobError::InvalidId { id }).to_string()).into_response();
-        }
-    };
+) -> JobRouteResult {
+    let job_id = Uuid::parse_str(&id).map_err(|_| JobRouteError::InvalidId(id.clone()))?;
 
-    // Verify job
     match verify_job(job_id, config).await {
         Ok(_) => {
-            let response = JobApiResponse { job_id: job_id.to_string(), status: "verified".to_string() };
-            ApiResponse::success(response).into_response()
+            info!("Job verified successfully");
+            ORCHESTRATOR_METRICS.successful_job_operations.add(1.0, &[KeyValue::new("operation_type", "verify_job")]);
+
+            Ok(Json(ApiResponse::success()).into_response())
         }
         Err(e) => {
+            error!(error = %e, "Failed to verify job");
             ORCHESTRATOR_METRICS.failed_job_operations.add(1.0, &[KeyValue::new("operation_type", "verify_job")]);
-            ApiResponse::<JobApiResponse>::error(e.to_string()).into_response()
+            Err(JobRouteError::ProcessingError(e.to_string()))
         }
     }
 }
 
+#[instrument(skip(config), fields(job_id = %id))]
 async fn handle_retry_job_request(
     Path(JobId { id }): Path<JobId>,
     State(config): State<Arc<Config>>,
-) -> impl IntoResponse {
-    let job_id = match Uuid::parse_str(&id) {
-        Ok(id) => id,
-        Err(_) => {
-            return ApiResponse::<JobApiResponse>::error((JobError::InvalidId { id }).to_string()).into_response();
-        }
-    };
+) -> JobRouteResult {
+    let job_id = Uuid::parse_str(&id).map_err(|_| JobRouteError::InvalidId(id.clone()))?;
 
-    // Get the job and verify it's in a failed state
-    let job = match config.database().get_job_by_id(job_id).await {
-        Ok(Some(job)) => job,
-        Ok(None) => {
-            return ApiResponse::<JobApiResponse>::error(JobError::JobNotFound { id: job_id }.to_string())
-                .into_response();
-        }
-        Err(e) => {
-            return ApiResponse::<JobApiResponse>::error(e.to_string()).into_response();
-        }
-    };
-
-    // Check if job is in a failed state
-    if job.status != JobStatus::Failed {
-        return ApiResponse::<JobApiResponse>::error(format!(
-            "Job {} cannot be retried: current status is {:?}",
-            id, job.status
-        ))
-        .into_response();
-    }
-
-    // Update the job status to RetryAttempt
-    match config.database().update_job(&job, JobItemUpdates::new().update_status(JobStatus::RetryAttempt).build()).await
-    {
+    match retry_job(job_id, config).await {
         Ok(_) => {
-            // Process the job after successful status update
-            match process_job(job_id, config).await {
-                Ok(_) => {
-                    let response =
-                        JobApiResponse { job_id: job_id.to_string(), status: "retry_processing".to_string() };
-                    ApiResponse::success(response).into_response()
-                }
-                Err(e) => {
-                    ORCHESTRATOR_METRICS
-                        .failed_job_operations
-                        .add(1.0, &[KeyValue::new("operation_type", "retry_job")]);
-                    ApiResponse::<JobApiResponse>::error(e.to_string()).into_response()
-                }
-            }
+            info!("Job retry initiated successfully");
+            ORCHESTRATOR_METRICS.successful_job_operations.add(1.0, &[KeyValue::new("operation_type", "retry_job")]);
+
+            Ok(Json(ApiResponse::success()).into_response())
         }
         Err(e) => {
+            error!(error = %e, "Failed to retry job");
             ORCHESTRATOR_METRICS.failed_job_operations.add(1.0, &[KeyValue::new("operation_type", "retry_job")]);
-            ApiResponse::<JobApiResponse>::error(e.to_string()).into_response()
+            Err(JobRouteError::ProcessingError(e.to_string()))
         }
     }
 }
 
+/// Creates a router for job-related endpoints
 pub fn job_router(config: Arc<Config>) -> Router {
     Router::new().nest("/jobs", trigger_router(config.clone()))
 }
 
+/// Creates the nested router for job trigger endpoints
 fn trigger_router(config: Arc<Config>) -> Router {
     Router::new()
         .route("/:id/process", get(handle_process_job_request))
