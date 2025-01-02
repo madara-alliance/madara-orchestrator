@@ -16,20 +16,35 @@ pub enum JobRouteError {
     InvalidJobState(String),
     #[error("Database error")]
     DatabaseError,
+    #[error("Invalid status: {id}: {job_status}")]
+    InvalidStatus { id: String, job_status: String },
 }
 
 impl IntoResponse for JobRouteError {
     fn into_response(self) -> Response {
-        let (status, message) = match self {
-            JobRouteError::InvalidId(id) => (StatusCode::BAD_REQUEST, format!("Invalid job ID: {}", id)),
-            JobRouteError::NotFound(id) => (StatusCode::NOT_FOUND, format!("Job not found: {}", id)),
-            JobRouteError::ProcessingError(msg) => {
-                (StatusCode::INTERNAL_SERVER_ERROR, format!("Processing error: {}", msg))
+        match self {
+            JobRouteError::InvalidId(id) => {
+                (StatusCode::BAD_REQUEST, Json(ApiResponse::error(format!("Invalid job ID: {}", id)))).into_response()
             }
-            JobRouteError::InvalidJobState(msg) => (StatusCode::CONFLICT, format!("Invalid job state: {}", msg)),
-            JobRouteError::DatabaseError => (StatusCode::INTERNAL_SERVER_ERROR, "Database error occurred".to_string()),
-        };
-
-        (status, Json(ApiResponse::error(message))).into_response()
+            JobRouteError::NotFound(id) => {
+                (StatusCode::NOT_FOUND, Json(ApiResponse::error(format!("Job not found: {}", id)))).into_response()
+            }
+            JobRouteError::ProcessingError(msg) => {
+                (StatusCode::BAD_REQUEST, Json(ApiResponse::error(format!("Processing error: {}", msg))))
+                    .into_response()
+            }
+            JobRouteError::InvalidJobState(msg) => {
+                (StatusCode::CONFLICT, Json(ApiResponse::error(format!("Invalid job state: {}", msg)))).into_response()
+            }
+            JobRouteError::DatabaseError => {
+                (StatusCode::INTERNAL_SERVER_ERROR, Json(ApiResponse::error("Database error occurred".to_string())))
+                    .into_response()
+            }
+            JobRouteError::InvalidStatus { id, job_status } => (
+                StatusCode::BAD_REQUEST,
+                Json(ApiResponse::error(format!("Cannot retry job {id}: invalid status {job_status}"))),
+            )
+                .into_response(),
+        }
     }
 }

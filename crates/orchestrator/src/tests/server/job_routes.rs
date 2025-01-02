@@ -119,19 +119,26 @@ async fn test_trigger_verify_job(#[future] setup_trigger: (SocketAddr, Arc<Confi
     }
 }
 
-#[tokio::test]
 #[rstest]
-async fn test_trigger_retry_job(#[future] setup_trigger: (SocketAddr, Arc<Config>)) {
+#[case::failed_job(JobStatus::Failed, 200)]
+#[case::pending_verification_job(JobStatus::PendingVerification, 400)]
+#[case::completed_job(JobStatus::Completed, 400)]
+#[tokio::test]
+async fn test_trigger_retry_job(
+    #[future] setup_trigger: (SocketAddr, Arc<Config>),
+    #[case] initial_status: JobStatus,
+    #[case] expected_response_status: u16,
+) {
     let (addr, config) = setup_trigger.await;
-
     let job_type = JobType::DataSubmission;
 
-    // Create a failed job
-    let job_item = build_job_item(job_type.clone(), JobStatus::Failed, 1);
+    let job_item = build_job_item(job_type.clone(), initial_status.clone(), 1);
     let mut job_handler = MockJob::new();
 
-    // We expect process_job to be called since retry triggers processing
-    job_handler.expect_process_job().times(1).returning(move |_, _| Ok("0xbeef".to_string()));
+    job_handler
+        .expect_process_job()
+        .times(if expected_response_status == 200 { 1 } else { 0 })
+        .returning(move |_, _| Ok("0xbeef".to_string()));
     job_handler.expect_verification_polling_delay_seconds().return_const(1u64);
 
     config.database().create_job(job_item.clone()).await.unwrap();
@@ -139,7 +146,10 @@ async fn test_trigger_retry_job(#[future] setup_trigger: (SocketAddr, Arc<Config
 
     let job_handler: Arc<Box<dyn Job>> = Arc::new(Box::new(job_handler));
     let ctx = mock_factory::get_job_handler_context();
-    ctx.expect().times(1).with(eq(job_type)).returning(move |_| Arc::clone(&job_handler));
+    ctx.expect()
+        .times(if expected_response_status == 200 { 1 } else { 0 })
+        .with(eq(job_type))
+        .returning(move |_| Arc::clone(&job_handler));
 
     let client = hyper::Client::new();
     let response = client
@@ -147,11 +157,15 @@ async fn test_trigger_retry_job(#[future] setup_trigger: (SocketAddr, Arc<Config
         .await
         .unwrap();
 
-    // assertions
+    assert_eq!(response.status(), expected_response_status);
+
     if let Some(job_fetched) = config.database().get_job_by_id(job_id).await.unwrap() {
-        assert_eq!(response.status(), 200);
-        assert_eq!(job_fetched.id, job_item.id);
-        assert_eq!(job_fetched.status, JobStatus::PendingVerification);
+        if expected_response_status == 200 {
+            assert_eq!(job_fetched.id, job_item.id);
+            assert_eq!(job_fetched.status, JobStatus::PendingVerification);
+        } else {
+            assert_eq!(job_fetched.status, initial_status);
+        }
     } else {
         panic!("Could not get job from database")
     }

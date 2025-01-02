@@ -64,6 +64,7 @@ async fn handle_retry_job_request(
     State(config): State<Arc<Config>>,
 ) -> JobRouteResult {
     let job_id = Uuid::parse_str(&id).map_err(|_| JobRouteError::InvalidId(id.clone()))?;
+    println!("retry_job_request: {:?}", job_id);
 
     match retry_job(job_id, config).await {
         Ok(_) => {
