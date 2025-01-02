@@ -40,47 +40,62 @@ pub mod state_update_job;
 pub mod types;
 use thiserror::Error;
 
+/// Error types for job-related operations in the orchestrator
 #[derive(Error, Debug, PartialEq)]
 pub enum JobError {
+    /// Indicates an invalid job ID was provided
     #[error("Job id {id:?} is invalid.")]
     InvalidId { id: String },
 
+    /// Indicates an attempt to create a duplicate job
     #[error("Job already exists for internal_id {internal_id:?} and job_type {job_type:?}. Skipping!")]
     JobAlreadyExists { internal_id: String, job_type: JobType },
 
+    /// Indicates the job is in an invalid status for the requested operation
     #[error("Invalid status {job_status:?} for job with id {id:?}. Cannot process.")]
     InvalidStatus { id: Uuid, job_status: JobStatus },
 
+    /// Indicates the requested job could not be found
     #[error("Failed to find job with id {id:?}")]
     JobNotFound { id: Uuid },
 
+    /// Indicates a metadata counter would overflow if incremented
     #[error("Incrementing key {} in metadata would exceed u64::MAX", key)]
     KeyOutOfBounds { key: String },
 
+    /// Wraps errors from DA layer operations
     #[error("DA Error: {0}")]
     DaJobError(#[from] DaError),
 
+    /// Wraps errors from proving operations
     #[error("Proving Error: {0}")]
     ProvingJobError(#[from] ProvingError),
 
+    /// Wraps errors from state update operations
     #[error("Proving Error: {0}")]
     StateUpdateJobError(#[from] StateUpdateError),
 
+    /// Wraps errors from SNOS operations
     #[error("Snos Error: {0}")]
     SnosJobError(#[from] SnosError),
 
+    /// Wraps errors from queue handling operations
     #[error("Queue Handling Error: {0}")]
     ConsumptionError(#[from] ConsumptionError),
 
+    /// Wraps errors from fact operations
     #[error("Fact Error: {0}")]
     FactError(#[from] FactError),
 
+    /// Wraps general errors that don't fit other categories
     #[error("Other error: {0}")]
     Other(#[from] OtherError),
 }
 
-// ====================================================
 /// Wrapper Type for Other(<>) job type
+///
+/// Provides a generic error type for cases that don't fit into specific error categories
+/// while maintaining error chain context.
 #[derive(Debug)]
 pub struct OtherError(color_eyre::eyre::Error);
 
@@ -109,42 +124,89 @@ impl From<String> for OtherError {
         OtherError(eyre!(error_string))
     }
 }
-// ====================================================
 
 /// Job Trait
 ///
 /// The Job trait is used to define the methods that a job
 /// should implement to be used as a job for the orchestrator. The orchestrator automatically
 /// handles queueing and processing of jobs as long as they implement the trait.
+///
+/// # Implementation Requirements
+/// Implementors must be both `Send` and `Sync` to work with the async processing system.
 #[automock]
 #[async_trait]
 pub trait Job: Send + Sync {
     /// Should build a new job item and return it
+    ///
+    /// # Arguments
+    /// * `config` - Shared configuration for the job
+    /// * `internal_id` - Unique identifier for internal tracking
+    /// * `metadata` - Additional key-value pairs associated with the job
+    ///
+    /// # Returns
+    /// * `Result<JobItem, JobError>` - The created job item or an error
     async fn create_job(
         &self,
         config: Arc<Config>,
         internal_id: String,
         metadata: HashMap<String, String>,
     ) -> Result<JobItem, JobError>;
+
     /// Should process the job and return the external_id which can be used to
     /// track the status of the job. For example, a DA job will submit the state diff
     /// to the DA layer and return the txn hash.
+    ///
+    /// # Arguments
+    /// * `config` - Shared configuration for the job
+    /// * `job` - Mutable reference to the job being processed
+    ///
+    /// # Returns
+    /// * `Result<String, JobError>` - External tracking ID or an error
     async fn process_job(&self, config: Arc<Config>, job: &mut JobItem) -> Result<String, JobError>;
+
     /// Should verify the job and return the status of the verification. For example,
     /// a DA job will verify the inclusion of the state diff in the DA layer and return
     /// the status of the verification.
+    ///
+    /// # Arguments
+    /// * `config` - Shared configuration for the job
+    /// * `job` - Mutable reference to the job being verified
+    ///
+    /// # Returns
+    /// * `Result<JobVerificationStatus, JobError>` - Current verification status or an error
     async fn verify_job(&self, config: Arc<Config>, job: &mut JobItem) -> Result<JobVerificationStatus, JobError>;
+
     /// Should return the maximum number of attempts to process the job. A new attempt is made
     /// every time the verification returns `JobVerificationStatus::Rejected`
     fn max_process_attempts(&self) -> u64;
+
     /// Should return the maximum number of attempts to verify the job. A new attempt is made
     /// every few seconds depending on the result `verification_polling_delay_seconds`
     fn max_verification_attempts(&self) -> u64;
+
     /// Should return the number of seconds to wait before polling for verification
     fn verification_polling_delay_seconds(&self) -> u64;
 }
 
 /// Creates the job in the DB in the created state and adds it to the process queue
+///
+/// # Arguments
+/// * `job_type` - Type of job to create
+/// * `internal_id` - Unique identifier for internal tracking
+/// * `metadata` - Additional key-value pairs for the job
+/// * `config` - Shared configuration
+///
+/// # Returns
+/// * `Result<(), JobError>` - Success or an error
+///
+/// # Metrics
+/// * Records block gauge
+/// * Updates successful job operations count
+/// * Records job response time
+///
+/// # Notes
+/// * Skips creation if job already exists with same internal_id and job_type
+/// * Automatically adds the job to the process queue upon successful creation
 #[tracing::instrument(fields(category = "general"), skip(config), ret, err)]
 pub async fn create_job(
     job_type: JobType,
@@ -194,6 +256,29 @@ pub async fn create_job(
 
 /// Processes the job, increments the process attempt count and updates the status of the job in the
 /// DB. It then adds the job to the verification queue.
+///
+/// # Arguments
+/// * `id` - UUID of the job to process
+/// * `config` - Shared configuration
+///
+/// # Returns
+/// * `Result<(), JobError>` - Success or an error
+///
+/// # State Transitions
+/// * `Created` -> `LockedForProcessing` -> `PendingVerification`
+/// * `VerificationFailed` -> `LockedForProcessing` -> `PendingVerification`
+/// * `PendingRetry` -> `LockedForProcessing` -> `PendingVerification`
+///
+/// # Metrics
+/// * Updates block gauge
+/// * Records successful job operations
+/// * Tracks job response time
+///
+/// # Notes
+/// * Only processes jobs in Created, VerificationFailed, or PendingRetry status
+/// * Updates job version to prevent concurrent processing
+/// * Adds processing completion timestamp to metadata
+/// * Automatically adds job to verification queue upon successful processing
 #[tracing::instrument(skip(config), fields(category = "general", job, job_type, internal_id), ret, err)]
 pub async fn process_job(id: Uuid, config: Arc<Config>) -> Result<(), JobError> {
     let start = Instant::now();
@@ -317,6 +402,28 @@ pub async fn process_job(id: Uuid, config: Arc<Config>) -> Result<(), JobError> 
 /// retries processing the job if the max attempts have not been exceeded. If the max attempts have
 /// been exceeded, it marks the job as timed out. If the verification is still pending, it pushes
 /// the job back to the queue.
+///
+/// # Arguments
+/// * `id` - UUID of the job to verify
+/// * `config` - Shared configuration
+///
+/// # Returns
+/// * `Result<(), JobError>` - Success or an error
+///
+/// # State Transitions
+/// * `PendingVerification` -> `Completed` (on successful verification)
+/// * `PendingVerification` -> `VerificationFailed` (on verification rejection)
+/// * `PendingVerification` -> `VerificationTimeout` (max attempts reached)
+///
+/// # Metrics
+/// * Records verification time if processing completion timestamp exists
+/// * Updates block gauge and job operation metrics
+/// * Tracks successful operations and response time
+///
+/// # Notes
+/// * Only jobs in `PendingVerification` or `VerificationTimeout` status can be verified
+/// * Automatically retries processing if verification fails and max attempts not reached
+/// * Removes processing_completed_at from metadata upon successful verification
 #[tracing::instrument(
     skip(config),
     fields(category = "general", job, job_type, internal_id, verification_status),
@@ -485,6 +592,21 @@ pub async fn verify_job(id: Uuid, config: Arc<Config>) -> Result<(), JobError> {
 
 /// Retries a failed job by reprocessing it.
 /// Only jobs with Failed status can be retried.
+///
+/// # Arguments
+/// * `id` - UUID of the job to retry
+/// * `config` - Shared configuration
+///
+/// # Returns
+/// * `Result<(), JobError>` - Success or an error
+///
+/// # State Transitions
+/// * `Failed` -> `PendingRetry` -> (normal processing flow)
+///
+/// # Notes
+/// * Only jobs in Failed status can be retried
+/// * Transitions through PendingRetry status before normal processing
+/// * Uses standard process_job function after status update
 #[tracing::instrument(skip(config), fields(category = "general"), ret, err)]
 pub async fn retry_job(id: Uuid, config: Arc<Config>) -> Result<(), JobError> {
     let job = get_job(id, config.clone()).await?;
@@ -545,7 +667,18 @@ pub async fn retry_job(id: Uuid, config: Arc<Config>) -> Result<(), JobError> {
 }
 
 /// Terminates the job and updates the status of the job in the DB.
-/// Logs error if the job status `Completed` is existing on DL queue.
+///
+/// # Arguments
+/// * `id` - UUID of the job to handle failure for
+/// * `config` - Shared configuration
+///
+/// # Returns
+/// * `Result<(), JobError>` - Success or an error
+///
+/// # Notes
+/// * Logs error if the job status `Completed` is existing on DL queue
+/// * Updates job status to Failed and records failure reason in metadata
+/// * Updates metrics for failed jobs
 #[tracing::instrument(skip(config), fields(job_status, job_type), ret, err)]
 pub async fn handle_job_failure(id: Uuid, config: Arc<Config>) -> Result<(), JobError> {
     let job = get_job(id, config.clone()).await?.clone();
@@ -561,6 +694,20 @@ pub async fn handle_job_failure(id: Uuid, config: Arc<Config>) -> Result<(), Job
         .await
 }
 
+/// Moves a job to the Failed state with the provided reason
+///
+/// # Arguments
+/// * `job` - Reference to the job to mark as failed
+/// * `config` - Shared configuration
+/// * `reason` - Failure reason to record in metadata
+///
+/// # Returns
+/// * `Result<(), JobError>` - Success or an error
+///
+/// # Notes
+/// * Skips processing if job is already in Failed status
+/// * Records failure reason in job metadata
+/// * Updates metrics for failed jobs
 async fn move_job_to_failed(job: &JobItem, config: Arc<Config>, reason: String) -> Result<(), JobError> {
     if job.status == JobStatus::Completed {
         tracing::error!(job_id = ?job.id, job_status = ?job.status, "Invalid state exists on DL queue");
@@ -597,6 +744,14 @@ async fn move_job_to_failed(job: &JobItem, config: Arc<Config>, reason: String) 
     }
 }
 
+/// Retrieves a job by its ID from the database
+///
+/// # Arguments
+/// * `id` - UUID of the job to retrieve
+/// * `config` - Shared configuration
+///
+/// # Returns
+/// * `Result<JobItem, JobError>` - The job if found, or JobNotFound error
 async fn get_job(id: Uuid, config: Arc<Config>) -> Result<JobItem, JobError> {
     let job = config.database().get_job_by_id(id).await.map_err(|e| JobError::Other(OtherError(e)))?;
     match job {
@@ -605,6 +760,18 @@ async fn get_job(id: Uuid, config: Arc<Config>) -> Result<JobItem, JobError> {
     }
 }
 
+/// Increments a numeric value in the job metadata
+///
+/// # Arguments
+/// * `metadata` - Current metadata map
+/// * `key` - Key to increment
+///
+/// # Returns
+/// * `Result<HashMap<String, String>, JobError>` - Updated metadata or an error
+///
+/// # Errors
+/// * Returns KeyOutOfBounds if incrementing would exceed u64::MAX
+/// * Returns error if value cannot be parsed as u64
 pub fn increment_key_in_metadata(
     metadata: &HashMap<String, String>,
     key: &str,
@@ -620,6 +787,18 @@ pub fn increment_key_in_metadata(
     Ok(new_metadata)
 }
 
+/// Retrieves a u64 value from the metadata map
+///
+/// # Arguments
+/// * `metadata` - Metadata map to search
+/// * `key` - Key to retrieve
+///
+/// # Returns
+/// * `color_eyre::Result<u64>` - The parsed value or an error
+///
+/// # Notes
+/// * Returns 0 if the key doesn't exist in the metadata
+/// * Wraps parsing errors with additional context
 fn get_u64_from_metadata(metadata: &HashMap<String, String>, key: &str) -> color_eyre::Result<u64> {
     metadata
         .get(key)
@@ -632,10 +811,12 @@ fn get_u64_from_metadata(metadata: &HashMap<String, String>, key: &str) -> color
 mod tests {
     use super::*;
 
+    /// Tests for increment_key_in_metadata function
     mod test_increment_key_in_metadata {
         use super::*;
 
         #[test]
+        /// Tests incrementing a non-existent key (should start at 0)
         fn key_does_not_exist() {
             let metadata = HashMap::new();
             let key = "test_key";
@@ -644,6 +825,7 @@ mod tests {
         }
 
         #[test]
+        /// Tests incrementing an existing numeric value
         fn key_exists_with_numeric_value() {
             let mut metadata = HashMap::new();
             metadata.insert("test_key".to_string(), "41".to_string());
@@ -653,6 +835,7 @@ mod tests {
         }
 
         #[test]
+        /// Tests handling of non-numeric values
         fn key_exists_with_non_numeric_value() {
             let mut metadata = HashMap::new();
             metadata.insert("test_key".to_string(), "not_a_number".to_string());
@@ -662,6 +845,7 @@ mod tests {
         }
 
         #[test]
+        /// Tests overflow handling at u64::MAX
         fn key_exists_with_max_u64_value() {
             let mut metadata = HashMap::new();
             metadata.insert("test_key".to_string(), u64::MAX.to_string());
@@ -671,10 +855,12 @@ mod tests {
         }
     }
 
+    /// Tests for get_u64_from_metadata function
     mod test_get_u64_from_metadata {
         use super::*;
 
         #[test]
+        /// Tests retrieving a valid u64 value
         fn key_exists_with_valid_u64_value() {
             let mut metadata = HashMap::new();
             metadata.insert("key1".to_string(), "12345".to_string());
@@ -683,6 +869,7 @@ mod tests {
         }
 
         #[test]
+        /// Tests handling of invalid numeric strings
         fn key_exists_with_invalid_value() {
             let mut metadata = HashMap::new();
             metadata.insert("key2".to_string(), "not_a_number".to_string());
@@ -691,6 +878,7 @@ mod tests {
         }
 
         #[test]
+        /// Tests default behavior when key doesn't exist
         fn key_does_not_exist() {
             let metadata = HashMap::<String, String>::new();
             let result = get_u64_from_metadata(&metadata, "key3").unwrap();
