@@ -383,7 +383,7 @@ pub async fn process_job(id: Uuid, config: Arc<Config>) -> Result<(), JobError> 
         JobError::Other(OtherError(e))
     })?;
 
-    let attributes = [
+    let attributes = vec![
         KeyValue::new("operation_job_type", format!("{:?}", job.job_type)),
         KeyValue::new("operation_type", "process_job"),
     ];
@@ -391,8 +391,8 @@ pub async fn process_job(id: Uuid, config: Arc<Config>) -> Result<(), JobError> 
     tracing::info!(log_type = "completed", category = "general", function_type = "process_job", block_no = %internal_id, "General process job completed for block");
     let duration = start.elapsed();
     ORCHESTRATOR_METRICS.successful_job_operations.add(1.0, &attributes);
-    ORCHESTRATOR_METRICS.block_gauge.record(parse_string(&job.internal_id)?, &attributes);
     ORCHESTRATOR_METRICS.jobs_response_time.record(duration.as_secs_f64(), &attributes);
+    register_block_gauge(&job, &attributes)?;
     Ok(())
 }
 
@@ -586,7 +586,7 @@ pub async fn verify_job(id: Uuid, config: Arc<Config>) -> Result<(), JobError> {
     let duration = start.elapsed();
     ORCHESTRATOR_METRICS.successful_job_operations.add(1.0, &attributes);
     ORCHESTRATOR_METRICS.jobs_response_time.record(duration.as_secs_f64(), &attributes);
-    ORCHESTRATOR_METRICS.block_gauge.record(parse_string(&job.internal_id)?, &attributes);
+    register_block_gauge(&job, &attributes)?;
     Ok(())
 }
 
@@ -805,6 +805,21 @@ fn get_u64_from_metadata(metadata: &HashMap<String, String>, key: &str) -> color
         .unwrap_or(&"0".to_string())
         .parse::<u64>()
         .wrap_err(format!("Failed to parse u64 from metadata key '{}'", key))
+}
+
+fn register_block_gauge(job: &JobItem, attributes: &[KeyValue]) -> Result<(), JobError> {
+    let block_number = if let JobType::StateTransition = job.job_type {
+        parse_string(
+            job.external_id
+                .unwrap_string()
+                .map_err(|e| JobError::Other(OtherError::from(format!("Could not parse string: {e}"))))?,
+        )
+    } else {
+        parse_string(&job.internal_id)
+    }?;
+
+    ORCHESTRATOR_METRICS.block_gauge.record(block_number, attributes);
+    Ok(())
 }
 
 #[cfg(test)]
