@@ -207,7 +207,9 @@ pub async fn process_job(id: Uuid, config: Arc<Config>) -> Result<(), JobError> 
 
     tracing::debug!(job_id = ?id, status = ?job.status, "Current job status");
     match job.status {
-        // Only process jobs that need initial processing or require a retry
+        // we only want to process jobs that are in the created or verification failed state or if it's been called from
+        // the retry endpoint (in this case it would be PendingRetry status) verification failed state means
+        // that the previous processing failed and we want to retry
         JobStatus::Created | JobStatus::VerificationFailed | JobStatus::PendingRetry => {
             tracing::info!(job_id = ?id, status = ?job.status, "Processing job");
         }
@@ -332,6 +334,8 @@ pub async fn verify_job(id: Uuid, config: Arc<Config>) -> Result<(), JobError> {
     tracing::Span::current().record("internal_id", job.internal_id.clone());
 
     match job.status {
+        // it's okay to retry the job if it's verificationTimeout, because we are just adding job again to the
+        // verification queue
         JobStatus::PendingVerification | JobStatus::VerificationTimeout => {
             tracing::info!(job_id = ?id, status = ?job.status, "Job status is PendingVerification or VerificationTimeout, proceeding with verification");
         }

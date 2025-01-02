@@ -64,18 +64,23 @@ async fn handle_retry_job_request(
     State(config): State<Arc<Config>>,
 ) -> JobRouteResult {
     let job_id = Uuid::parse_str(&id).map_err(|_| JobRouteError::InvalidId(id.clone()))?;
-    println!("retry_job_request: {:?}", job_id);
 
     match retry_job(job_id, config).await {
         Ok(_) => {
             info!("Job retry initiated successfully");
-            ORCHESTRATOR_METRICS.successful_job_operations.add(1.0, &[KeyValue::new("operation_type", "retry_job")]);
+            ORCHESTRATOR_METRICS.successful_job_operations.add(
+                1.0,
+                &[KeyValue::new("operation_type", "process_job"), KeyValue::new("operation_info", "retry_job")],
+            );
 
             Ok(Json(ApiResponse::success()).into_response())
         }
         Err(e) => {
             error!(error = %e, "Failed to retry job");
-            ORCHESTRATOR_METRICS.failed_job_operations.add(1.0, &[KeyValue::new("operation_type", "retry_job")]);
+            ORCHESTRATOR_METRICS.failed_job_operations.add(
+                1.0,
+                &[KeyValue::new("operation_type", "process_job"), KeyValue::new("operation_info", "retry_job")],
+            );
             Err(JobRouteError::ProcessingError(e.to_string()))
         }
     }
