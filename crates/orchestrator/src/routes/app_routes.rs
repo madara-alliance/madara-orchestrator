@@ -19,11 +19,6 @@ use axum::Router;
 /// # Returns
 /// * `Router` - Configured application router with health and dev routes
 ///
-/// # Examples
-/// ```
-/// let app = app_router();
-/// // Health check endpoint will respond with "UP"
-/// // GET /health -> 200 OK
 /// ```
 pub fn app_router() -> Router {
     Router::new().route("/health", get(root)).nest("/v1/dev", dev_routes())
@@ -38,11 +33,6 @@ pub fn app_router() -> Router {
 /// # Returns
 /// * `&'static str` - Always returns "UP"
 ///
-/// # Examples
-/// Used in tests as shown in:
-/// ```rust:crates/orchestrator/src/tests/server/mod.rs
-/// startLine: 12
-/// endLine: 32
 /// ```
 async fn root() -> &'static str {
     "UP"
