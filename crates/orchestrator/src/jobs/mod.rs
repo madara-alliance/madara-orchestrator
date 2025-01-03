@@ -444,7 +444,7 @@ pub async fn verify_job(id: Uuid, config: Arc<Config>) -> Result<(), JobError> {
         // it's okay to retry the job if it's verificationTimeout, because we are just adding job again to the
         // verification queue
         JobStatus::PendingVerification | JobStatus::VerificationTimeout => {
-            tracing::info!(job_id = ?id, status = ?job.status, "Job status is PendingVerification or VerificationTimeout, proceeding with verification");
+            tracing::info!(job_id = ?id, status = ?job.status, "Proceeding with verification");
         }
         _ => {
             tracing::error!(job_id = ?id, status = ?job.status, "Invalid job status for verification");
