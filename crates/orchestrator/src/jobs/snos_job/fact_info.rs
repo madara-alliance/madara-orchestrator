@@ -11,6 +11,7 @@ use cairo_vm::types::builtin_name::BuiltinName;
 use cairo_vm::types::relocatable::MaybeRelocatable;
 use cairo_vm::vm::runners::cairo_pie::CairoPie;
 use cairo_vm::Felt252;
+use serde::{Deserialize, Serialize};
 use starknet::core::types::Felt;
 use starknet_os::crypto::poseidon::poseidon_hash_many_bytes;
 
@@ -30,7 +31,7 @@ pub struct FactInfo {
     pub fact: B256,
 }
 
-#[derive(Debug)]
+#[derive(Debug, Serialize, Deserialize)]
 pub struct OnChainData {
     pub on_chain_data_hash: B256,
     pub on_chain_data_size: usize,

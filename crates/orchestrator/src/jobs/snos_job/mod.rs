@@ -18,10 +18,10 @@ use uuid::Uuid;
 use super::constants::{JOB_METADATA_SNOS_BLOCK, JOB_METADATA_SNOS_FACT};
 use super::{JobError, OtherError};
 use crate::config::Config;
-use crate::constants::{CAIRO_PIE_FILE_NAME, PROGRAM_OUTPUT_FILE_NAME, SNOS_OUTPUT_FILE_NAME};
+use crate::constants::{CAIRO_PIE_FILE_NAME, ON_CHAIN_DATA_FILE_NAME, PROGRAM_OUTPUT_FILE_NAME, SNOS_OUTPUT_FILE_NAME};
 use crate::data_storage::DataStorage;
 use crate::jobs::snos_job::error::FactError;
-use crate::jobs::snos_job::fact_info::get_fact_info;
+use crate::jobs::snos_job::fact_info::{build_on_chain_data, get_fact_info};
 use crate::jobs::types::{JobItem, JobStatus, JobType, JobVerificationStatus};
 use crate::jobs::Job;
 
@@ -54,6 +54,10 @@ pub enum SnosError {
     SnosOutputUnstorable { internal_id: String, message: String },
     #[error("Could not store the Program output (snos job #{internal_id:?}): {message}")]
     ProgramOutputUnstorable { internal_id: String, message: String },
+    #[error("Could not serialize the On Chain Data (Snos job #{internal_id:?}): {message}")]
+    OnChainDataUnserializable { internal_id: String, message: String },
+    #[error("Could not store the On Chain Data (snos job #{internal_id:?}): {message}")]
+    OnChainDataUnstorable { internal_id: String, message: String },
 
     // ProveBlockError from Snos is not usable with #[from] since it does not implement PartialEq.
     // Instead, we convert it to string & pass it into the [SnosExecutionError] error.
@@ -177,7 +181,70 @@ impl SnosJob {
     /// The paths will be:
     ///     - [block_number]/cairo_pie.zip
     ///     - [block_number]/snos_output.json
+    ///     - [block_number]/program_output.json
     async fn store(
+        &self,
+        data_storage: &dyn DataStorage,
+        internal_id: &str,
+        block_number: u64,
+        cairo_pie: CairoPie,
+        snos_output: StarknetOsOutput,
+        program_output: Vec<Felt252>,
+    ) -> Result<(), SnosError> {
+        self.store_cairo_pie_and_snos_output(
+            data_storage,
+            internal_id,
+            block_number,
+            cairo_pie,
+            snos_output,
+            program_output,
+        )
+        .await?;
+        Ok(())
+    }
+
+    /// Stores the [CairoPie] and the [StarknetOsOutput] and [OnChainData] in the Data Storage.
+    /// The paths will be:
+    ///     - [block_number]/cairo_pie.zip
+    ///     - [block_number]/snos_output.json
+    ///     - [block_number]/onchain_data.json
+    ///     - [block_number]/program_output.json
+    async fn store_l2(
+        &self,
+        data_storage: &dyn DataStorage,
+        internal_id: &str,
+        block_number: u64,
+        cairo_pie: CairoPie,
+        snos_output: StarknetOsOutput,
+        program_output: Vec<Felt252>,
+    ) -> Result<(), SnosError> {
+        self.store_cairo_pie_and_snos_output(
+            data_storage,
+            internal_id,
+            block_number,
+            cairo_pie,
+            snos_output,
+            program_output,
+        )
+        .await?;
+        let on_chain_data = build_on_chain_data(&cairo_pie)
+            .map_err(|e| SnosError::FactCalculationError(FactError::OnChainDataCompute))?;
+        let on_chain_data_key = format!("{block_number}/{ON_CHAIN_DATA_FILE_NAME}");
+        let on_chain_data_vec = serde_json::to_vec(&on_chain_data).map_err(|e| {
+            SnosError::OnChainDataUnserializable { internal_id: internal_id.to_string(), message: e.to_string() }
+        })?;
+        data_storage.put_data(on_chain_data_vec.into(), &on_chain_data_key).await.map_err(|e| {
+            SnosError::OnChainDataUnstorable { internal_id: internal_id.to_string(), message: e.to_string() }
+        })?;
+        Ok(())
+    }
+
+    /// Stores the [CairoPie] and the [StarknetOsOutput] in the Data Storage.
+    /// The paths will be:
+    ///     - [block_number]/cairo_pie.zip
+    ///     - [block_number]/snos_output.json
+    ///     - [block_number]/program_output.json
+    async fn store_cairo_pie_and_snos_output(
         &self,
         data_storage: &dyn DataStorage,
         internal_id: &str,
