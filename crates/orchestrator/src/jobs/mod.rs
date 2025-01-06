@@ -642,28 +642,27 @@ pub async fn retry_job(id: Uuid, config: Arc<Config>) -> Result<(), JobError> {
             JobError::Other(OtherError(e))
         })?;
 
-    let result = process_job(job.id, config.clone()).await;
-
-    if let Err(e) = &result {
+    add_job_to_process_queue(job.id, &job.job_type, config.clone()).await.map_err(|e| {
         tracing::error!(
             log_type = "error",
             category = "general",
             function_type = "retry_job",
             block_no = %internal_id,
             error = %e,
-            "General retry job failed for block"
+            "Failed to add job to process queue"
         );
-    } else {
-        tracing::info!(
-            log_type = "completed",
-            category = "general",
-            function_type = "retry_job",
-            block_no = %internal_id,
-            "General retry job completed for block"
-        );
-    }
+        JobError::Other(OtherError(e))
+    })?;
 
-    result
+    tracing::info!(
+        log_type = "completed",
+        category = "general",
+        function_type = "retry_job",
+        block_no = %internal_id,
+        "Successfully queued job for retry"
+    );
+
+    Ok(())
 }
 
 /// Terminates the job and updates the status of the job in the DB.
