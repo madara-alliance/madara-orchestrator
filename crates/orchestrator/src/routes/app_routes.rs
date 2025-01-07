@@ -9,13 +9,6 @@ use axum::Router;
 /// - Health check endpoint at `/health`
 /// - Development routes under `/v1/dev`
 ///
-/// The router is used in conjunction with job routes to form the complete API surface.
-/// See the main router setup in:
-/// ```rust:crates/orchestrator/src/routes/mod.rs
-/// startLine: 23
-/// endLine: 35
-/// ```
-///
 /// # Returns
 /// * `Router` - Configured application router with health and dev routes
 ///
