@@ -1,0 +1,47 @@
+# Dockerfile
+FROM ubuntu:20.04
+
+# Set environment variables
+ENV DEBIAN_FRONTEND=noninteractive
+
+# Install system dependencies
+RUN apt-get update && \
+    apt-get install -y \
+    build-essential \
+    openssl \
+    pkg-config \
+    libssl-dev \
+    python3.9 \
+    python3.9-venv \
+    python3.9-distutils \
+    libgmp-dev \
+    python3.9-dev \
+    curl \
+    git \
+    libbz2-dev \
+    libreadline-dev \
+    libsqlite3-dev \
+    libffi-dev \
+    zlib1g-dev \
+    libncurses5-dev \
+    liblzma-dev \
+    python3-pip \
+    && apt-get clean
+
+# Install Rust non-interactively
+RUN curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- --default-toolchain stable -y
+
+# Set up the environment for Rust
+ENV PATH="/root/.cargo/bin:${PATH}"
+
+# Install pyenv
+RUN curl https://pyenv.run | bash
+
+# Set up environment variables for pyenv
+ENV PATH="/root/.pyenv/bin:/root/.pyenv/shims:${PATH}"
+
+# Install dependencies from requirements.txt
+WORKDIR /snos
+
+# Set the entrypoint or command if needed
+CMD ["bash"]
