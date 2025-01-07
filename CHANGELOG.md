@@ -52,6 +52,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 ## Changed
 
 - verify_job now handles VerificationTimeout status
+- refactor: expect removed and added error wraps
 - refactor: Readme and .env.example
 - refactor: http_mock version updated
 - refactor: prover-services renamed to prover-clients
