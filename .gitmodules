@@ -13,3 +13,6 @@
 [submodule "pathfinder"]
 	path = pathfinder
 	url = https://github.com/eqlabs/pathfinder.git
+[submodule "snos"]
+	path = snos
+	url = https://github.com/keep-starknet-strange/snos.git
