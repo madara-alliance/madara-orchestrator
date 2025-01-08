@@ -62,6 +62,7 @@ echo -e "🚀 Deploying verifier contract...\n"
 VERIFIER_RESULT=$(forge create \
     --rpc-url "$ANVIL_URL" \
     --private-key "$PRIVATE_KEY" \
+    --broadcast \
     "scripts/artifacts/eth/MockGPSVerifier.sol:MockGPSVerifier" \
     2>&1)
 

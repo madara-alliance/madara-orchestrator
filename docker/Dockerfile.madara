@@ -1,0 +1,42 @@
+# Use an appropriate base image
+FROM ubuntu:20.04
+
+# Set environment variables
+ENV DEBIAN_FRONTEND=noninteractive
+ENV PROTOC=/usr/local/bin/protoc
+ENV PATH="/usr/local/bin:${PATH}"
+
+# Install system dependencies
+RUN apt-get update && \
+    apt-get install -y \
+    curl \
+    git \
+    build-essential \
+    libssl-dev \
+    pkg-config \
+    wget \
+    unzip \
+    clang \
+    libclang-dev \
+    llvm-dev \
+    && rm -rf /var/lib/apt/lists/*
+
+# Set LIBCLANG_PATH environment variable
+ENV LIBCLANG_PATH=/usr/lib/llvm-10/lib
+
+# Install protobuf 28.3
+RUN wget https://github.com/protocolbuffers/protobuf/releases/download/v28.3/protoc-28.3-linux-x86_64.zip && \
+    unzip protoc-28.3-linux-x86_64.zip -d /usr/local && \
+    chmod 755 /usr/local/bin/protoc && \
+    rm protoc-28.3-linux-x86_64.zip
+
+# Verify protoc installation and version
+RUN protoc --version
+
+# Install Rust
+RUN curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- --default-toolchain stable -y
+ENV PATH="/root/.cargo/bin:${PATH}"
+
+WORKDIR /madara
+
+CMD ["bash"]
