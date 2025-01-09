@@ -22,7 +22,7 @@ use types::{ExternalId, JobItemUpdates};
 use uuid::Uuid;
 
 use crate::config::Config;
-use crate::jobs::constants::{JOB_PROCESS_ATTEMPT_METADATA_KEY, JOB_VERIFICATION_ATTEMPT_METADATA_KEY};
+use crate::jobs::constants::{JOB_PROCESS_ATTEMPT_METADATA_KEY, JOB_VERIFICATION_ATTEMPT_METADATA_KEY, JOB_VERIFICATION_RETRY_ATTEMPT_METADATA_KEY, JOB_PROCESS_RETRY_ATTEMPT_METADATA_KEY};
 #[double]
 use crate::jobs::job_handler_factory::factory;
 use crate::jobs::types::{JobItem, JobStatus, JobType, JobVerificationStatus};
@@ -122,6 +122,12 @@ impl From<color_eyre::eyre::Error> for OtherError {
 impl From<String> for OtherError {
     fn from(error_string: String) -> Self {
         OtherError(eyre!(error_string))
+    }
+}
+
+impl From<color_eyre::Report> for JobError {
+    fn from(err: color_eyre::Report) -> Self {
+        JobError::Other(OtherError(err))
     }
 }
 
@@ -613,6 +619,7 @@ pub async fn verify_job(id: Uuid, config: Arc<Config>) -> Result<(), JobError> {
 pub async fn retry_job(id: Uuid, config: Arc<Config>) -> Result<(), JobError> {
     let job = get_job(id, config.clone()).await?;
     let internal_id = job.internal_id.clone();
+
     tracing::info!(
         log_type = "starting",
         category = "general",
@@ -630,10 +637,25 @@ pub async fn retry_job(id: Uuid, config: Arc<Config>) -> Result<(), JobError> {
         return Err(JobError::InvalidStatus { id, job_status: job.status });
     }
 
-    // Update job status to PendingRetry before processing
+    // Increment the process retry counter
+    let metadata = increment_key_in_metadata(&job.metadata, JOB_PROCESS_RETRY_ATTEMPT_METADATA_KEY)?;
+    
+    tracing::debug!(
+        job_id = ?id, 
+        retry_count = get_u64_from_metadata(&metadata, JOB_PROCESS_RETRY_ATTEMPT_METADATA_KEY)?, 
+        "Incrementing process retry attempt counter"
+    );
+
+    // Update job status and metadata to PendingRetry before processing
     config
         .database()
-        .update_job(&job, JobItemUpdates::new().update_status(JobStatus::PendingRetry).build())
+        .update_job(
+            &job, 
+            JobItemUpdates::new()
+                .update_status(JobStatus::PendingRetry)
+                .update_metadata(metadata)
+                .build()
+        )
         .await
         .map_err(|e| {
             tracing::error!(
@@ -828,18 +850,104 @@ fn get_u64_from_metadata(metadata: &HashMap<String, String>, key: &str) -> color
         .wrap_err(format!("Failed to parse u64 from metadata key '{}'", key))
 }
 
-fn register_block_gauge(job: &JobItem, attributes: &[KeyValue]) -> Result<(), JobError> {
-    let block_number = if let JobType::StateTransition = job.job_type {
-        parse_string(
-            job.external_id
-                .unwrap_string()
-                .map_err(|e| JobError::Other(OtherError::from(format!("Could not parse string: {e}"))))?,
+/// Queues a job for processing by adding it to the process queue
+///
+/// # Arguments
+/// * `id` - UUID of the job to process
+/// * `config` - Shared configuration
+///
+/// # Returns
+/// * `Result<(), JobError>` - Success or an error
+///
+/// # State Transitions
+/// * Any valid state -> PendingProcess
+#[tracing::instrument(skip(config), fields(category = "general"), ret, err)]
+pub async fn queue_job_for_processing(id: Uuid, config: Arc<Config>) -> Result<(), JobError> {
+    let job = get_job(id, config.clone()).await?;
+    
+    // Increment the process retry counter
+    let metadata = increment_key_in_metadata(&job.metadata, JOB_PROCESS_RETRY_ATTEMPT_METADATA_KEY)?;
+    
+    tracing::debug!(
+        job_id = ?id, 
+        retry_count = get_u64_from_metadata(&metadata, JOB_PROCESS_RETRY_ATTEMPT_METADATA_KEY)?, 
+        "Incrementing process retry attempt counter"
+    );
+    
+    // Update job status and metadata to indicate it's queued for processing
+    config
+        .database()
+        .update_job(
+            &job, 
+            JobItemUpdates::new()
+                .update_status(JobStatus::PendingRetry)
+                .update_metadata(metadata)
+                .build()
         )
-    } else {
-        parse_string(&job.internal_id)
-    }?;
+        .await
+        .map_err(|e| JobError::Other(OtherError(e)))?;
 
-    ORCHESTRATOR_METRICS.block_gauge.record(block_number, attributes);
+    // Add to process queue
+    add_job_to_process_queue(id, &job.job_type, config)
+        .await
+        .map_err(|e| JobError::Other(OtherError(e)))?;
+    
+    Ok(())
+}
+
+/// Queues a job for verification by adding it to the verification queue
+///
+/// # Arguments
+/// * `id` - UUID of the job to verify
+/// * `config` - Shared configuration
+///
+/// # Returns
+/// * `Result<(), JobError>` - Success or an error
+///
+/// # Notes
+/// * Resets verification attempt count to 0
+/// * Sets appropriate delay for verification polling
+#[tracing::instrument(skip(config), fields(category = "general"), ret, err)]
+pub async fn queue_job_for_verification(id: Uuid, config: Arc<Config>) -> Result<(), JobError> {
+    let job = get_job(id, config.clone()).await?;
+    let job_handler = factory::get_job_handler(&job.job_type).await;
+    
+    // Reset verification attempts and increment retry counter
+    let mut metadata = job.metadata.clone();
+    metadata.insert(JOB_VERIFICATION_ATTEMPT_METADATA_KEY.to_string(), "0".to_string());
+    
+    // Increment the retry counter using the existing helper function
+    metadata = increment_key_in_metadata(&metadata, JOB_VERIFICATION_RETRY_ATTEMPT_METADATA_KEY)?;
+    
+    tracing::debug!(
+        job_id = ?id, 
+        retry_count = get_u64_from_metadata(&metadata, JOB_VERIFICATION_RETRY_ATTEMPT_METADATA_KEY)?, 
+        "Incrementing verification retry attempt counter"
+    );
+    
+    // Update job status and metadata
+    config
+        .database()
+        .update_job(
+            &job,
+            JobItemUpdates::new()
+                .update_status(JobStatus::PendingVerification)
+                .update_metadata(metadata)
+                .build(),
+        )
+        .await
+        .map_err(|e| JobError::Other(OtherError(e)))?;
+
+    // Add to verification queue with appropriate delay
+    add_job_to_verification_queue(
+        id,
+        &job.job_type,
+        Duration::from_secs(job_handler.verification_polling_delay_seconds()),
+        config,
+    )
+    .await
+    .map_err(|e| JobError::Other(OtherError(e)))?;
+    
     Ok(())
 }
 

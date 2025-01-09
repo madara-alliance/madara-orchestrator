@@ -11,7 +11,7 @@ use uuid::Uuid;
 use super::error::JobRouteError;
 use super::types::{ApiResponse, JobId, JobRouteResult};
 use crate::config::Config;
-use crate::jobs::{process_job, retry_job, verify_job};
+use crate::jobs::{retry_job, queue_job_for_processing, queue_job_for_verification};
 use crate::metrics::ORCHESTRATOR_METRICS;
 
 /// Handles HTTP requests to process a job.
@@ -40,16 +40,15 @@ async fn handle_process_job_request(
 ) -> JobRouteResult {
     let job_id = Uuid::parse_str(&id).map_err(|_| JobRouteError::InvalidId(id.clone()))?;
 
-    match process_job(job_id, config).await {
+    match queue_job_for_processing(job_id, config).await {
         Ok(_) => {
-            info!("Job processed successfully");
-            ORCHESTRATOR_METRICS.successful_job_operations.add(1.0, &[KeyValue::new("operation_type", "process_job")]);
-
+            info!("Job queued for processing successfully");
+            ORCHESTRATOR_METRICS.successful_job_operations.add(1.0, &[KeyValue::new("operation_type", "queue_process")]);
             Ok(Json(ApiResponse::success()).into_response())
         }
         Err(e) => {
-            error!(error = %e, "Failed to process job");
-            ORCHESTRATOR_METRICS.failed_job_operations.add(1.0, &[KeyValue::new("operation_type", "process_job")]);
+            error!(error = %e, "Failed to queue job for processing");
+            ORCHESTRATOR_METRICS.failed_job_operations.add(1.0, &[KeyValue::new("operation_type", "queue_process")]);
             Err(JobRouteError::ProcessingError(e.to_string()))
         }
     }
@@ -57,11 +56,12 @@ async fn handle_process_job_request(
 
 /// Handles HTTP requests to verify a job's status.
 ///
-/// This endpoint checks the current status and validity of a job. It performs:
+/// This endpoint queues the job for verification by:
 /// 1. Validates and parses the job ID
-/// 2. Verifies the job's current state
-/// 3. Records metrics for the verification attempt
-/// 4. Returns the verification result
+/// 2. Adds the job to the verification queue
+/// 3. Resets verification attempt counter
+/// 4. Records metrics for the queue operation
+/// 5. Returns immediate response
 ///
 /// # Arguments
 /// * `Path(JobId { id })` - The job ID extracted from the URL path
@@ -72,7 +72,7 @@ async fn handle_process_job_request(
 ///
 /// # Errors
 /// * `JobRouteError::InvalidId` - If the provided ID is not a valid UUID
-/// * `JobRouteError::ProcessingError` - If verification fails
+/// * `JobRouteError::ProcessingError` - If queueing for verification fails
 #[instrument(skip(config), fields(job_id = %id))]
 async fn handle_verify_job_request(
     Path(JobId { id }): Path<JobId>,
@@ -80,16 +80,15 @@ async fn handle_verify_job_request(
 ) -> JobRouteResult {
     let job_id = Uuid::parse_str(&id).map_err(|_| JobRouteError::InvalidId(id.clone()))?;
 
-    match verify_job(job_id, config).await {
+    match queue_job_for_verification(job_id, config).await {
         Ok(_) => {
-            info!("Job verified successfully");
-            ORCHESTRATOR_METRICS.successful_job_operations.add(1.0, &[KeyValue::new("operation_type", "verify_job")]);
-
+            info!("Job queued for verification successfully");
+            ORCHESTRATOR_METRICS.successful_job_operations.add(1.0, &[KeyValue::new("operation_type", "queue_verify")]);
             Ok(Json(ApiResponse::success()).into_response())
         }
         Err(e) => {
-            error!(error = %e, "Failed to verify job");
-            ORCHESTRATOR_METRICS.failed_job_operations.add(1.0, &[KeyValue::new("operation_type", "verify_job")]);
+            error!(error = %e, "Failed to queue job for verification");
+            ORCHESTRATOR_METRICS.failed_job_operations.add(1.0, &[KeyValue::new("operation_type", "queue_verify")]);
             Err(JobRouteError::ProcessingError(e.to_string()))
         }
     }
