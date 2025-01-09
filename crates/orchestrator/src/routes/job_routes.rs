@@ -11,7 +11,7 @@ use uuid::Uuid;
 use super::error::JobRouteError;
 use super::types::{ApiResponse, JobId, JobRouteResult};
 use crate::config::Config;
-use crate::jobs::{retry_job, queue_job_for_processing, queue_job_for_verification};
+use crate::jobs::{queue_job_for_processing, queue_job_for_verification, retry_job};
 use crate::metrics::ORCHESTRATOR_METRICS;
 
 /// Handles HTTP requests to process a job.
@@ -43,7 +43,9 @@ async fn handle_process_job_request(
     match queue_job_for_processing(job_id, config).await {
         Ok(_) => {
             info!("Job queued for processing successfully");
-            ORCHESTRATOR_METRICS.successful_job_operations.add(1.0, &[KeyValue::new("operation_type", "queue_process")]);
+            ORCHESTRATOR_METRICS
+                .successful_job_operations
+                .add(1.0, &[KeyValue::new("operation_type", "queue_process")]);
             Ok(Json(ApiResponse::success()).into_response())
         }
         Err(e) => {

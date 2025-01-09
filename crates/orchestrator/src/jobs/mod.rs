@@ -22,7 +22,10 @@ use types::{ExternalId, JobItemUpdates};
 use uuid::Uuid;
 
 use crate::config::Config;
-use crate::jobs::constants::{JOB_PROCESS_ATTEMPT_METADATA_KEY, JOB_VERIFICATION_ATTEMPT_METADATA_KEY, JOB_VERIFICATION_RETRY_ATTEMPT_METADATA_KEY, JOB_PROCESS_RETRY_ATTEMPT_METADATA_KEY};
+use crate::jobs::constants::{
+    JOB_PROCESS_ATTEMPT_METADATA_KEY, JOB_PROCESS_RETRY_ATTEMPT_METADATA_KEY, JOB_VERIFICATION_ATTEMPT_METADATA_KEY,
+    JOB_VERIFICATION_RETRY_ATTEMPT_METADATA_KEY,
+};
 #[double]
 use crate::jobs::job_handler_factory::factory;
 use crate::jobs::types::{JobItem, JobStatus, JobType, JobVerificationStatus};
@@ -639,10 +642,10 @@ pub async fn retry_job(id: Uuid, config: Arc<Config>) -> Result<(), JobError> {
 
     // Increment the process retry counter
     let metadata = increment_key_in_metadata(&job.metadata, JOB_PROCESS_RETRY_ATTEMPT_METADATA_KEY)?;
-    
+
     tracing::debug!(
-        job_id = ?id, 
-        retry_count = get_u64_from_metadata(&metadata, JOB_PROCESS_RETRY_ATTEMPT_METADATA_KEY)?, 
+        job_id = ?id,
+        retry_count = get_u64_from_metadata(&metadata, JOB_PROCESS_RETRY_ATTEMPT_METADATA_KEY)?,
         "Incrementing process retry attempt counter"
     );
 
@@ -650,11 +653,8 @@ pub async fn retry_job(id: Uuid, config: Arc<Config>) -> Result<(), JobError> {
     config
         .database()
         .update_job(
-            &job, 
-            JobItemUpdates::new()
-                .update_status(JobStatus::PendingRetry)
-                .update_metadata(metadata)
-                .build()
+            &job,
+            JobItemUpdates::new().update_status(JobStatus::PendingRetry).update_metadata(metadata).build(),
         )
         .await
         .map_err(|e| {
@@ -842,7 +842,7 @@ pub fn increment_key_in_metadata(
 /// # Notes
 /// * Returns 0 if the key doesn't exist in the metadata
 /// * Wraps parsing errors with additional context
-fn get_u64_from_metadata(metadata: &HashMap<String, String>, key: &str) -> color_eyre::Result<u64> {
+pub fn get_u64_from_metadata(metadata: &HashMap<String, String>, key: &str) -> color_eyre::Result<u64> {
     metadata
         .get(key)
         .unwrap_or(&"0".to_string())
@@ -864,34 +864,29 @@ fn get_u64_from_metadata(metadata: &HashMap<String, String>, key: &str) -> color
 #[tracing::instrument(skip(config), fields(category = "general"), ret, err)]
 pub async fn queue_job_for_processing(id: Uuid, config: Arc<Config>) -> Result<(), JobError> {
     let job = get_job(id, config.clone()).await?;
-    
+
     // Increment the process retry counter
     let metadata = increment_key_in_metadata(&job.metadata, JOB_PROCESS_RETRY_ATTEMPT_METADATA_KEY)?;
-    
+
     tracing::debug!(
-        job_id = ?id, 
-        retry_count = get_u64_from_metadata(&metadata, JOB_PROCESS_RETRY_ATTEMPT_METADATA_KEY)?, 
+        job_id = ?id,
+        retry_count = get_u64_from_metadata(&metadata, JOB_PROCESS_RETRY_ATTEMPT_METADATA_KEY)?,
         "Incrementing process retry attempt counter"
     );
-    
+
     // Update job status and metadata to indicate it's queued for processing
     config
         .database()
         .update_job(
-            &job, 
-            JobItemUpdates::new()
-                .update_status(JobStatus::PendingRetry)
-                .update_metadata(metadata)
-                .build()
+            &job,
+            JobItemUpdates::new().update_status(JobStatus::PendingRetry).update_metadata(metadata).build(),
         )
         .await
         .map_err(|e| JobError::Other(OtherError(e)))?;
 
     // Add to process queue
-    add_job_to_process_queue(id, &job.job_type, config)
-        .await
-        .map_err(|e| JobError::Other(OtherError(e)))?;
-    
+    add_job_to_process_queue(id, &job.job_type, config).await.map_err(|e| JobError::Other(OtherError(e)))?;
+
     Ok(())
 }
 
@@ -911,29 +906,26 @@ pub async fn queue_job_for_processing(id: Uuid, config: Arc<Config>) -> Result<(
 pub async fn queue_job_for_verification(id: Uuid, config: Arc<Config>) -> Result<(), JobError> {
     let job = get_job(id, config.clone()).await?;
     let job_handler = factory::get_job_handler(&job.job_type).await;
-    
+
     // Reset verification attempts and increment retry counter
     let mut metadata = job.metadata.clone();
     metadata.insert(JOB_VERIFICATION_ATTEMPT_METADATA_KEY.to_string(), "0".to_string());
-    
+
     // Increment the retry counter using the existing helper function
     metadata = increment_key_in_metadata(&metadata, JOB_VERIFICATION_RETRY_ATTEMPT_METADATA_KEY)?;
-    
+
     tracing::debug!(
-        job_id = ?id, 
-        retry_count = get_u64_from_metadata(&metadata, JOB_VERIFICATION_RETRY_ATTEMPT_METADATA_KEY)?, 
+        job_id = ?id,
+        retry_count = get_u64_from_metadata(&metadata, JOB_VERIFICATION_RETRY_ATTEMPT_METADATA_KEY)?,
         "Incrementing verification retry attempt counter"
     );
-    
+
     // Update job status and metadata
     config
         .database()
         .update_job(
             &job,
-            JobItemUpdates::new()
-                .update_status(JobStatus::PendingVerification)
-                .update_metadata(metadata)
-                .build(),
+            JobItemUpdates::new().update_status(JobStatus::PendingVerification).update_metadata(metadata).build(),
         )
         .await
         .map_err(|e| JobError::Other(OtherError(e)))?;
@@ -947,7 +939,7 @@ pub async fn queue_job_for_verification(id: Uuid, config: Arc<Config>) -> Result
     )
     .await
     .map_err(|e| JobError::Other(OtherError(e)))?;
-    
+
     Ok(())
 }
 

@@ -1,6 +1,8 @@
 use core::panic;
+use std::collections::HashMap;
 use std::net::SocketAddr;
 use std::sync::Arc;
+use std::time::Duration;
 
 use chrono::{SubsecRound as _, Utc};
 use hyper::{Body, Request};
@@ -13,9 +15,13 @@ use utils::env_utils::get_env_var_or_panic;
 use uuid::Uuid;
 
 use crate::config::Config;
+use crate::jobs::constants::{
+    JOB_PROCESS_RETRY_ATTEMPT_METADATA_KEY, JOB_VERIFICATION_ATTEMPT_METADATA_KEY,
+    JOB_VERIFICATION_RETRY_ATTEMPT_METADATA_KEY,
+};
 use crate::jobs::job_handler_factory::mock_factory;
-use crate::jobs::types::{ExternalId, JobItem, JobStatus, JobType, JobVerificationStatus};
-use crate::jobs::{Job, MockJob};
+use crate::jobs::types::{ExternalId, JobItem, JobStatus, JobType};
+use crate::jobs::{get_u64_from_metadata, Job, MockJob};
 use crate::queue::init_consumers;
 use crate::queue::job_queue::{JobQueueMessage, QueueNameForJobType};
 use crate::tests::config::{ConfigType, TestConfigBuilder};
@@ -46,22 +52,11 @@ async fn setup_trigger() -> (SocketAddr, Arc<Config>) {
 #[rstest]
 async fn test_trigger_process_job(#[future] setup_trigger: (SocketAddr, Arc<Config>)) {
     let (addr, config) = setup_trigger.await;
-
     let job_type = JobType::DataSubmission;
 
     let job_item = build_job_item(job_type.clone(), JobStatus::Created, 1);
-    let mut job_handler = MockJob::new();
-
-    job_handler.expect_process_job().times(1).returning(move |_, _| Ok("0xbeef".to_string()));
-
     config.database().create_job(job_item.clone()).await.unwrap();
     let job_id = job_item.clone().id;
-
-    job_handler.expect_verification_polling_delay_seconds().return_const(1u64);
-
-    let job_handler: Arc<Box<dyn Job>> = Arc::new(Box::new(job_handler));
-    let ctx = mock_factory::get_job_handler_context();
-    ctx.expect().times(1).with(eq(job_type)).returning(move |_| Arc::clone(&job_handler));
 
     let client = hyper::Client::new();
     let response = client
@@ -71,12 +66,23 @@ async fn test_trigger_process_job(#[future] setup_trigger: (SocketAddr, Arc<Conf
         .await
         .unwrap();
 
-    // assertions
+    // Verify response status
+    assert_eq!(response.status(), 200);
+
+    // Verify job was added to process queue
+    let queue_message = config.queue().consume_message_from_queue(job_type.process_queue_name()).await.unwrap();
+    let message_payload: JobQueueMessage = queue_message.payload_serde_json().unwrap().unwrap();
+    assert_eq!(message_payload.id, job_id);
+
+    // Verify job status and metadata
     if let Some(job_fetched) = config.database().get_job_by_id(job_id).await.unwrap() {
-        assert_eq!(response.status(), 200);
         assert_eq!(job_fetched.id, job_item.id);
-        assert_eq!(job_fetched.version, 2);
-        assert_eq!(job_fetched.status, JobStatus::PendingVerification);
+        assert_eq!(job_fetched.status, JobStatus::PendingRetry);
+
+        // Verify process attempt counter was incremented
+        let process_attempts =
+            get_u64_from_metadata(&job_fetched.metadata, JOB_PROCESS_RETRY_ATTEMPT_METADATA_KEY).unwrap();
+        assert_eq!(process_attempts, 1);
     } else {
         panic!("Could not get job from database")
     }
@@ -86,22 +92,27 @@ async fn test_trigger_process_job(#[future] setup_trigger: (SocketAddr, Arc<Conf
 #[rstest]
 async fn test_trigger_verify_job(#[future] setup_trigger: (SocketAddr, Arc<Config>)) {
     let (addr, config) = setup_trigger.await;
-
     let job_type = JobType::DataSubmission;
 
-    let job_item = build_job_item(job_type.clone(), JobStatus::PendingVerification, 1);
-    let mut job_handler = MockJob::new();
+    // Create a simple job without initial metadata
+    let mut job_item = build_job_item(job_type.clone(), JobStatus::PendingVerification, 1);
 
-    job_handler.expect_verify_job().times(1).returning(move |_, _| Ok(JobVerificationStatus::Verified));
+    // Initialize metadata with verification counters
+    let mut metadata = HashMap::new();
+    metadata.insert(JOB_VERIFICATION_RETRY_ATTEMPT_METADATA_KEY.to_string(), "0".to_string());
+    metadata.insert(JOB_VERIFICATION_ATTEMPT_METADATA_KEY.to_string(), "10".to_string());
+    job_item.metadata = metadata;
 
     config.database().create_job(job_item.clone()).await.unwrap();
     let job_id = job_item.clone().id;
 
+    // Set up mock job handler
+    let mut job_handler = MockJob::new();
     job_handler.expect_verification_polling_delay_seconds().return_const(1u64);
-
     let job_handler: Arc<Box<dyn Job>> = Arc::new(Box::new(job_handler));
+
     let ctx = mock_factory::get_job_handler_context();
-    ctx.expect().times(1).with(eq(job_type)).returning(move |_| Arc::clone(&job_handler));
+    ctx.expect().with(eq(job_type.clone())).times(1).returning(move |_| Arc::clone(&job_handler));
 
     let client = hyper::Client::new();
     let response = client
@@ -109,15 +120,29 @@ async fn test_trigger_verify_job(#[future] setup_trigger: (SocketAddr, Arc<Confi
         .await
         .unwrap();
 
-    // assertions
-    if let Some(job_fetched) = config.database().get_job_by_id(job_id).await.unwrap() {
-        assert_eq!(response.status(), 200);
-        assert_eq!(job_fetched.id, job_item.id);
-        assert_eq!(job_fetched.version, 1);
-        assert_eq!(job_fetched.status, JobStatus::Completed);
-    } else {
-        panic!("Could not get job from database")
-    }
+    assert_eq!(response.status(), 200);
+
+    // Use longer sleep duration as seen in other tests
+    tokio::time::sleep(Duration::from_secs(2)).await;
+
+    // Verify job was added to verification queue
+    let queue_message = config.queue().consume_message_from_queue(job_type.verify_queue_name()).await.unwrap();
+    let message_payload: JobQueueMessage = queue_message.payload_serde_json().unwrap().unwrap();
+    assert_eq!(message_payload.id, job_id);
+
+    // Verify job status and metadata
+    let job_fetched = config.database().get_job_by_id(job_id).await.unwrap().expect("Could not get job from database");
+    assert_eq!(job_fetched.id, job_item.id);
+    assert_eq!(job_fetched.status, JobStatus::PendingVerification);
+
+    // Verify verification attempt was reset
+    let verify_attempts = get_u64_from_metadata(&job_fetched.metadata, JOB_VERIFICATION_ATTEMPT_METADATA_KEY).unwrap();
+    assert_eq!(verify_attempts, 0);
+
+    // Verify retry attempt was incremented
+    let retry_attempts =
+        get_u64_from_metadata(&job_fetched.metadata, JOB_VERIFICATION_RETRY_ATTEMPT_METADATA_KEY).unwrap();
+    assert_eq!(retry_attempts, 1);
 }
 
 #[tokio::test]
@@ -146,6 +171,9 @@ async fn test_trigger_retry_job_when_failed(#[future] setup_trigger: (SocketAddr
     // Verify job status changed to PendingRetry
     let job_fetched = config.database().get_job_by_id(job_id).await.unwrap().expect("Could not get job from database");
     assert_eq!(job_fetched.id, job_item.id);
+    let process_attempts =
+        get_u64_from_metadata(&job_fetched.metadata, JOB_PROCESS_RETRY_ATTEMPT_METADATA_KEY).unwrap();
+    assert_eq!(process_attempts, 1);
     assert_eq!(job_fetched.status, JobStatus::PendingRetry);
 }
 
