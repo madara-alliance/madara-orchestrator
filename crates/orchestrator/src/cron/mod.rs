@@ -8,9 +8,9 @@ pub mod event_bridge;
 lazy_static! {
     pub static ref WORKER_TRIGGERS: Vec<WorkerTriggerType> = vec![
         WorkerTriggerType::Snos,
-        WorkerTriggerType::Proving,
-        WorkerTriggerType::DataSubmission,
-        WorkerTriggerType::UpdateState
+        // WorkerTriggerType::Proving,
+        // WorkerTriggerType::DataSubmission,
+        // WorkerTriggerType::UpdateState
     ];
 }
 
