@@ -21,7 +21,7 @@ use crate::config::Config;
 use crate::constants::{CAIRO_PIE_FILE_NAME, ON_CHAIN_DATA_FILE_NAME, PROGRAM_OUTPUT_FILE_NAME, SNOS_OUTPUT_FILE_NAME};
 use crate::data_storage::DataStorage;
 use crate::jobs::snos_job::error::FactError;
-use crate::jobs::snos_job::fact_info::{build_on_chain_data, get_fact_info};
+use crate::jobs::snos_job::fact_info::{build_on_chain_data, get_fact_info, get_fact_l2, get_program_output};
 use crate::jobs::types::{JobItem, JobStatus, JobType, JobVerificationStatus};
 use crate::jobs::Job;
 
@@ -124,14 +124,49 @@ impl Job for SnosJob {
         })?;
         tracing::debug!(job_id = %job.internal_id, "prove_block function completed successfully");
 
-        let fact_info = get_fact_info(&cairo_pie, None)?;
-        let program_output = fact_info.program_output;
+        // We use KZG_DA flag in order to determine whether we are using L1 or L2 as
+        // settlement layer. On L1 settlement we have blob based DA, while on L2 we have
+        // calldata based DA.
+        // So in case of KZG flag == 0 :
+        //      we calculate the l2 fact
+        // And in case of KZG flag == 1 :
+        //      we calculate the fact info
+        // TODO : need to change this in future and come up with a more concrete approach.
+        let (fact_hash, program_output) = if snos_output.use_kzg_da == Felt252::ZERO {
+            (
+                get_fact_l2(&cairo_pie, None).map_err(|_e| JobError::FactError(FactError::L2FactCompute))?,
+                get_program_output(&cairo_pie)?,
+            )
+        } else if snos_output.use_kzg_da == Felt252::ONE {
+            let fact_info = get_fact_info(&cairo_pie, None)?;
+            (fact_info.fact, fact_info.program_output)
+        } else {
+            panic!("Unsupported use_kzg_da value: {}", snos_output.use_kzg_da);
+        };
+
         tracing::debug!(job_id = %job.internal_id, "Fact info calculated successfully");
 
         tracing::debug!(job_id = %job.internal_id, "Storing SNOS outputs");
-        self.store(config.storage(), &job.internal_id, block_number, cairo_pie, snos_output, program_output).await?;
 
-        job.metadata.insert(JOB_METADATA_SNOS_FACT.into(), fact_info.fact.to_string());
+        // We use KZG_DA flag in order to determine whether we are using L1 or L2 as
+        // settlement layer. On L1 settlement we have blob based DA, while on L2 we have
+        // calldata based DA.
+        // So in case of KZG flag == 0 :
+        //      we store l2 settlement artifacts in storage
+        // And in case of KZG flag == 1 :
+        //      we store the l1 settlement artifacts in storage
+        // TODO : need to change this in future and come up with a more concrete approach.
+        if snos_output.use_kzg_da == Felt252::ZERO {
+            self.store_l2(config.storage(), &job.internal_id, block_number, cairo_pie, snos_output, program_output)
+                .await?;
+        } else if snos_output.use_kzg_da == Felt252::ONE {
+            self.store(config.storage(), &job.internal_id, block_number, cairo_pie, snos_output, program_output)
+                .await?;
+        } else {
+            panic!("Unsupported use_kzg_da value: {}", snos_output.use_kzg_da);
+        }
+
+        job.metadata.insert(JOB_METADATA_SNOS_FACT.into(), fact_hash.to_string());
         tracing::info!(log_type = "completed", category = "snos", function_type = "process_job", job_id = ?job.id,  block_no = %internal_id, "SNOS job processed successfully.");
 
         Ok(block_number.to_string())
@@ -195,7 +230,7 @@ impl SnosJob {
             data_storage,
             internal_id,
             block_number,
-            cairo_pie,
+            &cairo_pie,
             snos_output,
             program_output,
         )
@@ -222,13 +257,13 @@ impl SnosJob {
             data_storage,
             internal_id,
             block_number,
-            cairo_pie,
+            &cairo_pie,
             snos_output,
             program_output,
         )
         .await?;
         let on_chain_data = build_on_chain_data(&cairo_pie)
-            .map_err(|e| SnosError::FactCalculationError(FactError::OnChainDataCompute))?;
+            .map_err(|_e| SnosError::FactCalculationError(FactError::OnChainDataCompute))?;
         let on_chain_data_key = format!("{block_number}/{ON_CHAIN_DATA_FILE_NAME}");
         let on_chain_data_vec = serde_json::to_vec(&on_chain_data).map_err(|e| {
             SnosError::OnChainDataUnserializable { internal_id: internal_id.to_string(), message: e.to_string() }
@@ -249,7 +284,7 @@ impl SnosJob {
         data_storage: &dyn DataStorage,
         internal_id: &str,
         block_number: u64,
-        cairo_pie: CairoPie,
+        cairo_pie: &CairoPie,
         snos_output: StarknetOsOutput,
         program_output: Vec<Felt252>,
     ) -> Result<(), SnosError> {
@@ -284,7 +319,7 @@ impl SnosJob {
     }
 
     /// Converts the [CairoPie] input as a zip file and returns it as [Bytes].
-    async fn cairo_pie_to_zip_bytes(&self, cairo_pie: CairoPie) -> Result<Bytes> {
+    async fn cairo_pie_to_zip_bytes(&self, cairo_pie: &CairoPie) -> Result<Bytes> {
         let mut cairo_pie_zipfile = NamedTempFile::new()?;
         cairo_pie.write_zip_file(cairo_pie_zipfile.path())?;
         let cairo_pie_zip_bytes = self.tempfile_to_bytes(&mut cairo_pie_zipfile)?;

@@ -50,4 +50,6 @@ pub enum FactError {
     InvalidSegment,
     #[error("Failed to build OnChainData from Cairo PIE.")]
     OnChainDataCompute,
+    #[error("Failed to calculate L2 fact.")]
+    L2FactCompute,
 }

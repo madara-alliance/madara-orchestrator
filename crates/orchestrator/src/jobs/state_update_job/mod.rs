@@ -9,7 +9,7 @@ use cairo_vm::Felt252;
 use chrono::{SubsecRound, Utc};
 use color_eyre::eyre::eyre;
 use settlement_client_interface::SettlementVerificationStatus;
-use starknet_os::io::output::StarknetOsOutput;
+use starknet_os::io::output::{ContractChanges, StarknetOsOutput};
 use thiserror::Error;
 use uuid::Uuid;
 
@@ -19,8 +19,9 @@ use super::constants::{
 };
 use super::{JobError, OtherError};
 use crate::config::Config;
-use crate::constants::{PROGRAM_OUTPUT_FILE_NAME, SNOS_OUTPUT_FILE_NAME};
+use crate::constants::{ON_CHAIN_DATA_FILE_NAME, PROGRAM_OUTPUT_FILE_NAME, SNOS_OUTPUT_FILE_NAME};
 use crate::jobs::constants::JOB_METADATA_STATE_UPDATE_BLOCKS_TO_SETTLE_KEY;
+use crate::jobs::snos_job::fact_info::OnChainData;
 use crate::jobs::state_update_job::utils::fetch_blob_data_for_block;
 use crate::jobs::types::{JobItem, JobStatus, JobType, JobVerificationStatus};
 use crate::jobs::Job;
@@ -313,8 +314,25 @@ impl StateUpdateJob {
         nonce: u64,
     ) -> Result<String, JobError> {
         let settlement_client = config.settlement_client();
+
+        // We use KZG_DA flag in order to determine whether we are using L1 or L2 as
+        // settlement layer.
+        // So in case of KZG flag == 0 :
+        //      We send the transaction using `update_state_calldata`
+        // And in case of KZG flag == 1 :
+        //      We send the transaction using `update_state_with_blobs
         let last_tx_hash_executed = if snos.use_kzg_da == Felt252::ZERO {
-            unimplemented!("update_state_for_block not implemented as of now for calldata DA.")
+            let program_output = self.fetch_program_output_for_block(block_no, config.clone()).await;
+            let onchain_data = self.fetch_onchain_data_for_block(block_no, config.clone()).await;
+            settlement_client
+                .update_state_calldata(
+                    convert_snos_output_into_bytes_vec(snos),
+                    program_output,
+                    onchain_data.on_chain_data_hash.0,
+                    usize_to_bytes(onchain_data.on_chain_data_size),
+                )
+                .await
+                .map_err(|e| JobError::Other(OtherError(e)))?
         } else if snos.use_kzg_da == Felt252::ONE {
             let blob_data = fetch_blob_data_for_block(block_no, config.clone())
                 .await
@@ -344,6 +362,7 @@ impl StateUpdateJob {
             .expect("Unable to convert the data into snos output")
     }
 
+    /// Retrieves the Program output for the corresponding block.
     async fn fetch_program_output_for_block(&self, block_number: u64, config: Arc<Config>) -> Vec<[u8; 32]> {
         let storage_client = config.storage();
         let key = block_number.to_string() + "/" + PROGRAM_OUTPUT_FILE_NAME;
@@ -353,10 +372,125 @@ impl StateUpdateJob {
         decode_data
     }
 
-    /// Insert the tx hashes into the the metadata for the attempt number - will be used later by
+    /// Retrieves the OnChain data for the corresponding block.
+    async fn fetch_onchain_data_for_block(&self, block_number: u64, config: Arc<Config>) -> OnChainData {
+        let storage_client = config.storage();
+        let key = block_number.to_string() + "/" + ON_CHAIN_DATA_FILE_NAME;
+        let onchain_data_bytes = storage_client.get_data(&key).await.expect("Unable to fetch onchain data for block");
+        serde_json::from_slice(onchain_data_bytes.iter().as_slice())
+            .expect("Unable to convert the data into onchain data")
+    }
+
+    /// Insert the tx hashes into the metadata for the attempt number - will be used later by
     /// verify_job to make sure that all tx are successful.
     fn insert_attempts_into_metadata(&self, job: &mut JobItem, attempt_no: &str, tx_hashes: &[String]) {
         let new_attempt_metadata_key = format!("{}{}", JOB_METADATA_STATE_UPDATE_ATTEMPT_PREFIX, attempt_no);
         job.metadata.insert(new_attempt_metadata_key, tx_hashes.join(","));
     }
+}
+
+fn convert_snos_output_into_bytes_vec(snos: StarknetOsOutput) -> Vec<[u8; 32]> {
+    let mut snos_vec = Vec::new();
+
+    snos_vec.push(snos.initial_root.to_bytes_be());
+    snos_vec.push(snos.final_root.to_bytes_be());
+    snos_vec.push(snos.prev_block_number.to_bytes_be());
+    snos_vec.push(snos.new_block_number.to_bytes_be());
+    snos_vec.push(snos.prev_block_hash.to_bytes_be());
+    snos_vec.push(snos.new_block_hash.to_bytes_be());
+    snos_vec.push(snos.os_program_hash.to_bytes_be());
+    snos_vec.push(snos.starknet_os_config_hash.to_bytes_be());
+    snos_vec.push(snos.use_kzg_da.to_bytes_be());
+    snos_vec.push(snos.full_output.to_bytes_be());
+
+    // Processing Messages to L1
+    snos_vec.push(usize_to_bytes(snos.messages_to_l1.len()));
+    for messages in snos.messages_to_l1 {
+        snos_vec.push(messages.to_bytes_be());
+    }
+
+    // Processing Messages to L2
+    snos_vec.push(usize_to_bytes(snos.messages_to_l2.len()));
+    for messages in snos.messages_to_l2 {
+        snos_vec.push(messages.to_bytes_be());
+    }
+
+    // Processing Contract Changes
+    snos_vec.push(usize_to_bytes(snos.contracts.len()));
+    for contract in snos.contracts {
+        snos_vec.extend(convert_contract_changes_into_vec(contract));
+    }
+
+    // Processing Class Changes
+    snos_vec.extend(convert_class_changes_into_vec(snos.classes, snos.full_output));
+
+    snos_vec
+}
+
+fn convert_contract_changes_into_vec(contract_changes: ContractChanges) -> Vec<[u8; 32]> {
+    let mut result = Vec::new();
+
+    result.push(contract_changes.addr.to_bytes_be());
+
+    // Calculate the bound (2^64)
+    let bound = Felt252::from(18446744073709551616u128);
+
+    // Calculate was_class_updated
+    let was_class_updated = if contract_changes.class_hash.is_some() { Felt252::ONE } else { Felt252::ZERO };
+
+    // Pack the values:
+    // new_value = (was_class_updated * bound + new_state_nonce)
+    // value = new_value * bound + n_actual_updates
+    let new_value = was_class_updated * bound + contract_changes.nonce;
+    let n_actual_updates = Felt252::from(contract_changes.storage_changes.len());
+    let packed_value = new_value * bound + n_actual_updates;
+
+    result.push(packed_value.to_bytes_be());
+
+    if let Some(class_hash) = contract_changes.class_hash {
+        result.push(class_hash.to_bytes_be());
+    }
+
+    // Sort the keys to ensure consistent ordering
+    let mut storage_entries: Vec<_> = contract_changes.storage_changes.iter().collect();
+    storage_entries.sort_by_key(|&(k, _)| k);
+
+    for (key, value) in storage_entries {
+        result.push(key.to_bytes_be());
+        result.push(value.to_bytes_be());
+    }
+
+    result
+}
+
+fn convert_class_changes_into_vec(changes: HashMap<Felt252, Felt252>, full_output: Felt252) -> Vec<[u8; 32]> {
+    let mut result = Vec::new();
+
+    result.push(Felt252::from(changes.len()).to_bytes_be());
+
+    // Add all changes in sorted order for deterministic output
+    let mut sorted_changes: Vec<_> = changes.iter().collect();
+    sorted_changes.sort_by_key(|&(k, _)| k);
+
+    for (class_hash, compiled_class_hash) in sorted_changes {
+        // Add class_hash
+        result.push(class_hash.to_bytes_be());
+
+        // If full_output is true, add a dummy value
+        // This matches the Cairo code's behavior where it reads and discards a value
+        if full_output == Felt252::ONE {
+            result.push(Felt252::ZERO.to_bytes_be()); // or another appropriate dummy value
+        }
+
+        // Add compiled_class_hash
+        result.push(compiled_class_hash.to_bytes_be());
+    }
+
+    result
+}
+
+fn usize_to_bytes(n: usize) -> [u8; 32] {
+    let mut bytes = [0u8; 32];
+    bytes[..8].copy_from_slice(&n.to_le_bytes());
+    bytes
 }

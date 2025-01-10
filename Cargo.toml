@@ -96,7 +96,7 @@ hyper = { version = "0.14", features = ["full"] }
 mockall = "0.13.0"
 testcontainers = "0.18.0"
 once_cell = "1.8"
-appchain-core-contract-client = { git = "https://github.com/byteZorvin/zaun", branch = "type-update" }
+appchain-core-contract-client = { git = "https://github.com/karnotxyz/zaun", branch = "main" }
 crypto-bigint = { version = "0.5.5" }
 env_logger = "0.11.5"
 strum_macros = "0.26.4"

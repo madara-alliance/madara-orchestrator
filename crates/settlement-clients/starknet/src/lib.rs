@@ -10,7 +10,6 @@ use appchain_core_contract_client::interfaces::core_contract::CoreContract;
 use async_trait::async_trait;
 use color_eyre::eyre::eyre;
 use color_eyre::Result;
-use crypto_bigint::Encoding;
 use lazy_static::lazy_static;
 use mockall::automock;
 use mockall::predicate::*;
@@ -119,6 +118,7 @@ impl SettlementClient for StarknetSettlementClient {
     /// Should be used to update state on core contract when DA is done in calldata
     async fn update_state_calldata(
         &self,
+        snos_output: Vec<[u8; 32]>,
         program_output: Vec<[u8; 32]>,
         onchain_data_hash: [u8; 32],
         onchain_data_size: [u8; 32],
@@ -129,11 +129,18 @@ impl SettlementClient for StarknetSettlementClient {
             function_type = "calldata",
             "Updating state with calldata."
         );
+        let snos_output = slice_slice_u8_to_vec_field(snos_output.as_slice());
         let program_output = slice_slice_u8_to_vec_field(program_output.as_slice());
         let onchain_data_hash = slice_u8_to_field(&onchain_data_hash);
         let core_contract: &CoreContract = self.starknet_core_contract_client.as_ref();
-        let onchain_data_size = crypto_bigint::U256::from_be_bytes(onchain_data_size).into();
-        let invoke_result = core_contract.update_state(program_output, onchain_data_hash, onchain_data_size).await?;
+        let invoke_result = core_contract
+            .update_state(
+                snos_output,
+                program_output,
+                onchain_data_hash,
+                Felt::from_bytes_be_slice(onchain_data_size.as_slice()),
+            )
+            .await?;
         tracing::info!(
             log_type = "completed",
             category = "update_state",
