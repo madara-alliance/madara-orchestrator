@@ -48,4 +48,6 @@ pub enum FactError {
     TreeStructureRootOffsetInvalid(usize, usize),
     #[error("Program output doesn't match the segment size.")]
     InvalidSegment,
+    #[error("Failed to build OnChainData from Cairo PIE.")]
+    OnChainDataCompute,
 }

@@ -225,6 +225,13 @@ async fn test_orchestrator_workflow(#[case] l2_block_number: String) {
     assert!(test_result.is_ok(), "After Update State Job state DB state assertion failed.");
 }
 
+#[rstest]
+// This is a starknet sepolia block. Block description :
+// - This block is already proved on starknet sepolia
+#[case("30000".to_string())]
+#[tokio::test]
+async fn test_orchestration_workflow_l3(#[case] _l3_block_number: String) {}
+
 /// Function to check db for expected state continuously
 async fn wait_for_db_state(
     timeout: Duration,

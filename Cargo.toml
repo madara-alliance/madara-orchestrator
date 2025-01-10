@@ -4,6 +4,7 @@ members = [
   "crates/orchestrator",
   "crates/da-clients/da-client-interface",
   "crates/da-clients/ethereum",
+  "crates/da-clients/starknet",
   "crates/prover-clients/prover-client-interface",
   "crates/prover-clients/gps-fact-checker",
   "crates/prover-clients/sharp-service",
@@ -147,6 +148,7 @@ majin-blob-types = { git = "https://github.com/AbdelStark/majin-blob", branch = 
 # Project
 da-client-interface = { path = "crates/da-clients/da-client-interface" }
 ethereum-da-client = { path = "crates/da-clients/ethereum" }
+starknet-da-client = { path = "crates/da-clients/starknet" }
 
 settlement-client-interface = { path = "crates/settlement-clients/settlement-client-interface" }
 ethereum-settlement-client = { path = "crates/settlement-clients/ethereum" }

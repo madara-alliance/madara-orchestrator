@@ -534,6 +534,7 @@ fn get_env_params() -> EnvParams {
     });
 
     let snos_config = SNOSParams {
+        snos_full_output: false,
         rpc_for_snos: Url::parse(&get_env_var_or_panic("MADARA_ORCHESTRATOR_RPC_FOR_SNOS"))
             .expect("Failed to parse MADARA_ORCHESTRATOR_RPC_FOR_SNOS"),
     };

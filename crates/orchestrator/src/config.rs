@@ -17,6 +17,7 @@ use settlement_client_interface::SettlementClient;
 use sharp_service::SharpProverService;
 use starknet::providers::jsonrpc::HttpTransport;
 use starknet::providers::{JsonRpcClient, Url};
+use starknet_da_client::StarknetDaClient;
 use starknet_settlement_client::StarknetSettlementClient;
 
 use crate::alerts::aws_sns::AWSSNS;
@@ -287,6 +288,9 @@ pub async fn build_da_client(da_params: &DaValidatedArgs) -> Box<dyn DaClient + 
     match da_params {
         DaValidatedArgs::Ethereum(ethereum_da_params) => {
             Box::new(EthereumDaClient::new_with_args(ethereum_da_params).await)
+        }
+        DaValidatedArgs::Starknet(starknet_da_params) => {
+            Box::new(StarknetDaClient::new_with_args(starknet_da_params).await)
         }
     }
 }

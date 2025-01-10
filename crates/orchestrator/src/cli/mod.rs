@@ -95,7 +95,7 @@ pub enum Commands {
     ),
     group(
         ArgGroup::new("da_layer")
-            .args(&["da_on_ethereum"])
+            .args(&["da_on_ethereum", "da_on_starknet"])
             .required(true)
             .multiple(false)
     ),
@@ -135,6 +135,9 @@ pub struct RunCmd {
     // Data Availability Layer
     #[clap(flatten)]
     pub ethereum_da_args: da::ethereum::EthereumDaCliArgs,
+
+    #[clap(flatten)]
+    pub starknet_da_args: da::starknet::StarknetDaCliArgs,
 
     // Prover
     #[clap(flatten)]
@@ -182,7 +185,7 @@ impl RunCmd {
     }
 
     pub fn validate_da_params(&self) -> Result<DaValidatedArgs, String> {
-        validate_params::validate_da_params(&self.ethereum_da_args)
+        validate_params::validate_da_params(&self.ethereum_da_args, &self.starknet_da_args)
     }
 
     pub fn validate_settlement_params(&self) -> Result<settlement::SettlementValidatedArgs, String> {
@@ -306,6 +309,7 @@ pub mod validate_params {
     use ethereum_da_client::EthereumDaValidatedArgs;
     use ethereum_settlement_client::EthereumSettlementValidatedArgs;
     use sharp_service::SharpValidatedArgs;
+    use starknet_da_client::StarknetDaValidatedArgs;
     use starknet_settlement_client::StarknetSettlementValidatedArgs;
     use url::Url;
 
@@ -334,6 +338,7 @@ pub mod validate_params {
     use super::storage::aws_s3::AWSS3CliArgs;
     use super::storage::StorageValidatedArgs;
     use crate::alerts::aws_sns::AWSSNSValidatedArgs;
+    use crate::cli::da::starknet::StarknetDaCliArgs;
     use crate::cli::prover_layout::ProverLayoutCliArgs;
     use crate::config::ServiceParams;
     use crate::cron::event_bridge::AWSEventBridgeValidatedArgs;
@@ -452,16 +457,25 @@ pub mod validate_params {
         }
     }
 
-    pub(crate) fn validate_da_params(ethereum_da_args: &EthereumDaCliArgs) -> Result<DaValidatedArgs, String> {
-        if ethereum_da_args.da_on_ethereum {
-            Ok(DaValidatedArgs::Ethereum(EthereumDaValidatedArgs {
+    pub(crate) fn validate_da_params(
+        ethereum_da_args: &EthereumDaCliArgs,
+        starknet_da_args: &StarknetDaCliArgs,
+    ) -> Result<DaValidatedArgs, String> {
+        match (ethereum_da_args.da_on_ethereum, starknet_da_args.da_on_starknet) {
+            (true, true) => Err("Cannot use both Ethereum and Starknet as DA Layer".to_string()),
+            (true, false) => Ok(DaValidatedArgs::Ethereum(EthereumDaValidatedArgs {
                 ethereum_da_rpc_url: ethereum_da_args
                     .ethereum_da_rpc_url
                     .clone()
                     .expect("Ethereum DA RPC URL is required"),
-            }))
-        } else {
-            Err("Only Ethereum is supported as of now".to_string())
+            })),
+            (false, true) => Ok(DaValidatedArgs::Starknet(StarknetDaValidatedArgs {
+                starknet_da_rpc_url: starknet_da_args
+                    .starknet_da_rpc_url
+                    .clone()
+                    .expect("Starknet DA RPC URL is required"),
+            })),
+            (false, false) => Err("Settlement layer is required".to_string()),
         }
     }
 
@@ -616,7 +630,7 @@ pub mod validate_params {
     }
 
     pub(crate) fn validate_snos_params(snos_args: &SNOSCliArgs) -> Result<SNOSParams, String> {
-        Ok(SNOSParams { rpc_for_snos: snos_args.rpc_for_snos.clone() })
+        Ok(SNOSParams { rpc_for_snos: snos_args.rpc_for_snos.clone(), snos_full_output: snos_args.snos_full_output })
     }
 
     #[cfg(test)]
@@ -628,6 +642,7 @@ pub mod validate_params {
         use crate::cli::alert::aws_sns::AWSSNSCliArgs;
         use crate::cli::cron::event_bridge::AWSEventBridgeCliArgs;
         use crate::cli::da::ethereum::EthereumDaCliArgs;
+        use crate::cli::da::starknet::StarknetDaCliArgs;
         use crate::cli::database::mongodb::MongoDBCliArgs;
         use crate::cli::instrumentation::InstrumentationCliArgs;
         use crate::cli::prover::atlantic::AtlanticCliArgs;
@@ -758,15 +773,21 @@ pub mod validate_params {
         }
 
         #[rstest]
-        #[case(true)]
-        #[case(false)]
-        fn test_validate_da_params(#[case] is_ethereum: bool) {
+        #[case(true, false)]
+        #[case(false, true)]
+        #[case(false, false)]
+        #[case(true, true)]
+        fn test_validate_da_params(#[case] is_ethereum: bool, #[case] is_starknet: bool) {
             let ethereum_da_args: EthereumDaCliArgs = EthereumDaCliArgs {
                 da_on_ethereum: is_ethereum,
                 ethereum_da_rpc_url: Some(Url::parse("http://localhost:8545").unwrap()),
             };
-            let da_params = validate_da_params(&ethereum_da_args);
-            if is_ethereum {
+            let starknet_da_args: StarknetDaCliArgs = StarknetDaCliArgs {
+                da_on_starknet: is_starknet,
+                starknet_da_rpc_url: Some(Url::parse("http://localhost:8545").unwrap()),
+            };
+            let da_params = validate_da_params(&ethereum_da_args, &starknet_da_args);
+            if is_ethereum ^ is_starknet {
                 assert!(da_params.is_ok());
             } else {
                 assert!(da_params.is_err());
@@ -882,7 +903,8 @@ pub mod validate_params {
 
         #[rstest]
         fn test_validate_snos_params() {
-            let snos_args: SNOSCliArgs = SNOSCliArgs { rpc_for_snos: Url::parse("http://localhost:8545").unwrap() };
+            let snos_args: SNOSCliArgs =
+                SNOSCliArgs { rpc_for_snos: Url::parse("http://localhost:8545").unwrap(), snos_full_output: true };
             let snos_params = validate_snos_params(&snos_args);
             assert!(snos_params.is_ok());
         }

@@ -1,8 +1,10 @@
 use std::collections::HashMap;
 use std::sync::Arc;
 
+use cairo_vm::types::layout_name::LayoutName;
 use cairo_vm::vm::runners::cairo_pie::CairoPie;
 use chrono::{SubsecRound, Utc};
+use prove_block::prove_block;
 use rstest::*;
 use starknet_os::io::output::StarknetOsOutput;
 use url::Url;
@@ -10,6 +12,7 @@ use uuid::Uuid;
 
 use crate::constants::{CAIRO_PIE_FILE_NAME, SNOS_OUTPUT_FILE_NAME};
 use crate::jobs::constants::JOB_METADATA_SNOS_BLOCK;
+use crate::jobs::snos_job::fact_info::get_fact_l2;
 use crate::jobs::snos_job::SnosJob;
 use crate::jobs::types::{JobItem, JobStatus, JobType, JobVerificationStatus};
 use crate::jobs::Job;
@@ -94,6 +97,37 @@ async fn test_process_job() -> color_eyre::Result<()> {
     // assert that we can build back the Pie & the Snos output
     let _ = CairoPie::from_bytes(&cairo_pie_data)?;
     let _: StarknetOsOutput = serde_json::from_slice(&snos_output_data)?;
+
+    Ok(())
+}
+
+pub const COMPILED_OS: &[u8] = include_bytes!("../../../../../../build/os_latest.json");
+
+#[rstest]
+#[tokio::test(flavor = "multi_thread")]
+// This test case is formed as follows :
+// - We took the block from starknet sepolia
+// - We calculated the expected_fact by calling the integrity l2 fact hash calculation endpoint
+#[case(30000, "0x04e1bc5781a9577bf181a01fdc6ec270d99cd38edea9521cf9464bff94010531")]
+async fn test_prove_block_for_l3_output(
+    #[case] block_number: u64,
+    #[case] expected_fact: &str,
+) -> color_eyre::Result<()> {
+    let pathfinder_url: String = match std::env::var(SNOS_PATHFINDER_RPC_URL_ENV) {
+        Ok(url) => url,
+        Err(_) => {
+            println!("Ignoring test: {} environment variable is not set", SNOS_PATHFINDER_RPC_URL_ENV);
+            return Ok(());
+        }
+    };
+    let pathfinder_url = pathfinder_url.trim_end_matches('/');
+
+    let (cairo_pie, _snos_output) = prove_block(COMPILED_OS, block_number, pathfinder_url, LayoutName::all_cairo, true)
+        .await
+        .expect("Unable to run snos");
+
+    let fact_info = get_fact_l2(&cairo_pie, None)?;
+    assert_eq!(fact_info.to_string(), expected_fact);
 
     Ok(())
 }
