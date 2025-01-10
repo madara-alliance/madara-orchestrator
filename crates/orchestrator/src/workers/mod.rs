@@ -55,7 +55,7 @@ pub trait Worker: Send + Sync {
 
         let enabled_by_env: bool = get_env_var_or_default("MADARA_ORCHESTRATOR_ENABLE_WORKERS", "true").parse()?;
 
-        if !failed_jobs.is_empty() && enabled_by_env {
+        if !failed_jobs.is_empty() || !enabled_by_env {
             return Ok(false);
         }
 

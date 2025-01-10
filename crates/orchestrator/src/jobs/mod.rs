@@ -226,13 +226,21 @@ pub async fn process_job(id: Uuid, config: Arc<Config>) -> Result<(), JobError> 
             return Err(JobError::InvalidStatus { id, job_status: job.status });
         }
     }
+
+    let mut metadata_new = job.metadata.clone();
+    metadata_new
+        .insert(JOB_METADATA_ORCHESTRATOR_UNIQUE_ID.to_string(), get_env_var_or_panic("MADARA_ORCHESTRATOR_UNIQUE_ID"));
+
     // this updates the version of the job. this ensures that if another thread was about to process
     // the same job, it would fail to update the job in the database because the version would be
     // outdated
     tracing::debug!(job_id = ?id, "Updating job status to LockedForProcessing");
     let mut job = config
         .database()
-        .update_job(&job, JobItemUpdates::new().update_status(JobStatus::LockedForProcessing).build())
+        .update_job(
+            &job,
+            JobItemUpdates::new().update_status(JobStatus::LockedForProcessing).update_metadata(metadata_new).build(),
+        )
         .await
         .map_err(|e| {
             tracing::error!(job_id = ?id, error = ?e, "Failed to update job status");
@@ -247,10 +255,6 @@ pub async fn process_job(id: Uuid, config: Arc<Config>) -> Result<(), JobError> 
             // Add the time of processing to the metadata.
             job.metadata
                 .insert(JOB_METADATA_PROCESSING_COMPLETED_AT.to_string(), Utc::now().timestamp_millis().to_string());
-            job.metadata.insert(
-                JOB_METADATA_ORCHESTRATOR_UNIQUE_ID.to_string(),
-                get_env_var_or_panic("MADARA_ORCHESTRATOR_UNIQUE_ID"),
-            );
             external_id
         }
         Ok(Err(e)) => {
