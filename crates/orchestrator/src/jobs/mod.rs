@@ -7,7 +7,10 @@ use std::time::{Duration, Instant};
 use async_trait::async_trait;
 use chrono::Utc;
 use color_eyre::eyre::{eyre, Context};
-use constants::{JOB_METADATA_ERROR, JOB_METADATA_FAILURE_REASON, JOB_METADATA_PROCESSING_COMPLETED_AT};
+use constants::{
+    JOB_METADATA_ERROR, JOB_METADATA_FAILURE_REASON, JOB_METADATA_ORCHESTRATOR_UNIQUE_ID,
+    JOB_METADATA_PROCESSING_COMPLETED_AT,
+};
 use conversion::parse_string;
 use da_job::DaError;
 use futures::FutureExt;
@@ -19,6 +22,7 @@ use snos_job::error::FactError;
 use snos_job::SnosError;
 use state_update_job::StateUpdateError;
 use types::{ExternalId, JobItemUpdates};
+use utils::env_utils::get_env_var_or_panic;
 use uuid::Uuid;
 
 use crate::config::Config;
@@ -212,6 +216,11 @@ pub async fn process_job(id: Uuid, config: Arc<Config>) -> Result<(), JobError> 
         JobStatus::Created | JobStatus::VerificationFailed => {
             tracing::info!(job_id = ?id, status = ?job.status, "Job status is Created or VerificationFailed, proceeding with processing");
         }
+
+        JobStatus::LockedForProcessing => {
+            tracing::warn!(job_id = ?id, status = ?job.status, "Job is already locked for processing. Skipping processing");
+            return Ok(());
+        }
         _ => {
             tracing::warn!(job_id = ?id, status = ?job.status, "Job status is Invalid. Cannot process.");
             return Err(JobError::InvalidStatus { id, job_status: job.status });
@@ -238,6 +247,10 @@ pub async fn process_job(id: Uuid, config: Arc<Config>) -> Result<(), JobError> 
             // Add the time of processing to the metadata.
             job.metadata
                 .insert(JOB_METADATA_PROCESSING_COMPLETED_AT.to_string(), Utc::now().timestamp_millis().to_string());
+            job.metadata.insert(
+                JOB_METADATA_ORCHESTRATOR_UNIQUE_ID.to_string(),
+                get_env_var_or_panic("MADARA_ORCHESTRATOR_UNIQUE_ID"),
+            );
             external_id
         }
         Ok(Err(e)) => {
