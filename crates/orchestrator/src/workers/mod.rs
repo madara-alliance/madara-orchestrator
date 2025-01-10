@@ -3,6 +3,7 @@ use std::sync::Arc;
 
 use async_trait::async_trait;
 use thiserror::Error;
+use utils::env_utils::get_env_var_or_default;
 
 use crate::config::Config;
 use crate::jobs::types::JobStatus;
@@ -52,7 +53,9 @@ pub trait Worker: Send + Sync {
             .get_jobs_by_statuses(vec![JobStatus::Failed, JobStatus::VerificationTimeout], Some(1))
             .await?;
 
-        if !failed_jobs.is_empty() {
+        let enabled_by_env: bool = get_env_var_or_default("MADARA_ORCHESTRATOR_ENABLE_WORKERS", "true").parse()?;
+
+        if !failed_jobs.is_empty() && enabled_by_env {
             return Ok(false);
         }
 
