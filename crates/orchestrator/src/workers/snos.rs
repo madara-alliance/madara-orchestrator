@@ -23,35 +23,49 @@ impl Worker for SnosWorker {
     async fn run_worker(&self, config: Arc<Config>) -> color_eyre::Result<()> {
         tracing::trace!(log_type = "starting", category = "SnosWorker", "SnosWorker started.");
 
-        let provider = config.starknet_client();
-        let block_number_provider = provider.block_number().await?;
+        // let provider = config.starknet_client();
+        // let block_number_provider = provider.block_number().await?;
 
-        let latest_block_number = if let Some(max_block_to_process) = config.service_config().max_block_to_process {
-            min(max_block_to_process, block_number_provider)
-        } else {
-            block_number_provider
+        // let latest_block_number = if let Some(max_block_to_process) =
+        // config.service_config().max_block_to_process {     min(max_block_to_process,
+        // block_number_provider) } else {
+        //     block_number_provider
+        // };
+
+        // tracing::debug!(latest_block_number = %latest_block_number, "Fetched latest block number from
+        // starknet");
+
+        // let latest_job_in_db = config.database().get_latest_job_by_type(JobType::SnosRun).await?;
+
+        // let latest_job_id = latest_job_in_db
+        //     .map(|job| {
+        //         job.internal_id
+        //             .parse::<u64>()
+        //             .wrap_err_with(|| format!("Failed to parse job internal ID: {}", job.internal_id))
+        //     })
+        //     .unwrap_or(Ok(0))?;
+
+        // // To be used when testing in specific block range
+        // let block_start = if let Some(min_block_to_process) =
+        // config.service_config().min_block_to_process {     max(min_block_to_process,
+        // latest_job_id) } else {
+        //     latest_job_id
+        // };
+
+        // Get MADARA_ORCHESTRATOR_BLOCKS_TO_RUN_ON env variable, having comma separated block numbers
+        let blocks_to_run_on = std::env::var("MADARA_ORCHESTRATOR_BLOCKS_TO_RUN_ON");
+        let blocks_to_run_on = match blocks_to_run_on {
+            Ok(blocks) => blocks.split(',').map(|block| block.parse::<u64>().unwrap()).collect::<Vec<u64>>(),
+            Err(_) => vec![],
         };
 
-        tracing::debug!(latest_block_number = %latest_block_number, "Fetched latest block number from starknet");
-
-        let latest_job_in_db = config.database().get_latest_job_by_type(JobType::SnosRun).await?;
-
-        let latest_job_id = latest_job_in_db
-            .map(|job| {
-                job.internal_id
-                    .parse::<u64>()
-                    .wrap_err_with(|| format!("Failed to parse job internal ID: {}", job.internal_id))
-            })
-            .unwrap_or(Ok(0))?;
-
-        // To be used when testing in specific block range
-        let block_start = if let Some(min_block_to_process) = config.service_config().min_block_to_process {
-            max(min_block_to_process, latest_job_id)
+        if blocks_to_run_on.is_empty() {
+            tracing::debug!("No specific blocks to run on");
         } else {
-            latest_job_id
-        };
+            tracing::debug!(blocks_to_run_on = ?blocks_to_run_on, "Found specific blocks to run on");
+        }
 
-        for block_num in block_start..latest_block_number + 1 {
+        for block_num in blocks_to_run_on {
             match create_job(JobType::SnosRun, block_num.to_string(), HashMap::new(), config.clone()).await {
                 Ok(_) => tracing::info!(block_id = %block_num, "Successfully created new Snos job"),
                 Err(e) => {

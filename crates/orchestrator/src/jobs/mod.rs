@@ -203,6 +203,16 @@ pub async fn process_job(id: Uuid, config: Arc<Config>) -> Result<(), JobError> 
     let start = Instant::now();
     let job = get_job(id, config.clone()).await?;
     let internal_id = job.internal_id.clone();
+
+    let safe_to_proceed = safe_check(config.clone()).await?;
+    if !safe_to_proceed {
+        tracing::warn!("Jobs are currently being processed. Skipping processing");
+        add_job_to_process_queue(job.id, &job.job_type, config.clone())
+        .await
+        .map_err(|e| JobError::Other(OtherError(e)))?;
+        return Ok(());
+    }
+
     tracing::info!(log_type = "starting", category = "general", function_type = "process_job", block_no = %internal_id, "General process job started for block");
 
     tracing::Span::current().record("job", format!("{:?}", job.clone()));
@@ -578,6 +588,19 @@ async fn get_job(id: Uuid, config: Arc<Config>) -> Result<JobItem, JobError> {
         Some(job) => Ok(job),
         None => Err(JobError::JobNotFound { id }),
     }
+}
+
+// This function is used to check if any jobs are currently being processed,
+// if any Job is in 'LockedForProcessing' or 'PendingVerification' state, it returns false, else it
+// returns true. It returns a bool true if not jobs are being processed
+// It returns a bool false if jobs are currently under process.
+async fn safe_check(config: Arc<Config>) -> Result<bool, JobError> {
+    let jobs = config
+        .database()
+        .get_jobs_by_statuses(vec![JobStatus::LockedForProcessing, JobStatus::PendingVerification], None)
+        .await
+        .map_err(|e| JobError::Other(OtherError(e)))?;
+    if jobs.is_empty() { Ok(true) } else { Ok(false) }
 }
 
 pub fn increment_key_in_metadata(
