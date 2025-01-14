@@ -451,8 +451,7 @@ pub async fn verify_job(id: Uuid, config: Arc<Config>) -> Result<(), JobError> {
     tracing::Span::current().record("internal_id", job.internal_id.clone());
 
     match job.status {
-        // it's okay to retry the job if it's verificationTimeout, because we are just adding job again to the
-        // verification queue
+        // Jobs with `VerificationTimeout` will be retired manually after resetting verification attempt number to 0.
         JobStatus::PendingVerification | JobStatus::VerificationTimeout => {
             tracing::info!(job_id = ?id, status = ?job.status, "Proceeding with verification");
         }
@@ -865,27 +864,11 @@ pub fn get_u64_from_metadata(metadata: &HashMap<String, String>, key: &str) -> c
 pub async fn queue_job_for_processing(id: Uuid, config: Arc<Config>) -> Result<(), JobError> {
     let job = get_job(id, config.clone()).await?;
 
-    // Increment the process retry counter
-    let metadata = increment_key_in_metadata(&job.metadata, JOB_PROCESS_RETRY_ATTEMPT_METADATA_KEY)?;
-
-    tracing::debug!(
-        job_id = ?id,
-        retry_count = get_u64_from_metadata(&metadata, JOB_PROCESS_RETRY_ATTEMPT_METADATA_KEY)?,
-        "Incrementing process retry attempt counter"
-    );
-
-    // Update job status and metadata to indicate it's queued for processing
-    config
-        .database()
-        .update_job(
-            &job,
-            JobItemUpdates::new().update_status(JobStatus::PendingRetry).update_metadata(metadata).build(),
-        )
-        .await
-        .map_err(|e| JobError::Other(OtherError(e)))?;
-
-    // Add to process queue
-    add_job_to_process_queue(id, &job.job_type, config).await.map_err(|e| JobError::Other(OtherError(e)))?;
+    // Add to process queue directly
+    add_job_to_process_queue(id, &job.job_type, config).await.map_err(|e| {
+        tracing::error!(job_id = ?id, error = ?e, "Failed to add job to process queue");
+        JobError::Other(OtherError(e))
+    })?;
 
     Ok(())
 }
@@ -938,7 +921,10 @@ pub async fn queue_job_for_verification(id: Uuid, config: Arc<Config>) -> Result
         config,
     )
     .await
-    .map_err(|e| JobError::Other(OtherError(e)))?;
+    .map_err(|e| {
+        tracing::error!(job_id = ?id, error = ?e, "Failed to add job to verification queue");
+        JobError::Other(OtherError(e))
+    })?;
 
     Ok(())
 }

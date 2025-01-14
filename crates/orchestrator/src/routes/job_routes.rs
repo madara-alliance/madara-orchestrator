@@ -46,7 +46,7 @@ async fn handle_process_job_request(
             ORCHESTRATOR_METRICS
                 .successful_job_operations
                 .add(1.0, &[KeyValue::new("operation_type", "queue_process")]);
-            Ok(Json(ApiResponse::success()).into_response())
+            Ok(Json(ApiResponse::success(Some(format!("Job with id {} queued for processing", id)))).into_response())
         }
         Err(e) => {
             error!(error = %e, "Failed to queue job for processing");
@@ -86,7 +86,7 @@ async fn handle_verify_job_request(
         Ok(_) => {
             info!("Job queued for verification successfully");
             ORCHESTRATOR_METRICS.successful_job_operations.add(1.0, &[KeyValue::new("operation_type", "queue_verify")]);
-            Ok(Json(ApiResponse::success()).into_response())
+            Ok(Json(ApiResponse::success(Some(format!("Job with id {} queued for verification", id)))).into_response())
         }
         Err(e) => {
             error!(error = %e, "Failed to queue job for verification");
@@ -129,7 +129,7 @@ async fn handle_retry_job_request(
                 &[KeyValue::new("operation_type", "process_job"), KeyValue::new("operation_info", "retry_job")],
             );
 
-            Ok(Json(ApiResponse::success()).into_response())
+            Ok(Json(ApiResponse::success(Some(format!("Job with id {} retry initiated", id)))).into_response())
         }
         Err(e) => {
             error!(error = %e, "Failed to retry job");

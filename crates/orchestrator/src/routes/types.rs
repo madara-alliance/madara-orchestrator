@@ -59,8 +59,8 @@ impl ApiResponse {
     /// let response = ApiResponse::success();
     /// assert_eq!(response.success, true);
     /// ```
-    pub fn success() -> Self {
-        Self { success: true, message: None }
+    pub fn success(message: Option<String>) -> Self {
+        Self { success: true, message }
     }
 
     /// Creates an error response with the specified message.

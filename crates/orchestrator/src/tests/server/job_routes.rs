@@ -77,12 +77,7 @@ async fn test_trigger_process_job(#[future] setup_trigger: (SocketAddr, Arc<Conf
     // Verify job status and metadata
     if let Some(job_fetched) = config.database().get_job_by_id(job_id).await.unwrap() {
         assert_eq!(job_fetched.id, job_item.id);
-        assert_eq!(job_fetched.status, JobStatus::PendingRetry);
-
-        // Verify process attempt counter was incremented
-        let process_attempts =
-            get_u64_from_metadata(&job_fetched.metadata, JOB_PROCESS_RETRY_ATTEMPT_METADATA_KEY).unwrap();
-        assert_eq!(process_attempts, 1);
+        assert_eq!(job_fetched.status, JobStatus::Created);
     } else {
         panic!("Could not get job from database")
     }
@@ -122,7 +117,6 @@ async fn test_trigger_verify_job(#[future] setup_trigger: (SocketAddr, Arc<Confi
 
     assert_eq!(response.status(), 200);
 
-    // Use longer sleep duration as seen in other tests
     tokio::time::sleep(Duration::from_secs(2)).await;
 
     // Verify job was added to verification queue
