@@ -40,7 +40,7 @@ pub struct JobId {
 /// assert_eq!(response.success, false);
 /// assert_eq!(response.message, Some("Invalid job ID".to_string()));
 /// ```
-#[derive(Serialize)]
+#[derive(Serialize, Deserialize)]
 pub struct ApiResponse {
     /// Indicates if the operation was successful
     pub success: bool,

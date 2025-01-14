@@ -24,6 +24,7 @@ use crate::jobs::types::{ExternalId, JobItem, JobStatus, JobType};
 use crate::jobs::{get_u64_from_metadata, Job, MockJob};
 use crate::queue::init_consumers;
 use crate::queue::job_queue::{JobQueueMessage, QueueNameForJobType};
+use crate::routes::types::ApiResponse;
 use crate::tests::config::{ConfigType, TestConfigBuilder};
 
 #[fixture]
@@ -66,8 +67,12 @@ async fn test_trigger_process_job(#[future] setup_trigger: (SocketAddr, Arc<Conf
         .await
         .unwrap();
 
-    // Verify response status
+    // Verify response status and message
     assert_eq!(response.status(), 200);
+    let body_bytes = hyper::body::to_bytes(response.into_body()).await.unwrap();
+    let response: ApiResponse = serde_json::from_slice(&body_bytes).unwrap();
+    assert!(response.success);
+    assert_eq!(response.message, Some(format!("Job with id {} queued for processing", job_id)));
 
     // Verify job was added to process queue
     let queue_message = config.queue().consume_message_from_queue(job_type.process_queue_name()).await.unwrap();
@@ -116,6 +121,10 @@ async fn test_trigger_verify_job(#[future] setup_trigger: (SocketAddr, Arc<Confi
         .unwrap();
 
     assert_eq!(response.status(), 200);
+    let body_bytes = hyper::body::to_bytes(response.into_body()).await.unwrap();
+    let response: ApiResponse = serde_json::from_slice(&body_bytes).unwrap();
+    assert!(response.success);
+    assert_eq!(response.message, Some(format!("Job with id {} queued for verification", job_id)));
 
     tokio::time::sleep(Duration::from_secs(2)).await;
 
@@ -154,7 +163,12 @@ async fn test_trigger_retry_job_when_failed(#[future] setup_trigger: (SocketAddr
         .request(Request::builder().uri(format!("http://{}/jobs/{}/retry", addr, job_id)).body(Body::empty()).unwrap())
         .await
         .unwrap();
+
     assert_eq!(response.status(), 200);
+    let body_bytes = hyper::body::to_bytes(response.into_body()).await.unwrap();
+    let response: ApiResponse = serde_json::from_slice(&body_bytes).unwrap();
+    assert!(response.success);
+    assert_eq!(response.message, Some(format!("Job with id {} retry initiated", job_id)));
 
     // Verify job was added to process queue
     let queue_message = config.queue().consume_message_from_queue(job_type.process_queue_name()).await.unwrap();
