@@ -208,8 +208,8 @@ pub async fn process_job(id: Uuid, config: Arc<Config>) -> Result<(), JobError> 
     if !safe_to_proceed {
         tracing::warn!("Jobs are currently being processed. Skipping processing");
         add_job_to_process_queue(job.id, &job.job_type, config.clone())
-        .await
-        .map_err(|e| JobError::Other(OtherError(e)))?;
+            .await
+            .map_err(|e| JobError::Other(OtherError(e)))?;
         return Ok(());
     }
 
@@ -590,14 +590,20 @@ async fn get_job(id: Uuid, config: Arc<Config>) -> Result<JobItem, JobError> {
     }
 }
 
-// This function is used to check if any jobs are currently being processed,
-// if any Job is in 'LockedForProcessing' or 'PendingVerification' state, it returns false, else it
-// returns true. It returns a bool true if not jobs are being processed
+// This function is used to check if any jobs are currently being processed by this orchestrator
+// pod, if any Job is in 'LockedForProcessing' or 'PendingVerification' state, it returns false,
+// else it returns true. It returns a bool true if not jobs are being processed
 // It returns a bool false if jobs are currently under process.
 async fn safe_check(config: Arc<Config>) -> Result<bool, JobError> {
+    let pod_id = get_env_var_or_panic("MADARA_ORCHESTRATOR_UNIQUE_ID");
+
     let jobs = config
         .database()
-        .get_jobs_by_statuses(vec![JobStatus::LockedForProcessing, JobStatus::PendingVerification], None)
+        .get_jobs_by_statuses_and_orchestrator_id(
+            vec![JobStatus::LockedForProcessing, JobStatus::PendingVerification],
+            pod_id,
+            None,
+        )
         .await
         .map_err(|e| JobError::Other(OtherError(e)))?;
     if jobs.is_empty() { Ok(true) } else { Ok(false) }

@@ -49,4 +49,11 @@ pub trait Database: Send + Sync {
 
     // TODO: can be extendible to support multiple status.
     async fn get_jobs_by_statuses(&self, status: Vec<JobStatus>, limit: Option<i64>) -> Result<Vec<JobItem>>;
+
+    async fn get_jobs_by_statuses_and_orchestrator_id(
+        &self,
+        status: Vec<JobStatus>,
+        orchestrator_id: String,
+        limit: Option<i64>,
+    ) -> Result<Vec<JobItem>>;
 }
