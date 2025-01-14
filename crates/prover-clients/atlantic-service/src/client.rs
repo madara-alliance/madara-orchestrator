@@ -31,7 +31,7 @@ impl ProvingLayer for EthereumLayer {
 struct StarknetLayer;
 impl ProvingLayer for StarknetLayer {
     fn customize_request<'a>(&self, request: RequestBuilder<'a>) -> RequestBuilder<'a> {
-        request.path("v1").path("l2/submit-sharp-query/from-proof-generation-to-proof-verification")
+        request.path("v1").path("l2/atlantic-query/proof-generation-verification")
     }
 }
 
@@ -76,18 +76,15 @@ impl AtlanticClient {
         let response = self
             .proving_layer
             .customize_request(
-                self.client
-                    .request()
-                    .method(Method::POST)
-                    .query_param("apiKey", &atlantic_api_key)
-                    .form_file("pieFile", pie_file, "pie.zip")
-                    .form_text("layout", proof_layout),
+                self.client.request().method(Method::POST).query_param("apiKey", atlantic_api_key.as_ref()),
             )
+            .form_file("pieFile", pie_file, "pie.zip")
+            .form_text("layout", proof_layout)
             .send()
             .await
-            .map_err(AtlanticError::AddJobFailure)
-            .expect("Failed to add job");
+            .map_err(AtlanticError::AddJobFailure)?;
 
+        tracing::info!(">>>>>>> response: {:?}", response);
         if response.status().is_success() {
             response.json().await.map_err(AtlanticError::AddJobFailure)
         } else {

@@ -62,7 +62,7 @@ pub fn generate_merkle_root(program_output: &[Felt252], fact_topology: &FactTopo
     let mut node_stack: Vec<FactNode> = Vec::with_capacity(page_sizes.len());
     let mut output_iter = program_output.iter();
 
-    tracing::debug!(
+    tracing::info!(
         log_type = "FactNode",
         category = "generate_merkle_root",
         function_type = "generate_merkle_root",
@@ -70,7 +70,7 @@ pub fn generate_merkle_root(program_output: &[Felt252], fact_topology: &FactTopo
         tree_structure.len()
     );
     for (n_pages, n_nodes) in tree_structure.into_iter().tuples() {
-        tracing::trace!(
+        tracing::info!(
             log_type = "FactNode",
             category = "generate_merkle_root",
             function_type = "generate_merkle_root",
@@ -158,12 +158,13 @@ pub fn generate_merkle_root(program_output: &[Felt252], fact_topology: &FactTopo
     );
 
     let root = node_stack.remove(0);
+
     tracing::info!(
         log_type = "FactNode",
         category = "generate_merkle_root",
         function_type = "generate_merkle_root",
         "Successfully generated Merkle root with hash: {:?}",
-        root.node_hash
+        root
     );
     Ok(root)
 }

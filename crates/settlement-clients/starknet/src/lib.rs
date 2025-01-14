@@ -95,7 +95,7 @@ lazy_static! {
     // https://github.com/keep-starknet-strange/piltover
     // It should get added to match the solidity implementation of the core contract.
     pub static ref CONTRACT_READ_STATE_BLOCK_NUMBER: Felt =
-        get_selector_from_name("stateBlockNumber").expect("Invalid update state selector");
+        get_selector_from_name("get_state").expect("Invalid update state selector");
 }
 
 // TODO: Note that we already have an implementation of the appchain core contract client available
@@ -133,6 +133,7 @@ impl SettlementClient for StarknetSettlementClient {
         let program_output = slice_slice_u8_to_vec_field(program_output.as_slice());
         let onchain_data_hash = slice_u8_to_field(&onchain_data_hash);
         let core_contract: &CoreContract = self.starknet_core_contract_client.as_ref();
+        
         let invoke_result = core_contract
             .update_state(
                 snos_output,
@@ -253,11 +254,12 @@ impl SettlementClient for StarknetSettlementClient {
                 BlockId::Tag(BlockTag::Latest),
             )
             .await?;
+        tracing::info!(">>>>>>>>>>> get state response: {:?} <<<<<<<<<<<<", block_number);
         if block_number.is_empty() {
             return Err(eyre!("Could not fetch last block number from core contract."));
         }
 
-        Ok(u64_from_felt(block_number[0]).expect("Failed to convert to u64"))
+        Ok(u64_from_felt(block_number[1]).expect("Failed to convert to u64"))
     }
 
     /// Returns the nonce for the wallet in use.

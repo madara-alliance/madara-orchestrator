@@ -151,6 +151,7 @@ impl SharpProverService {
         let fact_checker = FactChecker::new(
             sharp_params.sharp_rpc_node_url.clone(),
             sharp_params.gps_verifier_contract_address.clone(),
+            "starknet".to_string(),
         );
         Self::new(sharp_client, fact_checker)
     }
@@ -163,6 +164,7 @@ impl SharpProverService {
         let fact_checker = FactChecker::new(
             sharp_params.sharp_rpc_node_url.clone(),
             sharp_params.gps_verifier_contract_address.clone(),
+            "starknet".to_string(),
         );
         Self::new(sharp_client, fact_checker)
     }

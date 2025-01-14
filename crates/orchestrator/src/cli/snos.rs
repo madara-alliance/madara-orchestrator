@@ -4,6 +4,7 @@ use url::Url;
 #[derive(Debug, Clone, Args)]
 #[group(requires_all = ["rpc_for_snos"])]
 pub struct SNOSCliArgs {
+    #[arg(env = "MADARA_ORCHESTRATOR_SNOS_FULL_OUTPUT", long)]
     pub snos_full_output: bool,
 
     /// The RPC URL for SNOS.

@@ -98,6 +98,7 @@ impl AtlanticProverService {
         let fact_checker = FactChecker::new(
             atlantic_params.atlantic_rpc_node_url.clone(),
             atlantic_params.atlantic_verifier_contract_address.clone(),
+            atlantic_params.atlantic_settlement_layer.clone(),
         );
 
         Self::new(atlantic_client, fact_checker, atlantic_params.atlantic_api_key.clone())
@@ -109,6 +110,7 @@ impl AtlanticProverService {
         let fact_checker = FactChecker::new(
             atlantic_params.atlantic_rpc_node_url.clone(),
             atlantic_params.atlantic_verifier_contract_address.clone(),
+            atlantic_params.atlantic_settlement_layer.clone(),
         );
         Self::new(atlantic_client, fact_checker, "random_api_key".to_string())
     }

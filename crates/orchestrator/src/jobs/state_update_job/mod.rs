@@ -321,6 +321,7 @@ impl StateUpdateJob {
         //      We send the transaction using `update_state_calldata`
         // And in case of KZG flag == 1 :
         //      We send the transaction using `update_state_with_blobs
+
         let last_tx_hash_executed = if snos.use_kzg_da == Felt252::ZERO {
             let program_output = self.fetch_program_output_for_block(block_no, config.clone()).await;
             let onchain_data = self.fetch_onchain_data_for_block(block_no, config.clone()).await;
