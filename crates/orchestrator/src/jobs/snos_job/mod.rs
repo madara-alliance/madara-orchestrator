@@ -105,22 +105,25 @@ impl Job for SnosJob {
 
         let snos_url = config.snos_config().rpc_for_snos.to_string();
         let snos_url = snos_url.trim_end_matches('/');
+
         tracing::debug!(job_id = %job.internal_id, "Calling prove_block function");
-        let (cairo_pie, snos_output) =
-            prove_block(COMPILED_OS, block_number, snos_url, LayoutName::all_cairo, false).await.map_err(|e| {
-                tracing::error!(job_id = %job.internal_id, error = %e, "SNOS execution failed");
-                SnosError::SnosExecutionError { internal_id: job.internal_id.clone(), message: e.to_string() }
-            })?;
-        tracing::debug!(job_id = %job.internal_id, "prove_block function completed successfully");
+        let fact = {
+            let (cairo_pie, snos_output) =
+                prove_block(COMPILED_OS, block_number, snos_url, LayoutName::all_cairo, false).await.map_err(|e| {
+                    tracing::error!(job_id = %job.internal_id, error = %e, "SNOS execution failed");
+                    SnosError::SnosExecutionError { internal_id: job.internal_id.clone(), message: e.to_string() }
+                })?;
+            tracing::debug!(job_id = %job.internal_id, "prove_block function completed successfully");
 
-        let fact_info = get_fact_info(&cairo_pie, None)?;
-        let program_output = fact_info.program_output;
-        tracing::debug!(job_id = %job.internal_id, "Fact info calculated successfully");
+            let info = get_fact_info(&cairo_pie, None)?;
+            tracing::debug!(job_id = %job.internal_id, "Fact info calculated successfully");
+            tracing::debug!(job_id = %job.internal_id, "Storing SNOS outputs");
+            self.store(config.storage(), &job.internal_id, block_number, cairo_pie, snos_output, info.program_output)
+                .await?;
+            info.fact.clone().to_string()
+        };
 
-        tracing::debug!(job_id = %job.internal_id, "Storing SNOS outputs");
-        self.store(config.storage(), &job.internal_id, block_number, cairo_pie, snos_output, program_output).await?;
-
-        job.metadata.insert(JOB_METADATA_SNOS_FACT.into(), fact_info.fact.to_string());
+        job.metadata.insert(JOB_METADATA_SNOS_FACT.into(), fact);
         tracing::info!(log_type = "completed", category = "snos", function_type = "process_job", job_id = ?job.id,  block_no = %internal_id, "SNOS job processed successfully.");
 
         Ok(block_number.to_string())
@@ -179,32 +182,40 @@ impl SnosJob {
         snos_output: StarknetOsOutput,
         program_output: Vec<Felt252>,
     ) -> Result<(), SnosError> {
+        // Process and store cairo_pie first, then drop it
         let cairo_pie_key = format!("{block_number}/{CAIRO_PIE_FILE_NAME}");
-        let cairo_pie_zip_bytes = self.cairo_pie_to_zip_bytes(cairo_pie).await.map_err(|e| {
-            SnosError::CairoPieUnserializable { internal_id: internal_id.to_string(), message: e.to_string() }
-        })?;
-        data_storage.put_data(cairo_pie_zip_bytes, &cairo_pie_key).await.map_err(|e| {
-            SnosError::CairoPieUnstorable { internal_id: internal_id.to_string(), message: e.to_string() }
-        })?;
+        {
+            let cairo_pie_zip_bytes = self.cairo_pie_to_zip_bytes(cairo_pie).await.map_err(|e| {
+                SnosError::CairoPieUnserializable { internal_id: internal_id.to_string(), message: e.to_string() }
+            })?;
+            data_storage.put_data(cairo_pie_zip_bytes, &cairo_pie_key).await.map_err(|e| {
+                SnosError::CairoPieUnstorable { internal_id: internal_id.to_string(), message: e.to_string() }
+            })?;
+        } // cairo_pie_zip_bytes is dropped here
 
+        // Process and store snos_output
         let snos_output_key = format!("{block_number}/{SNOS_OUTPUT_FILE_NAME}");
-        let snos_output_json = serde_json::to_vec(&snos_output).map_err(|e| SnosError::SnosOutputUnserializable {
-            internal_id: internal_id.to_string(),
-            message: e.to_string(),
-        })?;
-        data_storage.put_data(snos_output_json.into(), &snos_output_key).await.map_err(|e| {
-            SnosError::SnosOutputUnstorable { internal_id: internal_id.to_string(), message: e.to_string() }
-        })?;
+        {
+            let snos_output_json = serde_json::to_vec(&snos_output).map_err(|e| {
+                SnosError::SnosOutputUnserializable { internal_id: internal_id.to_string(), message: e.to_string() }
+            })?;
+            data_storage.put_data(snos_output_json.into(), &snos_output_key).await.map_err(|e| {
+                SnosError::SnosOutputUnstorable { internal_id: internal_id.to_string(), message: e.to_string() }
+            })?;
+        }
 
-        let program_output: Vec<[u8; 32]> = program_output.iter().map(|f| f.to_bytes_be()).collect();
-        let encoded_data = bincode::serialize(&program_output).map_err(|e| SnosError::ProgramOutputUnserializable {
-            internal_id: internal_id.to_string(),
-            message: e.to_string(),
-        })?;
+        // Process and store program_output in chunks if needed
         let program_output_key = format!("{block_number}/{PROGRAM_OUTPUT_FILE_NAME}");
-        data_storage.put_data(encoded_data.into(), &program_output_key).await.map_err(|e| {
-            SnosError::ProgramOutputUnstorable { internal_id: internal_id.to_string(), message: e.to_string() }
-        })?;
+        {
+            // Consider processing in chunks if program_output is very large
+            let program_output: Vec<[u8; 32]> = program_output.iter().map(|f| f.to_bytes_be()).collect();
+            let encoded_data = bincode::serialize(&program_output).map_err(|e| {
+                SnosError::ProgramOutputUnserializable { internal_id: internal_id.to_string(), message: e.to_string() }
+            })?;
+            data_storage.put_data(encoded_data.into(), &program_output_key).await.map_err(|e| {
+                SnosError::ProgramOutputUnstorable { internal_id: internal_id.to_string(), message: e.to_string() }
+            })?;
+        }
 
         Ok(())
     }
@@ -213,15 +224,33 @@ impl SnosJob {
     async fn cairo_pie_to_zip_bytes(&self, cairo_pie: CairoPie) -> Result<Bytes> {
         let mut cairo_pie_zipfile = NamedTempFile::new()?;
         cairo_pie.write_zip_file(cairo_pie_zipfile.path())?;
-        let cairo_pie_zip_bytes = self.tempfile_to_bytes(&mut cairo_pie_zipfile)?;
+        drop(cairo_pie); // Drop cairo_pie to release the memory
+        let cairo_pie_zip_bytes = self.tempfile_to_bytes_streaming(&mut cairo_pie_zipfile).await?;
         cairo_pie_zipfile.close()?;
         Ok(cairo_pie_zip_bytes)
     }
 
     /// Converts a [NamedTempFile] to [Bytes].
-    fn tempfile_to_bytes(&self, tmp_file: &mut NamedTempFile) -> Result<Bytes> {
-        let mut buffer = Vec::new();
-        tmp_file.as_file_mut().read_to_end(&mut buffer)?;
+    /// This function reads the file in chunks and appends them to the buffer.
+    /// This is useful when the file is too large to be read in one go.
+    async fn tempfile_to_bytes_streaming(&self, tmp_file: &mut NamedTempFile) -> Result<Bytes> {
+        use tokio::io::AsyncReadExt;
+
+        let file_size = tmp_file.as_file().metadata()?.len() as usize;
+        let mut buffer = Vec::with_capacity(file_size);
+
+        const CHUNK_SIZE: usize = 8192; // 8KB chunks
+        let mut chunk = vec![0; CHUNK_SIZE];
+
+        let mut file = tokio::fs::File::from_std(tmp_file.as_file().try_clone()?);
+
+        while let Ok(n) = file.read(&mut chunk).await {
+            if n == 0 {
+                break;
+            }
+            buffer.extend_from_slice(&chunk[..n]);
+        }
+
         Ok(Bytes::from(buffer))
     }
 }
