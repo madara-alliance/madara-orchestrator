@@ -93,18 +93,18 @@ async fn test_prove() -> color_eyre::Result<()> {
     println!("Using endpoint: {}", endpoint);
 
     for block_number in blocks_to_run_on {
-        println!("Running on block: {}", block_number);
+        println!("{} : Running on block: {}", chrono::Utc::now(), block_number);
         let result = process_job_helper(block_number, endpoint.as_str()).await;
         assert!(result.is_ok());
-        println!("Finished block: {}", block_number);
-        sleep(Duration::from_secs(130));
+        println!("{} : Finished block: {}", chrono::Utc::now(), block_number);
+        sleep(Duration::from_secs(120));
     }
 
     ColorOk(())
 }
 
 async fn process_job_helper(block_number: u64, snos_url: &str) -> color_eyre::Result<String> {
-    let (cairo_pie, snos_output) = prove_block(COMPILED_OS, block_number, snos_url, LayoutName::all_cairo, false)
+    let (cairo_pie, _snos_output) = prove_block(COMPILED_OS, block_number, snos_url, LayoutName::all_cairo, false)
         .await
         .map_err(|e| SnosError::SnosExecutionError { internal_id: block_number.to_string(), message: e.to_string() })?;
     cairo_pie.run_validity_checks().expect("Valid SNOS PIE");
