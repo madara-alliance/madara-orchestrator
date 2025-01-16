@@ -1,3 +1,6 @@
+use std::thread::sleep;
+use std::time::Duration;
+
 use cairo_vm::types::layout_name::LayoutName;
 use clap::Parser as _;
 use color_eyre::eyre::Ok as ColorOk;
@@ -5,7 +8,6 @@ use dotenvy::dotenv;
 use orchestrator::cli::{Cli, Commands, RunCmd, SetupCmd};
 use orchestrator::config::init_config;
 use orchestrator::jobs::snos_job::SnosError;
-use orchestrator::jobs::JobError;
 use orchestrator::queue::init_consumers;
 use orchestrator::routes::setup_server;
 use orchestrator::setup::setup_cloud;
@@ -95,6 +97,7 @@ async fn test_prove() -> color_eyre::Result<()> {
         let result = process_job_helper(block_number, endpoint.as_str()).await;
         assert!(result.is_ok());
         println!("Finished block: {}", block_number);
+        sleep(Duration::from_secs(130));
     }
 
     ColorOk(())
@@ -106,5 +109,6 @@ async fn process_job_helper(block_number: u64, snos_url: &str) -> color_eyre::Re
         .map_err(|e| SnosError::SnosExecutionError { internal_id: block_number.to_string(), message: e.to_string() })?;
     cairo_pie.run_validity_checks().expect("Valid SNOS PIE");
     println!("SNOS Output Came for block: {}", block_number);
+
     ColorOk(block_number.to_string())
 }
