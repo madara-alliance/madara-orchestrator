@@ -1,11 +1,17 @@
+use cairo_vm::types::layout_name::LayoutName;
 use clap::Parser as _;
+use color_eyre::eyre::Ok as ColorOk;
 use dotenvy::dotenv;
 use orchestrator::cli::{Cli, Commands, RunCmd, SetupCmd};
 use orchestrator::config::init_config;
+use orchestrator::jobs::snos_job::SnosError;
+use orchestrator::jobs::JobError;
 use orchestrator::queue::init_consumers;
 use orchestrator::routes::setup_server;
 use orchestrator::setup::setup_cloud;
 use orchestrator::telemetry::{setup_analytics, shutdown_analytics};
+use prove_block::prove_block;
+use utils::env_utils::get_env_var_or_default;
 
 /// Start the server
 #[tokio::main]
@@ -23,6 +29,9 @@ async fn main() {
         }
         Commands::Setup { setup_command } => {
             setup_orchestrator(setup_command).await.expect("Failed to setup orchestrator");
+        }
+        Commands::Test {} => {
+            test_prove().await.expect("Failed to run test_prove");
         }
     }
 }
@@ -65,4 +74,37 @@ async fn run_orchestrator(run_cmd: &RunCmd) -> color_eyre::Result<()> {
 async fn setup_orchestrator(setup_cmd: &SetupCmd) -> color_eyre::Result<()> {
     setup_cloud(setup_cmd).await.expect("Failed to setup cloud");
     Ok(())
+}
+
+pub const COMPILED_OS: &[u8] = include_bytes!("../../../build/os_latest.json");
+
+async fn test_prove() -> color_eyre::Result<()> {
+    dotenv().ok();
+    println!("Running prove block test");
+    let endpoint = get_env_var_or_default("MADARA_ORCHESTRATOR_RPC_FOR_SNOS", "http://localhost:9545");
+    let blocks_to_run_on = get_env_var_or_default("MADARA_ORCHESTRATOR_BLOCKS_TO_RUN_ON", "48,49")
+        .split(',')
+        .map(|x| x.parse::<u64>().expect("Failed to parse block number"))
+        .collect::<Vec<u64>>();
+
+    println!("Running on blocks: {:?}", blocks_to_run_on);
+    println!("Using endpoint: {}", endpoint);
+
+    for block_number in blocks_to_run_on {
+        println!("Running on block: {}", block_number);
+        let result = process_job_helper(block_number, endpoint.as_str()).await;
+        assert!(result.is_ok());
+        println!("Finished block: {}", block_number);
+    }
+
+    ColorOk(())
+}
+
+async fn process_job_helper(block_number: u64, snos_url: &str) -> color_eyre::Result<String> {
+    let (cairo_pie, snos_output) = prove_block(COMPILED_OS, block_number, snos_url, LayoutName::all_cairo, false)
+        .await
+        .map_err(|e| SnosError::SnosExecutionError { internal_id: block_number.to_string(), message: e.to_string() })?;
+    cairo_pie.run_validity_checks().expect("Valid SNOS PIE");
+    println!("SNOS Output Came for block: {}", block_number);
+    ColorOk(block_number.to_string())
 }

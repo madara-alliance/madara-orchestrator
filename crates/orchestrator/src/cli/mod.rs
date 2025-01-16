@@ -49,6 +49,7 @@ pub enum Commands {
         #[command(flatten)]
         setup_command: Box<SetupCmd>,
     },
+    Test {},
 }
 
 #[derive(Parser, Debug)]
