@@ -105,7 +105,7 @@ async fn test_prove() -> color_eyre::Result<()> {
         let result = process_job_helper(block_number, endpoint.as_str()).await;
         assert!(result.is_ok());
         println!("{} : Finished block: {}", chrono::Utc::now(), block_number);
-        sleep(Duration::from_secs(120));
+        sleep(Duration::from_secs(10));
     }
 
     ColorOk(())

@@ -1,5 +1,4 @@
 # Ignore target directory
-target/
 
 # Ignore version control files
 .gitignore
@@ -23,7 +22,6 @@ tests/
 docs/
 
 # Ignore Rust-specific files
-Cargo.lock
 
 # Ignore any temporary files
 *.tmp
