@@ -16,7 +16,8 @@ use crate::jobs::constants::{
 use crate::jobs::job_handler_factory::mock_factory;
 use crate::jobs::types::{ExternalId, JobItem, JobStatus, JobType, JobVerificationStatus};
 use crate::jobs::{
-    create_job, handle_job_failure, increment_key_in_metadata, process_job, verify_job, Job, JobError, MockJob,
+    create_job, handle_job_failure, increment_key_in_metadata, process_job, retry_job, verify_job, Job, JobError,
+    MockJob,
 };
 use crate::queue::job_queue::QueueNameForJobType;
 use crate::queue::QueueType;
@@ -758,4 +759,73 @@ async fn handle_job_failure_job_status_completed_works(#[case] job_type: JobType
         services.config.database().get_job_by_id(job_id).await.expect("Unable to fetch Job Data").unwrap();
 
     assert_eq!(job_fetched, job_expected);
+}
+
+#[rstest]
+#[tokio::test]
+async fn test_retry_job_adds_to_process_queue() {
+    let services = TestConfigBuilder::new()
+        .configure_database(ConfigType::Actual)
+        .configure_queue_client(ConfigType::Actual)
+        .build()
+        .await;
+
+    // Create a failed job
+    let job_item = build_job_item(JobType::DataSubmission, JobStatus::Failed, 1);
+    services.config.database().create_job(job_item.clone()).await.unwrap();
+    let job_id = job_item.id;
+
+    // Retry the job
+    assert!(retry_job(job_id, services.config.clone()).await.is_ok());
+
+    // Verify job status was updated to PendingRetry
+    let updated_job = services.config.database().get_job_by_id(job_id).await.unwrap().unwrap();
+    assert_eq!(updated_job.status, JobStatus::PendingRetry);
+
+    // Wait for message to be processed
+    tokio::time::sleep(Duration::from_secs(5)).await;
+
+    // Verify message was added to process queue
+    let consumed_messages =
+        services.config.queue().consume_message_from_queue(job_item.job_type.process_queue_name()).await.unwrap();
+
+    let consumed_message_payload: MessagePayloadType = consumed_messages.payload_serde_json().unwrap().unwrap();
+    assert_eq!(consumed_message_payload.id, job_id);
+}
+
+#[rstest]
+#[case::pending_verification(JobStatus::PendingVerification)]
+#[case::completed(JobStatus::Completed)]
+#[case::created(JobStatus::Created)]
+#[tokio::test]
+async fn test_retry_job_invalid_status(#[case] initial_status: JobStatus) {
+    let services = TestConfigBuilder::new()
+        .configure_database(ConfigType::Actual)
+        .configure_queue_client(ConfigType::Actual)
+        .build()
+        .await;
+
+    // Create a job with non-Failed status
+    let job_item = build_job_item(JobType::DataSubmission, initial_status.clone(), 1);
+    services.config.database().create_job(job_item.clone()).await.unwrap();
+    let job_id = job_item.id;
+
+    // Attempt to retry the job
+    let result = retry_job(job_id, services.config.clone()).await;
+    assert!(result.is_err());
+
+    if let Err(error) = result {
+        assert_matches!(error, JobError::InvalidStatus { .. });
+    }
+
+    // Verify job status was not changed
+    let job = services.config.database().get_job_by_id(job_id).await.unwrap().unwrap();
+    assert_eq!(job.status, initial_status);
+
+    // Wait briefly to ensure no messages were added
+    tokio::time::sleep(Duration::from_secs(5)).await;
+
+    // Verify no message was added to process queue
+    let queue_result = services.config.queue().consume_message_from_queue(job_item.job_type.process_queue_name()).await;
+    assert_matches!(queue_result, Err(QueueError::NoData));
 }
