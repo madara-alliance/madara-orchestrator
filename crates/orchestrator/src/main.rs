@@ -6,14 +6,16 @@ use clap::Parser as _;
 use color_eyre::eyre::Ok as ColorOk;
 use dotenvy::dotenv;
 use orchestrator::cli::{instrumentation, Cli, Commands, RunCmd, SetupCmd};
-use orchestrator::config::init_config;
+use orchestrator::config::{self, init_config};
 use orchestrator::jobs::snos_job::SnosError;
+use orchestrator::jobs::{process_job, JobError};
 use orchestrator::queue::init_consumers;
 use orchestrator::routes::setup_server;
 use orchestrator::setup::setup_cloud;
 use orchestrator::telemetry::{setup_analytics, shutdown_analytics};
 use prove_block::prove_block;
 use utils::env_utils::get_env_var_or_default;
+use uuid::Uuid;
 
 /// Start the server
 #[tokio::main]
@@ -34,6 +36,9 @@ async fn main() {
         }
         Commands::Test {} => {
             test_prove().await.expect("Failed to run test_prove");
+        }
+        Commands::TestProve { run_command } => {
+            test_prove_job(run_command).await.expect("Failed to run test_prove");
         }
     }
 }
@@ -119,4 +124,26 @@ async fn process_job_helper(block_number: u64, snos_url: &str) -> color_eyre::Re
     println!("SNOS Output Came for block: {}", block_number);
 
     ColorOk(block_number.to_string())
+}
+
+async fn test_prove_job(run_cmd: &RunCmd) -> color_eyre::Result<String> {
+    dotenv().ok();
+
+    let instrumentation_params = orchestrator::telemetry::InstrumentationParams {
+        otel_collector_endpoint: None,
+        otel_service_name: "test_service".to_string(),
+    };
+    let _meter_provider = setup_analytics(&instrumentation_params);
+    tracing::info!(service = "orchestrator", "Starting orchestrator service");
+
+    let config = init_config(run_cmd).await.expect("Config instantiation failed");
+    tracing::debug!(service = "orchestrator", "Configuration initialized");
+
+    let id = get_env_var_or_default("MADARA_ORCHESTRATOR_JOB_ID_TO_RUN", "7d767068-fc59-4f7e-a2ae-f8251482e6c5");
+
+    let job_id = Uuid::parse_str(&id).expect("Failed to parse job id");
+
+    process_job(job_id, config).await?;
+
+    ColorOk(job_id.to_string())
 }

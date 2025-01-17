@@ -50,6 +50,10 @@ pub enum Commands {
         setup_command: Box<SetupCmd>,
     },
     Test {},
+    TestProve {
+        #[command(flatten)]
+        run_command: Box<RunCmd>,
+    },
 }
 
 #[derive(Parser, Debug)]
