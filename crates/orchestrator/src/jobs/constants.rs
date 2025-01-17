@@ -10,3 +10,4 @@ pub const JOB_METADATA_FAILURE_REASON: &str = "failure_reason";
 pub const JOB_METADATA_ERROR: &str = "error";
 pub const JOB_METADATA_PROCESSING_COMPLETED_AT: &str = "processing_completed_at";
 pub const JOB_METADATA_ORCHESTRATOR_UNIQUE_ID: &str = "orchestrator_unique_id";
+pub const JOB_METADATA_PROCESS_JOB_START_TIME: &str = "process_job_started_at";

@@ -9,7 +9,7 @@ use chrono::Utc;
 use color_eyre::eyre::{eyre, Context};
 use constants::{
     JOB_METADATA_ERROR, JOB_METADATA_FAILURE_REASON, JOB_METADATA_ORCHESTRATOR_UNIQUE_ID,
-    JOB_METADATA_PROCESSING_COMPLETED_AT,
+    JOB_METADATA_PROCESSING_COMPLETED_AT, JOB_METADATA_PROCESS_JOB_START_TIME,
 };
 use conversion::parse_string;
 use da_job::DaError;
@@ -240,6 +240,7 @@ pub async fn process_job(id: Uuid, config: Arc<Config>) -> Result<(), JobError> 
     let mut metadata_new = job.metadata.clone();
     metadata_new
         .insert(JOB_METADATA_ORCHESTRATOR_UNIQUE_ID.to_string(), get_env_var_or_panic("MADARA_ORCHESTRATOR_UNIQUE_ID"));
+    metadata_new.insert(JOB_METADATA_PROCESS_JOB_START_TIME.to_string(), Utc::now().timestamp_millis().to_string());
 
     // this updates the version of the job. this ensures that if another thread was about to process
     // the same job, it would fail to update the job in the database because the version would be

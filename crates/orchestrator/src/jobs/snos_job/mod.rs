@@ -118,8 +118,8 @@ impl Job for SnosJob {
             let info = get_fact_info(&cairo_pie, None)?;
             tracing::debug!(job_id = %job.internal_id, "Fact info calculated successfully");
             tracing::debug!(job_id = %job.internal_id, "Storing SNOS outputs");
-            self.store(config.storage(), &job.internal_id, block_number, cairo_pie, snos_output, info.program_output)
-                .await?;
+            // self.store(config.storage(), &job.internal_id, block_number, cairo_pie, snos_output,
+            // info.program_output) .await?;
             info.fact.clone().to_string()
         };
 
