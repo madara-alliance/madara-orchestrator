@@ -25,3 +25,30 @@ pub fn get_env_var_optional(key: &str) -> Result<Option<String>, VarError> {
 pub fn get_env_car_optional_or_panic(key: &str) -> Option<String> {
     get_env_var_optional(key).unwrap_or_else(|e| panic!("Failed to get env var {}: {}", key, e))
 }
+
+use std::process;
+
+use sysinfo::{PidExt, ProcessExt, System, SystemExt};
+
+pub fn print_process_stats(state: &str) {
+    // Initialize the system information collector
+    let mut sys = System::new_all();
+    sys.refresh_all();
+
+    // Get current process ID
+    let pid = process::id();
+
+    // Find our process in the system processes
+    if let Some(process) = sys.process(sysinfo::Pid::from_u32(pid)) {
+        // Memory in GB (converting from bytes)
+        let memory_gb = process.memory() as f64 / 1024.0 / 1024.0 / 1024.0;
+
+        // CPU usage as percentage
+        let cpu_usage = process.cpu_usage();
+
+        println!("{} Memory Usage: {:.2} GB", state, memory_gb);
+        println!("{} CPU Usage: {:.1}%", state, cpu_usage);
+    } else {
+        println!("Could not find process information");
+    }
+}

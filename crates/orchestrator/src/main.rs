@@ -14,7 +14,7 @@ use orchestrator::routes::setup_server;
 use orchestrator::setup::setup_cloud;
 use orchestrator::telemetry::{setup_analytics, shutdown_analytics};
 use prove_block::prove_block;
-use utils::env_utils::get_env_var_or_default;
+use utils::env_utils::{get_env_car_optional_or_panic, get_env_var_or_default, print_process_stats};
 use uuid::Uuid;
 
 /// Start the server
@@ -26,6 +26,8 @@ async fn main() {
     dotenv().ok();
 
     let cli = Cli::parse();
+
+    print_process_stats("Main #1");
 
     match &cli.command {
         Commands::Run { run_command } => {
@@ -129,21 +131,34 @@ async fn process_job_helper(block_number: u64, snos_url: &str) -> color_eyre::Re
 async fn test_prove_job(run_cmd: &RunCmd) -> color_eyre::Result<String> {
     dotenv().ok();
 
+    print_process_stats("test_prove_job #1");
+
     let instrumentation_params = orchestrator::telemetry::InstrumentationParams {
         otel_collector_endpoint: None,
         otel_service_name: "test_service".to_string(),
     };
+
+    print_process_stats("test_prove_job #2");
     let _meter_provider = setup_analytics(&instrumentation_params);
     tracing::info!(service = "orchestrator", "Starting orchestrator service");
 
     let config = init_config(run_cmd).await.expect("Config instantiation failed");
     tracing::debug!(service = "orchestrator", "Configuration initialized");
 
-    let id = get_env_var_or_default("MADARA_ORCHESTRATOR_JOB_ID_TO_RUN", "7d767068-fc59-4f7e-a2ae-f8251482e6c5");
+    print_process_stats("test_prove_job #3");
+    let ids = get_env_car_optional_or_panic("MADARA_ORCHESTRATOR_JOB_IDS_TO_RUN").unwrap();
+    let job_ids = ids.split(',').collect::<Vec<&str>>();
 
-    let job_id = Uuid::parse_str(&id).expect("Failed to parse job id");
+    println!("Running on job ids: {:?}", job_ids);
 
-    process_job(job_id, config).await?;
+    print_process_stats("test_prove_job #3");
+    for id in job_ids {
+        print_process_stats("test_prove_job #4");
+        let job_id = Uuid::parse_str(&id).expect("Failed to parse job id");
+        process_job(job_id, config.clone()).await?;
+        sleep(Duration::from_secs(10));
+    }
 
-    ColorOk(job_id.to_string())
+    print_process_stats("test_prove_job #5");
+    ColorOk(ids.to_string())
 }

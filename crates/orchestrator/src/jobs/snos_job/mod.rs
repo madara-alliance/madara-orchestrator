@@ -13,6 +13,7 @@ use prove_block::prove_block;
 use starknet_os::io::output::StarknetOsOutput;
 use tempfile::NamedTempFile;
 use thiserror::Error;
+use utils::env_utils::print_process_stats;
 use uuid::Uuid;
 
 use super::constants::{JOB_METADATA_SNOS_BLOCK, JOB_METADATA_SNOS_FACT};
@@ -98,6 +99,7 @@ impl Job for SnosJob {
 
     #[tracing::instrument(fields(category = "snos"), skip(self, config), ret, err)]
     async fn process_job(&self, config: Arc<Config>, job: &mut JobItem) -> Result<String, JobError> {
+        print_process_stats("snos_process_job #1");
         let internal_id = job.internal_id.clone();
         tracing::info!(log_type = "starting", category = "snos", function_type = "process_job", job_id = ?job.id,  block_no = %internal_id, "SNOS job processing started.");
         let block_number = self.get_block_number_from_metadata(job)?;
@@ -106,13 +108,16 @@ impl Job for SnosJob {
         let snos_url = config.snos_config().rpc_for_snos.to_string();
         let snos_url = snos_url.trim_end_matches('/');
 
+        print_process_stats("snos_process_job #2");
         tracing::debug!(job_id = %job.internal_id, "Calling prove_block function");
         let fact = {
+            print_process_stats("snos_process_job #3");
             let (cairo_pie, snos_output) =
                 prove_block(COMPILED_OS, block_number, snos_url, LayoutName::all_cairo, false).await.map_err(|e| {
                     tracing::error!(job_id = %job.internal_id, error = %e, "SNOS execution failed");
                     SnosError::SnosExecutionError { internal_id: job.internal_id.clone(), message: e.to_string() }
                 })?;
+            print_process_stats("snos_process_job #4");
             tracing::debug!(job_id = %job.internal_id, "prove_block function completed successfully");
 
             let info = get_fact_info(&cairo_pie, None)?;
@@ -120,9 +125,11 @@ impl Job for SnosJob {
             tracing::debug!(job_id = %job.internal_id, "Storing SNOS outputs");
             // self.store(config.storage(), &job.internal_id, block_number, cairo_pie, snos_output,
             // info.program_output)     .await?;
+            print_process_stats("snos_process_job #5");
             info.fact.clone().to_string()
         };
 
+        print_process_stats("snos_process_job #6");
         job.metadata.insert(JOB_METADATA_SNOS_FACT.into(), fact);
         tracing::info!(log_type = "completed", category = "snos", function_type = "process_job", job_id = ?job.id,  block_no = %internal_id, "SNOS job processed successfully.");
 
