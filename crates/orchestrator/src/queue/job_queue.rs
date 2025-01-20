@@ -10,6 +10,7 @@ use serde::{Deserialize, Deserializer, Serialize};
 use strum::Display;
 use thiserror::Error;
 use tokio::time::sleep;
+use utils::env_utils::print_process_stats;
 use uuid::Uuid;
 
 use super::QueueType;
@@ -367,6 +368,7 @@ macro_rules! spawn_consumer {
 }
 
 pub async fn init_consumers(config: Arc<Config>) -> Result<(), JobError> {
+    print_process_stats("job_queue::init_consumers #1");
     spawn_consumer!(QueueType::SnosJobProcessing, process_job, consume_job_from_queue, config.clone());
     spawn_consumer!(QueueType::SnosJobVerification, verify_job, consume_job_from_queue, config.clone());
 
@@ -382,6 +384,7 @@ pub async fn init_consumers(config: Arc<Config>) -> Result<(), JobError> {
     spawn_consumer!(QueueType::JobHandleFailure, handle_job_failure, consume_job_from_queue, config.clone());
 
     spawn_consumer!(QueueType::WorkerTrigger, spawn_worker, consume_worker_trigger_messages_from_queue, config);
+    print_process_stats("job_queue::init_consumers #2");
     Ok(())
 }
 

@@ -79,7 +79,7 @@ pub fn print_process_stats(state: &str) {
             if virtual_memory > 0 { (virtual_memory - physical_memory) as f64 / virtual_memory as f64 } else { 0.0 };
 
         println!("Memory Statistics: {}", state);
-        // println!("{} Memory Usage: {:.2} GB", state, memory_gb);
+        println!("{} Memory Usage: {:.2} GB", state, memory_gb);
         println!("CPU Usage: {:.1}%", cpu_usage);
         // println!("Virtual Memory: {} bytes", virtual_memory);
         println!("Physical Memory: {} bytes", physical_memory);

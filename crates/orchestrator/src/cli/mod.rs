@@ -50,7 +50,7 @@ pub enum Commands {
         setup_command: Box<SetupCmd>,
     },
     Test {},
-    TestProve {
+    TestProcess {
         #[command(flatten)]
         run_command: Box<RunCmd>,
     },

@@ -32,6 +32,7 @@ async fn main() {
     match &cli.command {
         Commands::Run { run_command } => {
             run_orchestrator(run_command).await.expect("Failed to run orchestrator");
+            print_process_stats("Main #2");
         }
         Commands::Setup { setup_command } => {
             setup_orchestrator(setup_command).await.expect("Failed to setup orchestrator");
@@ -39,7 +40,7 @@ async fn main() {
         Commands::Test {} => {
             test_prove().await.expect("Failed to run test_prove");
         }
-        Commands::TestProve { run_command } => {
+        Commands::TestProcess { run_command } => {
             test_process_job(run_command).await.expect("Failed to run test_prove");
         }
     }
@@ -47,9 +48,11 @@ async fn main() {
 
 async fn run_orchestrator(run_cmd: &RunCmd) -> color_eyre::Result<()> {
     // Analytics Setup
-    let instrumentation_params = run_cmd.validate_instrumentation_params().expect("Invalid instrumentation params");
-    let meter_provider = setup_analytics(&instrumentation_params);
+    let instrumentation_params = run_cmd.validate_instrumentation_params().expect("Invalid
+    instrumentation params"); let meter_provider = setup_analytics(&instrumentation_params);
     tracing::info!(service = "orchestrator", "Starting orchestrator service");
+
+    print_process_stats("run_orchestrator #1");
 
     color_eyre::install().expect("Unable to install color_eyre");
 
@@ -59,6 +62,8 @@ async fn run_orchestrator(run_cmd: &RunCmd) -> color_eyre::Result<()> {
 
     // initialize the server
     let _ = setup_server(config.clone()).await;
+
+    print_process_stats("run_orchestrator #2");
 
     tracing::debug!(service = "orchestrator", "Application router initialized");
 
@@ -70,6 +75,8 @@ async fn run_orchestrator(run_cmd: &RunCmd) -> color_eyre::Result<()> {
             panic!("Failed to init consumers: {}", e);
         }
     }
+
+    print_process_stats("run_orchestrator #3");
 
     tokio::signal::ctrl_c().await.expect("Failed to listen for ctrl+c");
 
