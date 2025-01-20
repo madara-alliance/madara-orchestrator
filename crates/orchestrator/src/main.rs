@@ -40,7 +40,7 @@ async fn main() {
             test_prove().await.expect("Failed to run test_prove");
         }
         Commands::TestProve { run_command } => {
-            test_prove_job(run_command).await.expect("Failed to run test_prove");
+            test_process_job(run_command).await.expect("Failed to run test_prove");
         }
     }
 }
@@ -128,37 +128,37 @@ async fn process_job_helper(block_number: u64, snos_url: &str) -> color_eyre::Re
     ColorOk(block_number.to_string())
 }
 
-async fn test_prove_job(run_cmd: &RunCmd) -> color_eyre::Result<String> {
+async fn test_process_job(run_cmd: &RunCmd) -> color_eyre::Result<String> {
     dotenv().ok();
 
-    print_process_stats("test_prove_job #1");
+    print_process_stats("test_process_job #1");
 
     let instrumentation_params = orchestrator::telemetry::InstrumentationParams {
         otel_collector_endpoint: None,
         otel_service_name: "test_service".to_string(),
     };
 
-    print_process_stats("test_prove_job #2");
+    print_process_stats("test_process_job #2");
     let _meter_provider = setup_analytics(&instrumentation_params);
     tracing::info!(service = "orchestrator", "Starting orchestrator service");
 
     let config = init_config(run_cmd).await.expect("Config instantiation failed");
     tracing::debug!(service = "orchestrator", "Configuration initialized");
 
-    print_process_stats("test_prove_job #3");
+    print_process_stats("test_process_job #3");
     let ids = get_env_car_optional_or_panic("MADARA_ORCHESTRATOR_JOB_IDS_TO_RUN").unwrap();
     let job_ids = ids.split(',').collect::<Vec<&str>>();
 
     println!("Running on job ids: {:?}", job_ids);
 
-    print_process_stats("test_prove_job #3");
+    print_process_stats("test_process_job #3");
     for id in job_ids {
-        print_process_stats("test_prove_job #4");
+        print_process_stats("test_process_job #4");
         let job_id = Uuid::parse_str(&id).expect("Failed to parse job id");
         process_job(job_id, config.clone()).await?;
-        sleep(Duration::from_secs(10));
+        sleep(Duration::from_secs(120));
     }
 
-    print_process_stats("test_prove_job #5");
+    print_process_stats("test_process_job #5");
     ColorOk(ids.to_string())
 }
