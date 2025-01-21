@@ -99,6 +99,16 @@ lazy_static! {
             visibility_timeout: 300,
             dlq_config: Some(DlqConfig { max_receive_count: 5, dlq_name: QueueType::JobHandleFailure })
         },
+        QueueConfig {
+            name: QueueType::ProofRegistrationJobProcessing,
+            visibility_timeout: 900,
+            dlq_config: Some(DlqConfig { max_receive_count: 5, dlq_name: QueueType::JobHandleFailure })
+        },
+        QueueConfig {
+            name: QueueType::ProofRegistrationJobVerification,
+            visibility_timeout: 300,
+            dlq_config: Some(DlqConfig { max_receive_count: 5, dlq_name: QueueType::JobHandleFailure })
+        },
         QueueConfig { name: QueueType::WorkerTrigger, visibility_timeout: 300, dlq_config: None },
     ];
 }

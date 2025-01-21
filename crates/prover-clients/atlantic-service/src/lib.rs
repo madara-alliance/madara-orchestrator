@@ -10,6 +10,9 @@ use gps_fact_checker::FactChecker;
 use prover_client_interface::{ProverClient, ProverClientError, Task, TaskStatus};
 use tempfile::NamedTempFile;
 use url::Url;
+use swiftness_proof_parser::{parse, StarkProof};
+use std::fs::File;
+use std::io::Write;
 
 use crate::client::AtlanticClient;
 use crate::types::AtlanticQueryStatus;
@@ -83,6 +86,54 @@ impl ProverClient for AtlanticProverService {
                 Ok(TaskStatus::Failed("Task failed while processing on Atlantic side".to_string()))
             }
         }
+    }
+
+    async fn get_proof(&self, task_id: &str, _fact: &str) -> Result<String, ProverClientError> {
+        let proof_path = format!(
+            "https://atlantic-queries.s3.nl-ams.scw.cloud/sharp_queries/query_{}/proof.json",
+            task_id
+        );
+        let client = reqwest::Client::new();
+        let response = client
+            .get(&proof_path)
+            .send()
+            .await
+            .map_err(|e| ProverClientError::NetworkError(e.to_string()))?;
+        let response_text = response
+            .text()
+            .await
+            .map_err(|e| ProverClientError::NetworkError(e.to_string()))?;
+        
+        // Verify if it's a valid proof format
+        let _: StarkProof = parse(response_text.clone())
+            .map_err(|e| ProverClientError::InvalidProofFormat(e.to_string()))?;
+
+        // save the proof to a file
+        let mut file = File::create("proof1.json").unwrap();
+        file.write_all(response_text.as_bytes()).unwrap();
+        Ok(response_text)
+    }
+
+    async fn submit_l2_query(&self, task_id: &str, proof: &str) -> Result<String, ProverClientError> {
+        tracing::info!(
+            log_type = "starting",
+            category = "submit_l2_query",
+            function_type = "proof",
+            "Submitting L2 query."
+        );
+
+        let atlantic_job_response = self.atlantic_client
+            .submit_l2_query(task_id, proof, &self.atlantic_api_key.clone())
+            .await?;
+
+        tracing::info!(
+            log_type = "completed",
+            category = "submit_l2_query",
+            function_type = "proof",
+            "L2 query submitted."
+        );
+
+        Ok(atlantic_job_response.atlantic_query_id)
     }
 }
 

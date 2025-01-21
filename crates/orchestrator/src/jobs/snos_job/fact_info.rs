@@ -75,6 +75,7 @@ pub fn get_fact_l2(cairo_pie: &CairoPie, program_hash: Option<Felt>) -> color_ey
                 .to_bytes_be(),
         ),
     };
+    
     let program_output = get_program_output(cairo_pie)?;
     let boot_loader_output: BootLoaderOutput = BootLoaderOutput {
         one_felt: Felt::ONE,

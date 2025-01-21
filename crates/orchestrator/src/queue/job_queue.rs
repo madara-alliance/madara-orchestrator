@@ -371,6 +371,9 @@ pub async fn init_consumers(config: Arc<Config>) -> Result<(), JobError> {
     spawn_consumer!(QueueType::UpdateStateJobProcessing, process_job, consume_job_from_queue, config.clone());
     spawn_consumer!(QueueType::UpdateStateJobVerification, verify_job, consume_job_from_queue, config.clone());
 
+    spawn_consumer!(QueueType::ProofRegistrationJobProcessing, process_job, consume_job_from_queue, config.clone());
+    spawn_consumer!(QueueType::ProofRegistrationJobVerification, verify_job, consume_job_from_queue, config.clone());
+
     spawn_consumer!(QueueType::JobHandleFailure, handle_job_failure, consume_job_from_queue, config.clone());
 
     spawn_consumer!(QueueType::WorkerTrigger, spawn_worker, consume_worker_trigger_messages_from_queue, config);

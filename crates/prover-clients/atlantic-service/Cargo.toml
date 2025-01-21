@@ -33,6 +33,9 @@ url.workspace = true
 utils.workspace = true
 uuid.workspace = true
 
+swiftness_proof_parser.workspace = true
+
+
 #Instrumentation
 opentelemetry = { workspace = true, features = ["metrics", "logs"] }
 opentelemetry-appender-tracing = { workspace = true, default-features = false }

@@ -9,6 +9,7 @@ lazy_static! {
     pub static ref WORKER_TRIGGERS: Vec<WorkerTriggerType> = vec![
         WorkerTriggerType::Snos,
         WorkerTriggerType::Proving,
+        WorkerTriggerType::ProofRegistration,
         WorkerTriggerType::DataSubmission,
         WorkerTriggerType::UpdateState
     ];

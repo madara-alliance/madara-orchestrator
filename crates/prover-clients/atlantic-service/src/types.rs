@@ -20,16 +20,18 @@ pub struct AtlanticGetStatusResponse {
 #[serde(rename_all = "camelCase")]
 pub struct AtlanticQuery {
     pub id: String,
+    pub external_id: String,
     pub submitted_by_client: String,
     pub status: AtlanticQueryStatus,
     pub step: Option<AtlanticQueryStep>,
     pub program_hash: Option<String>,
     pub layout: Option<String>,
     pub program_fact_hash: Option<String>,
-    pub is_fact_mocked: bool,
-    pub prover: String,
-    pub chain: String,
     pub price: String,
+    pub trace_credits_used: u64,
+    pub is_fact_mocked: Option<bool>,
+    pub chain: Option<String>,
+    pub prover: String,
     pub steps: Vec<AtlanticQueryStep>,
 }
 
@@ -44,7 +46,9 @@ pub enum AtlanticQueryStatus {
 #[derive(Debug, Clone, Deserialize)]
 #[serde(rename_all = "SCREAMING_SNAKE_CASE")]
 pub enum AtlanticQueryStep {
+    TraceGeneration,
     ProofGeneration,
     FactHashGeneration,
     FactHashRegistration,
+    ProofVerification,
 }

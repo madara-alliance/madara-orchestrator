@@ -19,12 +19,14 @@ use super::constants::{
 };
 use super::{JobError, OtherError};
 use crate::config::Config;
-use crate::constants::{ON_CHAIN_DATA_FILE_NAME, PROGRAM_OUTPUT_FILE_NAME, SNOS_OUTPUT_FILE_NAME};
+use crate::constants::{ON_CHAIN_DATA_FILE_NAME, PROGRAM_OUTPUT_FILE_NAME, SNOS_OUTPUT_FILE_NAME, PROOF_FILE_NAME, PROOF_PART2_FILE_NAME};
 use crate::jobs::constants::JOB_METADATA_STATE_UPDATE_BLOCKS_TO_SETTLE_KEY;
 use crate::jobs::snos_job::fact_info::OnChainData;
 use crate::jobs::state_update_job::utils::fetch_blob_data_for_block;
 use crate::jobs::types::{JobItem, JobStatus, JobType, JobVerificationStatus};
 use crate::jobs::Job;
+use swiftness_proof_parser::{parse, StarkProof};
+use starknet::core::types::Felt;
 
 #[derive(Error, Debug, PartialEq)]
 pub enum StateUpdateError {
@@ -323,11 +325,53 @@ impl StateUpdateJob {
         //      We send the transaction using `update_state_with_blobs
 
         let last_tx_hash_executed = if snos.use_kzg_da == Felt252::ZERO {
-            let program_output = self.fetch_program_output_for_block(block_no, config.clone()).await;
+            let proof_key = format!("{block_no}/{PROOF_FILE_NAME}");
+        // tracing::debug!(job_id = %job.internal_id, %proof_key, "Fetching snos proof file");
+        
+        let proof_file = config.storage().get_data(&proof_key).await.map_err(|e| {
+            // tracing::error!(job_id = %job.internal_id, error = %e, "Failed to fetch proof file");
+            JobError::Other(OtherError(e))
+        })?;
+
+        let snos_proof = String::from_utf8(proof_file.to_vec()).map_err(|e| {
+            // tracing::error!(job_id = %job.internal_id, error = %e, "Failed to parse proof file as UTF-8");
+            JobError::Other(OtherError(eyre!("{}", e)))
+        })?;
+
+        let parsed_snos_proof: StarkProof = parse(snos_proof.clone())
+            .map_err(|e| {
+                // tracing::error!(job_id = %job.internal_id, error = %e, "Failed to parse proof file as UTF-8");
+                JobError::Other(OtherError(eyre!("{}", e)))
+            })?;
+
+            let proof_key = format!("{block_no}/{PROOF_PART2_FILE_NAME}");
+        // tracing::debug!(job_id = %job.internal_id, %proof_key, "Fetching 2nd proof file");
+        
+        let proof_file = config.storage().get_data(&proof_key).await.map_err(|e| {
+            // tracing::error!(job_id = %job.internal_id, error = %e, "Failed to fetch 2nd proof file");
+            JobError::Other(OtherError(e))
+        })?;
+
+        let second_proof = String::from_utf8(proof_file.to_vec()).map_err(|e| {
+            // tracing::error!(job_id = %job.internal_id, error = %e, "Failed to parse proof file as UTF-8");
+            JobError::Other(OtherError(eyre!("{}", e)))
+        })?;
+
+        let parsed_bridge_proof: StarkProof = parse(second_proof.clone())
+            .map_err(|e| {
+                // tracing::error!(job_id = %job.internal_id, error = %e, "Failed to parse proof file as UTF-8");
+                JobError::Other(OtherError(eyre!("{}", e)))
+            })?;
+
+            let snos_output = vec_felt_to_vec_bytes32(calculate_output(parsed_snos_proof));
+            let program_output = vec_felt_to_vec_bytes32(calculate_output(parsed_bridge_proof));
+
+
+            // let program_output = self.fetch_program_output_for_block(block_no, config.clone()).await;
             let onchain_data = self.fetch_onchain_data_for_block(block_no, config.clone()).await;
             settlement_client
                 .update_state_calldata(
-                    convert_snos_output_into_bytes_vec(snos),
+                    snos_output,
                     program_output,
                     onchain_data.on_chain_data_hash.0,
                     usize_to_bytes(onchain_data.on_chain_data_size),
@@ -388,6 +432,33 @@ impl StateUpdateJob {
         let new_attempt_metadata_key = format!("{}{}", JOB_METADATA_STATE_UPDATE_ATTEMPT_PREFIX, attempt_no);
         job.metadata.insert(new_attempt_metadata_key, tx_hashes.join(","));
     }
+}
+
+pub fn calculate_output(proof: StarkProof) -> Vec<Felt> {
+    let output_segment = proof.public_input.segments[2].clone();
+    let output_len = output_segment.stop_ptr - output_segment.begin_addr;
+    let start = proof.public_input.main_page.len() - output_len as usize;
+    let end = proof.public_input.main_page.len();
+    let program_output = proof.public_input.main_page[start..end]
+        .iter()
+        .map(|cell| cell.value.clone())
+        .collect::<Vec<_>>();
+    let mut felts = vec![];
+    for elem in &program_output {
+        felts.push(Felt::from_dec_str(&elem.to_string()).unwrap());
+    }
+    felts
+}
+
+pub fn vec_felt_to_vec_bytes32(felts: Vec<Felt>) -> Vec<[u8; 32]> {
+    felts
+        .into_iter()
+        .map(|felt| {
+            let mut bytes = [0u8; 32];
+            bytes.copy_from_slice(&felt.to_bytes_be());
+            bytes
+        })
+        .collect()
 }
 
 fn convert_snos_output_into_bytes_vec(snos: StarknetOsOutput) -> Vec<[u8; 32]> {

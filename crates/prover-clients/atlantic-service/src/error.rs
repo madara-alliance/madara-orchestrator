@@ -4,10 +4,12 @@ use reqwest::StatusCode;
 
 #[derive(Debug, thiserror::Error)]
 pub enum AtlanticError {
-    #[error("Failed to to add Atlantic job: {0}")]
-    AddJobFailure(#[source] reqwest::Error),
+        #[error("Failed to to add Atlantic job: {0}")]
+        AddJobFailure(#[source] reqwest::Error),
     #[error("Failed to to get status of a Atlantic job: {0}")]
     GetJobStatusFailure(#[source] reqwest::Error),
+    #[error("Failed to submit L2 query: {0}")]
+    SubmitL2QueryFailure(#[source] reqwest::Error),
     #[error("Atlantic service returned an error {0}")]
     SharpService(StatusCode),
     #[error("Failed to parse job key: {0}")]

@@ -8,7 +8,7 @@ pub mod factory {
     use mockall::automock;
 
     use crate::jobs::types::JobType;
-    use crate::jobs::{da_job, proving_job, snos_job, state_update_job, Job};
+    use crate::jobs::{da_job, proving_job, register_proof_job, snos_job, state_update_job, Job};
 
     /// To get the job handler
     //         +-------------------+
@@ -56,6 +56,7 @@ pub mod factory {
         let job: Box<dyn Job> = match job_type {
             JobType::DataSubmission => Box::new(da_job::DaJob),
             JobType::SnosRun => Box::new(snos_job::SnosJob),
+            JobType::ProofRegistration => Box::new(register_proof_job::RegisterProofJob),
             JobType::ProofCreation => Box::new(proving_job::ProvingJob),
             JobType::StateTransition => Box::new(state_update_job::StateUpdateJob),
             _ => unimplemented!("Job type not implemented yet."),

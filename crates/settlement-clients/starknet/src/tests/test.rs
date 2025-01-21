@@ -171,9 +171,11 @@ async fn test_settle(#[future] setup: (LocalWalletSignerMiddleware, MadaraCmd)) 
     let settlement_client = StarknetSettlementClient::new_with_args(&starknet_settlement_params).await;
     let onchain_data_hash = [1; 32];
     let mut program_output = Vec::with_capacity(32);
+    let mut snos_output = Vec::with_capacity(32);
     program_output.fill(onchain_data_hash);
+    snos_output.fill(onchain_data_hash);
     let update_state_tx_hash = settlement_client
-        .update_state_calldata(program_output, onchain_data_hash, [1; 32])
+        .update_state_calldata(snos_output, program_output, onchain_data_hash, [1; 32])
         .await
         .expect("Sending Update state");
 
@@ -212,4 +214,74 @@ async fn test_get_nonce_works(#[future] setup: (LocalWalletSignerMiddleware, Mad
         Err(e) => tracing::error!("Error getting nonce: {:?}", e),
     }
     assert!(nonce.is_ok(), "Failed to get nonce");
+}
+
+use color_eyre::Result;
+use settlement_client_interface::{SettlementVerificationStatus};
+
+
+#[rstest]
+#[tokio::test]
+async fn test_update_state_calldata() -> Result<()> {
+    // Create settlement client configuration using the running Madara instance
+    let starknet_settlement_params = StarknetSettlementValidatedArgs {
+        starknet_rpc_url: Url::parse("https://starknet-sepolia.g.alchemy.com/v2/gbyYKt74AtTbRcgTSFP45xXuFUFdTH3D").expect("Invalid URL"),
+        // These values should match your running Madara instance configuration
+        starknet_private_key: "0x041072ab6356e28dcbd2ab0b3b5534e46a9406243250d8601ae06b96ae682820".to_string(), // Replace with actual test private key
+        starknet_account_address: "0x068d686c69596839803cbf60ce2f8a2368d3ba3e66a20c00b11ddfb6ada810fb".to_string(),
+        starknet_cairo_core_contract_address: "0x1efeb838a88f57ea8ea7e9d4b89ff5e238e18d0ddac7d733509ea6e1432dd76".to_string(),
+        starknet_finality_retry_wait_in_secs: 10,
+    };
+
+    // Initialize the settlement client
+    let settlement_client = StarknetSettlementClient::new_with_args(&starknet_settlement_params).await;
+
+    // Prepare test data
+    let snos_output = vec![[1u8; 32]];
+    let program_output = vec![[2u8; 32]];
+    let onchain_data_hash = [3u8; 32];
+    let onchain_data_size = [4u8; 32];
+
+    // Call update_state_calldata
+    let tx_hash = settlement_client
+        .update_state_calldata(snos_output, program_output, onchain_data_hash, onchain_data_size)
+        .await?;
+
+    println!("Transaction hash: {}", tx_hash);
+
+    // Wait for transaction to be included
+    let mut verification_status = SettlementVerificationStatus::Pending;
+    let mut attempts = 0;
+    const MAX_ATTEMPTS: u32 = 10;
+
+    while verification_status == SettlementVerificationStatus::Pending && attempts < MAX_ATTEMPTS {
+        verification_status = settlement_client.verify_tx_inclusion(&tx_hash).await?;
+        if verification_status == SettlementVerificationStatus::Pending {
+            tokio::time::sleep(tokio::time::Duration::from_secs(1)).await;
+            attempts += 1;
+        }
+    }
+
+    // Verify the transaction was successful
+    match verification_status {
+        SettlementVerificationStatus::Verified => {
+            println!("Transaction verified successfully!");
+            
+            // Wait for finality and get block number
+            let block_number = settlement_client.wait_for_tx_finality(&tx_hash).await?;
+            println!("Transaction included in block: {:?}", block_number);
+
+            // Verify state was updated
+            let last_settled_block = settlement_client.get_last_settled_block().await?;
+            println!("Last settled block: {}", last_settled_block);
+
+            Ok(())
+        }
+        SettlementVerificationStatus::Rejected(reason) => {
+            Err(color_eyre::eyre::eyre!("Transaction was rejected: {}", reason))
+        }
+        SettlementVerificationStatus::Pending => {
+            Err(color_eyre::eyre::eyre!("Transaction verification timed out"))
+        }
+    }
 }

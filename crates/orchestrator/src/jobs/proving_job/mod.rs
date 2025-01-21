@@ -8,11 +8,12 @@ use color_eyre::eyre::{eyre, WrapErr};
 use prover_client_interface::{Task, TaskStatus};
 use thiserror::Error;
 use uuid::Uuid;
+use bytes;
 
 use super::types::{JobItem, JobStatus, JobType, JobVerificationStatus};
 use super::{Job, JobError, OtherError};
 use crate::config::Config;
-use crate::constants::CAIRO_PIE_FILE_NAME;
+use crate::constants::{CAIRO_PIE_FILE_NAME, PROOF_FILE_NAME};
 use crate::jobs::constants::JOB_METADATA_SNOS_FACT;
 
 #[derive(Error, Debug, PartialEq)]
@@ -130,7 +131,19 @@ impl Job for ProvingJob {
             TaskStatus::Succeeded => {
                 // TODO: call isValid on the contract over here to cross-verify whether the proof was registered on
                 // chain or not
+                // let's store the proof in the s3 storage client
+                let fetched_proof = config.prover_client().get_proof(&task_id, fact).await
+                .wrap_err("Prover Client Error".to_string())
+                .map_err(|e| {
+                    tracing::error!(job_id = %job.internal_id, error = %e, "Failed to get task status from prover client");
+                    JobError::Other(OtherError(e))
+                })?;
 
+                let proof_key = format!("{internal_id}/{PROOF_FILE_NAME}");
+                config.storage().put_data(bytes::Bytes::from(fetched_proof.into_bytes()), &proof_key).await.map_err(|e| {
+                    tracing::error!(job_id = %job.internal_id, error = %e, "Failed to store proof in S3");
+                    JobError::Other(OtherError(e))
+                })?;
                 tracing::info!(log_type = "completed", category = "proving", function_type = "verify_job", job_id = ?job.id,  block_no = %internal_id,     "Proving job verification completed.");
                 Ok(JobVerificationStatus::Verified)
             }

@@ -21,6 +21,7 @@ use starknet::providers::jsonrpc::HttpTransport;
 use starknet::providers::{JsonRpcClient, Provider};
 use starknet::signers::{LocalWallet, SigningKey};
 use tokio::time::{sleep, Duration};
+use starknet::core::types::U256;
 
 use crate::conversion::{slice_slice_u8_to_vec_field, slice_u8_to_field, u64_from_felt};
 
@@ -56,27 +57,29 @@ impl StarknetSettlementClient {
         let provider: Arc<JsonRpcClient<HttpTransport>> =
             Arc::new(JsonRpcClient::new(HttpTransport::new(settlement_cfg.starknet_rpc_url.clone())));
 
-        let public_key = settlement_cfg.starknet_account_address.clone().to_string();
-        let signer_address = Felt::from_hex(&public_key).expect("invalid signer address");
+        let signer_address = Felt::from_hex(&settlement_cfg.starknet_account_address).expect("Invalid signer address");
 
-        // TODO: Very insecure way of building the signer. Needs to be adjusted.
-        let private_key = settlement_cfg.starknet_private_key.clone();
-        let signer = Felt::from_hex(&private_key).expect("Invalid private key");
-        let signer = LocalWallet::from(SigningKey::from_secret_scalar(signer));
+        let private_key = Felt::from_hex(&settlement_cfg.starknet_private_key).expect("Invalid private key");
+        let signing_key = SigningKey::from_secret_scalar(private_key);
+        let signer = LocalWallet::from(signing_key);
 
-        let core_contract_address = Felt::from_hex(&settlement_cfg.starknet_cairo_core_contract_address.to_string())
-            .expect("Invalid core contract address");
+        let core_contract_address = Felt::from_hex(&settlement_cfg.starknet_cairo_core_contract_address).expect("Invalid core contract address");
 
-        let account: Arc<SingleOwnerAccount<Arc<JsonRpcClient<HttpTransport>>, LocalWallet>> =
-            Arc::new(SingleOwnerAccount::new(
-                provider.clone(),
-                signer.clone(),
-                signer_address,
-                provider.chain_id().await.expect("Failed to get chain id"),
-                ExecutionEncoding::New,
-            ));
+        let chain_id = provider.chain_id().await.expect("Failed to get chain id");
 
-        let starknet_core_contract_client: StarknetCoreContractClient =
+        let mut account = SingleOwnerAccount::new(
+            provider.clone(),
+            signer,
+            signer_address,
+            chain_id,
+            ExecutionEncoding::New,
+        );
+
+        // Set block ID to Pending like in the reference implementation
+        account.set_block_id(BlockId::Tag(BlockTag::Pending));
+        let account = Arc::new(account);
+
+        let starknet_core_contract_client = 
             StarknetCoreContractClient::new(core_contract_address, account.clone());
 
         StarknetSettlementClient {
@@ -133,15 +136,26 @@ impl SettlementClient for StarknetSettlementClient {
         let program_output = slice_slice_u8_to_vec_field(program_output.as_slice());
         let onchain_data_hash = slice_u8_to_field(&onchain_data_hash);
         let core_contract: &CoreContract = self.starknet_core_contract_client.as_ref();
+
+        println!(">>>>>>>>>>> onchain_data_size: {:?}", onchain_data_size);
+        println!(">>>>>>>>>>> snos_output: {:?}", snos_output);
+        println!(">>>>>>>>>>> program_output: {:?}", program_output);
+        println!(">>>>>>>>>>> onchain_data_hash: {:?}", onchain_data_hash);
+        
+        let low = u128::from_be_bytes(onchain_data_size[16..32].try_into().unwrap());
+        let high = u128::from_be_bytes(onchain_data_size[0..16].try_into().unwrap());
+        let size = U256::from_words(low, high);
         
         let invoke_result = core_contract
             .update_state(
                 snos_output,
                 program_output,
                 onchain_data_hash,
-                Felt::from_bytes_be_slice(onchain_data_size.as_slice()),
+                size,
             )
-            .await?;
+            .await
+            .map_err(|e| eyre!("Failed to update state with calldata: {:?}", e))?;
+
         tracing::info!(
             log_type = "completed",
             category = "update_state",
@@ -153,6 +167,7 @@ impl SettlementClient for StarknetSettlementClient {
 
     /// Should verify the inclusion of a tx in the settlement layer
     async fn verify_tx_inclusion(&self, tx_hash: &str) -> Result<SettlementVerificationStatus> {
+        println!(" ############# inside the verify tx inclusion #############");
         tracing::info!(
             log_type = "starting",
             category = "verify_tx",
@@ -161,7 +176,10 @@ impl SettlementClient for StarknetSettlementClient {
             "Verifying tx inclusion."
         );
         let tx_hash = Felt::from_hex(tx_hash)?;
+        // sleep(Duration::from_secs(30)).await;
         let tx_receipt = self.account.provider().get_transaction_receipt(tx_hash).await?;
+
+        println!(" ################ tx receipt we got is: {:?} ##################", tx_receipt);
         let execution_result = tx_receipt.receipt.execution_result();
         let status = execution_result.status();
 
