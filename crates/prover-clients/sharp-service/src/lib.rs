@@ -63,7 +63,12 @@ impl ProverClient for SharpProverService {
     }
 
     #[tracing::instrument(skip(self), ret, err)]
-    async fn get_task_status(&self, job_key: &str, fact: &str) -> Result<TaskStatus, ProverClientError> {
+    async fn get_task_status(
+        &self,
+        job_key: &str,
+        fact: &str,
+        _cross_verify: bool,
+    ) -> Result<TaskStatus, ProverClientError> {
         tracing::info!(
             log_type = "starting",
             category = "get_task_status",

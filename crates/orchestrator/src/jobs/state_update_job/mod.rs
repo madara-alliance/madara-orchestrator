@@ -19,7 +19,7 @@ use super::constants::{
 };
 use super::{JobError, OtherError};
 use crate::config::Config;
-use crate::constants::{PROGRAM_OUTPUT_FILE_NAME, SNOS_OUTPUT_FILE_NAME};
+use crate::constants::{JOB_METADATA_PROGRAM_OUTPUT_PATH, JOB_METADATA_SNOS_OUTPUT_PATH};
 use crate::jobs::constants::JOB_METADATA_STATE_UPDATE_BLOCKS_TO_SETTLE_KEY;
 use crate::jobs::state_update_job::utils::fetch_blob_data_for_block;
 use crate::jobs::types::{JobItem, JobStatus, JobType, JobVerificationStatus};
@@ -128,12 +128,12 @@ impl Job for StateUpdateJob {
 
         let mut nonce = config.settlement_client().get_nonce().await.map_err(|e| JobError::Other(OtherError(e)))?;
         let mut sent_tx_hashes: Vec<String> = Vec::with_capacity(block_numbers.len());
-        for block_no in block_numbers.iter() {
+        for (i, block_no) in block_numbers.iter().enumerate() {
             tracing::debug!(job_id = %job.internal_id, block_no = %block_no, "Processing block");
 
-            let snos = self.fetch_snos_for_block(*block_no, config.clone()).await?;
+            let snos = self.fetch_snos_for_block(i, config.clone(), job).await?;
             let txn_hash = self
-                .update_state_for_block(config.clone(), *block_no, snos, nonce)
+                .update_state_for_block(config.clone(), *block_no, i, snos, nonce, job)
                 .await
                 .map_err(|e| {
                     tracing::error!(job_id = %job.internal_id, block_no = %block_no, error = %e, "Error updating state for block");
@@ -309,22 +309,21 @@ impl StateUpdateJob {
         &self,
         config: Arc<Config>,
         block_no: u64,
+        block_index: usize,
         snos: StarknetOsOutput,
         nonce: u64,
+        job: &JobItem,
     ) -> Result<String, JobError> {
         let settlement_client = config.settlement_client();
         let last_tx_hash_executed = if snos.use_kzg_da == Felt252::ZERO {
             unimplemented!("update_state_for_block not implemented as of now for calldata DA.")
         } else if snos.use_kzg_da == Felt252::ONE {
-            let blob_data = fetch_blob_data_for_block(block_no, config.clone())
+            let blob_data = fetch_blob_data_for_block(block_index, config.clone(), job)
                 .await
                 .map_err(|e| JobError::Other(OtherError(e)))?;
 
-            let program_output = self.fetch_program_output_for_block(block_no, config.clone()).await?;
+            let program_output = self.fetch_program_output_for_block(block_index, config.clone(), job).await?;
 
-            // TODO :
-            // Fetching nonce before the transaction is run
-            // Sending update_state transaction from the settlement client
             settlement_client
                 .update_state_with_blobs(program_output, blob_data, nonce)
                 .await
@@ -336,29 +335,59 @@ impl StateUpdateJob {
     }
 
     /// Retrieves the SNOS output for the corresponding block.
-    async fn fetch_snos_for_block(&self, block_no: u64, config: Arc<Config>) -> Result<StarknetOsOutput, JobError> {
+    async fn fetch_snos_for_block(
+        &self,
+        block_index: usize,
+        config: Arc<Config>,
+        job: &JobItem,
+    ) -> Result<StarknetOsOutput, JobError> {
         let storage_client = config.storage();
-        let key = block_no.to_string() + "/" + SNOS_OUTPUT_FILE_NAME;
 
-        let snos_output_bytes = storage_client.get_data(&key).await.map_err(|e| JobError::Other(OtherError(e)))?;
+        // Get the array of SNOS paths from metadata
+        let snos_paths: Vec<String> = serde_json::from_str(
+            job.metadata
+                .get(JOB_METADATA_SNOS_OUTPUT_PATH)
+                .ok_or_else(|| JobError::Other(OtherError(eyre!("SNOS output paths not found in metadata"))))?,
+        )
+        .map_err(|e| JobError::Other(OtherError(eyre!("Failed to parse SNOS paths from metadata: {}", e))))?;
+
+        // Get the path for this block
+        let path = snos_paths.get(block_index).ok_or_else(|| {
+            JobError::Other(OtherError(eyre!("SNOS output path not found for index {}", block_index)))
+        })?;
+
+        let snos_output_bytes = storage_client.get_data(path).await.map_err(|e| JobError::Other(OtherError(e)))?;
 
         serde_json::from_slice(snos_output_bytes.iter().as_slice()).map_err(|e| {
-            JobError::Other(OtherError(eyre!("Failed to deserialize SNOS output for block {}: {}", block_no, e)))
+            JobError::Other(OtherError(eyre!("Failed to deserialize SNOS output from path {}: {}", path, e)))
         })
     }
 
     async fn fetch_program_output_for_block(
         &self,
-        block_number: u64,
+        block_index: usize,
         config: Arc<Config>,
+        job: &JobItem,
     ) -> Result<Vec<[u8; 32]>, JobError> {
         let storage_client = config.storage();
-        let key = block_number.to_string() + "/" + PROGRAM_OUTPUT_FILE_NAME;
 
-        let program_output = storage_client.get_data(&key).await.map_err(|e| JobError::Other(OtherError(e)))?;
+        // Get the array of program output paths from metadata
+        let program_paths: Vec<String> = serde_json::from_str(
+            job.metadata
+                .get(JOB_METADATA_PROGRAM_OUTPUT_PATH)
+                .ok_or_else(|| JobError::Other(OtherError(eyre!("Program output paths not found in metadata"))))?,
+        )
+        .map_err(|e| JobError::Other(OtherError(eyre!("Failed to parse program paths from metadata: {}", e))))?;
+
+        // Get the path for this block
+        let path = program_paths.get(block_index).ok_or_else(|| {
+            JobError::Other(OtherError(eyre!("Program output path not found for index {}", block_index)))
+        })?;
+
+        let program_output = storage_client.get_data(path).await.map_err(|e| JobError::Other(OtherError(e)))?;
 
         bincode::deserialize(&program_output).map_err(|e| {
-            JobError::Other(OtherError(eyre!("Failed to deserialize program output for block {}: {}", block_number, e)))
+            JobError::Other(OtherError(eyre!("Failed to deserialize program output from path {}: {}", path, e)))
         })
     }
 

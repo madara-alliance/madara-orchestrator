@@ -67,16 +67,27 @@ impl ProverClient for AtlanticProverService {
     }
 
     #[tracing::instrument(skip(self))]
-    async fn get_task_status(&self, job_key: &str, fact: &str) -> Result<TaskStatus, ProverClientError> {
+    async fn get_task_status(
+        &self,
+        job_key: &str,
+        fact: &str,
+        cross_verify: bool,
+    ) -> Result<TaskStatus, ProverClientError> {
         let res = self.atlantic_client.get_job_status(job_key).await?;
         match res.atlantic_query.status {
             AtlanticQueryStatus::InProgress => Ok(TaskStatus::Processing),
             AtlanticQueryStatus::Done => {
                 let fact = B256::from_str(fact).map_err(|e| ProverClientError::FailedToConvertFact(e.to_string()))?;
-                if self.fact_checker.is_valid(&fact).await? {
-                    Ok(TaskStatus::Succeeded)
+                if cross_verify {
+                    tracing::debug!(fact = %hex::encode(fact), "Cross-verifying fact on chain");
+                    if self.fact_checker.is_valid(&fact).await? {
+                        Ok(TaskStatus::Succeeded)
+                    } else {
+                        Ok(TaskStatus::Failed(format!("Fact {} is not valid or not registered", hex::encode(fact))))
+                    }
                 } else {
-                    Ok(TaskStatus::Failed(format!("Fact {} is not valid or not registered", hex::encode(fact))))
+                    tracing::debug!(fact = %hex::encode(fact), "Skipping cross-verification as it's disabled");
+                    Ok(TaskStatus::Succeeded)
                 }
             }
             AtlanticQueryStatus::Failed => {

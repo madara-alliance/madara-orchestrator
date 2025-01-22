@@ -18,7 +18,10 @@ use uuid::Uuid;
 use super::constants::{JOB_METADATA_SNOS_BLOCK, JOB_METADATA_SNOS_FACT};
 use super::{JobError, OtherError};
 use crate::config::Config;
-use crate::constants::{CAIRO_PIE_FILE_NAME, PROGRAM_OUTPUT_FILE_NAME, SNOS_OUTPUT_FILE_NAME};
+use crate::constants::{
+    CAIRO_PIE_FILE_NAME, JOB_METADATA_CAIRO_PIE_PATH, JOB_METADATA_PROGRAM_OUTPUT_PATH, JOB_METADATA_SNOS_FULL_OUTPUT,
+    JOB_METADATA_SNOS_OUTPUT_PATH, PROGRAM_OUTPUT_FILE_NAME, SNOS_OUTPUT_FILE_NAME,
+};
 use crate::data_storage::DataStorage;
 use crate::jobs::snos_job::error::FactError;
 use crate::jobs::snos_job::fact_info::get_fact_info;
@@ -106,11 +109,25 @@ impl Job for SnosJob {
         let snos_url = config.snos_config().rpc_for_snos.to_string();
         let snos_url = snos_url.trim_end_matches('/');
         tracing::debug!(job_id = %job.internal_id, "Calling prove_block function");
+
+        let full_output = match job.metadata.get(JOB_METADATA_SNOS_FULL_OUTPUT) {
+            Some(value) => value == "true",
+            None => {
+                tracing::warn!(
+                    job_id = %job.internal_id,
+                    "SNOS full output configuration not found in metadata, defaulting to false"
+                );
+                false
+            }
+        };
+
         let (cairo_pie, snos_output) =
-            prove_block(COMPILED_OS, block_number, snos_url, LayoutName::all_cairo, false).await.map_err(|e| {
-                tracing::error!(job_id = %job.internal_id, error = %e, "SNOS execution failed");
-                SnosError::SnosExecutionError { internal_id: job.internal_id.clone(), message: e.to_string() }
-            })?;
+            prove_block(COMPILED_OS, block_number, snos_url, LayoutName::all_cairo, full_output).await.map_err(
+                |e| {
+                    tracing::error!(job_id = %job.internal_id, error = %e, "SNOS execution failed");
+                    SnosError::SnosExecutionError { internal_id: job.internal_id.clone(), message: e.to_string() }
+                },
+            )?;
         tracing::debug!(job_id = %job.internal_id, "prove_block function completed successfully");
 
         let fact_info = get_fact_info(&cairo_pie, None)?;
@@ -118,8 +135,13 @@ impl Job for SnosJob {
         tracing::debug!(job_id = %job.internal_id, "Fact info calculated successfully");
 
         tracing::debug!(job_id = %job.internal_id, "Storing SNOS outputs");
-        self.store(config.storage(), &job.internal_id, block_number, cairo_pie, snos_output, program_output).await?;
+        let (cairo_pie_path, snos_output_path, program_output_path) = self
+            .store(config.storage(), &job.internal_id, block_number, cairo_pie, snos_output, program_output)
+            .await?;
 
+        job.metadata.insert(JOB_METADATA_CAIRO_PIE_PATH.into(), cairo_pie_path);
+        job.metadata.insert(JOB_METADATA_SNOS_OUTPUT_PATH.into(), snos_output_path);
+        job.metadata.insert(JOB_METADATA_PROGRAM_OUTPUT_PATH.into(), program_output_path);
         job.metadata.insert(JOB_METADATA_SNOS_FACT.into(), fact_info.fact.to_string());
         tracing::info!(log_type = "completed", category = "snos", function_type = "process_job", job_id = ?job.id,  block_no = %internal_id, "SNOS job processed successfully.");
 
@@ -178,7 +200,7 @@ impl SnosJob {
         cairo_pie: CairoPie,
         snos_output: StarknetOsOutput,
         program_output: Vec<Felt252>,
-    ) -> Result<(), SnosError> {
+    ) -> Result<(String, String, String), SnosError> {
         let cairo_pie_key = format!("{block_number}/{CAIRO_PIE_FILE_NAME}");
         let cairo_pie_zip_bytes = self.cairo_pie_to_zip_bytes(cairo_pie).await.map_err(|e| {
             SnosError::CairoPieUnserializable { internal_id: internal_id.to_string(), message: e.to_string() }
@@ -196,17 +218,17 @@ impl SnosJob {
             SnosError::SnosOutputUnstorable { internal_id: internal_id.to_string(), message: e.to_string() }
         })?;
 
+        let program_output_key = format!("{block_number}/{PROGRAM_OUTPUT_FILE_NAME}");
         let program_output: Vec<[u8; 32]> = program_output.iter().map(|f| f.to_bytes_be()).collect();
         let encoded_data = bincode::serialize(&program_output).map_err(|e| SnosError::ProgramOutputUnserializable {
             internal_id: internal_id.to_string(),
             message: e.to_string(),
         })?;
-        let program_output_key = format!("{block_number}/{PROGRAM_OUTPUT_FILE_NAME}");
         data_storage.put_data(encoded_data.into(), &program_output_key).await.map_err(|e| {
             SnosError::ProgramOutputUnstorable { internal_id: internal_id.to_string(), message: e.to_string() }
         })?;
 
-        Ok(())
+        Ok((cairo_pie_key, snos_output_key, program_output_key))
     }
 
     /// Converts the [CairoPie] input as a zip file and returns it as [Bytes].

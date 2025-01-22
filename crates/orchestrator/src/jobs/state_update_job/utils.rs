@@ -6,15 +6,30 @@ use std::sync::Arc;
 use alloy::primitives::U256;
 use color_eyre::eyre::eyre;
 use num_bigint::BigUint;
+use serde_json;
 
 use crate::config::Config;
-use crate::constants::{BLOB_DATA_FILE_NAME, PROGRAM_OUTPUT_FILE_NAME};
+use crate::constants::{JOB_METADATA_BLOB_DATA_PATH, PROGRAM_OUTPUT_FILE_NAME};
+use crate::jobs::types::JobItem;
 
 /// Fetching the blob data (stored in remote storage during DA job) for a particular block
-pub async fn fetch_blob_data_for_block(block_number: u64, config: Arc<Config>) -> color_eyre::Result<Vec<Vec<u8>>> {
+pub async fn fetch_blob_data_for_block(
+    block_index: usize,
+    config: Arc<Config>,
+    job: &JobItem,
+) -> color_eyre::Result<Vec<Vec<u8>>> {
     let storage_client = config.storage();
-    let key = block_number.to_string() + "/" + BLOB_DATA_FILE_NAME;
-    let blob_data = storage_client.get_data(&key).await?;
+
+    // Get the array of blob paths from metadata
+    let blob_paths: Vec<String> = serde_json::from_str(
+        job.metadata.get(JOB_METADATA_BLOB_DATA_PATH).ok_or_else(|| eyre!("Blob data paths not found in metadata"))?,
+    )?;
+
+    // Get the path for this block
+    let path =
+        blob_paths.get(block_index).ok_or_else(|| eyre!("Blob data path not found for index {}", block_index))?;
+
+    let blob_data = storage_client.get_data(path).await?;
     Ok(vec![blob_data.to_vec()])
 }
 

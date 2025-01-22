@@ -19,7 +19,7 @@ use uuid::Uuid;
 use super::types::{JobItem, JobStatus, JobType, JobVerificationStatus};
 use super::{Job, JobError, OtherError};
 use crate::config::Config;
-use crate::constants::BLOB_DATA_FILE_NAME;
+use crate::constants::{BLOB_DATA_FILE_NAME, JOB_METADATA_BLOB_DATA_PATH};
 use crate::jobs::state_update_job::utils::biguint_vec_to_u8_vec;
 
 lazy_static! {
@@ -133,7 +133,11 @@ impl Job for DaJob {
         // data transformation on the data
         tracing::trace!(job_id = ?job.id, "Applied FFT transformation");
 
-        store_blob_data(transformed_data.clone(), block_no, config.clone()).await?;
+        let blob_data_path = format!("{}/{}", block_no, BLOB_DATA_FILE_NAME);
+        store_blob_data(transformed_data.clone(), &blob_data_path, config.clone()).await?;
+
+        // Add the path to metadata
+        job.metadata.insert(JOB_METADATA_BLOB_DATA_PATH.to_string(), blob_data_path);
         tracing::debug!(job_id = ?job.id, "Stored blob data");
 
         let max_bytes_per_blob = config.da_client().max_bytes_per_blob().await;
@@ -344,14 +348,16 @@ pub async fn state_update_to_blob_data(
 }
 
 /// To store the blob data using the storage client with path <block_number>/blob_data.txt
-async fn store_blob_data(blob_data: Vec<BigUint>, block_number: u64, config: Arc<Config>) -> Result<(), JobError> {
+async fn store_blob_data(blob_data: Vec<BigUint>, blob_data_path: &str, config: Arc<Config>) -> Result<(), JobError> {
     let storage_client = config.storage();
-    let key = block_number.to_string() + "/" + BLOB_DATA_FILE_NAME;
 
     let blob_data_vec_u8 = biguint_vec_to_u8_vec(blob_data.as_slice());
 
     if !blob_data_vec_u8.is_empty() {
-        storage_client.put_data(blob_data_vec_u8.into(), &key).await.map_err(|e| JobError::Other(OtherError(e)))?;
+        storage_client
+            .put_data(blob_data_vec_u8.into(), blob_data_path)
+            .await
+            .map_err(|e| JobError::Other(OtherError(e)))?;
     }
 
     Ok(())

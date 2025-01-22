@@ -4,6 +4,7 @@ use async_trait::async_trait;
 use opentelemetry::KeyValue;
 
 use crate::config::Config;
+use crate::constants::JOB_METADATA_CROSS_VERIFY;
 use crate::jobs::create_job;
 use crate::jobs::types::{JobStatus, JobType};
 use crate::metrics::ORCHESTRATOR_METRICS;
@@ -26,8 +27,12 @@ impl Worker for ProvingWorker {
         tracing::debug!("Found {} successful SNOS jobs without proving jobs", successful_snos_jobs.len());
 
         for job in successful_snos_jobs {
+            let mut metadata = job.metadata.clone();
+            // Set cross-verification to true by default
+            metadata.insert(JOB_METADATA_CROSS_VERIFY.to_string(), "true".to_string());
+
             tracing::debug!(job_id = %job.internal_id, "Creating proof creation job for SNOS job");
-            match create_job(JobType::ProofCreation, job.internal_id.to_string(), job.metadata, config.clone()).await {
+            match create_job(JobType::ProofCreation, job.internal_id.to_string(), metadata, config.clone()).await {
                 Ok(_) => tracing::info!(block_id = %job.internal_id, "Successfully created new proving job"),
                 Err(e) => {
                     tracing::warn!(job_id = %job.internal_id, error = %e, "Failed to create new state transition job");

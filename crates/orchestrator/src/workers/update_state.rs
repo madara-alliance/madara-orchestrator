@@ -2,9 +2,12 @@ use std::collections::HashMap;
 use std::sync::Arc;
 
 use async_trait::async_trait;
+use color_eyre::eyre::eyre;
 use opentelemetry::KeyValue;
+use serde_json;
 
 use crate::config::Config;
+use crate::constants::{JOB_METADATA_BLOB_DATA_PATH, JOB_METADATA_PROGRAM_OUTPUT_PATH, JOB_METADATA_SNOS_OUTPUT_PATH};
 use crate::jobs::constants::JOB_METADATA_STATE_UPDATE_BLOCKS_TO_SETTLE_KEY;
 use crate::jobs::create_job;
 use crate::jobs::types::{JobStatus, JobType};
@@ -114,6 +117,45 @@ impl Worker for UpdateStateWorker {
             JOB_METADATA_STATE_UPDATE_BLOCKS_TO_SETTLE_KEY.to_string(),
             blocks_to_process.iter().map(|ele| ele.to_string()).collect::<Vec<String>>().join(","),
         );
+
+        // Initialize vectors to store paths
+        let mut snos_paths = Vec::new();
+        let mut program_paths = Vec::new();
+        let mut blob_paths = Vec::new();
+
+        // For each block, get paths from both DA and SNOS jobs
+        for block_number in &blocks_to_process {
+            // Get SNOS job and copy its paths
+            let snos_job = config
+                .database()
+                .get_job_by_internal_id_and_type(&block_number.to_string(), &JobType::SnosRun)
+                .await?
+                .ok_or_else(|| eyre!("SNOS job not found for block {}", block_number))?;
+
+            // Get paths from SNOS job
+            if let Some(snos_path) = snos_job.metadata.get(JOB_METADATA_SNOS_OUTPUT_PATH) {
+                snos_paths.push(snos_path.clone());
+            }
+            if let Some(program_path) = snos_job.metadata.get(JOB_METADATA_PROGRAM_OUTPUT_PATH) {
+                program_paths.push(program_path.clone());
+            }
+
+            // Get DA job and copy blob data path
+            let da_job = config
+                .database()
+                .get_job_by_internal_id_and_type(&block_number.to_string(), &JobType::DataSubmission)
+                .await?
+                .ok_or_else(|| eyre!("DA job not found for block {}", block_number))?;
+
+            if let Some(blob_path) = da_job.metadata.get(JOB_METADATA_BLOB_DATA_PATH) {
+                blob_paths.push(blob_path.clone());
+            }
+        }
+
+        // Store paths as JSON arrays
+        metadata.insert(JOB_METADATA_SNOS_OUTPUT_PATH.to_string(), serde_json::to_string(&snos_paths)?);
+        metadata.insert(JOB_METADATA_PROGRAM_OUTPUT_PATH.to_string(), serde_json::to_string(&program_paths)?);
+        metadata.insert(JOB_METADATA_BLOB_DATA_PATH.to_string(), serde_json::to_string(&blob_paths)?);
 
         // Creating a single job for all the pending blocks.
         let new_job_id = blocks_to_process[0].to_string();

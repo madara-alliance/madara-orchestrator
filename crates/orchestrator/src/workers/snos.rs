@@ -8,6 +8,7 @@ use opentelemetry::KeyValue;
 use starknet::providers::Provider;
 
 use crate::config::Config;
+use crate::constants::JOB_METADATA_SNOS_FULL_OUTPUT;
 use crate::jobs::create_job;
 use crate::jobs::types::JobType;
 use crate::metrics::ORCHESTRATOR_METRICS;
@@ -52,7 +53,10 @@ impl Worker for SnosWorker {
         };
 
         for block_num in block_start..latest_block_number + 1 {
-            match create_job(JobType::SnosRun, block_num.to_string(), HashMap::new(), config.clone()).await {
+            let mut metadata = HashMap::new();
+            metadata.insert(JOB_METADATA_SNOS_FULL_OUTPUT.to_string(), "false".to_string());
+
+            match create_job(JobType::SnosRun, block_num.to_string(), metadata, config.clone()).await {
                 Ok(_) => tracing::info!(block_id = %block_num, "Successfully created new Snos job"),
                 Err(e) => {
                     tracing::warn!(block_id = %block_num, error = %e, "Failed to create new Snos job");

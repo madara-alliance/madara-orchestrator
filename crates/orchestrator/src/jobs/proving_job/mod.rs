@@ -12,7 +12,7 @@ use uuid::Uuid;
 use super::types::{JobItem, JobStatus, JobType, JobVerificationStatus};
 use super::{Job, JobError, OtherError};
 use crate::config::Config;
-use crate::constants::CAIRO_PIE_FILE_NAME;
+use crate::constants::{JOB_METADATA_CAIRO_PIE_PATH, JOB_METADATA_CROSS_VERIFY};
 use crate::jobs::constants::JOB_METADATA_SNOS_FACT;
 
 #[derive(Error, Debug, PartialEq)]
@@ -62,12 +62,15 @@ impl Job for ProvingJob {
         let internal_id = job.internal_id.clone();
         tracing::info!(log_type = "starting", category = "proving", function_type = "process_job", job_id = ?job.id,  block_no = %internal_id, "Proving job processing started.");
 
-        // Cairo Pie path in s3 storage client
-        let block_number: String = job.internal_id.to_string();
-        let cairo_pie_path = block_number + "/" + CAIRO_PIE_FILE_NAME;
+        // Replace the manual path construction with metadata lookup
+        let cairo_pie_path = job.metadata.get(JOB_METADATA_CAIRO_PIE_PATH).ok_or_else(|| {
+            tracing::error!(job_id = %job.internal_id, "Cairo PIE path not found in job metadata");
+            ProvingError::CairoPIEWrongPath { internal_id: job.internal_id.clone() }
+        })?;
+
         tracing::debug!(job_id = %job.internal_id, %cairo_pie_path, "Fetching Cairo PIE file");
 
-        let cairo_pie_file = config.storage().get_data(&cairo_pie_path).await.map_err(|e| {
+        let cairo_pie_file = config.storage().get_data(cairo_pie_path).await.map_err(|e| {
             tracing::error!(job_id = %job.internal_id, error = %e, "Failed to fetch Cairo PIE file");
             ProvingError::CairoPIEFileFetchFailed(e.to_string())
         })?;
@@ -111,10 +114,21 @@ impl Job for ProvingJob {
             OtherError(eyre!("Fact not available in job"))
         })?;
 
-        tracing::debug!(job_id = %job.internal_id, %task_id, "Getting task status from prover client");
+        let cross_verify = match job.metadata.get(JOB_METADATA_CROSS_VERIFY) {
+            Some(value) => value == "true",
+            None => {
+                tracing::warn!(
+                    job_id = %job.internal_id,
+                    "Cross verification flag not found in metadata, defaulting to true"
+                );
+                true // Default to true for backward compatibility
+            }
+        };
+
+        tracing::debug!(job_id = %job.internal_id, %task_id, cross_verify, "Getting task status from prover client");
         let task_status = config
             .prover_client()
-            .get_task_status(&task_id, fact)
+            .get_task_status(&task_id, fact, cross_verify)
             .await
             .wrap_err("Prover Client Error".to_string())
             .map_err(|e| {
