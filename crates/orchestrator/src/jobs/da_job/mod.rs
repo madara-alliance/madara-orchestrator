@@ -5,7 +5,7 @@ use std::sync::Arc;
 
 use async_trait::async_trait;
 use chrono::{SubsecRound, Utc};
-use color_eyre::eyre::WrapErr;
+use color_eyre::eyre::{eyre, WrapErr};
 use lazy_static::lazy_static;
 use num_bigint::{BigUint, ToBigUint};
 use num_traits::{Num, Zero};
@@ -19,7 +19,7 @@ use uuid::Uuid;
 use super::types::{JobItem, JobStatus, JobType, JobVerificationStatus};
 use super::{Job, JobError, OtherError};
 use crate::config::Config;
-use crate::constants::{BLOB_DATA_FILE_NAME, JOB_METADATA_BLOB_DATA_PATH};
+use crate::jobs::metadata::{JobMetadata, JobSpecificMetadata};
 use crate::jobs::state_update_job::utils::biguint_vec_to_u8_vec;
 
 lazy_static! {
@@ -69,7 +69,7 @@ impl Job for DaJob {
         &self,
         _config: Arc<Config>,
         internal_id: String,
-        metadata: HashMap<String, String>,
+        metadata: JobMetadata,
     ) -> Result<JobItem, JobError> {
         let job_id = Uuid::new_v4();
         tracing::info!(log_type = "starting", category = "da", function_type = "create_job",  block_no = %internal_id, "DA job creation started.");
@@ -91,7 +91,24 @@ impl Job for DaJob {
     #[tracing::instrument(fields(category = "da"), skip(self, config), ret, err)]
     async fn process_job(&self, config: Arc<Config>, job: &mut JobItem) -> Result<String, JobError> {
         let internal_id = job.internal_id.clone();
-        tracing::info!(log_type = "starting", category = "da", function_type = "process_job", job_id = ?job.id,  block_no = %internal_id, "DA job processing started.");
+        tracing::info!(
+            log_type = "starting",
+            category = "da",
+            function_type = "process_job",
+            job_id = ?job.id,
+            block_no = %internal_id,
+            "DA job processing started."
+        );
+
+        // Get DA-specific metadata
+        let da_metadata = match &job.metadata.specific {
+            JobSpecificMetadata::Da(metadata) => metadata,
+            _ => {
+                tracing::error!(job_id = ?job.id, "Invalid metadata type for DA job");
+                return Err(JobError::Other(OtherError(eyre!("Invalid metadata type for DA job"))));
+            }
+        };
+
         let block_no = job.internal_id.parse::<u64>().wrap_err("Failed to parse u64".to_string()).map_err(|e| {
             tracing::error!(job_id = ?job.id, error = ?e, "Failed to parse block number");
             JobError::Other(OtherError(e))
@@ -115,13 +132,14 @@ impl Job for DaJob {
             MaybePendingStateUpdate::Update(state_update) => state_update,
         };
         tracing::debug!(job_id = ?job.id, "Retrieved state update");
+
         // constructing the data from the rpc
         let blob_data = state_update_to_blob_data(block_no, state_update, config.clone()).await.map_err(|e| {
             tracing::error!(job_id = ?job.id, error = ?e, "Failed to convert state update to blob data");
             JobError::Other(OtherError(e))
         })?;
+
         // transforming the data so that we can apply FFT on this.
-        // @note: we can skip this step if in the above step we return vec<BigUint> directly
         let blob_data_biguint = convert_to_biguint(blob_data.clone());
         tracing::trace!(job_id = ?job.id, "Converted blob data to BigUint");
 
@@ -130,20 +148,26 @@ impl Job for DaJob {
                 tracing::error!(job_id = ?job.id, error = ?e, "Failed to apply FFT transformation");
                 JobError::Other(OtherError(e))
             })?;
-        // data transformation on the data
         tracing::trace!(job_id = ?job.id, "Applied FFT transformation");
 
-        let blob_data_path = format!("{}/{}", block_no, BLOB_DATA_FILE_NAME);
-        store_blob_data(transformed_data.clone(), &blob_data_path, config.clone()).await?;
+        // Get blob data path from metadata
+        let blob_data_path = da_metadata.blob_data_path.as_ref().ok_or_else(|| {
+            tracing::error!(job_id = ?job.id, "Blob data path not found in metadata");
+            JobError::Other(OtherError(eyre!("Blob data path not found in metadata")))
+        })?;
 
-        // Add the path to metadata
-        job.metadata.insert(JOB_METADATA_BLOB_DATA_PATH.to_string(), blob_data_path);
+        // Store the transformed data
+        store_blob_data(transformed_data.clone(), blob_data_path, config.clone()).await?;
         tracing::debug!(job_id = ?job.id, "Stored blob data");
 
         let max_bytes_per_blob = config.da_client().max_bytes_per_blob().await;
         let max_blob_per_txn = config.da_client().max_blob_per_txn().await;
-        tracing::trace!(job_id = ?job.id, max_bytes_per_blob = max_bytes_per_blob, max_blob_per_txn = max_blob_per_txn, "Retrieved DA client configuration");
-        // converting BigUints to Vec<u8>, one Vec<u8> represents one blob data
+        tracing::trace!(
+            job_id = ?job.id,
+            max_bytes_per_blob = max_bytes_per_blob,
+            max_blob_per_txn = max_blob_per_txn,
+            "Retrieved DA client configuration"
+        );
 
         let blob_array = data_to_blobs(max_bytes_per_blob, transformed_data)?;
         let current_blob_length: u64 = blob_array
@@ -156,9 +180,14 @@ impl Job for DaJob {
             })?;
         tracing::debug!(job_id = ?job.id, blob_count = current_blob_length, "Converted data to blobs");
 
-        // there is a limit on number of blobs per txn, checking that here
+        // Check blob limit
         if current_blob_length > max_blob_per_txn {
-            tracing::warn!(job_id = ?job.id, current_blob_length = current_blob_length, max_blob_per_txn = max_blob_per_txn, "Exceeded maximum number of blobs per transaction");
+            tracing::warn!(
+                job_id = ?job.id,
+                current_blob_length = current_blob_length,
+                max_blob_per_txn = max_blob_per_txn,
+                "Exceeded maximum number of blobs per transaction"
+            );
             Err(DaError::MaxBlobsLimitExceeded {
                 max_blob_per_txn,
                 current_blob_length,
@@ -167,13 +196,26 @@ impl Job for DaJob {
             })?
         }
 
-        // making the txn to the DA layer
+        // Publish to DA layer
         let external_id = config.da_client().publish_state_diff(blob_array, &[0; 32]).await.map_err(|e| {
             tracing::error!(job_id = ?job.id, error = ?e, "Failed to publish state diff to DA layer");
             JobError::Other(OtherError(e))
         })?;
 
-        tracing::info!(log_type = "completed", category = "da", function_type = "process_job", job_id = ?job.id,  block_no = %internal_id, external_id = ?external_id, "Successfully published state diff to DA layer.");
+        // Update DA metadata with successful results
+        if let JobSpecificMetadata::Da(metadata) = &mut job.metadata.specific {
+            metadata.tx_hash = Some(external_id.clone());
+        }
+
+        tracing::info!(
+            log_type = "completed",
+            category = "da",
+            function_type = "process_job",
+            job_id = ?job.id,
+            block_no = %internal_id,
+            external_id = ?external_id,
+            "Successfully published state diff to DA layer."
+        );
         Ok(external_id)
     }
 

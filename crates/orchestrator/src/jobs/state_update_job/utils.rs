@@ -6,12 +6,10 @@ use std::sync::Arc;
 use alloy::primitives::U256;
 use color_eyre::eyre::eyre;
 use num_bigint::BigUint;
-use serde_json;
 
 use crate::config::Config;
-use crate::constants::{JOB_METADATA_BLOB_DATA_PATH, PROGRAM_OUTPUT_FILE_NAME};
+use crate::jobs::metadata::JobSpecificMetadata;
 use crate::jobs::types::JobItem;
-
 /// Fetching the blob data (stored in remote storage during DA job) for a particular block
 pub async fn fetch_blob_data_for_block(
     block_index: usize,
@@ -21,26 +19,29 @@ pub async fn fetch_blob_data_for_block(
     let storage_client = config.storage();
 
     // Get the array of blob paths from metadata
-    let blob_paths: Vec<String> = serde_json::from_str(
-        job.metadata.get(JOB_METADATA_BLOB_DATA_PATH).ok_or_else(|| eyre!("Blob data paths not found in metadata"))?,
-    )?;
+    let state_metadata = match &job.metadata.specific {
+        JobSpecificMetadata::StateUpdate(metadata) => metadata,
+        _ => return Err(eyre!("Invalid metadata type for state update job")),
+    };
 
     // Get the path for this block
-    let path =
-        blob_paths.get(block_index).ok_or_else(|| eyre!("Blob data path not found for index {}", block_index))?;
+    let path = state_metadata
+        .blob_data_paths
+        .get(block_index)
+        .ok_or_else(|| eyre!("Blob data path not found for index {}", block_index))?;
 
     let blob_data = storage_client.get_data(path).await?;
     Ok(vec![blob_data.to_vec()])
 }
 
-/// Fetching the blob data (stored in remote storage during DA job) for a particular block
-pub async fn fetch_program_data_for_block(block_number: u64, config: Arc<Config>) -> color_eyre::Result<Vec<[u8; 32]>> {
-    let storage_client = config.storage();
-    let key = block_number.to_string() + "/" + PROGRAM_OUTPUT_FILE_NAME;
-    let blob_data = storage_client.get_data(&key).await?;
-    let transformed_blob_vec_u8 = bytes_to_vec_u8(blob_data.as_ref())?;
-    Ok(transformed_blob_vec_u8)
-}
+// Fetching the blob data (stored in remote storage during DA job) for a particular block
+// pub async fn fetch_program_data_for_block(block_number: u64, config: Arc<Config>, job: &JobItem)
+// -> color_eyre::Result<Vec<[u8; 32]>> {     let storage_client = config.storage();
+//     let key = block_number.to_string() + "/" + PROGRAM_OUTPUT_FILE_NAME;
+//     let blob_data = storage_client.get_data(&key).await?;
+//     let transformed_blob_vec_u8 = bytes_to_vec_u8(blob_data.as_ref())?;
+//     Ok(transformed_blob_vec_u8)
+// }
 
 // Util Functions
 // ===============

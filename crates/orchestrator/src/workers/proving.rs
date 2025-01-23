@@ -4,8 +4,8 @@ use async_trait::async_trait;
 use opentelemetry::KeyValue;
 
 use crate::config::Config;
-use crate::constants::JOB_METADATA_CROSS_VERIFY;
 use crate::jobs::create_job;
+use crate::jobs::metadata::{CommonMetadata, JobMetadata, JobSpecificMetadata, ProvingMetadata};
 use crate::jobs::types::{JobStatus, JobType};
 use crate::metrics::ORCHESTRATOR_METRICS;
 use crate::workers::Worker;
@@ -26,16 +26,50 @@ impl Worker for ProvingWorker {
 
         tracing::debug!("Found {} successful SNOS jobs without proving jobs", successful_snos_jobs.len());
 
-        for job in successful_snos_jobs {
-            let mut metadata = job.metadata.clone();
-            // Set cross-verification to true by default
-            metadata.insert(JOB_METADATA_CROSS_VERIFY.to_string(), "true".to_string());
+        for snos_job in successful_snos_jobs {
+            // Extract SNOS metadata
+            let snos_metadata = match &snos_job.metadata.specific {
+                JobSpecificMetadata::Snos(metadata) => metadata,
+                _ => {
+                    tracing::error!(job_id = %snos_job.internal_id, "Invalid metadata type for SNOS job");
+                    continue;
+                }
+            };
 
-            tracing::debug!(job_id = %job.internal_id, "Creating proof creation job for SNOS job");
-            match create_job(JobType::ProofCreation, job.internal_id.to_string(), metadata, config.clone()).await {
-                Ok(_) => tracing::info!(block_id = %job.internal_id, "Successfully created new proving job"),
+            // Get SNOS fact early to handle the error case
+            let snos_fact = match &snos_metadata.snos_fact {
+                Some(fact) => fact.clone(),
+                None => {
+                    tracing::error!(job_id = %snos_job.internal_id, "SNOS fact not found in metadata");
+                    continue;
+                }
+            };
+
+            // Create proving job metadata
+            let proving_metadata = JobMetadata {
+                common: CommonMetadata::default(),
+                specific: JobSpecificMetadata::Proving(ProvingMetadata {
+                    block_number: snos_metadata.block_number,
+                    // Get paths from SNOS job
+                    cairo_pie_path: snos_metadata.cairo_pie_path.clone(),
+                    snos_fact, // Use the extracted fact
+
+                    // Set new paths for proving outputs
+                    proof_path: None,
+                    verification_key_path: None,
+                    // Proving specific settings
+                    cross_verify: true,
+                    download_proof: false, // Default to false, can be configured
+                }),
+            };
+
+            tracing::debug!(job_id = %snos_job.internal_id, "Creating proof creation job for SNOS job");
+            match create_job(JobType::ProofCreation, snos_job.internal_id.clone(), proving_metadata, config.clone())
+                .await
+            {
+                Ok(_) => tracing::info!(block_id = %snos_job.internal_id, "Successfully created new proving job"),
                 Err(e) => {
-                    tracing::warn!(job_id = %job.internal_id, error = %e, "Failed to create new state transition job");
+                    tracing::warn!(job_id = %snos_job.internal_id, error = %e, "Failed to create new proving job");
                     let attributes = [
                         KeyValue::new("operation_job_type", format!("{:?}", JobType::ProofCreation)),
                         KeyValue::new("operation_type", format!("{:?}", "create_job")),

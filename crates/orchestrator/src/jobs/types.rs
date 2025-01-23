@@ -1,6 +1,3 @@
-use std::collections::HashMap;
-
-// TODO: job types shouldn't depend on mongodb
 use chrono::{DateTime, Utc};
 use color_eyre::eyre::eyre;
 use color_eyre::Result;
@@ -10,6 +7,7 @@ use mongodb::bson::serde_helpers::{chrono_datetime_as_bson_datetime, uuid_1_as_b
 use serde::{Deserialize, Serialize};
 use settlement_client_interface::SettlementVerificationStatus;
 use uuid::Uuid;
+
 use crate::jobs::metadata::JobMetadata;
 
 /// An external id.
@@ -143,7 +141,7 @@ pub struct JobItemUpdates {
     pub job_type: Option<JobType>,
     pub status: Option<JobStatus>,
     pub external_id: Option<ExternalId>,
-    pub metadata: Option<HashMap<String, String>>,
+    pub metadata: Option<JobMetadata>,
 }
 
 /// implements only needed singular changes
@@ -176,7 +174,7 @@ impl JobItemUpdates {
         self.external_id = Some(external_id);
         self
     }
-    pub fn update_metadata(mut self, metadata: HashMap<String, String>) -> JobItemUpdates {
+    pub fn update_metadata(mut self, metadata: JobMetadata) -> JobItemUpdates {
         self.metadata = Some(metadata);
         self
     }

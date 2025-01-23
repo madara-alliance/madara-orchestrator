@@ -1,15 +1,12 @@
-use std::collections::HashMap;
 use std::sync::Arc;
 
 use async_trait::async_trait;
 use color_eyre::eyre::eyre;
 use opentelemetry::KeyValue;
-use serde_json;
 
 use crate::config::Config;
-use crate::constants::{JOB_METADATA_BLOB_DATA_PATH, JOB_METADATA_PROGRAM_OUTPUT_PATH, JOB_METADATA_SNOS_OUTPUT_PATH};
-use crate::jobs::constants::JOB_METADATA_STATE_UPDATE_BLOCKS_TO_SETTLE_KEY;
 use crate::jobs::create_job;
+use crate::jobs::metadata::{CommonMetadata, JobMetadata, JobSpecificMetadata, StateUpdateMetadata};
 use crate::jobs::types::{JobStatus, JobType};
 use crate::metrics::ORCHESTRATOR_METRICS;
 use crate::workers::Worker;
@@ -33,19 +30,18 @@ impl Worker for UpdateStateWorker {
                     return Ok(());
                 }
 
-                let mut blocks_processed_in_last_job: Vec<u64> = job
-                    .metadata
-                    .get(JOB_METADATA_STATE_UPDATE_BLOCKS_TO_SETTLE_KEY)
-                    .unwrap()
-                    .split(',')
-                    .filter_map(|s| s.parse().ok())
-                    .collect();
+                // Extract blocks from state transition metadata
+                let state_metadata = match &job.metadata.specific {
+                    JobSpecificMetadata::StateUpdate(metadata) => metadata,
+                    _ => return Err(eyre!("Invalid metadata type for state transition job")),
+                };
 
-                // ideally it's already sorted, but just to be safe
-                blocks_processed_in_last_job.sort();
+                let mut blocks_processed = state_metadata.blocks_to_settle.clone();
+                blocks_processed.sort();
 
-                let last_block_processed_in_last_job =
-                    blocks_processed_in_last_job[blocks_processed_in_last_job.len() - 1];
+                let last_block_processed = *blocks_processed
+                    .last()
+                    .ok_or_else(|| eyre!("No blocks found in previous state transition job"))?;
 
                 (
                     config
@@ -53,10 +49,10 @@ impl Worker for UpdateStateWorker {
                         .get_jobs_after_internal_id_by_job_type(
                             JobType::DataSubmission,
                             JobStatus::Completed,
-                            last_block_processed_in_last_job.to_string(),
+                            last_block_processed.to_string(),
                         )
                         .await?,
-                    Some(last_block_processed_in_last_job),
+                    Some(last_block_processed),
                 )
             }
             None => {
@@ -86,11 +82,10 @@ impl Worker for UpdateStateWorker {
             return Ok(());
         }
 
+        // Verify block continuity
         match last_block_processed_in_last_job {
-            Some(last_block_processed_in_last_job) => {
-                // DA job for the block just after the last settled block
-                // is not yet completed
-                if blocks_to_process[0] != last_block_processed_in_last_job + 1 {
+            Some(last_block) => {
+                if blocks_to_process[0] != last_block + 1 {
                     log::warn!(
                         "DA job for the block just after the last settled block is not yet completed. Returning \
                          safely..."
@@ -99,65 +94,73 @@ impl Worker for UpdateStateWorker {
                 }
             }
             None => {
-                if blocks_to_process[0] != 0 {
+                if blocks_to_process[0] != 0 && blocks_to_process[0] != 1 {
                     log::warn!("DA job for the first block is not yet completed. Returning safely...");
                     return Ok(());
                 }
             }
         }
 
-        let mut blocks_to_process: Vec<u64> = find_successive_blocks_in_vector(blocks_to_process);
-
+        let mut blocks_to_process = find_successive_blocks_in_vector(blocks_to_process);
         if blocks_to_process.len() > 10 {
             blocks_to_process = blocks_to_process.into_iter().take(10).collect();
         }
 
-        let mut metadata = HashMap::new();
-        metadata.insert(
-            JOB_METADATA_STATE_UPDATE_BLOCKS_TO_SETTLE_KEY.to_string(),
-            blocks_to_process.iter().map(|ele| ele.to_string()).collect::<Vec<String>>().join(","),
-        );
+        // Prepare state transition metadata
+        let mut state_metadata = StateUpdateMetadata {
+            blocks_to_settle: blocks_to_process.clone(),
+            snos_output_paths: Vec::new(),
+            program_output_paths: Vec::new(),
+            blob_data_paths: Vec::new(),
+            last_failed_block_no: None,
+            tx_hashes: Vec::new(),
+        };
 
-        // Initialize vectors to store paths
-        let mut snos_paths = Vec::new();
-        let mut program_paths = Vec::new();
-        let mut blob_paths = Vec::new();
-
-        // For each block, get paths from both DA and SNOS jobs
+        // Collect paths from SNOS and DA jobs
         for block_number in &blocks_to_process {
-            // Get SNOS job and copy its paths
+            // Get SNOS job paths
             let snos_job = config
                 .database()
                 .get_job_by_internal_id_and_type(&block_number.to_string(), &JobType::SnosRun)
                 .await?
                 .ok_or_else(|| eyre!("SNOS job not found for block {}", block_number))?;
 
-            // Get paths from SNOS job
-            if let Some(snos_path) = snos_job.metadata.get(JOB_METADATA_SNOS_OUTPUT_PATH) {
-                snos_paths.push(snos_path.clone());
+            let snos_metadata = match &snos_job.metadata.specific {
+                JobSpecificMetadata::Snos(metadata) => metadata,
+                _ => return Err(eyre!("Invalid metadata type for SNOS job")),
+            };
+
+            if let Some(snos_path) = &snos_metadata.snos_output_path {
+                state_metadata.snos_output_paths.push(snos_path.clone());
             }
-            if let Some(program_path) = snos_job.metadata.get(JOB_METADATA_PROGRAM_OUTPUT_PATH) {
-                program_paths.push(program_path.clone());
+            if let Some(program_path) = &snos_metadata.program_output_path {
+                state_metadata.program_output_paths.push(program_path.clone());
             }
 
-            // Get DA job and copy blob data path
+            // Get DA job blob path
             let da_job = config
                 .database()
                 .get_job_by_internal_id_and_type(&block_number.to_string(), &JobType::DataSubmission)
                 .await?
                 .ok_or_else(|| eyre!("DA job not found for block {}", block_number))?;
 
-            if let Some(blob_path) = da_job.metadata.get(JOB_METADATA_BLOB_DATA_PATH) {
-                blob_paths.push(blob_path.clone());
+            let da_metadata = match &da_job.metadata.specific {
+                JobSpecificMetadata::Da(metadata) => metadata,
+                _ => return Err(eyre!("Invalid metadata type for DA job")),
+            };
+
+            if let Some(blob_path) = &da_metadata.blob_data_path {
+                state_metadata.blob_data_paths.push(blob_path.clone());
             }
         }
 
-        // Store paths as JSON arrays
-        metadata.insert(JOB_METADATA_SNOS_OUTPUT_PATH.to_string(), serde_json::to_string(&snos_paths)?);
-        metadata.insert(JOB_METADATA_PROGRAM_OUTPUT_PATH.to_string(), serde_json::to_string(&program_paths)?);
-        metadata.insert(JOB_METADATA_BLOB_DATA_PATH.to_string(), serde_json::to_string(&blob_paths)?);
+        // Create job metadata
+        let metadata = JobMetadata {
+            common: CommonMetadata::default(),
+            specific: JobSpecificMetadata::StateUpdate(state_metadata),
+        };
 
-        // Creating a single job for all the pending blocks.
+        // Create the state transition job
         let new_job_id = blocks_to_process[0].to_string();
         match create_job(JobType::StateTransition, new_job_id.clone(), metadata, config.clone()).await {
             Ok(_) => tracing::info!(block_id = %new_job_id, "Successfully created new state transition job"),
