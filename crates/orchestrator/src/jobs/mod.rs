@@ -41,6 +41,7 @@ pub mod register_proof_job;
 pub mod snos_job;
 pub mod state_update_job;
 pub mod types;
+pub mod metadata;
 use thiserror::Error;
 
 /// Error types for job-related operations in the orchestrator

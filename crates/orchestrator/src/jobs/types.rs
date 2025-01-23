@@ -10,6 +10,7 @@ use mongodb::bson::serde_helpers::{chrono_datetime_as_bson_datetime, uuid_1_as_b
 use serde::{Deserialize, Serialize};
 use settlement_client_interface::SettlementVerificationStatus;
 use uuid::Uuid;
+use crate::jobs::metadata::JobMetadata;
 
 /// An external id.
 #[derive(Serialize, Deserialize, Debug, Clone, PartialEq, Eq)]
@@ -122,7 +123,7 @@ pub struct JobItem {
     /// or job_id from SHARP
     pub external_id: ExternalId,
     /// additional field to store values related to the job
-    pub metadata: HashMap<String, String>,
+    pub metadata: JobMetadata,
     /// helps to keep track of the version of the item for optimistic locking
     pub version: i32,
     /// timestamp when the job was created
