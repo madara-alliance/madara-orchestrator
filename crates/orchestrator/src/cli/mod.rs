@@ -612,6 +612,7 @@ pub mod validate_params {
             min_block_to_process: service_args.min_block_to_process.clone().and_then(|s| {
                 if s.is_empty() { None } else { Some(s.parse::<u64>().expect("Failed to parse min block to process")) }
             }),
+            service_id: service_args.service_id.clone().and_then(|s| if s.is_empty() { None } else { Some(s) }),
         })
     }
 
@@ -892,12 +893,14 @@ pub mod validate_params {
             let service_args: ServiceCliArgs = ServiceCliArgs {
                 max_block_to_process: Some("66645".to_string()),
                 min_block_to_process: Some("100".to_string()),
+                service_id: Some("orchestrator_1".to_string()),
             };
             let service_params = validate_service_params(&service_args);
             assert!(service_params.is_ok());
             let service_params = service_params.unwrap();
             assert_eq!(service_params.max_block_to_process, Some(66645));
             assert_eq!(service_params.min_block_to_process, Some(100));
+            assert_eq!(service_params.service_id, Some("orchestrator_1".to_string()));
         }
     }
 }

@@ -7,7 +7,10 @@ use std::time::{Duration, Instant};
 use async_trait::async_trait;
 use chrono::Utc;
 use color_eyre::eyre::{eyre, Context};
-use constants::{JOB_METADATA_ERROR, JOB_METADATA_FAILURE_REASON, JOB_METADATA_PROCESSING_COMPLETED_AT};
+use constants::{
+    JOB_METADATA_ERROR, JOB_METADATA_FAILURE_REASON, JOB_METADATA_ORCHESTRATOR_UNIQUE_ID,
+    JOB_METADATA_PROCESSING_COMPLETED_AT,
+};
 use conversion::parse_string;
 use da_job::DaError;
 use futures::FutureExt;
@@ -293,6 +296,18 @@ pub async fn process_job(id: Uuid, config: Arc<Config>) -> Result<(), JobError> 
     let start = Instant::now();
     let job = get_job(id, config.clone()).await?;
     let internal_id = job.internal_id.clone();
+
+    let safe_to_proceed = check_for_parallel_snos(config.clone(), &job).await?;
+    if !safe_to_proceed {
+        tracing::warn!(
+            "Other SNOS jobs are currently being processed by this orchestrator instance. Skipped processing for now."
+        );
+        add_job_to_process_queue(job.id, &job.job_type, config.clone())
+            .await
+            .map_err(|e| JobError::Other(OtherError(e)))?;
+        return Ok(());
+    }
+
     tracing::info!(log_type = "starting", category = "general", function_type = "process_job", block_no = %internal_id, "General process job started for block");
 
     tracing::Span::current().record("job", format!("{:?}", job.clone()));
@@ -312,18 +327,29 @@ pub async fn process_job(id: Uuid, config: Arc<Config>) -> Result<(), JobError> 
             return Err(JobError::InvalidStatus { id, job_status: job.status });
         }
     }
-    // this updates the version of the job. this ensures that if another thread was about to process
-    // the same job, it would fail to update the job in the database because the version would be
-    // outdated
+
+    let updates = config
+        .service_config()
+        .service_id
+        .clone()
+        .map_or_else(
+            // this updates the version of the job. this ensures that if another thread was about to process
+            // the same job, it would fail to update the job in the database because the version would be
+            // outdated
+            || JobItemUpdates::new().update_status(JobStatus::LockedForProcessing),
+            |orchestrator_id| {
+                let mut new_metadata = job.metadata.clone();
+                new_metadata.insert(JOB_METADATA_ORCHESTRATOR_UNIQUE_ID.to_string(), orchestrator_id);
+                JobItemUpdates::new().update_status(JobStatus::LockedForProcessing).update_metadata(new_metadata)
+            },
+        )
+        .build();
+
     tracing::debug!(job_id = ?id, "Updating job status to LockedForProcessing");
-    let mut job = config
-        .database()
-        .update_job(&job, JobItemUpdates::new().update_status(JobStatus::LockedForProcessing).build())
-        .await
-        .map_err(|e| {
-            tracing::error!(job_id = ?id, error = ?e, "Failed to update job status");
-            JobError::Other(OtherError(e))
-        })?;
+    let mut job = config.database().update_job(&job, updates).await.map_err(|e| {
+        tracing::error!(job_id = ?id, error = ?e, "Failed to update job status");
+        JobError::Other(OtherError(e))
+    })?;
 
     tracing::debug!(job_id = ?id, job_type = ?job.job_type, "Getting job handler");
     let job_handler = factory::get_job_handler(&job.job_type).await;
@@ -927,6 +953,33 @@ pub async fn queue_job_for_verification(id: Uuid, config: Arc<Config>) -> Result
     })?;
 
     Ok(())
+}
+
+// This function is used to check if any SNOS jobs are currently being processed by this
+// orchestrator pod, if any Job is in 'LockedForProcessing' or 'PendingVerification' state, it
+// returns false, else it returns true. It returns a bool true if not jobs are being processed
+// It returns a bool false if jobs are currently under process.
+async fn check_for_parallel_snos(config: Arc<Config>, job: &JobItem) -> Result<bool, JobError> {
+    let orchestrator_id = config.service_config().service_id.clone();
+    // if orchestrator id is present and job type is SnosRun, then only check for parallel jobs
+
+    if let Some(orchestrator_id) = orchestrator_id {
+        if job.job_type == JobType::SnosRun {
+            let jobs = config
+                .database()
+                .get_jobs_by_statuses_and_orchestrator_id(
+                    vec![JobStatus::LockedForProcessing, JobStatus::PendingVerification],
+                    orchestrator_id,
+                    None,
+                )
+                .await
+                .map_err(|e| JobError::Other(OtherError(e)))?;
+            if !jobs.is_empty() {
+                return Ok(false);
+            }
+        }
+    }
+    Ok(true)
 }
 
 #[cfg(test)]

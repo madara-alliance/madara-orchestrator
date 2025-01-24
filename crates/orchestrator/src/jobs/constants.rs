@@ -11,3 +11,4 @@ pub const JOB_METADATA_SNOS_FACT: &str = "snos_fact";
 pub const JOB_METADATA_FAILURE_REASON: &str = "failure_reason";
 pub const JOB_METADATA_ERROR: &str = "error";
 pub const JOB_METADATA_PROCESSING_COMPLETED_AT: &str = "processing_completed_at";
+pub const JOB_METADATA_ORCHESTRATOR_UNIQUE_ID: &str = "orchestrator_unique_id";
