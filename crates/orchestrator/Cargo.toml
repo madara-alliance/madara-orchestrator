@@ -93,6 +93,8 @@ tracing-core = { workspace = true, default-features = false }
 tracing-opentelemetry = { workspace = true }
 tracing-subscriber = { workspace = true, features = ["env-filter"] }
 
+jemallocator = { workspace = true }
+
 [features]
 default = ["ethereum", "with_mongodb", "with_sqs"]
 ethereum = ["ethereum-da-client"]
