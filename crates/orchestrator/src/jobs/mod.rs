@@ -966,19 +966,19 @@ pub async fn queue_job_for_verification(id: Uuid, config: Arc<Config>) -> Result
 /// * `Ok(false)` - If job processing should be blocked (concurrency limits hit)
 /// * `Err(JobError)` - If database query fails
 async fn check_for_parallel_snos(config: Arc<Config>, job: &JobItem) -> Result<bool, JobError> {
-    // guard close
+    // guard clause
     // if orchestrator_id is None, then we don't need to check for parallel SNOS jobs
     let Some(orchestrator_id) = config.service_config().service_id.clone() else {
         return Ok(true);
     };
 
-    // guard close
+    // guard clause
     // if max_concurrent_snos_jobs is None, then we don't need to check for parallel SNOS jobs
     let Some(max_concurrent_snos_jobs) = config.service_config().max_concurrent_snos_jobs else {
         return Ok(true);
     };
 
-    // guard close
+    // guard clause
     // if job is not a SNOS job, then we don't need to check for parallel SNOS jobs
     if job.job_type != JobType::SnosRun {
         return Ok(true);
