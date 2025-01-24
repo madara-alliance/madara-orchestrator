@@ -432,7 +432,7 @@ impl Database for MongoDb {
             "status": {
                 "$in": job_status.iter().map(|status| bson::to_bson(status).unwrap_or(Bson::Null)).collect::<Vec<Bson>>()
             },
-            "metadata.orchestrator_unique_id": orchestrator_id.clone()
+            "metadata.orchestrator_service_id": orchestrator_id.clone()
         };
 
         let find_options = limit.map(|val| FindOptions::builder().limit(Some(val)).build());

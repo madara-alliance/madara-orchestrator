@@ -8,7 +8,7 @@ use async_trait::async_trait;
 use chrono::Utc;
 use color_eyre::eyre::{eyre, Context};
 use constants::{
-    JOB_METADATA_ERROR, JOB_METADATA_FAILURE_REASON, JOB_METADATA_ORCHESTRATOR_UNIQUE_ID,
+    JOB_METADATA_ERROR, JOB_METADATA_FAILURE_REASON, JOB_METADATA_ORCHESTRATOR_SERVICE_ID,
     JOB_METADATA_PROCESSING_COMPLETED_AT,
 };
 use conversion::parse_string;
@@ -339,7 +339,7 @@ pub async fn process_job(id: Uuid, config: Arc<Config>) -> Result<(), JobError> 
             || JobItemUpdates::new().update_status(JobStatus::LockedForProcessing),
             |orchestrator_id| {
                 let mut new_metadata = job.metadata.clone();
-                new_metadata.insert(JOB_METADATA_ORCHESTRATOR_UNIQUE_ID.to_string(), orchestrator_id);
+                new_metadata.insert(JOB_METADATA_ORCHESTRATOR_SERVICE_ID.to_string(), orchestrator_id);
                 JobItemUpdates::new().update_status(JobStatus::LockedForProcessing).update_metadata(new_metadata)
             },
         )
