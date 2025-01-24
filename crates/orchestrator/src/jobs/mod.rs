@@ -955,31 +955,42 @@ pub async fn queue_job_for_verification(id: Uuid, config: Arc<Config>) -> Result
     Ok(())
 }
 
-// This function is used to check if any SNOS jobs are currently being processed by this
-// orchestrator pod, if any Job is in 'LockedForProcessing' or 'PendingVerification' state, it
-// returns false, else it returns true. It returns a bool true if not jobs are being processed
-// It returns a bool false if jobs are currently under process.
+/// Checks if SNOS jobs can be processed by this orchestrator pod based on concurrency limits.
+///
+/// # Arguments
+/// * `config` - Configuration containing service and database settings
+/// * `job` - Job item to be checked
+///
+/// # Returns
+/// * `Ok(true)` - If job can be processed (no concurrency limits hit)
+/// * `Ok(false)` - If job processing should be blocked (concurrency limits hit)
+/// * `Err(JobError)` - If database query fails
 async fn check_for_parallel_snos(config: Arc<Config>, job: &JobItem) -> Result<bool, JobError> {
-    let orchestrator_id = config.service_config().service_id.clone();
-    // if orchestrator id is present and job type is SnosRun, then only check for parallel jobs
+    // guard close
+    // if orchestrator_id is None, then we don't need to check for parallel SNOS jobs
+    let Some(orchestrator_id) = config.service_config().service_id.clone() else {
+        return Ok(true);
+    };
 
-    if let Some(orchestrator_id) = orchestrator_id {
-        if job.job_type == JobType::SnosRun {
-            let jobs = config
-                .database()
-                .get_jobs_by_statuses_and_orchestrator_id(
-                    vec![JobStatus::LockedForProcessing, JobStatus::PendingVerification],
-                    orchestrator_id,
-                    None,
-                )
-                .await
-                .map_err(|e| JobError::Other(OtherError(e)))?;
-            if !jobs.is_empty() {
-                return Ok(false);
-            }
-        }
+    // guard close
+    // if max_concurrent_snos_jobs is None, then we don't need to check for parallel SNOS jobs
+    let Some(max_concurrent_snos_jobs) = config.service_config().max_concurrent_snos_jobs else {
+        return Ok(true);
+    };
+
+    // guard close
+    // if job is not a SNOS job, then we don't need to check for parallel SNOS jobs
+    if job.job_type != JobType::SnosRun {
+        return Ok(true);
     }
-    Ok(true)
+
+    let jobs = config
+        .database()
+        .get_jobs_by_statuses_and_orchestrator_id(vec![JobStatus::LockedForProcessing], orchestrator_id, None)
+        .await
+        .map_err(|e| JobError::Other(OtherError(e)))?;
+
+    Ok((jobs.len() as u64) < max_concurrent_snos_jobs)
 }
 
 #[cfg(test)]

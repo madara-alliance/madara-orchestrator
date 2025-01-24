@@ -6,6 +6,8 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ## Added
 
+- Limits on SNOS job concurrency
+- Unique Id for running orchestrator
 - Added retry job endpoint for failed jobs
 - readme: setup instructions added
 - Added : Grafana dashboard

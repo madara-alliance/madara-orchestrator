@@ -67,6 +67,7 @@ pub struct ServiceParams {
     pub max_block_to_process: Option<u64>,
     pub min_block_to_process: Option<u64>,
     pub service_id: Option<String>,
+    pub max_concurrent_snos_jobs: Option<u64>,
 }
 
 pub struct OrchestratorParams {

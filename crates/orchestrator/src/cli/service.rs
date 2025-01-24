@@ -13,4 +13,8 @@ pub struct ServiceCliArgs {
     /// The Unique Id to describe the runner.
     #[arg(env = "MADARA_ORCHESTRATOR_SERVICE_ID", long)]
     pub service_id: Option<String>,
+
+    /// The maximum number of SNOS jobs to process concurrently.
+    #[arg(env = "MADARA_ORCHESTRATOR_MAX_CONCURRENT_SNOS_JOBS", long)]
+    pub max_concurrent_snos_jobs: Option<String>,
 }
