@@ -1,3 +1,4 @@
+use std::collections::HashSet;
 use std::sync::Arc;
 
 #[cfg(feature = "testing")]
@@ -18,6 +19,8 @@ use sharp_service::SharpProverService;
 use starknet::providers::jsonrpc::HttpTransport;
 use starknet::providers::{JsonRpcClient, Url};
 use starknet_settlement_client::StarknetSettlementClient;
+use tokio::sync::{Mutex, Semaphore};
+use uuid::Uuid;
 
 use crate::alerts::aws_sns::AWSSNS;
 use crate::alerts::Alerts;
@@ -28,7 +31,7 @@ use crate::cli::prover::ProverValidatedArgs;
 use crate::cli::provider::{AWSConfigValidatedArgs, ProviderValidatedArgs};
 use crate::cli::queue::QueueValidatedArgs;
 use crate::cli::settlement::SettlementValidatedArgs;
-use crate::cli::snos::SNOSParams;
+use crate::cli::snos::{self, SNOSParams};
 use crate::cli::storage::StorageValidatedArgs;
 use crate::cli::RunCmd;
 use crate::data_storage::aws_s3::AWSS3;
@@ -38,6 +41,37 @@ use crate::database::Database;
 use crate::queue::sqs::SqsQueue;
 use crate::queue::QueueProvider;
 use crate::routes::ServerParams;
+
+pub struct ProcessingState {
+    pub active_jobs: HashSet<Uuid>,
+    pub last_processed: chrono::DateTime<chrono::Utc>,
+}
+
+#[derive(Clone)]
+pub struct JobProcessingState {
+    pub semaphore: Arc<Semaphore>,
+    pub state: Arc<Mutex<ProcessingState>>,
+}
+
+impl JobProcessingState {
+    fn new(max_parallel_jobs: usize) -> Self {
+        JobProcessingState {
+            semaphore: Arc::new(Semaphore::new(max_parallel_jobs)),
+            state: Arc::new(Mutex::new(ProcessingState {
+                active_jobs: HashSet::new(),
+                last_processed: chrono::Utc::now() - chrono::Duration::seconds(1),
+            })),
+        }
+    }
+
+    async fn get_active_jobs(&self) -> HashSet<Uuid> {
+        self.state.lock().await.active_jobs.clone()
+    }
+
+    async fn get_last_processed(&self) -> chrono::DateTime<chrono::Utc> {
+        self.state.lock().await.last_processed
+    }
+}
 
 /// The app config. It can be accessed from anywhere inside the service
 /// by calling `config` function.
@@ -60,14 +94,15 @@ pub struct Config {
     storage: Box<dyn DataStorage>,
     /// Alerts client
     alerts: Box<dyn Alerts>,
+    /// Locks
+    snos_processing_lock: JobProcessingState,
 }
 
 #[derive(Debug, Clone)]
 pub struct ServiceParams {
     pub max_block_to_process: Option<u64>,
     pub min_block_to_process: Option<u64>,
-    pub service_id: Option<String>,
-    pub max_concurrent_snos_jobs: Option<u64>,
+    pub max_concurrent_snos_jobs: Option<usize>,
 }
 
 pub struct OrchestratorParams {
@@ -191,6 +226,9 @@ impl Config {
         storage: Box<dyn DataStorage>,
         alerts: Box<dyn Alerts>,
     ) -> Self {
+        let snos_processing_lock =
+            JobProcessingState::new(orchestrator_params.service_config.max_concurrent_snos_jobs.unwrap_or(1));
+
         Self {
             orchestrator_params,
             starknet_client,
@@ -201,6 +239,7 @@ impl Config {
             queue,
             storage,
             alerts,
+            snos_processing_lock,
         }
     }
 
@@ -262,6 +301,11 @@ impl Config {
     /// Returns the alerts client
     pub fn alerts(&self) -> &dyn Alerts {
         self.alerts.as_ref()
+    }
+
+    /// Returns the snos processing lock
+    pub fn snos_processing_lock(&self) -> JobProcessingState {
+        self.snos_processing_lock.clone()
     }
 
     /// Returns the snos proof layout

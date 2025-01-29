@@ -96,6 +96,14 @@ pub enum JobError {
     /// Wraps general errors that don't fit other categories
     #[error("Other error: {0}")]
     Other(#[from] OtherError),
+
+    /// Indicates the runner has reached the maximum number of attempts to process the job
+    #[error("Max Capacity Reached, Already processing")]
+    MaxCapacityReached,
+
+    /// Indicates an error occurred while extracting the processing lock
+    #[error("Error extracting processing lock: {0}")]
+    LockError(String),
 }
 
 /// Wrapper Type for Other(<>) job type
@@ -297,7 +305,7 @@ pub async fn process_job(id: Uuid, config: Arc<Config>) -> Result<(), JobError> 
     let job = get_job(id, config.clone()).await?;
     let internal_id = job.internal_id.clone();
 
-    let safe_to_proceed = check_for_parallel_snos(config.clone(), &job).await?;
+    let safe_to_proceed = check_for_parallel_processing(config.clone(), &job).await?;
     if !safe_to_proceed {
         tracing::warn!(
             "Other SNOS jobs are currently being processed by this orchestrator instance. Skipped processing for now."
@@ -328,28 +336,18 @@ pub async fn process_job(id: Uuid, config: Arc<Config>) -> Result<(), JobError> 
         }
     }
 
-    let updates = config
-        .service_config()
-        .service_id
-        .clone()
-        .map_or_else(
-            // this updates the version of the job. this ensures that if another thread was about to process
-            // the same job, it would fail to update the job in the database because the version would be
-            // outdated
-            || JobItemUpdates::new().update_status(JobStatus::LockedForProcessing),
-            |orchestrator_id| {
-                let mut new_metadata = job.metadata.clone();
-                new_metadata.insert(JOB_METADATA_ORCHESTRATOR_SERVICE_ID.to_string(), orchestrator_id);
-                JobItemUpdates::new().update_status(JobStatus::LockedForProcessing).update_metadata(new_metadata)
-            },
-        )
-        .build();
-
+    // this updates the version of the job. this ensures that if another thread was about to process
+    // the same job, it would fail to update the job in the database because the version would be
+    // outdated
     tracing::debug!(job_id = ?id, "Updating job status to LockedForProcessing");
-    let mut job = config.database().update_job(&job, updates).await.map_err(|e| {
-        tracing::error!(job_id = ?id, error = ?e, "Failed to update job status");
-        JobError::Other(OtherError(e))
-    })?;
+    let mut job = config
+        .database()
+        .update_job(&job, JobItemUpdates::new().update_status(JobStatus::LockedForProcessing).build())
+        .await
+        .map_err(|e| {
+            tracing::error!(job_id = ?id, error = ?e, "Failed to update job status");
+            JobError::Other(OtherError(e))
+        })?;
 
     tracing::debug!(job_id = ?id, job_type = ?job.job_type, "Getting job handler");
     let job_handler = factory::get_job_handler(&job.job_type).await;
@@ -954,45 +952,36 @@ pub async fn queue_job_for_verification(id: Uuid, config: Arc<Config>) -> Result
 
     Ok(())
 }
-
-/// Checks if SNOS jobs can be processed by this orchestrator pod based on concurrency limits.
-///
-/// # Arguments
-/// * `config` - Configuration containing service and database settings
-/// * `job` - Job item to be checked
-///
-/// # Returns
-/// * `Ok(true)` - If job can be processed (no concurrency limits hit)
-/// * `Ok(false)` - If job processing should be blocked (concurrency limits hit)
-/// * `Err(JobError)` - If database query fails
-async fn check_for_parallel_snos(config: Arc<Config>, job: &JobItem) -> Result<bool, JobError> {
-    // guard clause
-    // if orchestrator_id is None, then we don't need to check for parallel SNOS jobs
-    let Some(orchestrator_id) = config.service_config().service_id.clone() else {
-        return Ok(true);
-    };
-
-    // guard clause
-    // if max_concurrent_snos_jobs is None, then we don't need to check for parallel SNOS jobs
-    let Some(max_concurrent_snos_jobs) = config.service_config().max_concurrent_snos_jobs else {
-        return Ok(true);
-    };
-
-    // guard clause
-    // if job is not a SNOS job, then we don't need to check for parallel SNOS jobs
-    if job.job_type != JobType::SnosRun {
+async fn check_for_parallel_processing(config: Arc<Config>, job: &JobItem) -> Result<bool, JobError> {
+    // Early returns if parallel processing check not needed
+    if job.job_type != JobType::SnosRun || config.service_config().max_concurrent_snos_jobs.is_none() {
         return Ok(true);
     }
 
-    let jobs = config
-        .database()
-        .get_jobs_by_statuses_and_orchestrator_id(vec![JobStatus::LockedForProcessing], orchestrator_id, None)
-        .await
-        .map_err(|e| JobError::Other(OtherError(e)))?;
+    let processing_lock = config.snos_processing_lock();
 
-    Ok((jobs.len() as u64) < max_concurrent_snos_jobs)
+    // Try acquiring permit with timeout
+    let permit_taken = tokio::time::timeout(Duration::from_millis(100), processing_lock.semaphore.acquire()).await;
+
+    match permit_taken {
+        Ok(Ok(permit)) => {
+            let mut state = processing_lock.state.lock().await;
+            state.active_jobs.insert(job.id.clone());
+            println!("Active jobs: {:?}", state.active_jobs);
+            drop(permit);
+            Ok(true)
+        }
+        Ok(Err(e)) => Err(JobError::LockError(e.to_string())),
+        Err(_) => {
+            println!(
+                "Job {} waiting - at max capacity ({} active jobs)",
+                job.id,
+                processing_lock.semaphore.available_permits()
+            );
+            Ok(false)
+        }
+    }
 }
-
 #[cfg(test)]
 mod tests {
     use super::*;
