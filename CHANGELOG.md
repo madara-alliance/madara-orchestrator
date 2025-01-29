@@ -89,6 +89,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ## Fixed
 
+- add jemallocator to fix memory leak
 - refactor: instrumentation
 - `is_worker_enabled` status check moved from `VerificationFailed` to `Failed`
 - refactor: static attributes for telemetry
