@@ -31,7 +31,7 @@ use crate::cli::prover::ProverValidatedArgs;
 use crate::cli::provider::{AWSConfigValidatedArgs, ProviderValidatedArgs};
 use crate::cli::queue::QueueValidatedArgs;
 use crate::cli::settlement::SettlementValidatedArgs;
-use crate::cli::snos::{SNOSParams};
+use crate::cli::snos::SNOSParams;
 use crate::cli::storage::StorageValidatedArgs;
 use crate::cli::RunCmd;
 use crate::data_storage::aws_s3::AWSS3;
