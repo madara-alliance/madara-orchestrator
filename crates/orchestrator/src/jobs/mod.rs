@@ -973,7 +973,7 @@ async fn try_acquire_permit<'a>(
         Ok(Ok(permit)) => {
             {
                 let mut state = processing_lock.state.lock().await;
-                state.active_jobs.insert(job.id.clone());
+                state.active_jobs.insert(job.id);
                 drop(state); // Explicitly drop the lock (optional but clear)
             }
             Ok(Some(permit))
