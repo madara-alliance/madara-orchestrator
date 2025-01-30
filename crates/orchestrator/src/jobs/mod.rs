@@ -7,10 +7,7 @@ use std::time::{Duration, Instant};
 use async_trait::async_trait;
 use chrono::Utc;
 use color_eyre::eyre::{eyre, Context};
-use constants::{
-    JOB_METADATA_ERROR, JOB_METADATA_FAILURE_REASON, JOB_METADATA_ORCHESTRATOR_SERVICE_ID,
-    JOB_METADATA_PROCESSING_COMPLETED_AT,
-};
+use constants::{JOB_METADATA_ERROR, JOB_METADATA_FAILURE_REASON, JOB_METADATA_PROCESSING_COMPLETED_AT};
 use conversion::parse_string;
 use da_job::DaError;
 use futures::FutureExt;
@@ -24,7 +21,7 @@ use state_update_job::StateUpdateError;
 use types::{ExternalId, JobItemUpdates};
 use uuid::Uuid;
 
-use crate::config::Config;
+use crate::config::{Config, JobProcessingState};
 use crate::jobs::constants::{
     JOB_PROCESS_ATTEMPT_METADATA_KEY, JOB_PROCESS_RETRY_ATTEMPT_METADATA_KEY, JOB_VERIFICATION_ATTEMPT_METADATA_KEY,
     JOB_VERIFICATION_RETRY_ATTEMPT_METADATA_KEY,
@@ -305,16 +302,10 @@ pub async fn process_job(id: Uuid, config: Arc<Config>) -> Result<(), JobError> 
     let job = get_job(id, config.clone()).await?;
     let internal_id = job.internal_id.clone();
 
-    let safe_to_proceed = check_for_parallel_processing(config.clone(), &job).await?;
-    if !safe_to_proceed {
-        tracing::warn!(
-            "Other SNOS jobs are currently being processed by this orchestrator instance. Skipped processing for now."
-        );
-        add_job_to_process_queue(job.id, &job.job_type, config.clone())
-            .await
-            .map_err(|e| JobError::Other(OtherError(e)))?;
-        return Ok(());
-    }
+    // Permit for processing SNOS jobs
+    let processing_lock = config.snos_processing_lock();
+    let max_concurrent_snos_jobs = config.service_config().max_concurrent_snos_jobs;
+    let permit = try_acquire_permit(processing_lock, max_concurrent_snos_jobs, &job).await?;
 
     tracing::info!(log_type = "starting", category = "general", function_type = "process_job", block_no = %internal_id, "General process job started for block");
 
@@ -427,6 +418,18 @@ pub async fn process_job(id: Uuid, config: Arc<Config>) -> Result<(), JobError> 
     ORCHESTRATOR_METRICS.jobs_response_time.record(duration.as_secs_f64(), &attributes);
     //  job_type, internal_id, external_id
     register_block_gauge(job.job_type, &job.internal_id, external_id.into(), &attributes)?;
+
+    if let Some(permit) = permit {
+        // Getting permit means we are running SNOS job
+        let processing_lock = config.snos_processing_lock();
+        let mut lock = processing_lock.state.lock().await;
+        // Remove the job from the active jobs list, and update the last processed time
+        lock.active_jobs.remove(&job.id);
+        lock.last_processed = chrono::Utc::now();
+        // Drop the permit to allow other jobs to be processed
+        drop(permit);
+    }
+
     Ok(())
 }
 
@@ -952,33 +955,32 @@ pub async fn queue_job_for_verification(id: Uuid, config: Arc<Config>) -> Result
 
     Ok(())
 }
-async fn check_for_parallel_processing(config: Arc<Config>, job: &JobItem) -> Result<bool, JobError> {
-    // Early returns if parallel processing check not needed
-    if job.job_type != JobType::SnosRun || config.service_config().max_concurrent_snos_jobs.is_none() {
-        return Ok(true);
+
+async fn try_acquire_permit<'a>(
+    processing_lock: &'a JobProcessingState,
+    max_concurrent_snos_jobs: Option<usize>,
+    job: &JobItem,
+) -> Result<Option<tokio::sync::SemaphorePermit<'a>>, JobError> {
+    // Early return if job doesn't need processing lock
+    if job.job_type != JobType::SnosRun || max_concurrent_snos_jobs.is_none() {
+        return Ok(None);
     }
 
-    let processing_lock = config.snos_processing_lock();
-
-    // Try acquiring permit with timeout
-    let permit_taken = tokio::time::timeout(Duration::from_millis(100), processing_lock.semaphore.acquire()).await;
-
-    match permit_taken {
+    // Try to acquire permit with timeout
+    match tokio::time::timeout(Duration::from_millis(100), processing_lock.semaphore.acquire()).await {
         Ok(Ok(permit)) => {
             let mut state = processing_lock.state.lock().await;
-            state.active_jobs.insert(job.id.clone());
-            println!("Active jobs: {:?}", state.active_jobs);
-            drop(permit);
-            Ok(true)
+            state.active_jobs.insert(job.id);
+            Ok(Some(permit))
         }
         Ok(Err(e)) => Err(JobError::LockError(e.to_string())),
         Err(_) => {
             println!(
                 "Job {} waiting - at max capacity ({} active jobs)",
                 job.id,
-                processing_lock.semaphore.available_permits()
+                processing_lock.get_available_permits()
             );
-            Ok(false)
+            Ok(None)
         }
     }
 }

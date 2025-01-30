@@ -31,7 +31,7 @@ use crate::cli::prover::ProverValidatedArgs;
 use crate::cli::provider::{AWSConfigValidatedArgs, ProviderValidatedArgs};
 use crate::cli::queue::QueueValidatedArgs;
 use crate::cli::settlement::SettlementValidatedArgs;
-use crate::cli::snos::{self, SNOSParams};
+use crate::cli::snos::{SNOSParams};
 use crate::cli::storage::StorageValidatedArgs;
 use crate::cli::RunCmd;
 use crate::data_storage::aws_s3::AWSS3;
@@ -64,12 +64,16 @@ impl JobProcessingState {
         }
     }
 
-    async fn get_active_jobs(&self) -> HashSet<Uuid> {
+    pub async fn get_active_jobs(&self) -> HashSet<Uuid> {
         self.state.lock().await.active_jobs.clone()
     }
 
-    async fn get_last_processed(&self) -> chrono::DateTime<chrono::Utc> {
+    pub async fn get_last_processed(&self) -> chrono::DateTime<chrono::Utc> {
         self.state.lock().await.last_processed
+    }
+
+    pub fn get_available_permits(&self) -> usize {
+        self.semaphore.available_permits()
     }
 }
 
@@ -304,8 +308,8 @@ impl Config {
     }
 
     /// Returns the snos processing lock
-    pub fn snos_processing_lock(&self) -> JobProcessingState {
-        self.snos_processing_lock.clone()
+    pub fn snos_processing_lock(&self) -> &JobProcessingState {
+        &self.snos_processing_lock
     }
 
     /// Returns the snos proof layout

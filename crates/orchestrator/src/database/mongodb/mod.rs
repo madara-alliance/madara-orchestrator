@@ -419,34 +419,4 @@ impl Database for MongoDb {
         ORCHESTRATOR_METRICS.db_calls_response_time.record(duration.as_secs_f64(), &attributes);
         Ok(jobs)
     }
-
-    #[tracing::instrument(skip(self, limit), fields(function_type = "db_call"), ret, err)]
-    async fn get_jobs_by_statuses_and_orchestrator_id(
-        &self,
-        job_status: Vec<JobStatus>,
-        orchestrator_id: String,
-        limit: Option<i64>,
-    ) -> Result<Vec<JobItem>> {
-        let start = Instant::now();
-        let filter = doc! {
-            "status": {
-                "$in": job_status.iter().map(|status| bson::to_bson(status).unwrap_or(Bson::Null)).collect::<Vec<Bson>>()
-            },
-            "metadata.orchestrator_service_id": orchestrator_id.clone()
-        };
-
-        let find_options = limit.map(|val| FindOptions::builder().limit(Some(val)).build());
-
-        let jobs: Vec<JobItem> = self.get_job_collection().find(filter, find_options).await?.try_collect().await?;
-        tracing::debug!(
-            job_count = jobs.len(),
-            orchestrator_id = orchestrator_id,
-            category = "db_call",
-            "Retrieved jobs by statuses and orchestrator_id"
-        );
-        let attributes = [KeyValue::new("db_operation_name", "get_jobs_by_statuses_and_orchestrator_id")];
-        let duration = start.elapsed();
-        ORCHESTRATOR_METRICS.db_calls_response_time.record(duration.as_secs_f64(), &attributes);
-        Ok(jobs)
-    }
 }
