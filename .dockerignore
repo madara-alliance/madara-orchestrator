@@ -22,9 +22,6 @@ target/
 tests/
 docs/
 
-# Ignore Rust-specific files
-Cargo.lock
-
 # Ignore any temporary files
 *.tmp
 *.bak
