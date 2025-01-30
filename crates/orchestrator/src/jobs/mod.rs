@@ -422,10 +422,12 @@ pub async fn process_job(id: Uuid, config: Arc<Config>) -> Result<(), JobError> 
     if let Some(permit) = permit {
         // Getting permit means we are running SNOS job
         let processing_lock = config.snos_processing_lock();
-        let mut lock = processing_lock.state.lock().await;
+        let mut state = processing_lock.state.lock().await;
         // Remove the job from the active jobs list, and update the last processed time
-        lock.active_jobs.remove(&job.id);
-        lock.last_processed = chrono::Utc::now();
+        state.active_jobs.remove(&job.id);
+        state.last_processed = chrono::Utc::now();
+        // Explicitly drop the lock
+        drop(state);
         // Drop the permit to allow other jobs to be processed
         drop(permit);
     }
@@ -969,8 +971,11 @@ async fn try_acquire_permit<'a>(
     // Try to acquire permit with timeout
     match tokio::time::timeout(Duration::from_millis(100), processing_lock.semaphore.acquire()).await {
         Ok(Ok(permit)) => {
-            let mut state = processing_lock.state.lock().await;
-            state.active_jobs.insert(job.id);
+            {
+                let mut state = processing_lock.state.lock().await;
+                state.active_jobs.insert(job.id.clone());
+                drop(state); // Explicitly drop the lock (optional but clear)
+            }
             Ok(Some(permit))
         }
         Ok(Err(e)) => Err(JobError::LockError(e.to_string())),
