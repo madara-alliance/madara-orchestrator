@@ -301,11 +301,19 @@ pub async fn process_job(id: Uuid, config: Arc<Config>) -> Result<(), JobError> 
     let start = Instant::now();
     let job = get_job(id, config.clone()).await?;
     let internal_id = job.internal_id.clone();
+    let mut permit: Option<tokio::sync::SemaphorePermit<'_>> = None;
 
-    // Permit for processing SNOS jobs
-    let processing_lock = config.snos_processing_lock();
-    let max_concurrent_snos_jobs = config.service_config().max_concurrent_snos_jobs;
-    let permit = try_acquire_permit(processing_lock, max_concurrent_snos_jobs, &job).await?;
+    // if job_type is SNOS & max_concurrent is defined - then you need permit for sure
+    if job.job_type == JobType::SnosRun && config.service_config().max_concurrent_snos_jobs.is_some() {
+        let processing_lock = config.snos_processing_lock();
+        permit = try_acquire_permit(processing_lock, &job).await?;
+        // we wanted permit but didn't get it
+        if permit.is_none() {
+            // add job back to queue
+            add_job_to_process_queue(job.id, &job.job_type, config.clone()).await?;
+            return Err(JobError::MaxCapacityReached);
+        }
+    }
 
     tracing::info!(log_type = "starting", category = "general", function_type = "process_job", block_no = %internal_id, "General process job started for block");
 
@@ -960,13 +968,9 @@ pub async fn queue_job_for_verification(id: Uuid, config: Arc<Config>) -> Result
 
 async fn try_acquire_permit<'a>(
     processing_lock: &'a JobProcessingState,
-    max_concurrent_snos_jobs: Option<usize>,
     job: &JobItem,
 ) -> Result<Option<tokio::sync::SemaphorePermit<'a>>, JobError> {
     // Early return if job doesn't need processing lock
-    if job.job_type != JobType::SnosRun || max_concurrent_snos_jobs.is_none() {
-        return Ok(None);
-    }
 
     // Try to acquire permit with timeout
     match tokio::time::timeout(Duration::from_millis(100), processing_lock.semaphore.acquire()).await {
@@ -981,7 +985,7 @@ async fn try_acquire_permit<'a>(
         Ok(Err(e)) => Err(JobError::LockError(e.to_string())),
         Err(_) => {
             println!(
-                "Job {} waiting - at max capacity ({} active jobs)",
+                "Job {} waiting - at max capacity ({} available permits)",
                 job.id,
                 processing_lock.get_available_permits()
             );
