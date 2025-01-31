@@ -283,7 +283,7 @@ pub async fn put_job_data_in_db_snos(mongo_db: &MongoDbServer, l2_block_number: 
     // Create the SNOS-specific metadata
     let snos_metadata = SnosMetadata {
         block_number: l2_block_number.parse().expect("Invalid block number"),
-        full_output: true,
+        full_output: false,
         cairo_pie_path: Some(format!("{}/cairo_pie.zip", l2_block_number.clone())),
         snos_output_path: Some(format!("{}/snos_output.json", l2_block_number.clone())),
         program_output_path: Some(format!("{}/program_output.txt", l2_block_number.clone())),
