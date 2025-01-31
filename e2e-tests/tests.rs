@@ -15,10 +15,8 @@ use mongodb::bson::doc;
 use orchestrator::cli::database::DatabaseValidatedArgs;
 use orchestrator::data_storage::DataStorage;
 use orchestrator::database::mongodb::MongoDBValidatedArgs;
-use orchestrator::jobs::constants::{JOB_METADATA_SNOS_BLOCK, JOB_METADATA_STATE_UPDATE_BLOCKS_TO_SETTLE_KEY};
 use orchestrator::jobs::metadata::{
-    CommonMetadata, DaMetadata, JobMetadata, JobSpecificMetadata, ProvingInputType, ProvingMetadata, SnosMetadata,
-    StateUpdateMetadata,
+    CommonMetadata, DaMetadata, JobMetadata, JobSpecificMetadata, ProvingMetadata, SnosMetadata, StateUpdateMetadata,
 };
 use orchestrator::jobs::types::{ExternalId, JobItem, JobStatus, JobType};
 use orchestrator::queue::job_queue::JobQueueMessage;

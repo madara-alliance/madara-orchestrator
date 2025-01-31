@@ -1,6 +1,5 @@
 pub mod constants;
 
-use std::collections::HashMap;
 use std::sync::Arc;
 
 use ::uuid::Uuid;
@@ -180,7 +179,7 @@ pub async fn get_sqs_client(provider_config: Arc<ProviderConfig>) -> aws_sdk_sqs
 
 #[derive(Deserialize, Debug)]
 pub struct MessagePayloadType {
-    pub(crate) id: Uuid,
+    pub(crate) _id: Uuid,
 }
 
 pub async fn get_storage_client(

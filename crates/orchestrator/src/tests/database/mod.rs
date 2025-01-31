@@ -1,5 +1,3 @@
-use std::collections::HashMap;
-
 use chrono::{SubsecRound, Utc};
 use rstest::*;
 use uuid::Uuid;
@@ -9,7 +7,7 @@ use crate::jobs::metadata::{
     StateUpdateMetadata,
 };
 use crate::jobs::types::{ExternalId, JobItem, JobItemUpdates, JobStatus, JobType};
-use crate::jobs::{increment_key_in_metadata, JobError};
+use crate::jobs::JobError;
 use crate::tests::config::{ConfigType, TestConfigBuilder};
 
 #[rstest]

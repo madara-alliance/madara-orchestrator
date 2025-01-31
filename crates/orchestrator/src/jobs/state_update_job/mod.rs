@@ -14,7 +14,7 @@ use uuid::Uuid;
 
 use super::{JobError, OtherError};
 use crate::config::Config;
-use crate::jobs::metadata::{CommonMetadata, JobMetadata, JobSpecificMetadata, StateUpdateMetadata};
+use crate::jobs::metadata::{JobMetadata, JobSpecificMetadata, StateUpdateMetadata};
 use crate::jobs::state_update_job::utils::fetch_blob_data_for_block;
 use crate::jobs::types::{JobItem, JobStatus, JobType, JobVerificationStatus};
 use crate::jobs::Job;
@@ -379,6 +379,7 @@ impl StateUpdateJob {
     }
 
     /// Update the state for the corresponding block using the settlement layer.
+    #[allow(clippy::too_many_arguments)]
     async fn update_state_for_block(
         &self,
         config: Arc<Config>,
@@ -386,8 +387,8 @@ impl StateUpdateJob {
         block_index: usize,
         snos: StarknetOsOutput,
         nonce: u64,
-        program_output_paths: &Vec<String>,
-        blob_data_paths: &Vec<String>,
+        program_output_paths: &[String],
+        blob_data_paths: &[String],
     ) -> Result<String, JobError> {
         let settlement_client = config.settlement_client();
         let last_tx_hash_executed = if snos.use_kzg_da == Felt252::ZERO {
@@ -416,7 +417,7 @@ impl StateUpdateJob {
         internal_id: String,
         index: usize,
         config: Arc<Config>,
-        snos_output_paths: &Vec<String>,
+        snos_output_paths: &[String],
     ) -> Result<StarknetOsOutput, JobError> {
         let storage_client = config.storage();
 
@@ -425,8 +426,7 @@ impl StateUpdateJob {
             JobError::Other(OtherError(eyre!("Failed to get the snos path of the id {}", internal_id)))
         })?;
 
-        let snos_output_bytes =
-            storage_client.get_data(&snos_path).await.map_err(|e| JobError::Other(OtherError(e)))?;
+        let snos_output_bytes = storage_client.get_data(snos_path).await.map_err(|e| JobError::Other(OtherError(e)))?;
 
         serde_json::from_slice(snos_output_bytes.iter().as_slice()).map_err(|e| {
             JobError::Other(OtherError(eyre!("Failed to deserialize SNOS output from path {}: {}", snos_path, e)))
@@ -437,7 +437,7 @@ impl StateUpdateJob {
         &self,
         block_index: usize,
         config: Arc<Config>,
-        program_output_paths: &Vec<String>,
+        program_output_paths: &[String],
     ) -> Result<Vec<[u8; 32]>, JobError> {
         let storage_client = config.storage();
 

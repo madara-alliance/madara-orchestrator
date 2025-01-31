@@ -50,7 +50,7 @@ impl Worker for ProvingWorker {
                 specific: JobSpecificMetadata::Proving(ProvingMetadata {
                     block_number: snos_metadata.block_number,
                     // Set input path as CairoPie type
-                    input_path: snos_metadata.cairo_pie_path.map(|path| ProvingInputType::CairoPie(path)),
+                    input_path: snos_metadata.cairo_pie_path.map(ProvingInputType::CairoPie),
                     // Set download path if needed
                     download_proof: None,
                     // Set SNOS fact for on-chain verification

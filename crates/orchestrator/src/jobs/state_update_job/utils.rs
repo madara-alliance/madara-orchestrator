@@ -8,13 +8,11 @@ use color_eyre::eyre::eyre;
 use num_bigint::BigUint;
 
 use crate::config::Config;
-use crate::jobs::metadata::JobSpecificMetadata;
-use crate::jobs::types::JobItem;
 /// Fetching the blob data (stored in remote storage during DA job) for a particular block
 pub async fn fetch_blob_data_for_block(
     block_index: usize,
     config: Arc<Config>,
-    blob_data_paths: &Vec<String>,
+    blob_data_paths: &[String],
 ) -> color_eyre::Result<Vec<Vec<u8>>> {
     let storage_client = config.storage();
 
