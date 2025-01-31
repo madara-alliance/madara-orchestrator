@@ -11,12 +11,16 @@ use lazy_static::lazy_static;
 use mockall::predicate::{always, eq};
 use num_bigint::BigUint;
 use rstest::*;
+use serde_json;
 use settlement_client_interface::MockSettlementClient;
 use starknet::providers::jsonrpc::HttpTransport;
 use starknet::providers::JsonRpcClient;
 use url::Url;
 
-use crate::constants::{BLOB_DATA_FILE_NAME, PROGRAM_OUTPUT_FILE_NAME, SNOS_OUTPUT_FILE_NAME};
+use crate::constants::{
+    BLOB_DATA_FILE_NAME, JOB_METADATA_BLOB_DATA_PATH, JOB_METADATA_PROGRAM_OUTPUT_PATH, JOB_METADATA_SNOS_OUTPUT_PATH,
+    PROGRAM_OUTPUT_FILE_NAME, SNOS_OUTPUT_FILE_NAME,
+};
 use crate::data_storage::MockDataStorage;
 use crate::jobs::constants::{
     JOB_METADATA_STATE_UPDATE_BLOCKS_TO_SETTLE_KEY, JOB_METADATA_STATE_UPDATE_FETCH_FROM_TESTS,
@@ -263,6 +267,19 @@ async fn process_job_works_unit_test() {
     metadata.insert(String::from(JOB_METADATA_STATE_UPDATE_FETCH_FROM_TESTS), String::from("TRUE"));
     metadata.insert(String::from(JOB_METADATA_STATE_UPDATE_BLOCKS_TO_SETTLE_KEY), block_numbers.join(","));
     metadata.insert(String::from(JOB_PROCESS_ATTEMPT_METADATA_KEY), String::from("0"));
+
+    // Add serialized path arrays
+    let snos_paths: Vec<String> =
+        block_numbers.iter().map(|block| format!("{}/{}", block, SNOS_OUTPUT_FILE_NAME)).collect();
+    metadata.insert(JOB_METADATA_SNOS_OUTPUT_PATH.to_string(), serde_json::to_string(&snos_paths).unwrap());
+
+    let program_paths: Vec<String> =
+        block_numbers.iter().map(|block| format!("{}/{}", block, PROGRAM_OUTPUT_FILE_NAME)).collect();
+    metadata.insert(JOB_METADATA_PROGRAM_OUTPUT_PATH.to_string(), serde_json::to_string(&program_paths).unwrap());
+
+    let blob_paths: Vec<String> =
+        block_numbers.iter().map(|block| format!("{}/{}", block, BLOB_DATA_FILE_NAME)).collect();
+    metadata.insert(JOB_METADATA_BLOB_DATA_PATH.to_string(), serde_json::to_string(&blob_paths).unwrap());
 
     let mut job =
         StateUpdateJob.create_job(services.config.clone(), String::from("internal_id"), metadata).await.unwrap();

@@ -8,23 +8,20 @@ use color_eyre::eyre::eyre;
 use num_bigint::BigUint;
 
 use crate::config::Config;
-use crate::constants::{BLOB_DATA_FILE_NAME, PROGRAM_OUTPUT_FILE_NAME};
-
 /// Fetching the blob data (stored in remote storage during DA job) for a particular block
-pub async fn fetch_blob_data_for_block(block_number: u64, config: Arc<Config>) -> color_eyre::Result<Vec<Vec<u8>>> {
+pub async fn fetch_blob_data_for_block(
+    block_index: usize,
+    config: Arc<Config>,
+    blob_data_paths: &[String],
+) -> color_eyre::Result<Vec<Vec<u8>>> {
     let storage_client = config.storage();
-    let key = block_number.to_string() + "/" + BLOB_DATA_FILE_NAME;
-    let blob_data = storage_client.get_data(&key).await?;
+
+    // Get the path for this block
+    let path =
+        blob_data_paths.get(block_index).ok_or_else(|| eyre!("Blob data path not found for index {}", block_index))?;
+
+    let blob_data = storage_client.get_data(path).await?;
     Ok(vec![blob_data.to_vec()])
-}
-
-/// Fetching the blob data (stored in remote storage during DA job) for a particular block
-pub async fn fetch_program_data_for_block(block_number: u64, config: Arc<Config>) -> color_eyre::Result<Vec<[u8; 32]>> {
-    let storage_client = config.storage();
-    let key = block_number.to_string() + "/" + PROGRAM_OUTPUT_FILE_NAME;
-    let blob_data = storage_client.get_data(&key).await?;
-    let transformed_blob_vec_u8 = bytes_to_vec_u8(blob_data.as_ref())?;
-    Ok(transformed_blob_vec_u8)
 }
 
 // Util Functions

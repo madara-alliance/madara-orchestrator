@@ -15,7 +15,7 @@ use url::Url;
 use uuid::Uuid;
 
 use super::super::common::default_job_item;
-use crate::constants::CAIRO_PIE_FILE_NAME;
+use crate::constants::{CAIRO_PIE_FILE_NAME, JOB_METADATA_CAIRO_PIE_PATH};
 use crate::data_storage::MockDataStorage;
 use crate::jobs::constants::JOB_METADATA_SNOS_FACT;
 use crate::jobs::proving_job::ProvingJob;
@@ -45,7 +45,7 @@ async fn test_create_job() {
 #[tokio::test]
 async fn test_verify_job(#[from(default_job_item)] mut job_item: JobItem) {
     let mut prover_client = MockProverClient::new();
-    prover_client.expect_get_task_status().times(1).returning(|_, _| Ok(TaskStatus::Succeeded));
+    prover_client.expect_get_task_status().times(1).returning(|_, _, _| Ok(TaskStatus::Succeeded));
 
     let services = TestConfigBuilder::new().configure_prover_client(prover_client.into()).build().await;
 
@@ -93,7 +93,12 @@ async fn test_process_job() {
                     job_type: JobType::ProofCreation,
                     status: JobStatus::Created,
                     external_id: String::new().into(),
-                    metadata: HashMap::new(),
+                    metadata: {
+                        let mut metadata = HashMap::new();
+                        metadata.insert(JOB_METADATA_CAIRO_PIE_PATH.into(), format!("0/{}", CAIRO_PIE_FILE_NAME));
+                        metadata.insert(JOB_METADATA_SNOS_FACT.into(), "fact".to_string());
+                        metadata
+                    },
                     version: 0,
                     created_at: Utc::now().round_subsecs(0),
                     updated_at: Utc::now().round_subsecs(0)

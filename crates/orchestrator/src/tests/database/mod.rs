@@ -1,11 +1,13 @@
-use std::collections::HashMap;
-
 use chrono::{SubsecRound, Utc};
 use rstest::*;
 use uuid::Uuid;
 
+use crate::jobs::metadata::{
+    CommonMetadata, DaMetadata, JobMetadata, JobSpecificMetadata, ProvingInputType, ProvingMetadata, SnosMetadata,
+    StateUpdateMetadata,
+};
 use crate::jobs::types::{ExternalId, JobItem, JobItemUpdates, JobStatus, JobType};
-use crate::jobs::{increment_key_in_metadata, JobError};
+use crate::jobs::JobError;
 use crate::tests::config::{ConfigType, TestConfigBuilder};
 
 #[rstest]
@@ -203,9 +205,12 @@ async fn database_test_update_job() {
 
     let job_id = job.id;
 
-    let metadata = HashMap::new();
-    let key = "test_key";
-    let updated_metadata = increment_key_in_metadata(&metadata, key).unwrap();
+    // Create updated metadata with the new structure
+    let mut updated_job_metadata = job.metadata.clone();
+    if let JobSpecificMetadata::Da(ref mut da_metadata) = updated_job_metadata.specific {
+        da_metadata.block_number = 456;
+        da_metadata.tx_hash = Some("test_key".to_string());
+    }
 
     let job_cloned = job.clone();
     let updated_job = database_client
@@ -213,7 +218,7 @@ async fn database_test_update_job() {
             &job_cloned,
             JobItemUpdates::new()
                 .update_status(JobStatus::LockedForProcessing)
-                .update_metadata(updated_metadata)
+                .update_metadata(updated_job_metadata)
                 .build(),
         )
         .await;
@@ -224,6 +229,13 @@ async fn database_test_update_job() {
         assert_eq!(JobStatus::LockedForProcessing, job_after_updates_db.status);
         assert_eq!(1, job_after_updates_db.version);
         assert_eq!(456.to_string(), job_after_updates_db.internal_id);
+
+        // Check metadata was updated correctly
+        if let JobSpecificMetadata::Da(da_metadata) = &job_after_updates_db.metadata.specific {
+            assert_eq!(Some("test_key".to_string()), da_metadata.tx_hash);
+        } else {
+            panic!("Wrong metadata type");
+        }
 
         // check if value returned by `update_job` is the correct one
         // and matches the one in database
@@ -237,13 +249,56 @@ async fn database_test_update_job() {
 // ==========================================
 
 pub fn build_job_item(job_type: JobType, job_status: JobStatus, internal_id: u64) -> JobItem {
+    let metadata = match job_type {
+        JobType::StateTransition => JobMetadata {
+            common: CommonMetadata::default(),
+            specific: JobSpecificMetadata::StateUpdate(StateUpdateMetadata {
+                blocks_to_settle: vec![internal_id],
+                snos_output_paths: vec![format!("{}/snos_output.json", internal_id)],
+                program_output_paths: vec![format!("{}/program_output.txt", internal_id)],
+                blob_data_paths: vec![format!("{}/blob_data.txt", internal_id)],
+                last_failed_block_no: None,
+                tx_hashes: Vec::new(),
+            }),
+        },
+        JobType::SnosRun => JobMetadata {
+            common: CommonMetadata::default(),
+            specific: JobSpecificMetadata::Snos(SnosMetadata {
+                block_number: internal_id,
+                full_output: false,
+                cairo_pie_path: Some(format!("{}/cairo_pie.zip", internal_id)),
+                snos_output_path: Some(format!("{}/snos_output.json", internal_id)),
+                program_output_path: Some(format!("{}/program_output.txt", internal_id)),
+                snos_fact: None,
+            }),
+        },
+        JobType::ProofCreation => JobMetadata {
+            common: CommonMetadata::default(),
+            specific: JobSpecificMetadata::Proving(ProvingMetadata {
+                block_number: internal_id,
+                input_path: Some(ProvingInputType::CairoPie(format!("{}/cairo_pie.zip", internal_id))),
+                ensure_on_chain_registration: None,
+                download_proof: None,
+            }),
+        },
+        JobType::DataSubmission => JobMetadata {
+            common: CommonMetadata::default(),
+            specific: JobSpecificMetadata::Da(DaMetadata {
+                block_number: internal_id,
+                blob_data_path: Some(format!("{}/blob_data.txt", internal_id)),
+                tx_hash: None,
+            }),
+        },
+        _ => panic!("Invalid job type"),
+    };
+
     JobItem {
         id: Uuid::new_v4(),
         internal_id: internal_id.to_string(),
         job_type,
         status: job_status,
         external_id: ExternalId::Number(0),
-        metadata: Default::default(),
+        metadata,
         version: 0,
         created_at: Utc::now().round_subsecs(0),
         updated_at: Utc::now().round_subsecs(0),
