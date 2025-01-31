@@ -27,6 +27,7 @@ use starknet::core::types::{Felt, MaybePendingStateUpdate};
 use url::Url;
 use utils::env_utils::get_env_var_or_panic;
 use uuid::Uuid;
+use orchestrator::jobs::metadata::{CommonMetadata, DaMetadata, JobMetadata, JobSpecificMetadata, SnosMetadata, StateUpdateMetadata, ProvingMetadata, ProvingInputType};
 
 extern crate e2e_tests;
 
@@ -276,13 +277,32 @@ async fn get_database_state(
 
 /// Puts after SNOS job state into the database
 pub async fn put_job_data_in_db_snos(mongo_db: &MongoDbServer, l2_block_number: String) -> Uuid {
+    // Create the SNOS-specific metadata
+    let snos_metadata = SnosMetadata {
+        block_number: l2_block_number.parse().expect("Invalid block number"),
+        full_output: true,
+        cairo_pie_path: Some(format!("{}/cairo_pie.zip", l2_block_number.clone())),
+        snos_output_path: Some(format!("{}/snos_output.json", l2_block_number.clone())),
+        program_output_path: Some(format!("{}/program_output.txt", l2_block_number.clone())),
+        snos_fact: None,
+    };
+
+    // Create the common metadata with default values
+    let common_metadata = CommonMetadata::default();
+
+    // Combine into JobMetadata
+    let metadata = JobMetadata {
+        common: common_metadata,
+        specific: JobSpecificMetadata::Snos(snos_metadata),
+    };
+
     let job_item = JobItem {
         id: Uuid::new_v4(),
         internal_id: l2_block_number.clone(),
         job_type: JobType::SnosRun,
         status: JobStatus::Created,
         external_id: ExternalId::Number(0),
-        metadata: HashMap::from([(JOB_METADATA_SNOS_BLOCK.to_string(), l2_block_number)]),
+        metadata,
         version: 0,
         created_at: Utc::now().round_subsecs(0),
         updated_at: Utc::now().round_subsecs(0),
@@ -357,13 +377,29 @@ pub async fn mock_proving_job_endpoint_output(sharp_client: &mut SharpClient) {
 
 /// Puts after SNOS job state into the database
 pub async fn put_job_data_in_db_da(mongo_db: &MongoDbServer, l2_block_number: String) {
+    // Create the DA-specific metadata
+    let da_metadata = DaMetadata {
+        block_number: l2_block_number.parse::<u64>().unwrap() - 1,
+        blob_data_path: Some(format!("{}/blob_data.txt", l2_block_number.clone())),
+        tx_hash: None,
+    };
+
+    // Create the common metadata with default values
+    let common_metadata = CommonMetadata::default();
+
+    // Combine into JobMetadata
+    let metadata = JobMetadata {
+        common: common_metadata,
+        specific: JobSpecificMetadata::Da(da_metadata),
+    };
+
     let job_item = JobItem {
         id: Uuid::new_v4(),
         internal_id: (l2_block_number.parse::<u32>().unwrap() - 1).to_string(),
         job_type: JobType::DataSubmission,
         status: JobStatus::Completed,
         external_id: ExternalId::Number(0),
-        metadata: HashMap::new(),
+        metadata,
         version: 0,
         created_at: Utc::now().round_subsecs(0),
         updated_at: Utc::now().round_subsecs(0),
@@ -433,16 +469,34 @@ pub async fn mock_starknet_get_latest_block(starknet_client: &mut StarknetClient
 
 /// Puts after SNOS job state into the database
 pub async fn put_job_data_in_db_update_state(mongo_db: &MongoDbServer, l2_block_number: String) {
+    let block_number = l2_block_number.parse::<u64>().unwrap() - 1;
+    
+    // Create the StateUpdate-specific metadata
+    let state_update_metadata = StateUpdateMetadata {
+        blocks_to_settle: vec![block_number],
+        snos_output_paths: vec![format!("{}/snos_output.json", block_number)],
+        program_output_paths: vec![format!("{}/program_output.txt", block_number)],
+        blob_data_paths: vec![format!("{}/blob_data.txt", block_number)],
+        last_failed_block_no: None,
+        tx_hashes: Vec::new(),
+    };
+
+    // Create the common metadata with default values
+    let common_metadata = CommonMetadata::default();
+
+    // Combine into JobMetadata
+    let metadata = JobMetadata {
+        common: common_metadata,
+        specific: JobSpecificMetadata::StateUpdate(state_update_metadata),
+    };
+
     let job_item = JobItem {
         id: Uuid::new_v4(),
-        internal_id: (l2_block_number.parse::<u32>().unwrap() - 1).to_string(),
+        internal_id: block_number.to_string(),
         job_type: JobType::StateTransition,
         status: JobStatus::Completed,
         external_id: ExternalId::Number(0),
-        metadata: HashMap::from([(
-            JOB_METADATA_STATE_UPDATE_BLOCKS_TO_SETTLE_KEY.to_string(),
-            (l2_block_number.parse::<u32>().unwrap() - 1).to_string(),
-        )]),
+        metadata,
         version: 0,
         created_at: Utc::now().round_subsecs(0),
         updated_at: Utc::now().round_subsecs(0),
@@ -454,13 +508,32 @@ pub async fn put_job_data_in_db_update_state(mongo_db: &MongoDbServer, l2_block_
 
 /// Puts after SNOS job state into the database
 pub async fn put_job_data_in_db_proving(mongo_db: &MongoDbServer, l2_block_number: String) {
+    let block_number = l2_block_number.parse::<u64>().unwrap() - 1;
+    
+    // Create the Proving-specific metadata
+    let proving_metadata = ProvingMetadata {
+        block_number,
+        input_path: None,
+        ensure_on_chain_registration: None,
+        download_proof: None,
+    };
+
+    // Create the common metadata with default values
+    let common_metadata = CommonMetadata::default();
+
+    // Combine into JobMetadata
+    let metadata = JobMetadata {
+        common: common_metadata,
+        specific: JobSpecificMetadata::Proving(proving_metadata),
+    };
+
     let job_item = JobItem {
         id: Uuid::new_v4(),
-        internal_id: (l2_block_number.parse::<u32>().unwrap() - 1).to_string(),
+        internal_id: block_number.to_string(),
         job_type: JobType::ProofCreation,
         status: JobStatus::Completed,
         external_id: ExternalId::Number(0),
-        metadata: HashMap::new(),
+        metadata,
         version: 0,
         created_at: Utc::now().round_subsecs(0),
         updated_at: Utc::now().round_subsecs(0),

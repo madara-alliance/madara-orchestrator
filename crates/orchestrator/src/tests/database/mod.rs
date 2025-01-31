@@ -7,7 +7,7 @@ use uuid::Uuid;
 use crate::jobs::types::{ExternalId, JobItem, JobItemUpdates, JobStatus, JobType};
 use crate::jobs::{increment_key_in_metadata, JobError};
 use crate::tests::config::{ConfigType, TestConfigBuilder};
-use crate::jobs::metadata::{CommonMetadata, JobMetadata, JobSpecificMetadata, StateUpdateMetadata, SnosMetadata, ProvingMetadata, DaMetadata};
+use crate::jobs::metadata::{CommonMetadata, JobMetadata, JobSpecificMetadata, StateUpdateMetadata, SnosMetadata, ProvingMetadata, DaMetadata, ProvingInputType};
 
 #[rstest]
 #[tokio::test]
@@ -253,9 +253,9 @@ pub fn build_job_item(job_type: JobType, job_status: JobStatus, internal_id: u64
             common: CommonMetadata::default(),
             specific: JobSpecificMetadata::StateUpdate(StateUpdateMetadata {
                 blocks_to_settle: vec![internal_id],
-                snos_output_paths: Vec::new(),
-                program_output_paths: Vec::new(),
-                blob_data_paths: Vec::new(),
+                snos_output_paths: vec![format!("{}/snos_output.json", internal_id)],
+                program_output_paths: vec![format!("{}/program_output.txt", internal_id)],
+                blob_data_paths: vec![format!("{}/blob_data.txt", internal_id)],
                 last_failed_block_no: None,
                 tx_hashes: Vec::new(),
             }),
@@ -265,9 +265,9 @@ pub fn build_job_item(job_type: JobType, job_status: JobStatus, internal_id: u64
             specific: JobSpecificMetadata::Snos(SnosMetadata {
                 block_number: internal_id,
                 full_output: false,
-                cairo_pie_path: None,
-                snos_output_path: None,
-                program_output_path: None,
+                cairo_pie_path: Some(format!("{}/cairo_pie.zip", internal_id)),
+                snos_output_path: Some(format!("{}/snos_output.json", internal_id)),
+                program_output_path: Some(format!("{}/program_output.txt", internal_id)),
                 snos_fact: None,
             }),
         },
@@ -275,23 +275,17 @@ pub fn build_job_item(job_type: JobType, job_status: JobStatus, internal_id: u64
             common: CommonMetadata::default(),
             specific: JobSpecificMetadata::Proving(ProvingMetadata {
                 block_number: internal_id,
-                cairo_pie_path: None,
-                cross_verify: false,
-                download_proof: false,
-                snos_fact: String::new(),
-                proof_path: None,
-                verification_key_path: None,
+                input_path: Some(ProvingInputType::CairoPie(format!("{}/cairo_pie.zip", internal_id))),
+                ensure_on_chain_registration: None,
+                download_proof: None,
             }),
         },
         JobType::DataSubmission => JobMetadata {
             common: CommonMetadata::default(),
             specific: JobSpecificMetadata::Da(DaMetadata {
                 block_number: internal_id,
-                blob_data_path: None,
-                blob_commitment: None,
-                blob_proof: None,
+                blob_data_path: Some(format!("{}/blob_data.txt", internal_id)),
                 tx_hash: None,
-                blob_versioned_hash: None,
             }),
         },
         _ => panic!("Invalid job type"),

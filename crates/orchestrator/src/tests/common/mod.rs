@@ -41,10 +41,7 @@ pub fn default_job_item() -> JobItem {
             specific: JobSpecificMetadata::Da(DaMetadata {
                 block_number: 0,
                 blob_data_path: None,
-                blob_commitment: None,
-                blob_proof: None,
                 tx_hash: None,
-                blob_versioned_hash: None,
             }),
         },
         version: 0,
@@ -56,7 +53,7 @@ pub fn default_job_item() -> JobItem {
 #[fixture]
 pub fn custom_job_item(default_job_item: JobItem, #[default(String::from("0"))] internal_id: String) -> JobItem {
     let mut job_item = default_job_item;
-    job_item.internal_id = internal_id;
+    job_item.internal_id = internal_id.clone();
     
     // Update block number in metadata to match internal_id if possible
     if let Ok(block_number) = internal_id.parse::<u64>() {
