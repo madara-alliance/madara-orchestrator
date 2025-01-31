@@ -5,7 +5,7 @@ use opentelemetry::KeyValue;
 
 use crate::config::Config;
 use crate::jobs::create_job;
-use crate::jobs::metadata::{CommonMetadata, JobMetadata, JobSpecificMetadata, ProvingMetadata};
+use crate::jobs::metadata::{CommonMetadata, JobMetadata, JobSpecificMetadata, ProvingMetadata, SnosMetadata, ProvingInputType};
 use crate::jobs::types::{JobStatus, JobType};
 use crate::metrics::ORCHESTRATOR_METRICS;
 use crate::workers::Worker;
@@ -28,13 +28,12 @@ impl Worker for ProvingWorker {
 
         for snos_job in successful_snos_jobs {
             // Extract SNOS metadata
-            let snos_metadata = match &snos_job.metadata.specific {
-                JobSpecificMetadata::Snos(metadata) => metadata,
-                _ => {
-                    tracing::error!(job_id = %snos_job.internal_id, "Invalid metadata type for SNOS job");
-                    continue;
-                }
-            };
+            let snos_metadata: SnosMetadata = snos_job.metadata.specific
+                .try_into()
+                .map_err(|e| {
+                    tracing::error!(job_id = %snos_job.internal_id, error = %e, "Invalid metadata type for SNOS job");
+                    e
+                })?;
 
             // Get SNOS fact early to handle the error case
             let snos_fact = match &snos_metadata.snos_fact {
@@ -50,16 +49,13 @@ impl Worker for ProvingWorker {
                 common: CommonMetadata::default(),
                 specific: JobSpecificMetadata::Proving(ProvingMetadata {
                     block_number: snos_metadata.block_number,
-                    // Get paths from SNOS job
-                    cairo_pie_path: snos_metadata.cairo_pie_path.clone(),
-                    snos_fact, // Use the extracted fact
-
-                    // Set new paths for proving outputs
-                    proof_path: None,
-                    verification_key_path: None,
-                    // Proving specific settings
-                    cross_verify: true,
-                    download_proof: false, // Default to false, can be configured
+                    // Set input path as CairoPie type
+                    input_path: snos_metadata.cairo_pie_path
+                        .map(|path| ProvingInputType::CairoPie(path)),
+                    // Set download path if needed
+                    download_proof: None,
+                    // Set SNOS fact for on-chain verification
+                    ensure_on_chain_registration: Some(snos_fact),
                 }),
             };
 

@@ -6,7 +6,7 @@ use opentelemetry::KeyValue;
 
 use crate::config::Config;
 use crate::jobs::create_job;
-use crate::jobs::metadata::{CommonMetadata, JobMetadata, JobSpecificMetadata, StateUpdateMetadata};
+use crate::jobs::metadata::{CommonMetadata, JobMetadata, JobSpecificMetadata, StateUpdateMetadata, SnosMetadata, DaMetadata};
 use crate::jobs::types::{JobStatus, JobType};
 use crate::metrics::ORCHESTRATOR_METRICS;
 use crate::workers::Worker;
@@ -31,10 +31,12 @@ impl Worker for UpdateStateWorker {
                 }
 
                 // Extract blocks from state transition metadata
-                let state_metadata = match &job.metadata.specific {
-                    JobSpecificMetadata::StateUpdate(metadata) => metadata,
-                    _ => return Err(eyre!("Invalid metadata type for state transition job")),
-                };
+                let state_metadata: StateUpdateMetadata = job.metadata.specific
+                    .try_into()
+                    .map_err(|e| {
+                        tracing::error!(job_id = %job.internal_id, error = %e, "Invalid metadata type for state transition job");
+                        e
+                    })?;
 
                 let mut blocks_processed = state_metadata.blocks_to_settle.clone();
                 blocks_processed.sort();
@@ -125,10 +127,12 @@ impl Worker for UpdateStateWorker {
                 .await?
                 .ok_or_else(|| eyre!("SNOS job not found for block {}", block_number))?;
 
-            let snos_metadata = match &snos_job.metadata.specific {
-                JobSpecificMetadata::Snos(metadata) => metadata,
-                _ => return Err(eyre!("Invalid metadata type for SNOS job")),
-            };
+            let snos_metadata: SnosMetadata = snos_job.metadata.specific
+                .try_into()
+                .map_err(|e| {
+                    tracing::error!(job_id = %snos_job.internal_id, error = %e, "Invalid metadata type for SNOS job");
+                    e
+                })?;
 
             if let Some(snos_path) = &snos_metadata.snos_output_path {
                 state_metadata.snos_output_paths.push(snos_path.clone());
@@ -144,10 +148,12 @@ impl Worker for UpdateStateWorker {
                 .await?
                 .ok_or_else(|| eyre!("DA job not found for block {}", block_number))?;
 
-            let da_metadata = match &da_job.metadata.specific {
-                JobSpecificMetadata::Da(metadata) => metadata,
-                _ => return Err(eyre!("Invalid metadata type for DA job")),
-            };
+            let da_metadata: DaMetadata = da_job.metadata.specific
+                .try_into()
+                .map_err(|e| {
+                    tracing::error!(job_id = %da_job.internal_id, error = %e, "Invalid metadata type for DA job");
+                    e
+                })?;
 
             if let Some(blob_path) = &da_metadata.blob_data_path {
                 state_metadata.blob_data_paths.push(blob_path.clone());

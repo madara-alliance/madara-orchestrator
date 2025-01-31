@@ -1,5 +1,7 @@
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
+use color_eyre::eyre::eyre;
+use color_eyre::eyre;
 
 #[derive(Debug, Clone, Serialize, Deserialize, Default, PartialEq, Eq)]
 pub struct CommonMetadata {
@@ -42,19 +44,20 @@ pub struct StateUpdateMetadata {
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
+pub enum ProvingInputType {
+    Proof(String),
+    CairoPie(String),
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
 pub struct ProvingMetadata {
     // Required fields
     pub block_number: u64,
-    pub cairo_pie_path: Option<String>,
+    pub input_path: Option<ProvingInputType>,
 
-    pub cross_verify: bool,
-    pub download_proof: bool,
+    pub ensure_on_chain_registration: Option<String>,
+    pub download_proof: Option<String>,
 
-    pub snos_fact: String,
-
-    // Proof related fields
-    pub proof_path: Option<String>,
-    pub verification_key_path: Option<String>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
@@ -64,10 +67,7 @@ pub struct DaMetadata {
 
     // DA specific fields
     pub blob_data_path: Option<String>,
-    pub blob_commitment: Option<String>,
-    pub blob_proof: Option<String>,
     pub tx_hash: Option<String>,
-    pub blob_versioned_hash: Option<String>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
@@ -77,6 +77,50 @@ pub enum JobSpecificMetadata {
     StateUpdate(StateUpdateMetadata),
     Proving(ProvingMetadata),
     Da(DaMetadata),
+}
+
+impl TryInto<SnosMetadata> for JobSpecificMetadata {
+    type Error = eyre::Error;
+
+    fn try_into(self) -> Result<SnosMetadata, Self::Error> {
+        match self {
+            JobSpecificMetadata::Snos(metadata) => Ok(metadata.clone()),
+            _ => Err(eyre!("Invalid metadata type: expected SNOS metadata")),
+        }
+    }
+}
+
+impl TryInto<ProvingMetadata> for JobSpecificMetadata {
+    type Error = eyre::Error;
+
+    fn try_into(self) -> Result<ProvingMetadata, Self::Error> {
+        match self {
+            JobSpecificMetadata::Proving(metadata) => Ok(metadata.clone()),
+            _ => Err(eyre!("Invalid metadata type: expected Proving metadata")),
+        }
+    }
+}
+
+impl TryInto<DaMetadata> for JobSpecificMetadata {
+    type Error = eyre::Error;
+
+    fn try_into(self) -> Result<DaMetadata, Self::Error> {
+        match self {
+            JobSpecificMetadata::Da(metadata) => Ok(metadata.clone()),
+            _ => Err(eyre!("Invalid metadata type: expected DA metadata")),
+        }
+    }
+}
+
+impl TryInto<StateUpdateMetadata> for JobSpecificMetadata {
+    type Error = eyre::Error;
+
+    fn try_into(self) -> Result<StateUpdateMetadata, Self::Error> {
+        match self {
+            JobSpecificMetadata::StateUpdate(metadata) => Ok(metadata.clone()),
+            _ => Err(eyre!("Invalid metadata type: expected State Update metadata")),
+        }
+    }
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]

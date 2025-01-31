@@ -14,19 +14,12 @@ use crate::jobs::types::JobItem;
 pub async fn fetch_blob_data_for_block(
     block_index: usize,
     config: Arc<Config>,
-    job: &JobItem,
+    blob_data_paths: &Vec<String>,
 ) -> color_eyre::Result<Vec<Vec<u8>>> {
     let storage_client = config.storage();
 
-    // Get the array of blob paths from metadata
-    let state_metadata = match &job.metadata.specific {
-        JobSpecificMetadata::StateUpdate(metadata) => metadata,
-        _ => return Err(eyre!("Invalid metadata type for state update job")),
-    };
-
     // Get the path for this block
-    let path = state_metadata
-        .blob_data_paths
+    let path = blob_data_paths
         .get(block_index)
         .ok_or_else(|| eyre!("Blob data path not found for index {}", block_index))?;
 
@@ -34,14 +27,6 @@ pub async fn fetch_blob_data_for_block(
     Ok(vec![blob_data.to_vec()])
 }
 
-// Fetching the blob data (stored in remote storage during DA job) for a particular block
-// pub async fn fetch_program_data_for_block(block_number: u64, config: Arc<Config>, job: &JobItem)
-// -> color_eyre::Result<Vec<[u8; 32]>> {     let storage_client = config.storage();
-//     let key = block_number.to_string() + "/" + PROGRAM_OUTPUT_FILE_NAME;
-//     let blob_data = storage_client.get_data(&key).await?;
-//     let transformed_blob_vec_u8 = bytes_to_vec_u8(blob_data.as_ref())?;
-//     Ok(transformed_blob_vec_u8)
-// }
 
 // Util Functions
 // ===============

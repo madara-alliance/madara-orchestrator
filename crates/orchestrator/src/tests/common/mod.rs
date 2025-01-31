@@ -26,6 +26,7 @@ use crate::jobs::types::JobStatus::Created;
 use crate::jobs::types::JobType::DataSubmission;
 use crate::jobs::types::{ExternalId, JobItem};
 use crate::queue::QueueType;
+use crate::jobs::metadata::{CommonMetadata, JobMetadata, JobSpecificMetadata, DaMetadata};
 
 #[fixture]
 pub fn default_job_item() -> JobItem {
@@ -35,7 +36,17 @@ pub fn default_job_item() -> JobItem {
         job_type: DataSubmission,
         status: Created,
         external_id: ExternalId::String("0".to_string().into_boxed_str()),
-        metadata: HashMap::new(),
+        metadata: JobMetadata {
+            common: CommonMetadata::default(),
+            specific: JobSpecificMetadata::Da(DaMetadata {
+                block_number: 0,
+                blob_data_path: None,
+                blob_commitment: None,
+                blob_proof: None,
+                tx_hash: None,
+                blob_versioned_hash: None,
+            }),
+        },
         version: 0,
         created_at: Utc::now().round_subsecs(0),
         updated_at: Utc::now().round_subsecs(0),
@@ -46,6 +57,13 @@ pub fn default_job_item() -> JobItem {
 pub fn custom_job_item(default_job_item: JobItem, #[default(String::from("0"))] internal_id: String) -> JobItem {
     let mut job_item = default_job_item;
     job_item.internal_id = internal_id;
+    
+    // Update block number in metadata to match internal_id if possible
+    if let Ok(block_number) = internal_id.parse::<u64>() {
+        if let JobSpecificMetadata::Da(ref mut da_metadata) = job_item.metadata.specific {
+            da_metadata.block_number = block_number;
+        }
+    }
 
     job_item
 }

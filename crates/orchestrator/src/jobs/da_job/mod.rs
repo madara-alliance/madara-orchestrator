@@ -19,7 +19,7 @@ use uuid::Uuid;
 use super::types::{JobItem, JobStatus, JobType, JobVerificationStatus};
 use super::{Job, JobError, OtherError};
 use crate::config::Config;
-use crate::jobs::metadata::{JobMetadata, JobSpecificMetadata};
+use crate::jobs::metadata::{JobMetadata, JobSpecificMetadata, DaMetadata};
 use crate::jobs::state_update_job::utils::biguint_vec_to_u8_vec;
 
 lazy_static! {
@@ -101,13 +101,12 @@ impl Job for DaJob {
         );
 
         // Get DA-specific metadata
-        let da_metadata = match &job.metadata.specific {
-            JobSpecificMetadata::Da(metadata) => metadata,
-            _ => {
-                tracing::error!(job_id = ?job.id, "Invalid metadata type for DA job");
-                return Err(JobError::Other(OtherError(eyre!("Invalid metadata type for DA job"))));
-            }
-        };
+        let mut da_metadata: DaMetadata = job.metadata.specific.clone()
+            .try_into()
+            .map_err(|e| {
+                tracing::error!(job_id = ?job.id, error = ?e, "Invalid metadata type for DA job");
+                JobError::Other(OtherError(e))
+            })?;
 
         let block_no = job.internal_id.parse::<u64>().wrap_err("Failed to parse u64".to_string()).map_err(|e| {
             tracing::error!(job_id = ?job.id, error = ?e, "Failed to parse block number");
@@ -202,10 +201,8 @@ impl Job for DaJob {
             JobError::Other(OtherError(e))
         })?;
 
-        // Update DA metadata with successful results
-        if let JobSpecificMetadata::Da(metadata) = &mut job.metadata.specific {
-            metadata.tx_hash = Some(external_id.clone());
-        }
+        da_metadata.tx_hash = Some(external_id.clone());
+        job.metadata.specific = JobSpecificMetadata::Da(da_metadata);
 
         tracing::info!(
             log_type = "completed",

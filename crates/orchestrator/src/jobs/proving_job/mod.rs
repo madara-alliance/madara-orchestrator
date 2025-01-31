@@ -11,7 +11,7 @@ use uuid::Uuid;
 use super::types::{JobItem, JobStatus, JobType, JobVerificationStatus};
 use super::{Job, JobError, OtherError};
 use crate::config::Config;
-use crate::jobs::metadata::{JobMetadata, JobSpecificMetadata};
+use crate::jobs::metadata::{JobMetadata, JobSpecificMetadata, ProvingMetadata, ProvingInputType};
 
 #[derive(Error, Debug, PartialEq)]
 pub enum ProvingError {
@@ -68,24 +68,28 @@ impl Job for ProvingJob {
         );
 
         // Get proving metadata
-        let proving_metadata = match &job.metadata.specific {
-            JobSpecificMetadata::Proving(metadata) => metadata,
-            _ => {
-                tracing::error!(job_id = %job.internal_id, "Invalid metadata type for proving job");
-                return Err(JobError::Other(OtherError(eyre!("Invalid metadata type for proving job"))));
+        let proving_metadata: ProvingMetadata = job.metadata.specific.clone()
+            .try_into()
+            .map_err(|e| {
+                tracing::error!(job_id = %job.internal_id, error = %e, "Invalid metadata type for proving job");
+                JobError::Other(OtherError(e))
+            })?;
+
+        // Get input path from metadata
+        let input_path = match proving_metadata.input_path {
+            Some(ProvingInputType::CairoPie(path)) => path,
+            Some(ProvingInputType::Proof(_)) => {
+                return Err(JobError::Other(OtherError(eyre!("Expected CairoPie input, got Proof"))))
+            }
+            None => {
+                return Err(JobError::Other(OtherError(eyre!("Input path not found in job metadata"))))
             }
         };
 
-        // Get Cairo PIE path from metadata
-        let cairo_pie_path = proving_metadata.cairo_pie_path.as_ref().ok_or_else(|| {
-            tracing::error!(job_id = %job.internal_id, "Cairo PIE path not found in job metadata");
-            ProvingError::CairoPIEWrongPath { internal_id: job.internal_id.clone() }
-        })?;
-
-        tracing::debug!(job_id = %job.internal_id, %cairo_pie_path, "Fetching Cairo PIE file");
+        tracing::debug!(job_id = %job.internal_id, %input_path, "Fetching Cairo PIE file");
 
         // Fetch and parse Cairo PIE
-        let cairo_pie_file = config.storage().get_data(cairo_pie_path).await.map_err(|e| {
+        let cairo_pie_file = config.storage().get_data(&input_path).await.map_err(|e| {
             tracing::error!(job_id = %job.internal_id, error = %e, "Failed to fetch Cairo PIE file");
             ProvingError::CairoPIEFileFetchFailed(e.to_string())
         })?;
@@ -107,15 +111,6 @@ impl Job for ProvingJob {
                 JobError::Other(OtherError(e))
             })?;
 
-        tracing::info!(
-            log_type = "completed",
-            category = "proving",
-            function_type = "process_job",
-            job_id = ?job.id,
-            block_no = %internal_id,
-            %external_id,
-            "Proving job processed successfully."
-        );
         Ok(external_id)
     }
 
@@ -132,13 +127,12 @@ impl Job for ProvingJob {
         );
 
         // Get proving metadata
-        let proving_metadata = match &job.metadata.specific {
-            JobSpecificMetadata::Proving(metadata) => metadata,
-            _ => {
-                tracing::error!(job_id = %job.internal_id, "Invalid metadata type for proving job");
-                return Err(JobError::Other(OtherError(eyre!("Invalid metadata type for proving job"))));
-            }
-        };
+        let proving_metadata: ProvingMetadata = job.metadata.specific.clone()
+            .try_into()
+            .map_err(|e| {
+                tracing::error!(job_id = %job.internal_id, error = %e, "Invalid metadata type for proving job");
+                JobError::Other(OtherError(e))
+            })?;
 
         // Get task ID from external_id
         let task_id: String = job
@@ -150,11 +144,11 @@ impl Job for ProvingJob {
             })?
             .into();
 
-        // Get SNOS fact from metadata
-        let fact = proving_metadata.snos_fact.as_str();
-
-        // Get cross verification setting from metadata
-        let cross_verify = proving_metadata.cross_verify;
+        // Determine if we need on-chain verification
+        let (cross_verify, fact) = match &proving_metadata.ensure_on_chain_registration {
+            Some(fact_str) => (true, Some(fact_str.clone())),
+            None => (false, None),
+        };
 
         tracing::debug!(
             job_id = %job.internal_id,
@@ -190,16 +184,14 @@ impl Job for ProvingJob {
                 Ok(JobVerificationStatus::Pending)
             }
             TaskStatus::Succeeded => {
-                // If proof download is enabled, store it
-                if proving_metadata.download_proof {
-                    if let Some(proof_path) = &proving_metadata.proof_path {
-                        // TODO: Implement proof download and storage
-                        tracing::debug!(
-                            job_id = %job.internal_id,
-                            "Downloading and storing proof to path: {}",
-                            proof_path
-                        );
-                    }
+                // If proof download path is specified, store the proof
+                if let Some(download_path) = proving_metadata.download_proof {
+                    tracing::debug!(
+                        job_id = %job.internal_id,
+                        "Downloading and storing proof to path: {}",
+                        download_path
+                    );
+                    // TODO: Implement proof download and storage
                 }
 
                 tracing::info!(

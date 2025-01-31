@@ -218,13 +218,10 @@ impl Database for MongoDb {
 
         match cursor.try_next().await? {
             Some(doc) => {
-                // Add debug logging to see the raw document
-                tracing::info!(raw_document = ?doc, "Raw document from MongoDB");
-
                 // Try to deserialize and log any errors
                 match mongodb::bson::from_document::<JobItem>(doc.clone()) {
                     Ok(job) => {
-                        tracing::info!(deserialized_job = ?job, "Successfully deserialized job");
+                        tracing::debug!(deserialized_job = ?job, "Successfully deserialized job");
                         let attributes = [KeyValue::new("db_operation_name", "get_latest_job_by_type")];
                         let duration = start.elapsed();
                         ORCHESTRATOR_METRICS.db_calls_response_time.record(duration.as_secs_f64(), &attributes);

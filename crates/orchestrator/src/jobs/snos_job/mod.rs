@@ -18,7 +18,7 @@ use uuid::Uuid;
 use super::{JobError, OtherError};
 use crate::config::Config;
 use crate::data_storage::DataStorage;
-use crate::jobs::metadata::{JobMetadata, JobSpecificMetadata};
+use crate::jobs::metadata::{JobMetadata, JobSpecificMetadata, SnosMetadata};
 use crate::jobs::snos_job::error::FactError;
 use crate::jobs::snos_job::fact_info::get_fact_info;
 use crate::jobs::types::{JobItem, JobStatus, JobType, JobVerificationStatus};
@@ -85,19 +85,6 @@ impl Job for SnosJob {
             "SNOS job creation started."
         );
 
-        // Extract the SNOS-specific metadata
-        let snos_metadata = match metadata.specific {
-            JobSpecificMetadata::Snos(mut snos_meta) => {
-                // Update or validate block number if needed
-                let internal_id_u64 = internal_id.parse::<u64>().unwrap();
-                if snos_meta.block_number != internal_id_u64 {
-                    tracing::warn!("Block number mismatch in metadata. Using internal_id: {}", internal_id);
-                    snos_meta.block_number = internal_id_u64;
-                }
-                snos_meta
-            }
-            _ => return Err(JobError::Other(OtherError(eyre!("Invalid metadata type for SNOS job")))),
-        };
 
         let job_item = JobItem {
             id: Uuid::new_v4(),
@@ -105,7 +92,7 @@ impl Job for SnosJob {
             job_type: JobType::SnosRun,
             status: JobStatus::Created,
             external_id: String::new().into(),
-            metadata: JobMetadata { common: metadata.common, specific: JobSpecificMetadata::Snos(snos_metadata) },
+            metadata,
             version: 0,
             created_at: Utc::now().round_subsecs(0),
             updated_at: Utc::now().round_subsecs(0),
@@ -134,10 +121,12 @@ impl Job for SnosJob {
         );
 
         // Get SNOS metadata
-        let snos_metadata = match &mut job.metadata.specific {
-            JobSpecificMetadata::Snos(metadata) => metadata,
-            _ => return Err(JobError::Other(OtherError(eyre!("Invalid metadata type for SNOS job")))),
-        };
+        let snos_metadata: SnosMetadata = job.metadata.specific.clone()
+            .try_into()
+            .map_err(|e| {
+                tracing::error!(job_id = %job.internal_id, error = %e, "Invalid metadata type for SNOS job");
+                JobError::Other(OtherError(e))
+            })?;
 
         // Get block number from metadata
         let block_number = snos_metadata.block_number;
@@ -161,7 +150,7 @@ impl Job for SnosJob {
         tracing::debug!(job_id = %job.internal_id, "Fact info calculated successfully");
 
         tracing::debug!(job_id = %job.internal_id, "Storing SNOS outputs");
-        self.store(config.storage(), job, cairo_pie, snos_output, program_output).await?;
+        self.store(internal_id.clone(), config.storage(), &snos_metadata, cairo_pie, snos_output, program_output).await?;
 
         // Update the metadata with new paths and fact info
         if let JobSpecificMetadata::Snos(metadata) = &mut job.metadata.specific {
@@ -210,20 +199,13 @@ impl SnosJob {
     ///     - [block_number]/snos_output.json
     async fn store(
         &self,
+        internal_id: String,
         data_storage: &dyn DataStorage,
-        job: &JobItem,
+        snos_metadata: &SnosMetadata,
         cairo_pie: CairoPie,
         snos_output: StarknetOsOutput,
         program_output: Vec<Felt252>,
     ) -> Result<(), SnosError> {
-        let internal_id = &job.internal_id;
-
-        // Get SNOS metadata
-        let snos_metadata = match &job.metadata.specific {
-            JobSpecificMetadata::Snos(metadata) => metadata,
-            _ => return Err(SnosError::Other(OtherError(eyre!("Invalid metadata type for SNOS job")))),
-        };
-
         // Get storage paths from metadata
         let cairo_pie_key = snos_metadata
             .cairo_pie_path

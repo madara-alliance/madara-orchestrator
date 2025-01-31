@@ -19,7 +19,7 @@ pub trait ProverClient: Send + Sync {
     async fn get_task_status(
         &self,
         task_id: &str,
-        fact: &str,
+        fact: Option<String>,
         cross_verify: bool,
     ) -> Result<TaskStatus, ProverClientError>;
 }

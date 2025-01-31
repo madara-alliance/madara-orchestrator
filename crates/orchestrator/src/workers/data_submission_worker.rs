@@ -6,7 +6,7 @@ use opentelemetry::KeyValue;
 use crate::config::Config;
 use crate::constants::BLOB_DATA_FILE_NAME;
 use crate::jobs::create_job;
-use crate::jobs::metadata::{CommonMetadata, DaMetadata, JobMetadata, JobSpecificMetadata};
+use crate::jobs::metadata::{CommonMetadata, DaMetadata, JobMetadata, JobSpecificMetadata, ProvingMetadata};
 use crate::jobs::types::{JobStatus, JobType};
 use crate::metrics::ORCHESTRATOR_METRICS;
 use crate::workers::Worker;
@@ -28,16 +28,16 @@ impl Worker for DataSubmissionWorker {
 
         for proving_job in successful_proving_jobs {
             // Extract proving metadata
-            let proving_metadata = match &proving_job.metadata.specific {
-                JobSpecificMetadata::Proving(metadata) => metadata,
-                _ => {
+            let proving_metadata: ProvingMetadata = proving_job.metadata.specific
+                .try_into()
+                .map_err(|e| {
                     tracing::error!(
                         job_id = %proving_job.internal_id,
+                        error = %e,
                         "Invalid metadata type for proving job"
                     );
-                    continue;
-                }
-            };
+                    e
+                })?;
 
             // Create DA metadata
             let da_metadata = JobMetadata {
@@ -47,10 +47,7 @@ impl Worker for DataSubmissionWorker {
                     // Set the blob data path using block number
                     blob_data_path: Some(format!("{}/{BLOB_DATA_FILE_NAME}", proving_metadata.block_number)),
                     // These will be populated during processing
-                    blob_commitment: None,
-                    blob_proof: None,
                     tx_hash: None,
-                    blob_versioned_hash: None,
                 }),
             };
 
