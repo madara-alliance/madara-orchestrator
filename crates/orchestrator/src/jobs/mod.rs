@@ -678,7 +678,7 @@ pub async fn retry_job(id: Uuid, config: Arc<Config>) -> Result<(), JobError> {
 
     // Increment the retry counter in common metadata
     job.metadata.common.process_retry_attempt_no += 1;
-    job.metadata.common.process_attempt_no += 1;
+    job.metadata.common.process_attempt_no = 0;
 
     tracing::debug!(
         job_id = ?id,

@@ -40,7 +40,7 @@ pub struct StateUpdateMetadata {
 
     // State tracking
     pub last_failed_block_no: Option<u64>,
-    pub tx_hashes: Vec<String>, // key: attempt_no, value: comma-separated tx hashes
+    pub tx_hashes: Vec<String>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]

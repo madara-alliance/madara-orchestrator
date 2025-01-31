@@ -65,11 +65,6 @@ impl AnvilSetup {
         // for block 66645
         let fact_hash = fixed_bytes!("129324e742e7c1ce700f7a99cbc83b4959ede9dff22e1bbaa7bd95396c3a6240");
         let _ = verifier_client.setValid(fact_hash).send().await.expect("Failed to set fact as valid");
-        let _ = verifier_client
-            .setValid(fixed_bytes!("39bd5b4acc5065265a30f46e7652258599f5c511ff5c286bc86f08e3a877d9de"))
-            .send()
-            .await
-            .expect("Failed to set fact as valid");
         sleep(Duration::from_secs(10)).await;
         let _is_fact_valid = verifier_client.isValid(fact_hash).call().await.unwrap()._0;
         assert!(_is_fact_valid, "Fact should be valid");
