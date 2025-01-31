@@ -11,7 +11,7 @@ use uuid::Uuid;
 use super::types::{JobItem, JobStatus, JobType, JobVerificationStatus};
 use super::{Job, JobError, OtherError};
 use crate::config::Config;
-use crate::jobs::metadata::{JobMetadata, JobSpecificMetadata, ProvingMetadata, ProvingInputType};
+use crate::jobs::metadata::{JobMetadata, JobSpecificMetadata, ProvingInputType, ProvingMetadata};
 
 #[derive(Error, Debug, PartialEq)]
 pub enum ProvingError {
@@ -68,22 +68,18 @@ impl Job for ProvingJob {
         );
 
         // Get proving metadata
-        let proving_metadata: ProvingMetadata = job.metadata.specific.clone()
-            .try_into()
-            .map_err(|e| {
-                tracing::error!(job_id = %job.internal_id, error = %e, "Invalid metadata type for proving job");
-                JobError::Other(OtherError(e))
-            })?;
+        let proving_metadata: ProvingMetadata = job.metadata.specific.clone().try_into().map_err(|e| {
+            tracing::error!(job_id = %job.internal_id, error = %e, "Invalid metadata type for proving job");
+            JobError::Other(OtherError(e))
+        })?;
 
         // Get input path from metadata
         let input_path = match proving_metadata.input_path {
             Some(ProvingInputType::CairoPie(path)) => path,
             Some(ProvingInputType::Proof(_)) => {
-                return Err(JobError::Other(OtherError(eyre!("Expected CairoPie input, got Proof"))))
+                return Err(JobError::Other(OtherError(eyre!("Expected CairoPie input, got Proof"))));
             }
-            None => {
-                return Err(JobError::Other(OtherError(eyre!("Input path not found in job metadata"))))
-            }
+            None => return Err(JobError::Other(OtherError(eyre!("Input path not found in job metadata")))),
         };
 
         tracing::debug!(job_id = %job.internal_id, %input_path, "Fetching Cairo PIE file");
@@ -127,12 +123,10 @@ impl Job for ProvingJob {
         );
 
         // Get proving metadata
-        let proving_metadata: ProvingMetadata = job.metadata.specific.clone()
-            .try_into()
-            .map_err(|e| {
-                tracing::error!(job_id = %job.internal_id, error = %e, "Invalid metadata type for proving job");
-                JobError::Other(OtherError(e))
-            })?;
+        let proving_metadata: ProvingMetadata = job.metadata.specific.clone().try_into().map_err(|e| {
+            tracing::error!(job_id = %job.internal_id, error = %e, "Invalid metadata type for proving job");
+            JobError::Other(OtherError(e))
+        })?;
 
         // Get task ID from external_id
         let task_id: String = job

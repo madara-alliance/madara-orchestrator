@@ -28,16 +28,14 @@ impl Worker for DataSubmissionWorker {
 
         for proving_job in successful_proving_jobs {
             // Extract proving metadata
-            let proving_metadata: ProvingMetadata = proving_job.metadata.specific
-                .try_into()
-                .map_err(|e| {
-                    tracing::error!(
-                        job_id = %proving_job.internal_id,
-                        error = %e,
-                        "Invalid metadata type for proving job"
-                    );
-                    e
-                })?;
+            let proving_metadata: ProvingMetadata = proving_job.metadata.specific.try_into().map_err(|e| {
+                tracing::error!(
+                    job_id = %proving_job.internal_id,
+                    error = %e,
+                    "Invalid metadata type for proving job"
+                );
+                e
+            })?;
 
             // Create DA metadata
             let da_metadata = JobMetadata {

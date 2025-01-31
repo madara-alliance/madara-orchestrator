@@ -6,7 +6,9 @@ use opentelemetry::KeyValue;
 
 use crate::config::Config;
 use crate::jobs::create_job;
-use crate::jobs::metadata::{CommonMetadata, JobMetadata, JobSpecificMetadata, StateUpdateMetadata, SnosMetadata, DaMetadata};
+use crate::jobs::metadata::{
+    CommonMetadata, DaMetadata, JobMetadata, JobSpecificMetadata, SnosMetadata, StateUpdateMetadata,
+};
 use crate::jobs::types::{JobStatus, JobType};
 use crate::metrics::ORCHESTRATOR_METRICS;
 use crate::workers::Worker;
@@ -127,12 +129,10 @@ impl Worker for UpdateStateWorker {
                 .await?
                 .ok_or_else(|| eyre!("SNOS job not found for block {}", block_number))?;
 
-            let snos_metadata: SnosMetadata = snos_job.metadata.specific
-                .try_into()
-                .map_err(|e| {
-                    tracing::error!(job_id = %snos_job.internal_id, error = %e, "Invalid metadata type for SNOS job");
-                    e
-                })?;
+            let snos_metadata: SnosMetadata = snos_job.metadata.specific.try_into().map_err(|e| {
+                tracing::error!(job_id = %snos_job.internal_id, error = %e, "Invalid metadata type for SNOS job");
+                e
+            })?;
 
             if let Some(snos_path) = &snos_metadata.snos_output_path {
                 state_metadata.snos_output_paths.push(snos_path.clone());
@@ -148,12 +148,10 @@ impl Worker for UpdateStateWorker {
                 .await?
                 .ok_or_else(|| eyre!("DA job not found for block {}", block_number))?;
 
-            let da_metadata: DaMetadata = da_job.metadata.specific
-                .try_into()
-                .map_err(|e| {
-                    tracing::error!(job_id = %da_job.internal_id, error = %e, "Invalid metadata type for DA job");
-                    e
-                })?;
+            let da_metadata: DaMetadata = da_job.metadata.specific.try_into().map_err(|e| {
+                tracing::error!(job_id = %da_job.internal_id, error = %e, "Invalid metadata type for DA job");
+                e
+            })?;
 
             if let Some(blob_path) = &da_metadata.blob_data_path {
                 state_metadata.blob_data_paths.push(blob_path.clone());

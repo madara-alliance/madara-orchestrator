@@ -19,14 +19,12 @@ pub async fn fetch_blob_data_for_block(
     let storage_client = config.storage();
 
     // Get the path for this block
-    let path = blob_data_paths
-        .get(block_index)
-        .ok_or_else(|| eyre!("Blob data path not found for index {}", block_index))?;
+    let path =
+        blob_data_paths.get(block_index).ok_or_else(|| eyre!("Blob data path not found for index {}", block_index))?;
 
     let blob_data = storage_client.get_data(path).await?;
     Ok(vec![blob_data.to_vec()])
 }
-
 
 // Util Functions
 // ===============

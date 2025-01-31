@@ -5,7 +5,9 @@ use opentelemetry::KeyValue;
 
 use crate::config::Config;
 use crate::jobs::create_job;
-use crate::jobs::metadata::{CommonMetadata, JobMetadata, JobSpecificMetadata, ProvingMetadata, SnosMetadata, ProvingInputType};
+use crate::jobs::metadata::{
+    CommonMetadata, JobMetadata, JobSpecificMetadata, ProvingInputType, ProvingMetadata, SnosMetadata,
+};
 use crate::jobs::types::{JobStatus, JobType};
 use crate::metrics::ORCHESTRATOR_METRICS;
 use crate::workers::Worker;
@@ -28,12 +30,10 @@ impl Worker for ProvingWorker {
 
         for snos_job in successful_snos_jobs {
             // Extract SNOS metadata
-            let snos_metadata: SnosMetadata = snos_job.metadata.specific
-                .try_into()
-                .map_err(|e| {
-                    tracing::error!(job_id = %snos_job.internal_id, error = %e, "Invalid metadata type for SNOS job");
-                    e
-                })?;
+            let snos_metadata: SnosMetadata = snos_job.metadata.specific.try_into().map_err(|e| {
+                tracing::error!(job_id = %snos_job.internal_id, error = %e, "Invalid metadata type for SNOS job");
+                e
+            })?;
 
             // Get SNOS fact early to handle the error case
             let snos_fact = match &snos_metadata.snos_fact {
@@ -50,8 +50,7 @@ impl Worker for ProvingWorker {
                 specific: JobSpecificMetadata::Proving(ProvingMetadata {
                     block_number: snos_metadata.block_number,
                     // Set input path as CairoPie type
-                    input_path: snos_metadata.cairo_pie_path
-                        .map(|path| ProvingInputType::CairoPie(path)),
+                    input_path: snos_metadata.cairo_pie_path.map(|path| ProvingInputType::CairoPie(path)),
                     // Set download path if needed
                     download_proof: None,
                     // Set SNOS fact for on-chain verification

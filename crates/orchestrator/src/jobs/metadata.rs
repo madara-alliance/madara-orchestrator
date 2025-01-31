@@ -1,7 +1,7 @@
 use chrono::{DateTime, Utc};
-use serde::{Deserialize, Serialize};
-use color_eyre::eyre::eyre;
 use color_eyre::eyre;
+use color_eyre::eyre::eyre;
+use serde::{Deserialize, Serialize};
 
 #[derive(Debug, Clone, Serialize, Deserialize, Default, PartialEq, Eq)]
 pub struct CommonMetadata {
@@ -57,7 +57,6 @@ pub struct ProvingMetadata {
 
     pub ensure_on_chain_registration: Option<String>,
     pub download_proof: Option<String>,
-
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]

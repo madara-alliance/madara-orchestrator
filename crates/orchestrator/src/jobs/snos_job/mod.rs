@@ -85,7 +85,6 @@ impl Job for SnosJob {
             "SNOS job creation started."
         );
 
-
         let job_item = JobItem {
             id: Uuid::new_v4(),
             internal_id: internal_id.clone(),
@@ -121,12 +120,10 @@ impl Job for SnosJob {
         );
 
         // Get SNOS metadata
-        let snos_metadata: SnosMetadata = job.metadata.specific.clone()
-            .try_into()
-            .map_err(|e| {
-                tracing::error!(job_id = %job.internal_id, error = %e, "Invalid metadata type for SNOS job");
-                JobError::Other(OtherError(e))
-            })?;
+        let snos_metadata: SnosMetadata = job.metadata.specific.clone().try_into().map_err(|e| {
+            tracing::error!(job_id = %job.internal_id, error = %e, "Invalid metadata type for SNOS job");
+            JobError::Other(OtherError(e))
+        })?;
 
         // Get block number from metadata
         let block_number = snos_metadata.block_number;
@@ -150,7 +147,8 @@ impl Job for SnosJob {
         tracing::debug!(job_id = %job.internal_id, "Fact info calculated successfully");
 
         tracing::debug!(job_id = %job.internal_id, "Storing SNOS outputs");
-        self.store(internal_id.clone(), config.storage(), &snos_metadata, cairo_pie, snos_output, program_output).await?;
+        self.store(internal_id.clone(), config.storage(), &snos_metadata, cairo_pie, snos_output, program_output)
+            .await?;
 
         // Update the metadata with new paths and fact info
         if let JobSpecificMetadata::Snos(metadata) = &mut job.metadata.specific {

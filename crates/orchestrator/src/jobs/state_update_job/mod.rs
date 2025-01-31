@@ -83,12 +83,10 @@ impl Job for StateUpdateJob {
         );
 
         // Extract state transition metadata
-        let state_metadata: StateUpdateMetadata = metadata.specific.clone()
-            .try_into()
-            .map_err(|e| {
-                tracing::error!(job_id = %internal_id, error = %e, "Invalid metadata type for state update job");
-                JobError::Other(OtherError(e))
-            })?;
+        let state_metadata: StateUpdateMetadata = metadata.specific.clone().try_into().map_err(|e| {
+            tracing::error!(job_id = %internal_id, error = %e, "Invalid metadata type for state update job");
+            JobError::Other(OtherError(e))
+        })?;
 
         // Validate required paths
         if state_metadata.snos_output_paths.is_empty()
@@ -136,18 +134,17 @@ impl Job for StateUpdateJob {
             "State update job processing started."
         );
 
-        let mut state_metadata: StateUpdateMetadata = job.metadata.specific.clone()
-            .try_into()
-            .map_err(|e| {
-                tracing::error!(job_id = %internal_id, error = %e, "Invalid metadata type for state update job");
-                JobError::Other(OtherError(e))
-            })?;
+        let mut state_metadata: StateUpdateMetadata = job.metadata.specific.clone().try_into().map_err(|e| {
+            tracing::error!(job_id = %internal_id, error = %e, "Invalid metadata type for state update job");
+            JobError::Other(OtherError(e))
+        })?;
 
         self.validate_block_numbers(config.clone(), &state_metadata.blocks_to_settle).await?;
 
         // Filter block numbers if there was a previous failure
         let last_failed_block = state_metadata.last_failed_block_no.unwrap_or(0);
-        let block_numbers: Vec<u64> = state_metadata.blocks_to_settle.clone().into_iter().filter(|&block| block >= last_failed_block).collect();
+        let block_numbers: Vec<u64> =
+            state_metadata.blocks_to_settle.clone().into_iter().filter(|&block| block >= last_failed_block).collect();
         let snos_output_paths = state_metadata.snos_output_paths.clone();
         let program_output_paths = state_metadata.program_output_paths.clone();
         let blob_data_paths = state_metadata.blob_data_paths.clone();
@@ -159,14 +156,24 @@ impl Job for StateUpdateJob {
         for (i, block_no) in block_numbers.iter().enumerate() {
             tracing::debug!(job_id = %job.internal_id, block_no = %block_no, "Processing block");
             let snos = self.fetch_snos_for_block(internal_id.clone(), i, config.clone(), &snos_output_paths).await?;
-            let txn_hash = match self.update_state_for_block(config.clone(), *block_no, i, snos, nonce, &program_output_paths, &blob_data_paths).await {
+            let txn_hash = match self
+                .update_state_for_block(
+                    config.clone(),
+                    *block_no,
+                    i,
+                    snos,
+                    nonce,
+                    &program_output_paths,
+                    &blob_data_paths,
+                )
+                .await
+            {
                 Ok(hash) => hash,
                 Err(e) => {
                     tracing::error!(job_id = %job.internal_id, block_no = %block_no, error = %e, "Error updating state for block");
                     state_metadata.last_failed_block_no = Some(*block_no);
                     state_metadata.tx_hashes = sent_tx_hashes.clone();
                     job.metadata.specific = JobSpecificMetadata::StateUpdate(state_metadata.clone());
-                    
 
                     return Err(JobError::Other(OtherError(eyre!(
                         "Block #{block_no} - Error occurred during the state update: {e}"
@@ -179,7 +186,6 @@ impl Job for StateUpdateJob {
             job.metadata.specific = JobSpecificMetadata::StateUpdate(state_metadata.clone());
             nonce += 1;
         }
-
 
         let val = block_numbers.last().ok_or_else(|| StateUpdateError::LastNumberReturnedError)?;
 
@@ -214,12 +220,10 @@ impl Job for StateUpdateJob {
         );
 
         // Get state update metadata
-        let mut state_metadata: StateUpdateMetadata = job.metadata.specific.clone()
-            .try_into()
-            .map_err(|e| {
-                tracing::error!(job_id = ?job.id, error = ?e, "Invalid metadata type for state update job");
-                JobError::Other(OtherError(e))
-            })?;
+        let mut state_metadata: StateUpdateMetadata = job.metadata.specific.clone().try_into().map_err(|e| {
+            tracing::error!(job_id = ?job.id, error = ?e, "Invalid metadata type for state update job");
+            JobError::Other(OtherError(e))
+        })?;
         // Get transaction hashes
         let tx_hashes = state_metadata.tx_hashes;
 
@@ -393,7 +397,8 @@ impl StateUpdateJob {
                 .await
                 .map_err(|e| JobError::Other(OtherError(e)))?;
 
-            let program_output = self.fetch_program_output_for_block(block_index, config.clone(), program_output_paths).await?;
+            let program_output =
+                self.fetch_program_output_for_block(block_index, config.clone(), program_output_paths).await?;
 
             settlement_client
                 .update_state_with_blobs(program_output, blob_data, nonce)
@@ -420,7 +425,8 @@ impl StateUpdateJob {
             JobError::Other(OtherError(eyre!("Failed to get the snos path of the id {}", internal_id)))
         })?;
 
-        let snos_output_bytes = storage_client.get_data(&snos_path).await.map_err(|e| JobError::Other(OtherError(e)))?;
+        let snos_output_bytes =
+            storage_client.get_data(&snos_path).await.map_err(|e| JobError::Other(OtherError(e)))?;
 
         serde_json::from_slice(snos_output_bytes.iter().as_slice()).map_err(|e| {
             JobError::Other(OtherError(eyre!("Failed to deserialize SNOS output from path {}: {}", snos_path, e)))

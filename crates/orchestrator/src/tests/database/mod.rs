@@ -4,10 +4,13 @@ use chrono::{SubsecRound, Utc};
 use rstest::*;
 use uuid::Uuid;
 
+use crate::jobs::metadata::{
+    CommonMetadata, DaMetadata, JobMetadata, JobSpecificMetadata, ProvingInputType, ProvingMetadata, SnosMetadata,
+    StateUpdateMetadata,
+};
 use crate::jobs::types::{ExternalId, JobItem, JobItemUpdates, JobStatus, JobType};
 use crate::jobs::{increment_key_in_metadata, JobError};
 use crate::tests::config::{ConfigType, TestConfigBuilder};
-use crate::jobs::metadata::{CommonMetadata, JobMetadata, JobSpecificMetadata, StateUpdateMetadata, SnosMetadata, ProvingMetadata, DaMetadata, ProvingInputType};
 
 #[rstest]
 #[tokio::test]
@@ -228,7 +231,7 @@ async fn database_test_update_job() {
         assert_eq!(JobStatus::LockedForProcessing, job_after_updates_db.status);
         assert_eq!(1, job_after_updates_db.version);
         assert_eq!(456.to_string(), job_after_updates_db.internal_id);
-        
+
         // Check metadata was updated correctly
         if let JobSpecificMetadata::Da(da_metadata) = &job_after_updates_db.metadata.specific {
             assert_eq!(Some("test_key".to_string()), da_metadata.tx_hash);

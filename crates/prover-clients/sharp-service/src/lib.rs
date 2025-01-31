@@ -122,39 +122,34 @@ impl ProverClient for SharpProverService {
                 );
                 Ok(TaskStatus::Processing)
             }
-            CairoJobStatus::ONCHAIN => {
-                match fact {
-                    Some(fact_str) => {
-                        let fact = B256::from_str(&fact_str)
-                            .map_err(|e| ProverClientError::FailedToConvertFact(e.to_string()))?;
-                        
-                        if self.fact_checker.is_valid(&fact).await? {
-                            tracing::info!(
-                                log_type = "onchain",
-                                category = "get_task_status",
-                                function_type = "cairo_pie",
-                                "Cairo PIE task status: ONCHAIN and fact is valid."
-                            );
-                            Ok(TaskStatus::Succeeded)
-                        } else {
-                            tracing::error!(
-                                log_type = "onchain_failed",
-                                category = "get_task_status",
-                                function_type = "cairo_pie",
-                                "Cairo PIE task status: ONCHAIN and fact is not valid."
-                            );
-                            Ok(TaskStatus::Failed(format!(
-                                "Fact {} is not valid or not registered",
-                                hex::encode(fact)
-                            )))
-                        }
-                    }
-                    None => {
-                        tracing::debug!("No fact provided for verification, considering job successful");
+            CairoJobStatus::ONCHAIN => match fact {
+                Some(fact_str) => {
+                    let fact =
+                        B256::from_str(&fact_str).map_err(|e| ProverClientError::FailedToConvertFact(e.to_string()))?;
+
+                    if self.fact_checker.is_valid(&fact).await? {
+                        tracing::info!(
+                            log_type = "onchain",
+                            category = "get_task_status",
+                            function_type = "cairo_pie",
+                            "Cairo PIE task status: ONCHAIN and fact is valid."
+                        );
                         Ok(TaskStatus::Succeeded)
+                    } else {
+                        tracing::error!(
+                            log_type = "onchain_failed",
+                            category = "get_task_status",
+                            function_type = "cairo_pie",
+                            "Cairo PIE task status: ONCHAIN and fact is not valid."
+                        );
+                        Ok(TaskStatus::Failed(format!("Fact {} is not valid or not registered", hex::encode(fact))))
                     }
                 }
-            }
+                None => {
+                    tracing::debug!("No fact provided for verification, considering job successful");
+                    Ok(TaskStatus::Succeeded)
+                }
+            },
         }
     }
 }

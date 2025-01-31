@@ -16,6 +16,10 @@ use orchestrator::cli::database::DatabaseValidatedArgs;
 use orchestrator::data_storage::DataStorage;
 use orchestrator::database::mongodb::MongoDBValidatedArgs;
 use orchestrator::jobs::constants::{JOB_METADATA_SNOS_BLOCK, JOB_METADATA_STATE_UPDATE_BLOCKS_TO_SETTLE_KEY};
+use orchestrator::jobs::metadata::{
+    CommonMetadata, DaMetadata, JobMetadata, JobSpecificMetadata, ProvingInputType, ProvingMetadata, SnosMetadata,
+    StateUpdateMetadata,
+};
 use orchestrator::jobs::types::{ExternalId, JobItem, JobStatus, JobType};
 use orchestrator::queue::job_queue::JobQueueMessage;
 use orchestrator::queue::sqs::AWSSQSValidatedArgs;
@@ -27,7 +31,6 @@ use starknet::core::types::{Felt, MaybePendingStateUpdate};
 use url::Url;
 use utils::env_utils::get_env_var_or_panic;
 use uuid::Uuid;
-use orchestrator::jobs::metadata::{CommonMetadata, DaMetadata, JobMetadata, JobSpecificMetadata, SnosMetadata, StateUpdateMetadata, ProvingMetadata, ProvingInputType};
 
 extern crate e2e_tests;
 
@@ -291,10 +294,7 @@ pub async fn put_job_data_in_db_snos(mongo_db: &MongoDbServer, l2_block_number: 
     let common_metadata = CommonMetadata::default();
 
     // Combine into JobMetadata
-    let metadata = JobMetadata {
-        common: common_metadata,
-        specific: JobSpecificMetadata::Snos(snos_metadata),
-    };
+    let metadata = JobMetadata { common: common_metadata, specific: JobSpecificMetadata::Snos(snos_metadata) };
 
     let job_item = JobItem {
         id: Uuid::new_v4(),
@@ -388,10 +388,7 @@ pub async fn put_job_data_in_db_da(mongo_db: &MongoDbServer, l2_block_number: St
     let common_metadata = CommonMetadata::default();
 
     // Combine into JobMetadata
-    let metadata = JobMetadata {
-        common: common_metadata,
-        specific: JobSpecificMetadata::Da(da_metadata),
-    };
+    let metadata = JobMetadata { common: common_metadata, specific: JobSpecificMetadata::Da(da_metadata) };
 
     let job_item = JobItem {
         id: Uuid::new_v4(),
@@ -470,7 +467,7 @@ pub async fn mock_starknet_get_latest_block(starknet_client: &mut StarknetClient
 /// Puts after SNOS job state into the database
 pub async fn put_job_data_in_db_update_state(mongo_db: &MongoDbServer, l2_block_number: String) {
     let block_number = l2_block_number.parse::<u64>().unwrap() - 1;
-    
+
     // Create the StateUpdate-specific metadata
     let state_update_metadata = StateUpdateMetadata {
         blocks_to_settle: vec![block_number],
@@ -485,10 +482,8 @@ pub async fn put_job_data_in_db_update_state(mongo_db: &MongoDbServer, l2_block_
     let common_metadata = CommonMetadata::default();
 
     // Combine into JobMetadata
-    let metadata = JobMetadata {
-        common: common_metadata,
-        specific: JobSpecificMetadata::StateUpdate(state_update_metadata),
-    };
+    let metadata =
+        JobMetadata { common: common_metadata, specific: JobSpecificMetadata::StateUpdate(state_update_metadata) };
 
     let job_item = JobItem {
         id: Uuid::new_v4(),
@@ -509,23 +504,16 @@ pub async fn put_job_data_in_db_update_state(mongo_db: &MongoDbServer, l2_block_
 /// Puts after SNOS job state into the database
 pub async fn put_job_data_in_db_proving(mongo_db: &MongoDbServer, l2_block_number: String) {
     let block_number = l2_block_number.parse::<u64>().unwrap() - 1;
-    
+
     // Create the Proving-specific metadata
-    let proving_metadata = ProvingMetadata {
-        block_number,
-        input_path: None,
-        ensure_on_chain_registration: None,
-        download_proof: None,
-    };
+    let proving_metadata =
+        ProvingMetadata { block_number, input_path: None, ensure_on_chain_registration: None, download_proof: None };
 
     // Create the common metadata with default values
     let common_metadata = CommonMetadata::default();
 
     // Combine into JobMetadata
-    let metadata = JobMetadata {
-        common: common_metadata,
-        specific: JobSpecificMetadata::Proving(proving_metadata),
-    };
+    let metadata = JobMetadata { common: common_metadata, specific: JobSpecificMetadata::Proving(proving_metadata) };
 
     let job_item = JobItem {
         id: Uuid::new_v4(),
