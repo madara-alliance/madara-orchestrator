@@ -7,7 +7,10 @@ use std::time::{Duration, Instant};
 use async_trait::async_trait;
 use chrono::Utc;
 use color_eyre::eyre::{eyre, Context};
-use constants::{JOB_METADATA_ERROR, JOB_METADATA_FAILURE_REASON, JOB_METADATA_PROCESSING_COMPLETED_AT};
+use constants::{
+    JOB_METADATA_ERROR, JOB_METADATA_FAILURE_REASON, JOB_METADATA_PROCESSING_COMPLETED_AT,
+    JOB_METADATA_PROCESSING_STARTED_AT,
+};
 use conversion::parse_string;
 use da_job::DaError;
 use futures::FutureExt;
@@ -335,13 +338,18 @@ pub async fn process_job(id: Uuid, config: Arc<Config>) -> Result<(), JobError> 
         }
     }
 
+    let mut metadata = job.metadata.clone();
+    metadata.insert(JOB_METADATA_PROCESSING_STARTED_AT.to_string(), Utc::now().timestamp_millis().to_string());
     // this updates the version of the job. this ensures that if another thread was about to process
     // the same job, it would fail to update the job in the database because the version would be
     // outdated
     tracing::debug!(job_id = ?id, "Updating job status to LockedForProcessing");
     let mut job = config
         .database()
-        .update_job(&job, JobItemUpdates::new().update_status(JobStatus::LockedForProcessing).build())
+        .update_job(
+            &job,
+            JobItemUpdates::new().update_status(JobStatus::LockedForProcessing).update_metadata(metadata).build(),
+        )
         .await
         .map_err(|e| {
             tracing::error!(job_id = ?id, error = ?e, "Failed to update job status");
@@ -349,12 +357,13 @@ pub async fn process_job(id: Uuid, config: Arc<Config>) -> Result<(), JobError> 
         })?;
 
     tracing::debug!(job_id = ?id, job_type = ?job.job_type, "Getting job handler");
+    let mut metadata = job.metadata.clone();
     let job_handler = factory::get_job_handler(&job.job_type).await;
     let external_id = match AssertUnwindSafe(job_handler.process_job(config.clone(), &mut job)).catch_unwind().await {
         Ok(Ok(external_id)) => {
             tracing::debug!(job_id = ?id, "Successfully processed job");
             // Add the time of processing to the metadata.
-            job.metadata
+            metadata
                 .insert(JOB_METADATA_PROCESSING_COMPLETED_AT.to_string(), Utc::now().timestamp_millis().to_string());
             external_id
         }
@@ -382,7 +391,7 @@ pub async fn process_job(id: Uuid, config: Arc<Config>) -> Result<(), JobError> 
         }
     };
     tracing::debug!(job_id = ?id, "Incrementing process attempt count in metadata");
-    let metadata = increment_key_in_metadata(&job.metadata, JOB_PROCESS_ATTEMPT_METADATA_KEY)?;
+    metadata = increment_key_in_metadata(&job.metadata, JOB_PROCESS_ATTEMPT_METADATA_KEY)?;
 
     // Fetching the job again because update status above will update the job version
     tracing::debug!(job_id = ?id, "Updating job status to PendingVerification");
