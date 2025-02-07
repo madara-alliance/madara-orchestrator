@@ -544,7 +544,13 @@ fn get_env_params() -> EnvParams {
     let env = get_env_var_optional("MADARA_ORCHESTRATOR_MIN_BLOCK_NO_TO_PROCESS").expect("Couldn't get min block");
     let min_block: Option<u64> = env.and_then(|s| if s.is_empty() { None } else { Some(s.parse::<u64>().unwrap()) });
 
-    let service_config = ServiceParams { max_block_to_process: max_block, min_block_to_process: min_block };
+    let env = get_env_var_optional("MADARA_ORCHESTRATOR_MAX_CONCURRENT_SNOS_JOBS")
+        .expect("Couldn't get max concurrent snos jobs");
+    let max_concurrent_snos_jobs: Option<usize> =
+        env.and_then(|s| if s.is_empty() { None } else { Some(s.parse::<usize>().unwrap()) });
+
+    let service_config =
+        ServiceParams { max_block_to_process: max_block, min_block_to_process: min_block, max_concurrent_snos_jobs };
 
     let server_config = ServerParams {
         host: get_env_var_or_panic("MADARA_ORCHESTRATOR_HOST"),

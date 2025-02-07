@@ -7,7 +7,10 @@ use std::time::{Duration, Instant};
 use async_trait::async_trait;
 use chrono::Utc;
 use color_eyre::eyre::{eyre, Context};
-use constants::{JOB_METADATA_ERROR, JOB_METADATA_FAILURE_REASON, JOB_METADATA_PROCESSING_COMPLETED_AT};
+use constants::{
+    JOB_METADATA_ERROR, JOB_METADATA_FAILURE_REASON, JOB_METADATA_PROCESSING_COMPLETED_AT,
+    JOB_METADATA_PROCESSING_STARTED_AT,
+};
 use conversion::parse_string;
 use da_job::DaError;
 use futures::FutureExt;
@@ -21,7 +24,7 @@ use state_update_job::StateUpdateError;
 use types::{ExternalId, JobItemUpdates};
 use uuid::Uuid;
 
-use crate::config::Config;
+use crate::config::{Config, JobProcessingState};
 use crate::jobs::constants::{
     JOB_PROCESS_ATTEMPT_METADATA_KEY, JOB_PROCESS_RETRY_ATTEMPT_METADATA_KEY, JOB_VERIFICATION_ATTEMPT_METADATA_KEY,
     JOB_VERIFICATION_RETRY_ATTEMPT_METADATA_KEY,
@@ -93,6 +96,14 @@ pub enum JobError {
     /// Wraps general errors that don't fit other categories
     #[error("Other error: {0}")]
     Other(#[from] OtherError),
+
+    /// Indicates the runner has reached the maximum number of attempts to process the job
+    #[error("Max Capacity Reached, Already processing")]
+    MaxCapacityReached,
+
+    /// Indicates an error occurred while extracting the processing lock
+    #[error("Error extracting processing lock: {0}")]
+    LockError(String),
 }
 
 /// Wrapper Type for Other(<>) job type
@@ -293,6 +304,20 @@ pub async fn process_job(id: Uuid, config: Arc<Config>) -> Result<(), JobError> 
     let start = Instant::now();
     let job = get_job(id, config.clone()).await?;
     let internal_id = job.internal_id.clone();
+    let mut permit: Option<tokio::sync::SemaphorePermit<'_>> = None;
+
+    // if job_type is SNOS & max_concurrent is defined - then you need permit for sure
+    if job.job_type == JobType::SnosRun && config.service_config().max_concurrent_snos_jobs.is_some() {
+        let processing_lock = config.snos_processing_lock();
+        permit = try_acquire_permit(processing_lock, &job).await?;
+        // we wanted permit but didn't get it
+        if permit.is_none() {
+            // add job back to queue
+            add_job_to_process_queue(job.id, &job.job_type, config.clone()).await?;
+            return Err(JobError::MaxCapacityReached);
+        }
+    }
+
     tracing::info!(log_type = "starting", category = "general", function_type = "process_job", block_no = %internal_id, "General process job started for block");
 
     tracing::Span::current().record("job", format!("{:?}", job.clone()));
@@ -312,13 +337,19 @@ pub async fn process_job(id: Uuid, config: Arc<Config>) -> Result<(), JobError> 
             return Err(JobError::InvalidStatus { id, job_status: job.status });
         }
     }
+
+    let mut metadata = job.metadata.clone();
+    metadata.insert(JOB_METADATA_PROCESSING_STARTED_AT.to_string(), Utc::now().timestamp_millis().to_string());
     // this updates the version of the job. this ensures that if another thread was about to process
     // the same job, it would fail to update the job in the database because the version would be
     // outdated
     tracing::debug!(job_id = ?id, "Updating job status to LockedForProcessing");
     let mut job = config
         .database()
-        .update_job(&job, JobItemUpdates::new().update_status(JobStatus::LockedForProcessing).build())
+        .update_job(
+            &job,
+            JobItemUpdates::new().update_status(JobStatus::LockedForProcessing).update_metadata(metadata).build(),
+        )
         .await
         .map_err(|e| {
             tracing::error!(job_id = ?id, error = ?e, "Failed to update job status");
@@ -326,12 +357,13 @@ pub async fn process_job(id: Uuid, config: Arc<Config>) -> Result<(), JobError> 
         })?;
 
     tracing::debug!(job_id = ?id, job_type = ?job.job_type, "Getting job handler");
+    let mut metadata = job.metadata.clone();
     let job_handler = factory::get_job_handler(&job.job_type).await;
     let external_id = match AssertUnwindSafe(job_handler.process_job(config.clone(), &mut job)).catch_unwind().await {
         Ok(Ok(external_id)) => {
             tracing::debug!(job_id = ?id, "Successfully processed job");
             // Add the time of processing to the metadata.
-            job.metadata
+            metadata
                 .insert(JOB_METADATA_PROCESSING_COMPLETED_AT.to_string(), Utc::now().timestamp_millis().to_string());
             external_id
         }
@@ -359,7 +391,7 @@ pub async fn process_job(id: Uuid, config: Arc<Config>) -> Result<(), JobError> 
         }
     };
     tracing::debug!(job_id = ?id, "Incrementing process attempt count in metadata");
-    let metadata = increment_key_in_metadata(&job.metadata, JOB_PROCESS_ATTEMPT_METADATA_KEY)?;
+    metadata = increment_key_in_metadata(&job.metadata, JOB_PROCESS_ATTEMPT_METADATA_KEY)?;
 
     // Fetching the job again because update status above will update the job version
     tracing::debug!(job_id = ?id, "Updating job status to PendingVerification");
@@ -403,6 +435,20 @@ pub async fn process_job(id: Uuid, config: Arc<Config>) -> Result<(), JobError> 
     ORCHESTRATOR_METRICS.jobs_response_time.record(duration.as_secs_f64(), &attributes);
     //  job_type, internal_id, external_id
     register_block_gauge(job.job_type, &job.internal_id, external_id.into(), &attributes)?;
+
+    if let Some(permit) = permit {
+        // Getting permit means we are running SNOS job
+        let processing_lock = config.snos_processing_lock();
+        let mut state = processing_lock.state.lock().await;
+        // Remove the job from the active jobs list, and update the last processed time
+        state.active_jobs.remove(&job.id);
+        state.last_processed = chrono::Utc::now();
+        // Explicitly drop the lock
+        drop(state);
+        // Drop the permit to allow other jobs to be processed
+        drop(permit);
+    }
+
     Ok(())
 }
 
@@ -929,6 +975,33 @@ pub async fn queue_job_for_verification(id: Uuid, config: Arc<Config>) -> Result
     Ok(())
 }
 
+async fn try_acquire_permit<'a>(
+    processing_lock: &'a JobProcessingState,
+    job: &JobItem,
+) -> Result<Option<tokio::sync::SemaphorePermit<'a>>, JobError> {
+    // Early return if job doesn't need processing lock
+
+    // Try to acquire permit with timeout
+    match tokio::time::timeout(Duration::from_millis(100), processing_lock.semaphore.acquire()).await {
+        Ok(Ok(permit)) => {
+            {
+                let mut state = processing_lock.state.lock().await;
+                state.active_jobs.insert(job.id);
+                drop(state); // Explicitly drop the lock (optional but clear)
+            }
+            Ok(Some(permit))
+        }
+        Ok(Err(e)) => Err(JobError::LockError(e.to_string())),
+        Err(_) => {
+            println!(
+                "Job {} waiting - at max capacity ({} available permits)",
+                job.id,
+                processing_lock.get_available_permits()
+            );
+            Ok(None)
+        }
+    }
+}
 #[cfg(test)]
 mod tests {
     use super::*;

@@ -6,6 +6,9 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ## Added
 
+- Limits on SNOS job concurrency
+- Unique Id for running orchestrator
+- Added JOB_METADATA_PROCESSING_STARTED_AT
 - Added retry job endpoint for failed jobs
 - readme: setup instructions added
 - Added : Grafana dashboard
@@ -51,6 +54,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ## Changed
 
+- Increased interval time for spawn_consumer
 - verify_job now handles VerificationTimeout status
 - refactor: expect removed and added error wraps
 - refactor: Readme and .env.example
@@ -88,6 +92,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 - corrected delays in cloud setup
 - fixed state_update worker to continue from min_block_no_to_process
+- fixed JOB_METADATA_PROCESSING_COMPLETED_AT usage
 - add jemallocator to fix memory leak
 - refactor: instrumentation
 - `is_worker_enabled` status check moved from `VerificationFailed` to `Failed`
