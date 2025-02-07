@@ -89,7 +89,7 @@ impl Cron for AWSEventBridge {
             "Statement": [{
                 "Effect": "Allow",
                 "Principal": {
-                    "Service": "scheduler.amazonaws.com"
+                    "Service": ["scheduler.amazonaws.com", "events.amazonaws.com"]
                 },
                 "Action": "sts:AssumeRole"
             }]

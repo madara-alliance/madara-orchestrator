@@ -90,6 +90,8 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ## Fixed
 
+- corrected delays in cloud setup
+- fixed state_update worker to continue from min_block_no_to_process
 - fixed JOB_METADATA_PROCESSING_COMPLETED_AT usage
 - add jemallocator to fix memory leak
 - refactor: instrumentation
