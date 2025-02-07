@@ -1,5 +1,8 @@
+use std::time::Duration;
+
 use async_trait::async_trait;
 use lazy_static::lazy_static;
+use tokio::time::sleep;
 
 use crate::queue::job_queue::WorkerTriggerType;
 
@@ -30,6 +33,7 @@ pub trait Cron {
     async fn setup(&self) -> color_eyre::Result<()> {
         let trigger_arns = self.create_cron().await?;
         for trigger in WORKER_TRIGGERS.iter() {
+            sleep(Duration::from_secs(15)).await;
             self.add_cron_target_queue(trigger, &trigger_arns).await?;
         }
         Ok(())
