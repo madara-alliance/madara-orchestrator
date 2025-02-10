@@ -8,7 +8,7 @@ use async_trait::async_trait;
 use chrono::Utc;
 use color_eyre::eyre::{eyre, Context};
 use constants::{
-    JOB_METADATA_ERROR, JOB_METADATA_FAILURE_REASON, JOB_METADATA_PROCESSING_COMPLETED_AT,
+    JOB_METADATA_ERROR, JOB_METADATA_FAILURE_REASON, JOB_METADATA_PROCESSING_FINISHED_AT,
     JOB_METADATA_PROCESSING_STARTED_AT,
 };
 use conversion::parse_string;
@@ -97,7 +97,7 @@ pub enum JobError {
     #[error("Other error: {0}")]
     Other(#[from] OtherError),
 
-    /// Indicates the runner has reached the maximum number of attempts to process the job
+    /// Indicates that the maximum capacity of jobs currently being processed has been reached
     #[error("Max Capacity Reached, Already processing")]
     MaxCapacityReached,
 
@@ -363,8 +363,7 @@ pub async fn process_job(id: Uuid, config: Arc<Config>) -> Result<(), JobError> 
         Ok(Ok(external_id)) => {
             tracing::debug!(job_id = ?id, "Successfully processed job");
             // Add the time of processing to the metadata.
-            metadata
-                .insert(JOB_METADATA_PROCESSING_COMPLETED_AT.to_string(), Utc::now().timestamp_millis().to_string());
+            metadata.insert(JOB_METADATA_PROCESSING_FINISHED_AT.to_string(), Utc::now().timestamp_millis().to_string());
             external_id
         }
         Ok(Err(e)) => {
@@ -479,7 +478,7 @@ pub async fn process_job(id: Uuid, config: Arc<Config>) -> Result<(), JobError> 
 /// # Notes
 /// * Only jobs in `PendingVerification` or `VerificationTimeout` status can be verified
 /// * Automatically retries processing if verification fails and max attempts not reached
-/// * Removes processing_completed_at from metadata upon successful verification
+/// * Removes processing_finished_at from metadata upon successful verification
 #[tracing::instrument(
     skip(config),
     fields(category = "general", job, job_type, internal_id, verification_status),
@@ -524,7 +523,7 @@ pub async fn verify_job(id: Uuid, config: Arc<Config>) -> Result<(), JobError> {
             tracing::info!(job_id = ?id, "Job verified successfully");
             match job
                 .metadata
-                .get(JOB_METADATA_PROCESSING_COMPLETED_AT)
+                .get(JOB_METADATA_PROCESSING_FINISHED_AT)
                 .and_then(|time| time.parse::<i64>().ok())
                 .map(|start| Utc::now().timestamp_millis() - start)
             {
@@ -534,7 +533,7 @@ pub async fn verify_job(id: Uuid, config: Arc<Config>) -> Result<(), JobError> {
                 None => tracing::warn!("Failed to calculate verification time: Invalid or missing processing time"),
             }
             let mut metadata = job.metadata.clone();
-            metadata.remove("processing_completed_at");
+            metadata.remove("processing_finished_at");
             config
                 .database()
                 .update_job(
