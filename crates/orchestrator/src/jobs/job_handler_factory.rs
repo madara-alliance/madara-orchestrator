@@ -7,6 +7,7 @@ pub mod factory {
     #[allow(unused_imports)]
     use mockall::automock;
 
+    use crate::config::Config;
     use crate::jobs::types::JobType;
     use crate::jobs::{da_job, proving_job, snos_job, state_update_job, Job};
 
@@ -51,11 +52,11 @@ pub mod factory {
     /// - We return this mocked job whenever a function calls `get_job_handler`
     /// - Making it an Arc allows us to return the same MockJob in multiple calls to
     ///   `get_job_handler`. This is needed because `MockJob` doesn't implement Clone
-    pub async fn get_job_handler(job_type: &JobType) -> Arc<Box<dyn Job>> {
+    pub async fn get_job_handler(job_type: &JobType, config: Arc<Config>) -> Arc<Box<dyn Job>> {
         // Original implementation
         let job: Box<dyn Job> = match job_type {
             JobType::DataSubmission => Box::new(da_job::DaJob),
-            JobType::SnosRun => Box::new(snos_job::SnosJob),
+            JobType::SnosRun => Box::new(snos_job::SnosJob::new(config.service_config().max_concurrent_snos_jobs)),
             JobType::ProofCreation => Box::new(proving_job::ProvingJob),
             JobType::StateTransition => Box::new(state_update_job::StateUpdateJob),
             _ => unimplemented!("Job type not implemented yet."),

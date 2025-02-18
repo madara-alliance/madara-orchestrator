@@ -42,34 +42,22 @@ use crate::queue::sqs::SqsQueue;
 use crate::queue::QueueProvider;
 use crate::routes::ServerParams;
 
-pub struct ProcessingState {
-    pub active_jobs: HashSet<Uuid>,
-    pub last_processed: chrono::DateTime<chrono::Utc>,
-}
-
 #[derive(Clone)]
 pub struct JobProcessingState {
     pub semaphore: Arc<Semaphore>,
-    pub state: Arc<Mutex<ProcessingState>>,
+    pub active_jobs: Arc<Mutex<HashSet<Uuid>>>,
 }
 
 impl JobProcessingState {
-    fn new(max_parallel_jobs: usize) -> Self {
+    pub fn new(max_parallel_jobs: usize) -> Self {
         JobProcessingState {
             semaphore: Arc::new(Semaphore::new(max_parallel_jobs)),
-            state: Arc::new(Mutex::new(ProcessingState {
-                active_jobs: HashSet::new(),
-                last_processed: chrono::Utc::now() - chrono::Duration::seconds(1),
-            })),
+            active_jobs: Arc::new(Mutex::new(HashSet::new())),
         }
     }
 
     pub async fn get_active_jobs(&self) -> HashSet<Uuid> {
-        self.state.lock().await.active_jobs.clone()
-    }
-
-    pub async fn get_last_processed(&self) -> chrono::DateTime<chrono::Utc> {
-        self.state.lock().await.last_processed
+        self.active_jobs.lock().await.clone()
     }
 
     pub fn get_available_permits(&self) -> usize {
@@ -98,8 +86,6 @@ pub struct Config {
     storage: Box<dyn DataStorage>,
     /// Alerts client
     alerts: Box<dyn Alerts>,
-    /// Locks
-    snos_processing_lock: JobProcessingState,
 }
 
 #[derive(Debug, Clone)]
@@ -230,9 +216,6 @@ impl Config {
         storage: Box<dyn DataStorage>,
         alerts: Box<dyn Alerts>,
     ) -> Self {
-        let snos_processing_lock =
-            JobProcessingState::new(orchestrator_params.service_config.max_concurrent_snos_jobs.unwrap_or(1));
-
         Self {
             orchestrator_params,
             starknet_client,
@@ -243,7 +226,6 @@ impl Config {
             queue,
             storage,
             alerts,
-            snos_processing_lock,
         }
     }
 
@@ -305,11 +287,6 @@ impl Config {
     /// Returns the alerts client
     pub fn alerts(&self) -> &dyn Alerts {
         self.alerts.as_ref()
-    }
-
-    /// Returns the snos processing lock
-    pub fn snos_processing_lock(&self) -> &JobProcessingState {
-        &self.snos_processing_lock
     }
 
     /// Returns the snos proof layout

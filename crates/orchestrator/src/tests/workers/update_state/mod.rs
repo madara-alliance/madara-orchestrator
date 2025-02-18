@@ -1,7 +1,7 @@
 use std::collections::HashMap;
 use std::sync::Arc;
 
-use mockall::predicate::eq;
+use mockall::predicate::{always, eq};
 use rstest::*;
 use uuid::Uuid;
 
@@ -55,7 +55,7 @@ async fn update_state_worker_first_block() {
     services.config.database().create_job(job_item).await.unwrap();
 
     let ctx = mock_factory::get_job_handler_context();
-    ctx.expect().with(eq(JobType::StateTransition)).returning(move |_| Arc::new(Box::new(StateUpdateJob)));
+    ctx.expect().with(eq(JobType::StateTransition), always()).returning(move |_, _| Arc::new(Box::new(StateUpdateJob)));
 
     let update_state_worker = UpdateStateWorker {};
     assert!(update_state_worker.run_worker(services.config.clone()).await.is_ok());
@@ -83,7 +83,7 @@ async fn update_state_worker_first_block_missing() {
     services.config.database().create_job(job_item).await.unwrap();
 
     let ctx = mock_factory::get_job_handler_context();
-    ctx.expect().with(eq(JobType::StateTransition)).returning(move |_| Arc::new(Box::new(StateUpdateJob)));
+    ctx.expect().with(eq(JobType::StateTransition), always()).returning(move |_, _| Arc::new(Box::new(StateUpdateJob)));
 
     let update_state_worker = UpdateStateWorker {};
     assert!(update_state_worker.run_worker(services.config.clone()).await.is_ok());
@@ -118,7 +118,7 @@ async fn update_state_worker_selects_consective_blocks() {
     services.config.database().create_job(job_item_three).await.unwrap();
 
     let ctx = mock_factory::get_job_handler_context();
-    ctx.expect().with(eq(JobType::StateTransition)).returning(move |_| Arc::new(Box::new(StateUpdateJob)));
+    ctx.expect().with(eq(JobType::StateTransition), always()).returning(move |_, _| Arc::new(Box::new(StateUpdateJob)));
 
     let update_state_worker = UpdateStateWorker {};
     assert!(update_state_worker.run_worker(services.config.clone()).await.is_ok());
@@ -156,7 +156,7 @@ async fn update_state_worker_continues_from_previous_state_update() {
     services.config.database().create_job(job_item).await.unwrap();
 
     let ctx = mock_factory::get_job_handler_context();
-    ctx.expect().with(eq(JobType::StateTransition)).returning(move |_| Arc::new(Box::new(StateUpdateJob)));
+    ctx.expect().with(eq(JobType::StateTransition), always()).returning(move |_, _| Arc::new(Box::new(StateUpdateJob)));
 
     let update_state_worker = UpdateStateWorker {};
     assert!(update_state_worker.run_worker(services.config.clone()).await.is_ok());
@@ -196,7 +196,7 @@ async fn update_state_worker_next_block_missing() {
     services.config.database().create_job(job_item).await.unwrap();
 
     let ctx = mock_factory::get_job_handler_context();
-    ctx.expect().with(eq(JobType::StateTransition)).returning(move |_| Arc::new(Box::new(StateUpdateJob)));
+    ctx.expect().with(eq(JobType::StateTransition), always()).returning(move |_, _| Arc::new(Box::new(StateUpdateJob)));
 
     let update_state_worker = UpdateStateWorker {};
     assert!(update_state_worker.run_worker(services.config.clone()).await.is_ok());

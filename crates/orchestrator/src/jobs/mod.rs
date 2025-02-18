@@ -24,7 +24,7 @@ use state_update_job::StateUpdateError;
 use types::{ExternalId, JobItemUpdates};
 use uuid::Uuid;
 
-use crate::config::{Config, JobProcessingState};
+use crate::config::Config;
 use crate::jobs::constants::{
     JOB_PROCESS_ATTEMPT_METADATA_KEY, JOB_PROCESS_RETRY_ATTEMPT_METADATA_KEY, JOB_VERIFICATION_ATTEMPT_METADATA_KEY,
     JOB_VERIFICATION_RETRY_ATTEMPT_METADATA_KEY,
@@ -255,7 +255,7 @@ pub async fn create_job(
         return Ok(());
     }
 
-    let job_handler = factory::get_job_handler(&job_type).await;
+    let job_handler = factory::get_job_handler(&job_type, config.clone()).await;
     let job_item = job_handler.create_job(config.clone(), internal_id.clone(), metadata).await?;
     config.database().create_job(job_item.clone()).await?;
 
@@ -304,19 +304,6 @@ pub async fn process_job(id: Uuid, config: Arc<Config>) -> Result<(), JobError> 
     let start = Instant::now();
     let job = get_job(id, config.clone()).await?;
     let internal_id = job.internal_id.clone();
-    let mut permit: Option<tokio::sync::SemaphorePermit<'_>> = None;
-
-    // if job_type is SNOS & max_concurrent is defined - then you need permit for sure
-    if job.job_type == JobType::SnosRun && config.service_config().max_concurrent_snos_jobs.is_some() {
-        let processing_lock = config.snos_processing_lock();
-        permit = try_acquire_permit(processing_lock, &job).await?;
-        // we wanted permit but didn't get it
-        if permit.is_none() {
-            // add job back to queue
-            add_job_to_process_queue(job.id, &job.job_type, config.clone()).await?;
-            return Err(JobError::MaxCapacityReached);
-        }
-    }
 
     tracing::info!(log_type = "starting", category = "general", function_type = "process_job", block_no = %internal_id, "General process job started for block");
 
@@ -358,7 +345,7 @@ pub async fn process_job(id: Uuid, config: Arc<Config>) -> Result<(), JobError> 
 
     tracing::debug!(job_id = ?id, job_type = ?job.job_type, "Getting job handler");
     let mut metadata = job.metadata.clone();
-    let job_handler = factory::get_job_handler(&job.job_type).await;
+    let job_handler = factory::get_job_handler(&job.job_type, config.clone()).await;
     let external_id = match AssertUnwindSafe(job_handler.process_job(config.clone(), &mut job)).catch_unwind().await {
         Ok(Ok(external_id)) => {
             tracing::debug!(job_id = ?id, "Successfully processed job");
@@ -435,19 +422,6 @@ pub async fn process_job(id: Uuid, config: Arc<Config>) -> Result<(), JobError> 
     //  job_type, internal_id, external_id
     register_block_gauge(job.job_type, &job.internal_id, external_id.into(), &attributes)?;
 
-    if let Some(permit) = permit {
-        // Getting permit means we are running SNOS job
-        let processing_lock = config.snos_processing_lock();
-        let mut state = processing_lock.state.lock().await;
-        // Remove the job from the active jobs list, and update the last processed time
-        state.active_jobs.remove(&job.id);
-        state.last_processed = chrono::Utc::now();
-        // Explicitly drop the lock
-        drop(state);
-        // Drop the permit to allow other jobs to be processed
-        drop(permit);
-    }
-
     Ok(())
 }
 
@@ -506,7 +480,7 @@ pub async fn verify_job(id: Uuid, config: Arc<Config>) -> Result<(), JobError> {
         }
     }
 
-    let job_handler = factory::get_job_handler(&job.job_type).await;
+    let job_handler = factory::get_job_handler(&job.job_type, config.clone()).await;
     tracing::debug!(job_id = ?id, "Verifying job with handler");
     let verification_status = job_handler.verify_job(config.clone(), &mut job).await?;
     tracing::Span::current().record("verification_status", format!("{:?}", &verification_status));
@@ -933,7 +907,7 @@ pub async fn queue_job_for_processing(id: Uuid, config: Arc<Config>) -> Result<(
 #[tracing::instrument(skip(config), fields(category = "general"), ret, err)]
 pub async fn queue_job_for_verification(id: Uuid, config: Arc<Config>) -> Result<(), JobError> {
     let job = get_job(id, config.clone()).await?;
-    let job_handler = factory::get_job_handler(&job.job_type).await;
+    let job_handler = factory::get_job_handler(&job.job_type, config.clone()).await;
 
     // Reset verification attempts and increment retry counter
     let mut metadata = job.metadata.clone();
@@ -974,33 +948,6 @@ pub async fn queue_job_for_verification(id: Uuid, config: Arc<Config>) -> Result
     Ok(())
 }
 
-async fn try_acquire_permit<'a>(
-    processing_lock: &'a JobProcessingState,
-    job: &JobItem,
-) -> Result<Option<tokio::sync::SemaphorePermit<'a>>, JobError> {
-    // Early return if job doesn't need processing lock
-
-    // Try to acquire permit with timeout
-    match tokio::time::timeout(Duration::from_millis(100), processing_lock.semaphore.acquire()).await {
-        Ok(Ok(permit)) => {
-            {
-                let mut state = processing_lock.state.lock().await;
-                state.active_jobs.insert(job.id);
-                drop(state); // Explicitly drop the lock (optional but clear)
-            }
-            Ok(Some(permit))
-        }
-        Ok(Err(e)) => Err(JobError::LockError(e.to_string())),
-        Err(_) => {
-            println!(
-                "Job {} waiting - at max capacity ({} available permits)",
-                job.id,
-                processing_lock.get_available_permits()
-            );
-            Ok(None)
-        }
-    }
-}
 #[cfg(test)]
 mod tests {
     use super::*;

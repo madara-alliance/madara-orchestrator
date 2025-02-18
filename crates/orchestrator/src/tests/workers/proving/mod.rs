@@ -25,6 +25,8 @@ use crate::workers::proving::ProvingWorker;
 #[case(false)]
 #[tokio::test]
 async fn test_proving_worker(#[case] incomplete_runs: bool) -> Result<(), Box<dyn Error>> {
+    use mockall::predicate::always;
+
     use crate::queue::QueueType;
 
     let server = MockServer::start();
@@ -101,9 +103,15 @@ async fn test_proving_worker(#[case] incomplete_runs: bool) -> Result<(), Box<dy
     let ctx = mock_factory::get_job_handler_context();
     // Mocking the `get_job_handler` call in create_job function.
     if incomplete_runs {
-        ctx.expect().times(4).with(eq(JobType::ProofCreation)).returning(move |_| Arc::clone(&job_handler));
+        ctx.expect()
+            .times(4)
+            .with(eq(JobType::ProofCreation), always())
+            .returning(move |_, _| Arc::clone(&job_handler));
     } else {
-        ctx.expect().times(5).with(eq(JobType::ProofCreation)).returning(move |_| Arc::clone(&job_handler));
+        ctx.expect()
+            .times(5)
+            .with(eq(JobType::ProofCreation), always())
+            .returning(move |_, _| Arc::clone(&job_handler));
     }
 
     let proving_worker = ProvingWorker {};
