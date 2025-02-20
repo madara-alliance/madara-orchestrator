@@ -360,7 +360,7 @@ macro_rules! spawn_consumer {
                     Ok(_) => {}
                     Err(e) => tracing::error!("Failed to consume from queue {:?}. Error: {:?}", $queue_type, e),
                 }
-                sleep(Duration::from_millis(500)).await;
+                sleep(Duration::from_secs(2)).await;
             }
         });
     };
