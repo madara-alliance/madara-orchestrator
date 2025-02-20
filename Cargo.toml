@@ -56,10 +56,11 @@ bytes = "1.7.2"
 color-eyre = "0.6.2"
 chrono = "0.4.0"
 c-kzg = "1.0.3"
+bson = { version = "2.0", features = ["uuid-1", "chrono-0_4"] }
 dotenvy = "0.15.7"
 futures = "0.3.30"
 log = "0.4.21"
-mongodb = { version = "2.8.1", features = ["bson-chrono-0_4"] }
+mongodb = { version = "3.2.1" }
 omniqueue = { version = "0.2.0" }
 reqwest = { version = "0.12.7", features = [
   "rustls-tls",
@@ -124,7 +125,7 @@ tracing-subscriber = { version = "0.3.18", features = [
 tracing-opentelemetry = "0.26.0"
 
 # Cairo VM
-cairo-vm = { git = "https://github.com/Moonsong-Labs/cairo-vm", branch = "notlesh/snos-2024-11-04", features = [
+cairo-vm = { git = "https://github.com/Mohiiit/cairo-vm", branch = "tmp/mohit/paradex", features = [
   "cairo-1-hints",
   "extensive_hints",
   "mod_builtin",
@@ -134,8 +135,8 @@ jemallocator = "0.5.4"
 
 # Snos & Sharp (Starkware)
 # TODO: need to update this once the updated PR merges
-starknet-os = { git = "https://github.com/keep-starknet-strange/snos", branch = "tmp/snos_devnet_zero_txs" }
-prove_block = { git = "https://github.com/keep-starknet-strange/snos", branch = "tmp/snos_devnet_zero_txs" }
+starknet-os = { git = "https://github.com/Mohiiit/snos", rev = "cad469b0650eed7763e8eedaba5c445fdfd7cfa1" }
+prove_block = { git = "https://github.com/Mohiiit/snos", rev = "cad469b0650eed7763e8eedaba5c445fdfd7cfa1" }
 
 # Madara prover API
 madara-prover-common = { git = "https://github.com/Moonsong-Labs/madara-prover-api", branch = "od/use-latest-cairo-vm" }

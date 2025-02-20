@@ -441,10 +441,7 @@ pub mod validate_params {
     pub(crate) fn validate_database_params(mongodb_args: &MongoDBCliArgs) -> Result<DatabaseValidatedArgs, String> {
         if mongodb_args.mongodb {
             Ok(DatabaseValidatedArgs::MongoDB(MongoDBValidatedArgs {
-                connection_url: Url::parse(
-                    &mongodb_args.mongodb_connection_url.clone().expect("MongoDB connection URL is required"),
-                )
-                .expect("Invalid MongoDB connection URL"),
+                connection_url: mongodb_args.mongodb_connection_url.clone().expect("MongoDB connection URL is required"),
                 database_name: mongodb_args.mongodb_database_name.clone().expect("MongoDB database name is required"),
             }))
         } else {

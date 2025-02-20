@@ -1,4 +1,5 @@
 use std::path::Path;
+use std::time::Duration;
 
 use cairo_vm::types::layout_name::LayoutName;
 use reqwest::Method;
@@ -49,6 +50,7 @@ impl AtlanticClient {
 
         let client = HttpClient::builder(url.as_str())
             .expect("Failed to create HTTP client builder")
+            .timeout(Duration::from_secs(1200))  // 20 minute timeout
             .default_form_data("mockFactHash", &mock_fact_hash)
             .default_form_data("proverType", &prover_type)
             .build()
@@ -69,25 +71,70 @@ impl AtlanticClient {
         proof_layout: LayoutName,
         atlantic_api_key: impl AsRef<str>,
     ) -> Result<AtlanticAddJobResponse, AtlanticError> {
+        tracing::info!(">>>>>>>>>>>> Adding job to Atlantic");
         let proof_layout = match proof_layout {
             LayoutName::dynamic => "dynamic",
             _ => proof_layout.to_str(),
         };
 
-        let response = self
+        // Log file details
+        let file_size = std::fs::metadata(pie_file)?.len();
+        tracing::info!("Uploading file of size: {} bytes", file_size);
+        tracing::info!("File path: {:?}", pie_file);
+
+        // Log request construction
+        tracing::info!("Constructing request with layout: {}", proof_layout);
+        
+        let request = self
             .proving_layer
             .customize_request(
-                self.client.request().method(Method::POST).query_param("apiKey", atlantic_api_key.as_ref()),
+                self.client.request()
+                    .method(Method::POST)
+                    .query_param("apiKey", atlantic_api_key.as_ref())
             )
             .form_file("pieFile", pie_file, "pie.zip")?
-            .form_text("layout", proof_layout)
-            .send()
-            .await
-            .map_err(AtlanticError::AddJobFailure)?;
+            .form_text("layout", proof_layout);
+
+        // Log before sending
+        tracing::info!("Starting file upload...");
+        
+        let response = match request.send().await {
+            Ok(resp) => {
+                tracing::info!(
+                    "Received response with status: {} after upload",
+                    resp.status()
+                );
+                resp
+            }
+            Err(e) => {
+                tracing::error!(
+                    "Request failed during upload: {:?}. Error type: {}",
+                    e,
+                    std::any::type_name_of_val(&e)
+                );
+                return Err(AtlanticError::AddJobFailure(e));
+            }
+        };
 
         match response.status().is_success() {
-            true => response.json().await.map_err(AtlanticError::AddJobFailure),
-            false => Err(AtlanticError::SharpService(response.status())),
+            true => {
+                tracing::info!("Successfully uploaded file, parsing response");
+                response.json().await.map_err(|e| {
+                    tracing::error!("Failed to parse successful response: {:?}", e);
+                    AtlanticError::AddJobFailure(e)
+                })
+            }
+            false => {
+                let status = response.status();
+                // Try to get error body
+                let error_body = response.text().await.unwrap_or_default();
+                tracing::error!(
+                    "Request failed with status: {}, error body: {}",
+                    status,
+                    error_body
+                );
+                Err(AtlanticError::SharpService(status))
+            }
         }
     }
 

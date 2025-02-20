@@ -33,6 +33,7 @@ c-kzg = { workspace = true }
 cairo-vm = { workspace = true }
 chrono = { workspace = true }
 clap = { workspace = true }
+bson = { workspace = true }
 color-eyre = { workspace = true }
 da-client-interface = { workspace = true }
 dotenvy = { workspace = true }
@@ -47,7 +48,7 @@ majin-blob-core = { workspace = true }
 majin-blob-types = { workspace = true }
 mockall = { workspace = true }
 mockall_double = { workspace = true }
-mongodb = { workspace = true, features = ["bson-uuid-1"], optional = true }
+mongodb = { workspace = true, optional = true }
 num = { workspace = true }
 num-bigint = { workspace = true }
 num-traits = { workspace = true }

@@ -42,6 +42,7 @@ use reqwest::multipart::{Form, Part};
 use reqwest::{Certificate, Client, ClientBuilder, Identity, Method, Response, Result};
 use serde::Serialize;
 use url::{ParseError, Url};
+use std::time::Duration;
 
 /// Main HTTP client with default configurations.
 ///
@@ -154,7 +155,7 @@ impl HttpClientBuilder {
     fn new(base_url: Url) -> Self {
         Self {
             base_url,
-            client_builder: Client::builder(),
+            client_builder: Client::builder().timeout(Duration::from_secs(1000)).connect_timeout(Duration::from_secs(1000)).pool_idle_timeout(Duration::from_secs(1000)),
             default_headers: HeaderMap::new(),
             default_query_params: HashMap::new(),
             default_form_data: HashMap::new(),
@@ -202,6 +203,11 @@ impl HttpClientBuilder {
             default_form_data: self.default_form_data,
             default_body_params: self.default_body_params,
         })
+    }
+
+    pub fn timeout(mut self, duration: Duration) -> Self {
+        self.client_builder = self.client_builder.timeout(duration);
+        self
     }
 }
 

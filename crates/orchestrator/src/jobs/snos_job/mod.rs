@@ -212,7 +212,7 @@ impl SnosJob {
     /// Converts the [CairoPie] input as a zip file and returns it as [Bytes].
     async fn cairo_pie_to_zip_bytes(&self, cairo_pie: CairoPie) -> Result<Bytes> {
         let mut cairo_pie_zipfile = NamedTempFile::new()?;
-        cairo_pie.write_zip_file(cairo_pie_zipfile.path())?;
+        cairo_pie.write_zip_file(cairo_pie_zipfile.path(), true)?;
         let cairo_pie_zip_bytes = self.tempfile_to_bytes(&mut cairo_pie_zipfile)?;
         cairo_pie_zipfile.close()?;
         Ok(cairo_pie_zip_bytes)

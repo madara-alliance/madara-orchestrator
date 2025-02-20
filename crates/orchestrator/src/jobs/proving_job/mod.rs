@@ -65,19 +65,19 @@ impl Job for ProvingJob {
         // Cairo Pie path in s3 storage client
         let block_number: String = job.internal_id.to_string();
         let cairo_pie_path = block_number + "/" + CAIRO_PIE_FILE_NAME;
-        tracing::debug!(job_id = %job.internal_id, %cairo_pie_path, "Fetching Cairo PIE file");
+        tracing::info!(log_type = "starting",   category = "proving", function_type = "process_job", job_id = ?job.id,  block_no = %internal_id, "Fetching Cairo PIE file");
 
         let cairo_pie_file = config.storage().get_data(&cairo_pie_path).await.map_err(|e| {
             tracing::error!(job_id = %job.internal_id, error = %e, "Failed to fetch Cairo PIE file");
             ProvingError::CairoPIEFileFetchFailed(e.to_string())
         })?;
-        tracing::debug!(job_id = %job.internal_id, "Parsing Cairo PIE file");
+        tracing::info!(job_id = %job.internal_id, "Parsing Cairo PIE file");
         let cairo_pie = Box::new(CairoPie::from_bytes(cairo_pie_file.to_vec().as_slice()).map_err(|e| {
             tracing::error!(job_id = %job.internal_id, error = %e, "Failed to parse Cairo PIE file");
             ProvingError::CairoPIENotReadable(e.to_string())
         })?);
 
-        tracing::debug!(job_id = %job.internal_id, "Submitting task to prover client");
+        tracing::info!(job_id = %job.internal_id, "Submitting task to prover client");
         let external_id = config
             .prover_client()
             .submit_task(Task::CairoPie(cairo_pie), *config.prover_layout_name())

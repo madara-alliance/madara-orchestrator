@@ -26,7 +26,7 @@ mod utils;
 
 #[derive(Debug, Clone)]
 pub struct MongoDBValidatedArgs {
-    pub connection_url: Url,
+    pub connection_url: String,
     pub database_name: String,
 }
 
@@ -38,7 +38,7 @@ pub struct MongoDb {
 impl MongoDb {
     pub async fn new_with_args(mongodb_params: &MongoDBValidatedArgs) -> Self {
         let mut client_options =
-            ClientOptions::parse(mongodb_params.connection_url.clone()).await.expect("Failed to parse MongoDB Url");
+            ClientOptions::parse(&mongodb_params.connection_url).await.expect("Failed to parse MongoDB Url");
         // Set the server_api field of the client_options object to set the version of the Stable API on the
         // client
         let server_api = ServerApi::builder().version(ServerApiVersion::V1).build();
@@ -47,8 +47,8 @@ impl MongoDb {
         let client = Client::with_options(client_options).expect("Failed to create MongoDB client");
         // Ping the server to see if you can connect to the cluster
         client
-            .database("orchestrator")
-            .run_command(doc! {"ping": 1}, None)
+            .database(&mongodb_params.database_name)
+            .run_command(doc! {"ping": 1})
             .await
             .expect("Failed to ping MongoDB deployment");
         tracing::debug!("Pinged your deployment. You successfully connected to MongoDB!");
@@ -93,9 +93,12 @@ impl Database for MongoDb {
 
         let result = self
             .get_job_collection()
-            .update_one(filter, updates, options)
+            .update_one(filter, updates)
+            .with_options(options)
             .await
             .map_err(|e| JobError::Other(e.to_string().into()))?;
+
+        tracing::info!(result = ?result, category = "db_call", ">>>>>>> Job created successfully");
 
         if result.matched_count == 0 {
             let attributes = [KeyValue::new("db_operation_name", "create_job")];
@@ -117,7 +120,7 @@ impl Database for MongoDb {
         let attributes = [KeyValue::new("db_operation_name", "get_job_by_id")];
         let duration = start.elapsed();
         ORCHESTRATOR_METRICS.db_calls_response_time.record(duration.as_secs_f64(), &attributes);
-        Ok(self.get_job_collection().find_one(filter, None).await?)
+        Ok(self.get_job_collection().find_one(filter).await?)
     }
 
     #[tracing::instrument(skip(self), fields(function_type = "db_call"), ret, err)]
@@ -131,7 +134,7 @@ impl Database for MongoDb {
         let attributes = [KeyValue::new("db_operation_name", "get_job_by_internal_id_and_type")];
         let duration = start.elapsed();
         ORCHESTRATOR_METRICS.db_calls_response_time.record(duration.as_secs_f64(), &attributes);
-        Ok(self.get_job_collection().find_one(filter, None).await?)
+        Ok(self.get_job_collection().find_one(filter).await?)
     }
 
     #[tracing::instrument(skip(self), fields(function_type = "db_call"), ret, err)]
@@ -167,7 +170,7 @@ impl Database for MongoDb {
             "$set": non_null_updates
         };
 
-        let result = self.get_job_collection().find_one_and_update(filter, update, options).await?;
+        let result = self.get_job_collection().find_one_and_update(filter, update).with_options(options).await?;
         match result {
             Some(job) => {
                 tracing::debug!(job_id = %current_job.id, category = "db_call", "Job updated successfully");
@@ -212,7 +215,7 @@ impl Database for MongoDb {
             },
         ];
 
-        let mut cursor = self.get_job_collection().aggregate(pipeline, None).await?;
+        let mut cursor = self.get_job_collection().aggregate(pipeline).await?;
 
         tracing::debug!(job_type = ?job_type, category = "db_call", "Fetching latest job by type");
 
@@ -332,7 +335,7 @@ impl Database for MongoDb {
         //     }
         // }
 
-        let mut cursor = self.get_job_collection().aggregate(pipeline, None).await?;
+        let mut cursor = self.get_job_collection().aggregate(pipeline).await?;
 
         let mut vec_jobs: Vec<JobItem> = Vec::new();
 
@@ -371,7 +374,7 @@ impl Database for MongoDb {
         let attributes = [KeyValue::new("db_operation_name", "get_latest_job_by_type_and_status")];
         let duration = start.elapsed();
         ORCHESTRATOR_METRICS.db_calls_response_time.record(duration.as_secs_f64(), &attributes);
-        Ok(self.get_job_collection().find_one(filter, find_options).await?)
+        Ok(self.get_job_collection().find_one(filter).with_options(find_options).await?)
     }
 
     #[tracing::instrument(skip(self), fields(function_type = "db_call"), ret, err)]
@@ -392,7 +395,7 @@ impl Database for MongoDb {
                 ]
             }
         };
-        let jobs: Vec<JobItem> = self.get_job_collection().find(filter, None).await?.try_collect().await?;
+        let jobs: Vec<JobItem> = self.get_job_collection().find(filter).await?.try_collect().await?;
         tracing::debug!(job_type = ?job_type, job_status = ?job_status, internal_id = internal_id, category = "db_call", "Fetched jobs after internal ID by job type");
         let attributes = [KeyValue::new("db_operation_name", "get_jobs_after_internal_id_by_job_type")];
         let duration = start.elapsed();
@@ -412,7 +415,7 @@ impl Database for MongoDb {
 
         let find_options = limit.map(|val| FindOptions::builder().limit(Some(val)).build());
 
-        let jobs: Vec<JobItem> = self.get_job_collection().find(filter, find_options).await?.try_collect().await?;
+        let jobs: Vec<JobItem> = self.get_job_collection().find(filter).with_options(find_options).await?.try_collect().await?;
         tracing::debug!(job_count = jobs.len(), category = "db_call", "Retrieved jobs by statuses");
         let attributes = [KeyValue::new("db_operation_name", "get_jobs_by_statuses")];
         let duration = start.elapsed();

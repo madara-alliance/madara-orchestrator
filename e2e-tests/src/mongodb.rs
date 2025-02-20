@@ -2,7 +2,7 @@ use orchestrator::database::mongodb::MongoDBValidatedArgs;
 use url::Url;
 #[allow(dead_code)]
 pub struct MongoDbServer {
-    endpoint: Url,
+    endpoint: String,
 }
 
 impl MongoDbServer {
@@ -10,7 +10,7 @@ impl MongoDbServer {
         Self { endpoint: mongodb_params.connection_url }
     }
 
-    pub fn endpoint(&self) -> Url {
+    pub fn endpoint(&self) -> String {
         self.endpoint.clone()
     }
 }
