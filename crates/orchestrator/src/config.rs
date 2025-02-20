@@ -78,7 +78,7 @@ impl JobProcessingState {
                 {
                     let mut active_jobs = self.active_jobs.lock().await;
                     active_jobs.insert(job.id);
-                    drop(active_jobs); 
+                    drop(active_jobs);
                 }
                 Ok(Some(permit))
             }
