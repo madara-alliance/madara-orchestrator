@@ -2,7 +2,7 @@ use std::collections::HashMap;
 use std::sync::Arc;
 use std::time::Duration;
 
-use mockall::predicate::{always, eq};
+use mockall::predicate::eq;
 use mongodb::bson::doc;
 use omniqueue::QueueError;
 use rstest::rstest;
@@ -59,7 +59,7 @@ async fn create_job_job_does_not_exists_in_db_works() {
     // Mocking the `get_job_handler` call in create_job function.
     let job_handler: Arc<Box<dyn Job>> = Arc::new(Box::new(job_handler));
     let ctx = mock_factory::get_job_handler_context();
-    ctx.expect().times(1).with(eq(JobType::SnosRun), always()).return_once(move |_, _| Arc::clone(&job_handler));
+    ctx.expect().times(1).with(eq(JobType::SnosRun)).return_once(move |_| Arc::clone(&job_handler));
 
     assert!(create_job(JobType::SnosRun, "0".to_string(), HashMap::new(), services.config.clone()).await.is_ok());
 
@@ -126,7 +126,7 @@ async fn create_job_job_handler_is_not_implemented_panics() {
 
     // Mocking the `get_job_handler` call in create_job function.
     let ctx = mock_factory::get_job_handler_context();
-    ctx.expect().times(1).returning(|_, _| panic!("Job type not implemented yet."));
+    ctx.expect().times(1).returning(|_| panic!("Job type not implemented yet."));
 
     let job_type = JobType::ProofCreation;
 
@@ -172,7 +172,7 @@ async fn process_job_with_job_exists_in_db_and_valid_job_processing_status_works
     // Mocking the `get_job_handler` call in create_job function.
     let job_handler: Arc<Box<dyn Job>> = Arc::new(Box::new(job_handler));
     let ctx = mock_factory::get_job_handler_context();
-    ctx.expect().times(1).with(eq(job_type.clone()), always()).returning(move |_, _| Arc::clone(&job_handler));
+    ctx.expect().times(1).with(eq(job_type.clone())).returning(move |_| Arc::clone(&job_handler));
 
     assert!(process_job(job_item.id, services.config.clone()).await.is_ok());
     // Getting the updated job.
@@ -223,7 +223,7 @@ async fn process_job_handles_panic() {
     // Mocking the `get_job_handler` call in process_job function
     let job_handler: Arc<Box<dyn Job>> = Arc::new(Box::new(job_handler));
     let ctx = mock_factory::get_job_handler_context();
-    ctx.expect().times(1).with(eq(JobType::SnosRun), always()).return_once(move |_, _| Arc::clone(&job_handler));
+    ctx.expect().times(1).with(eq(JobType::SnosRun)).return_once(move |_| Arc::clone(&job_handler));
 
     assert!(process_job(job_item.id, services.config.clone()).await.is_ok());
 
@@ -314,7 +314,7 @@ async fn process_job_two_workers_process_same_job_works() {
     // Mocking the `get_job_handler` call in create_job function.
     let job_handler: Arc<Box<dyn Job>> = Arc::new(Box::new(job_handler));
     let ctx = mock_factory::get_job_handler_context();
-    ctx.expect().times(1).with(eq(JobType::SnosRun), always()).returning(move |_, _| Arc::clone(&job_handler));
+    ctx.expect().times(1).with(eq(JobType::SnosRun)).returning(move |_| Arc::clone(&job_handler));
 
     // building config
     let services = TestConfigBuilder::new()
@@ -369,7 +369,7 @@ async fn process_job_job_handler_returns_error_works() {
     // Mocking the `get_job_handler` call in create_job function.
     let job_handler: Arc<Box<dyn Job>> = Arc::new(Box::new(job_handler));
     let ctx = mock_factory::get_job_handler_context();
-    ctx.expect().times(1).with(eq(JobType::SnosRun), always()).returning(move |_, _| Arc::clone(&job_handler));
+    ctx.expect().times(1).with(eq(JobType::SnosRun)).returning(move |_| Arc::clone(&job_handler));
 
     // building config
     let services = TestConfigBuilder::new()
@@ -418,7 +418,7 @@ async fn verify_job_with_verified_status_works() {
     let job_handler: Arc<Box<dyn Job>> = Arc::new(Box::new(job_handler));
     let ctx = mock_factory::get_job_handler_context();
     // Mocking the `get_job_handler` call in create_job function.
-    ctx.expect().times(1).with(eq(JobType::DataSubmission), always()).returning(move |_, _| Arc::clone(&job_handler));
+    ctx.expect().times(1).with(eq(JobType::DataSubmission)).returning(move |_| Arc::clone(&job_handler));
 
     assert!(verify_job(job_item.id, services.config.clone()).await.is_ok());
 
@@ -464,7 +464,7 @@ async fn verify_job_with_rejected_status_adds_to_queue_works() {
     let job_handler: Arc<Box<dyn Job>> = Arc::new(Box::new(job_handler));
     let ctx = mock_factory::get_job_handler_context();
     // Mocking the `get_job_handler` call in create_job function.
-    ctx.expect().times(1).with(eq(JobType::DataSubmission), always()).returning(move |_, _| Arc::clone(&job_handler));
+    ctx.expect().times(1).with(eq(JobType::DataSubmission)).returning(move |_| Arc::clone(&job_handler));
 
     assert!(verify_job(job_item.id, services.config.clone()).await.is_ok());
 
@@ -514,7 +514,7 @@ async fn verify_job_with_rejected_status_works() {
     let job_handler: Arc<Box<dyn Job>> = Arc::new(Box::new(job_handler));
     let ctx = mock_factory::get_job_handler_context();
     // Mocking the `get_job_handler` call in create_job function.
-    ctx.expect().times(1).with(eq(JobType::DataSubmission), always()).returning(move |_, _| Arc::clone(&job_handler));
+    ctx.expect().times(1).with(eq(JobType::DataSubmission)).returning(move |_| Arc::clone(&job_handler));
 
     assert!(verify_job(job_item.id, services.config.clone()).await.is_ok());
 
@@ -560,7 +560,7 @@ async fn verify_job_with_pending_status_adds_to_queue_works() {
     let job_handler: Arc<Box<dyn Job>> = Arc::new(Box::new(job_handler));
     let ctx = mock_factory::get_job_handler_context();
     // Mocking the `get_job_handler` call in create_job function.
-    ctx.expect().times(1).with(eq(JobType::DataSubmission), always()).returning(move |_, _| Arc::clone(&job_handler));
+    ctx.expect().times(1).with(eq(JobType::DataSubmission)).returning(move |_| Arc::clone(&job_handler));
 
     assert!(verify_job(job_item.id, services.config.clone()).await.is_ok());
 
@@ -612,7 +612,7 @@ async fn verify_job_with_pending_status_works() {
     let job_handler: Arc<Box<dyn Job>> = Arc::new(Box::new(job_handler));
     let ctx = mock_factory::get_job_handler_context();
     // Mocking the `get_job_handler` call in create_job function.
-    ctx.expect().times(1).with(eq(JobType::DataSubmission), always()).returning(move |_, _| Arc::clone(&job_handler));
+    ctx.expect().times(1).with(eq(JobType::DataSubmission)).returning(move |_| Arc::clone(&job_handler));
 
     assert!(verify_job(job_item.id, services.config.clone()).await.is_ok());
 

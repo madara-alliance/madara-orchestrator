@@ -22,7 +22,7 @@ use crate::tests::jobs::ConfigType;
 async fn test_create_job() {
     let services = TestConfigBuilder::new().build().await;
 
-    let job = SnosJob::default().create_job(services.config.clone(), String::from("0"), HashMap::new()).await;
+    let job = SnosJob.create_job(services.config.clone(), String::from("0"), HashMap::new()).await;
 
     assert!(job.is_ok());
     let job = job.unwrap();
@@ -39,7 +39,7 @@ async fn test_create_job() {
 #[tokio::test]
 async fn test_verify_job(#[from(default_job_item)] mut job_item: JobItem) {
     let services = TestConfigBuilder::new().build().await;
-    let job_status = SnosJob::default().verify_job(services.config.clone(), &mut job_item).await;
+    let job_status = SnosJob.verify_job(services.config.clone(), &mut job_item).await;
 
     // Should always be [Verified] for the moment.
     assert_eq!(job_status, Ok(JobVerificationStatus::Verified));
@@ -81,7 +81,7 @@ async fn test_process_job() -> color_eyre::Result<()> {
         updated_at: Utc::now().round_subsecs(0),
     };
 
-    let result = SnosJob::default().process_job(Arc::clone(&services.config), &mut job_item).await?;
+    let result = SnosJob.process_job(Arc::clone(&services.config), &mut job_item).await?;
 
     assert_eq!(result, "76793");
 

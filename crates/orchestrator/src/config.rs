@@ -1,5 +1,6 @@
 use std::collections::HashSet;
 use std::sync::Arc;
+use std::time::Duration;
 
 #[cfg(feature = "testing")]
 use alloy::providers::RootProvider;
@@ -19,7 +20,7 @@ use sharp_service::SharpProverService;
 use starknet::providers::jsonrpc::HttpTransport;
 use starknet::providers::{JsonRpcClient, Url};
 use starknet_settlement_client::StarknetSettlementClient;
-use tokio::sync::{Mutex, Semaphore};
+use tokio::sync::{Mutex, Semaphore, SemaphorePermit};
 use uuid::Uuid;
 
 use crate::alerts::aws_sns::AWSSNS;
@@ -38,22 +39,24 @@ use crate::data_storage::aws_s3::AWSS3;
 use crate::data_storage::DataStorage;
 use crate::database::mongodb::MongoDb;
 use crate::database::Database;
+use crate::jobs::types::JobItem;
+use crate::jobs::JobError;
+use crate::queue::job_queue::add_job_to_process_queue;
 use crate::queue::sqs::SqsQueue;
 use crate::queue::QueueProvider;
 use crate::routes::ServerParams;
 
-#[derive(Clone)]
-pub struct JobProcessingState {
-    pub semaphore: Arc<Semaphore>,
-    pub active_jobs: Arc<Mutex<HashSet<Uuid>>>,
+pub struct ProcessingLocks {
+    pub snos_job_processing_lock: Arc<JobProcessingState>,
 }
 
+pub struct JobProcessingState {
+    pub semaphore: Semaphore,
+    pub active_jobs: Mutex<HashSet<Uuid>>,
+}
 impl JobProcessingState {
     pub fn new(max_parallel_jobs: usize) -> Self {
-        JobProcessingState {
-            semaphore: Arc::new(Semaphore::new(max_parallel_jobs)),
-            active_jobs: Arc::new(Mutex::new(HashSet::new())),
-        }
+        JobProcessingState { semaphore: Semaphore::new(max_parallel_jobs), active_jobs: Mutex::new(HashSet::new()) }
     }
 
     pub async fn get_active_jobs(&self) -> HashSet<Uuid> {
@@ -62,6 +65,46 @@ impl JobProcessingState {
 
     pub fn get_available_permits(&self) -> usize {
         self.semaphore.available_permits()
+    }
+
+    pub async fn try_acquire_lock<'a>(
+        &'a self,
+        job: &JobItem,
+        config: Arc<Config>,
+    ) -> Result<SemaphorePermit<'a>, JobError> {
+        // Trying to acquire permit with a timeout.
+        let permit = match tokio::time::timeout(Duration::from_millis(100), self.semaphore.acquire()).await {
+            Ok(Ok(permit)) => {
+                {
+                    let mut active_jobs = self.active_jobs.lock().await;
+                    active_jobs.insert(job.id);
+                    drop(active_jobs); 
+                }
+                Ok(Some(permit))
+            }
+            Ok(Err(e)) => Err(JobError::LockError(e.to_string())),
+            Err(_) => {
+                tracing::error!(job_id = %job.id, "Job {} waiting - at max capacity ({} available permits)", job.id, self.get_available_permits());
+                Ok(None)
+            }
+        }?;
+
+        if permit.is_none() {
+            // add job back to queue
+            add_job_to_process_queue(job.id, &job.job_type, config.clone()).await?;
+            Err(JobError::MaxCapacityReached)
+        } else {
+            tracing::info!(job_id = %job.id, "Job {} acquired lock", job.id);
+            Ok(permit.unwrap())
+        }
+    }
+
+    pub async fn try_release_lock<'a>(&'a self, permit: SemaphorePermit<'a>, job_id: &Uuid) -> Result<(), JobError> {
+        let mut active_jobs = self.active_jobs.lock().await;
+        active_jobs.remove(job_id);
+        drop(active_jobs); // Explicitly drop the lock (optional but clear)
+        drop(permit); // Explicitly drop the permit (optional but clear)
+        Ok(())
     }
 }
 
@@ -86,6 +129,8 @@ pub struct Config {
     storage: Box<dyn DataStorage>,
     /// Alerts client
     alerts: Box<dyn Alerts>,
+    /// Locks
+    processing_locks: ProcessingLocks,
 }
 
 #[derive(Debug, Clone)]
@@ -189,6 +234,10 @@ pub async fn init_config(run_cmd: &RunCmd) -> color_eyre::Result<Arc<Config>> {
     let queue_params = run_cmd.validate_queue_params().map_err(|e| eyre!("Failed to validate queue params: {e}"))?;
     let queue = build_queue_client(&queue_params, provider_config.clone()).await;
 
+    let snos_processing_lock =
+        JobProcessingState::new(orchestrator_params.service_config.max_concurrent_snos_jobs.unwrap_or(1));
+    let processing_locks = ProcessingLocks { snos_job_processing_lock: Arc::new(snos_processing_lock) };
+
     Ok(Arc::new(Config::new(
         orchestrator_params,
         Arc::new(rpc_client),
@@ -199,6 +248,7 @@ pub async fn init_config(run_cmd: &RunCmd) -> color_eyre::Result<Arc<Config>> {
         queue,
         storage_client,
         alerts_client,
+        processing_locks,
     )))
 }
 
@@ -215,6 +265,7 @@ impl Config {
         queue: Box<dyn QueueProvider>,
         storage: Box<dyn DataStorage>,
         alerts: Box<dyn Alerts>,
+        processing_locks: ProcessingLocks,
     ) -> Self {
         Self {
             orchestrator_params,
@@ -226,6 +277,7 @@ impl Config {
             queue,
             storage,
             alerts,
+            processing_locks,
         }
     }
 
@@ -297,6 +349,11 @@ impl Config {
     /// Returns the snos proof layout
     pub fn prover_layout_name(&self) -> &LayoutName {
         &self.orchestrator_params.prover_layout_name
+    }
+
+    /// Returns the processing locks
+    pub fn processing_locks(&self) -> &ProcessingLocks {
+        &self.processing_locks
     }
 }
 

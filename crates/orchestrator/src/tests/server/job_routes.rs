@@ -6,7 +6,7 @@ use std::time::Duration;
 
 use chrono::{SubsecRound as _, Utc};
 use hyper::{Body, Request};
-use mockall::predicate::{always, eq};
+use mockall::predicate::eq;
 use rstest::*;
 use starknet::providers::jsonrpc::HttpTransport;
 use starknet::providers::JsonRpcClient;
@@ -112,7 +112,7 @@ async fn test_trigger_verify_job(#[future] setup_trigger: (SocketAddr, Arc<Confi
     let job_handler: Arc<Box<dyn Job>> = Arc::new(Box::new(job_handler));
 
     let ctx = mock_factory::get_job_handler_context();
-    ctx.expect().with(eq(job_type.clone()), always()).times(1).returning(move |_, _| Arc::clone(&job_handler));
+    ctx.expect().with(eq(job_type.clone())).times(1).returning(move |_| Arc::clone(&job_handler));
 
     let client = hyper::Client::new();
     let response = client

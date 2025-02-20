@@ -29,7 +29,9 @@ use crate::cli::queue::QueueValidatedArgs;
 use crate::cli::settlement::SettlementValidatedArgs;
 use crate::cli::snos::SNOSParams;
 use crate::cli::storage::StorageValidatedArgs;
-use crate::config::{get_aws_config, Config, OrchestratorParams, ProviderConfig, ServiceParams};
+use crate::config::{
+    get_aws_config, Config, JobProcessingState, OrchestratorParams, ProcessingLocks, ProviderConfig, ServiceParams,
+};
 use crate::data_storage::aws_s3::AWSS3ValidatedArgs;
 use crate::data_storage::{DataStorage, MockDataStorage};
 use crate::database::mongodb::MongoDBValidatedArgs;
@@ -252,6 +254,10 @@ impl TestConfigBuilder {
         // Creating the SNS ARN
         create_sns_arn(provider_config.clone(), &params.alert_params).await.expect("Unable to create the sns arn");
 
+        let snos_processing_lock =
+            JobProcessingState::new(params.orchestrator_params.service_config.max_concurrent_snos_jobs.unwrap_or(1));
+        let processing_locks = ProcessingLocks { snos_job_processing_lock: Arc::new(snos_processing_lock) };
+
         let config = Arc::new(Config::new(
             params.orchestrator_params,
             starknet_client,
@@ -262,6 +268,7 @@ impl TestConfigBuilder {
             queue,
             storage,
             alerts,
+            processing_locks,
         ));
 
         let api_server_address = implement_api_server(api_server_type, config.clone()).await;

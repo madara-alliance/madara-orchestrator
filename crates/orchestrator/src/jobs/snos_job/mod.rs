@@ -1,6 +1,5 @@
 use std::collections::HashMap;
 use std::sync::Arc;
-use std::time::Duration;
 
 use async_trait::async_trait;
 use bytes::Bytes;
@@ -13,19 +12,17 @@ use prove_block::prove_block;
 use starknet_os::io::output::StarknetOsOutput;
 use tempfile::NamedTempFile;
 use thiserror::Error;
-use tokio::sync::SemaphorePermit;
 use uuid::Uuid;
 
 use super::constants::{JOB_METADATA_SNOS_BLOCK, JOB_METADATA_SNOS_FACT};
 use super::{JobError, OtherError};
-use crate::config::{Config, JobProcessingState};
+use crate::config::{self, Config};
 use crate::constants::{CAIRO_PIE_FILE_NAME, PROGRAM_OUTPUT_FILE_NAME, SNOS_OUTPUT_FILE_NAME};
 use crate::data_storage::DataStorage;
 use crate::jobs::snos_job::error::FactError;
 use crate::jobs::snos_job::fact_info::get_fact_info;
 use crate::jobs::types::{JobItem, JobStatus, JobType, JobVerificationStatus};
 use crate::jobs::Job;
-use crate::queue::job_queue::add_job_to_process_queue;
 
 pub mod error;
 pub mod fact_info;
@@ -69,65 +66,7 @@ pub enum SnosError {
     Other(#[from] OtherError),
 }
 
-pub struct SnosJob {
-    processing_lock: JobProcessingState,
-}
-
-impl SnosJob {
-    pub fn new(max_concurrent_snos_jobs: Option<usize>) -> Self {
-        let processing_lock = JobProcessingState::new(max_concurrent_snos_jobs.unwrap_or(1));
-        Self { processing_lock }
-    }
-
-    pub async fn try_aquire_lock(&self, job: &JobItem, config: Arc<Config>) -> Result<SemaphorePermit<'_>, JobError> {
-        // Trying to aquire permit with a timeout.
-        let permit = match tokio::time::timeout(Duration::from_millis(100), self.processing_lock.semaphore.acquire())
-            .await
-        {
-            Ok(Ok(permit)) => {
-                {
-                    let mut active_jobs = self.processing_lock.active_jobs.lock().await;
-                    active_jobs.insert(job.id);
-                    drop(active_jobs); // Explicitly drop the lock (optional but clear)
-                }
-                Ok(Some(permit))
-            }
-            Ok(Err(e)) => Err(JobError::LockError(e.to_string())),
-            Err(_) => {
-                tracing::error!(job_id = %job.id, "Job {} waiting - at max capacity ({} available permits)", job.id, self.processing_lock.get_available_permits());
-                Ok(None)
-            }
-        }?;
-
-        // we wanted permit but didn't get it
-        if permit.is_none() {
-            // add job back to queue
-            add_job_to_process_queue(job.id, &job.job_type, config.clone()).await?;
-            Err(JobError::MaxCapacityReached)
-        } else {
-            tracing::info!(job_id = %job.id, "Job {} acquired lock", job.id);
-            Ok(permit.unwrap())
-        }
-    }
-
-    pub async fn try_release_lock(
-        &self,
-        permit: tokio::sync::SemaphorePermit<'_>,
-        job_id: &Uuid,
-    ) -> Result<(), JobError> {
-        let mut active_jobs = self.processing_lock.active_jobs.lock().await;
-        active_jobs.remove(job_id);
-        drop(active_jobs); // Explicitly drop the lock (optional but clear)
-        drop(permit); // Explicitly drop the permit (optional but clear)
-        Ok(())
-    }
-}
-
-impl Default for SnosJob {
-    fn default() -> Self {
-        Self::new(None)
-    }
-}
+pub struct SnosJob;
 
 #[async_trait]
 impl Job for SnosJob {
@@ -158,8 +97,6 @@ impl Job for SnosJob {
 
     #[tracing::instrument(fields(category = "snos"), skip(self, config), ret, err)]
     async fn process_job(&self, config: Arc<Config>, job: &mut JobItem) -> Result<String, JobError> {
-        let permit = self.try_aquire_lock(job, config.clone()).await?;
-
         let internal_id = job.internal_id.clone();
         tracing::info!(log_type = "starting", category = "snos", function_type = "process_job", job_id = ?job.id,  block_no = %internal_id, "SNOS job processing started.");
         let block_number = self.get_block_number_from_metadata(job)?;
@@ -169,7 +106,7 @@ impl Job for SnosJob {
         let snos_url = snos_url.trim_end_matches('/');
         tracing::debug!(job_id = %job.internal_id, "Calling prove_block function");
         let (cairo_pie, snos_output) =
-            prove_block(COMPILED_OS, block_number, snos_url, LayoutName::all_cairo, true).await.map_err(|e| {
+            prove_block(COMPILED_OS, block_number, snos_url, LayoutName::all_cairo, false).await.map_err(|e| {
                 tracing::error!(job_id = %job.internal_id, error = %e, "SNOS execution failed");
                 SnosError::SnosExecutionError { internal_id: job.internal_id.clone(), message: e.to_string() }
             })?;
@@ -185,7 +122,6 @@ impl Job for SnosJob {
         job.metadata.insert(JOB_METADATA_SNOS_FACT.into(), fact_info.fact.to_string());
         tracing::info!(log_type = "completed", category = "snos", function_type = "process_job", job_id = ?job.id,  block_no = %internal_id, "SNOS job processed successfully.");
 
-        let _ = self.try_release_lock(permit, &job.id).await;
         Ok(block_number.to_string())
     }
 
@@ -209,6 +145,10 @@ impl Job for SnosJob {
 
     fn verification_polling_delay_seconds(&self) -> u64 {
         1
+    }
+
+    fn job_processing_lock(&self, config: Arc<Config>) -> std::option::Option<Arc<config::JobProcessingState>> {
+        Some(config.processing_locks().snos_job_processing_lock.clone())
     }
 }
 
