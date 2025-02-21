@@ -3425,7 +3425,7 @@ dependencies = [
 [[package]]
 name = "cairo-type-derive"
 version = "0.1.0"
-source = "git+https://github.com/keep-starknet-strange/snos?branch=tmp%2Fsnos_devnet_zero_txs#2c472815ebebca927caa5382c3bb8e3c1bbf0d86"
+source = "git+https://github.com/keep-starknet-strange/snos?branch=notlesh%2Fpathfinder-no-class-commitment-workaround#bab3328c06db22fac34d602b8eaed36a0aa4166e"
 dependencies = [
  "proc-macro2",
  "quote",
@@ -7747,7 +7747,7 @@ dependencies = [
 [[package]]
 name = "prove_block"
 version = "0.1.0"
-source = "git+https://github.com/keep-starknet-strange/snos?branch=tmp%2Fsnos_devnet_zero_txs#2c472815ebebca927caa5382c3bb8e3c1bbf0d86"
+source = "git+https://github.com/keep-starknet-strange/snos?branch=notlesh%2Fpathfinder-no-class-commitment-workaround#bab3328c06db22fac34d602b8eaed36a0aa4166e"
 dependencies = [
  "anyhow",
  "blockifier",
@@ -8210,7 +8210,7 @@ dependencies = [
 [[package]]
 name = "rpc-client"
 version = "0.1.0"
-source = "git+https://github.com/keep-starknet-strange/snos?branch=tmp%2Fsnos_devnet_zero_txs#2c472815ebebca927caa5382c3bb8e3c1bbf0d86"
+source = "git+https://github.com/keep-starknet-strange/snos?branch=notlesh%2Fpathfinder-no-class-commitment-workaround#bab3328c06db22fac34d602b8eaed36a0aa4166e"
 dependencies = [
  "log",
  "reqwest 0.11.27",
@@ -8225,7 +8225,7 @@ dependencies = [
 [[package]]
 name = "rpc-replay"
 version = "0.1.0"
-source = "git+https://github.com/keep-starknet-strange/snos?branch=tmp%2Fsnos_devnet_zero_txs#2c472815ebebca927caa5382c3bb8e3c1bbf0d86"
+source = "git+https://github.com/keep-starknet-strange/snos?branch=notlesh%2Fpathfinder-no-class-commitment-workaround#bab3328c06db22fac34d602b8eaed36a0aa4166e"
 dependencies = [
  "blockifier",
  "cairo-lang-starknet-classes",
@@ -9588,7 +9588,7 @@ dependencies = [
 [[package]]
 name = "starknet-os"
 version = "0.1.0"
-source = "git+https://github.com/keep-starknet-strange/snos?branch=tmp%2Fsnos_devnet_zero_txs#2c472815ebebca927caa5382c3bb8e3c1bbf0d86"
+source = "git+https://github.com/keep-starknet-strange/snos?branch=notlesh%2Fpathfinder-no-class-commitment-workaround#bab3328c06db22fac34d602b8eaed36a0aa4166e"
 dependencies = [
  "anyhow",
  "ark-ec",
@@ -9637,7 +9637,7 @@ dependencies = [
 [[package]]
 name = "starknet-os-types"
 version = "0.1.0"
-source = "git+https://github.com/keep-starknet-strange/snos?branch=tmp%2Fsnos_devnet_zero_txs#2c472815ebebca927caa5382c3bb8e3c1bbf0d86"
+source = "git+https://github.com/keep-starknet-strange/snos?branch=notlesh%2Fpathfinder-no-class-commitment-workaround#bab3328c06db22fac34d602b8eaed36a0aa4166e"
 dependencies = [
  "blockifier",
  "cairo-lang-starknet-classes",

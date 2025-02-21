@@ -134,8 +134,8 @@ jemallocator = "0.5.4"
 
 # Snos & Sharp (Starkware)
 # TODO: need to update this once the updated PR merges
-starknet-os = { git = "https://github.com/keep-starknet-strange/snos", branch = "tmp/snos_devnet_zero_txs" }
-prove_block = { git = "https://github.com/keep-starknet-strange/snos", branch = "tmp/snos_devnet_zero_txs" }
+starknet-os = { git = "https://github.com/keep-starknet-strange/snos", branch = "notlesh/pathfinder-no-class-commitment-workaround" }
+prove_block = { git = "https://github.com/keep-starknet-strange/snos", branch = "notlesh/pathfinder-no-class-commitment-workaround" }
 
 # Madara prover API
 madara-prover-common = { git = "https://github.com/Moonsong-Labs/madara-prover-api", branch = "od/use-latest-cairo-vm" }
