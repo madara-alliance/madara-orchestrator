@@ -131,6 +131,7 @@ cairo-vm = { git = "https://github.com/Moonsong-Labs/cairo-vm", branch = "notles
   "mod_builtin",
 ] }
 
+jemallocator = "0.5.4"
 
 # Snos & Sharp (Starkware)
 # TODO: need to update this once the updated PR merges

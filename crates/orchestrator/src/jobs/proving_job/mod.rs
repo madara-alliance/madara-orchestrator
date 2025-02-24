@@ -2,17 +2,17 @@ use std::collections::HashMap;
 use std::sync::Arc;
 
 use async_trait::async_trait;
+use bytes;
 use cairo_vm::vm::runners::cairo_pie::CairoPie;
 use chrono::{SubsecRound, Utc};
 use color_eyre::eyre::{eyre, WrapErr};
 use prover_client_interface::{Task, TaskStatus};
 use thiserror::Error;
 use uuid::Uuid;
-use bytes;
 
 use super::types::{JobItem, JobStatus, JobType, JobVerificationStatus};
 use super::{Job, JobError, OtherError};
-use crate::config::Config;
+use crate::config::{Config, JobProcessingState};
 use crate::constants::{CAIRO_PIE_FILE_NAME, PROOF_FILE_NAME};
 use crate::jobs::constants::JOB_METADATA_SNOS_FACT;
 
@@ -140,10 +140,12 @@ impl Job for ProvingJob {
                 })?;
 
                 let proof_key = format!("{internal_id}/{PROOF_FILE_NAME}");
-                config.storage().put_data(bytes::Bytes::from(fetched_proof.into_bytes()), &proof_key).await.map_err(|e| {
-                    tracing::error!(job_id = %job.internal_id, error = %e, "Failed to store proof in S3");
-                    JobError::Other(OtherError(e))
-                })?;
+                config.storage().put_data(bytes::Bytes::from(fetched_proof.into_bytes()), &proof_key).await.map_err(
+                    |e| {
+                        tracing::error!(job_id = %job.internal_id, error = %e, "Failed to store proof in S3");
+                        JobError::Other(OtherError(e))
+                    },
+                )?;
                 tracing::info!(log_type = "completed", category = "proving", function_type = "verify_job", job_id = ?job.id,  block_no = %internal_id,     "Proving job verification completed.");
                 Ok(JobVerificationStatus::Verified)
             }
@@ -167,5 +169,9 @@ impl Job for ProvingJob {
 
     fn verification_polling_delay_seconds(&self) -> u64 {
         300
+    }
+
+    fn job_processing_lock(&self, _config: Arc<Config>) -> std::option::Option<std::sync::Arc<JobProcessingState>> {
+        None
     }
 }

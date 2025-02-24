@@ -1,5 +1,7 @@
 pub const JOB_PROCESS_ATTEMPT_METADATA_KEY: &str = "process_attempt_no";
+pub const JOB_PROCESS_RETRY_ATTEMPT_METADATA_KEY: &str = "process_retry_attempt_no";
 pub const JOB_VERIFICATION_ATTEMPT_METADATA_KEY: &str = "verification_attempt_no";
+pub const JOB_VERIFICATION_RETRY_ATTEMPT_METADATA_KEY: &str = "verification_retry_attempt_no";
 pub const JOB_METADATA_STATE_UPDATE_BLOCKS_TO_SETTLE_KEY: &str = "blocks_number_to_settle";
 pub const JOB_METADATA_STATE_UPDATE_FETCH_FROM_TESTS: &str = "fetch_from_test_data";
 pub const JOB_METADATA_STATE_UPDATE_ATTEMPT_PREFIX: &str = "attempt_tx_hashes_";
@@ -8,4 +10,5 @@ pub const JOB_METADATA_SNOS_BLOCK: &str = "block_number_to_run";
 pub const JOB_METADATA_SNOS_FACT: &str = "snos_fact";
 pub const JOB_METADATA_FAILURE_REASON: &str = "failure_reason";
 pub const JOB_METADATA_ERROR: &str = "error";
-pub const JOB_METADATA_PROCESSING_COMPLETED_AT: &str = "processing_completed_at";
+pub const JOB_METADATA_PROCESSING_STARTED_AT: &str = "processing_started_at";
+pub const JOB_METADATA_PROCESSING_FINISHED_AT: &str = "processing_finished_at";

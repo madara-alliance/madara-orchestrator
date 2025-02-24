@@ -9,7 +9,9 @@ use cairo_vm::Felt252;
 use chrono::{SubsecRound, Utc};
 use color_eyre::eyre::eyre;
 use settlement_client_interface::SettlementVerificationStatus;
+use starknet::core::types::Felt;
 use starknet_os::io::output::{ContractChanges, StarknetOsOutput};
+use swiftness_proof_parser::{parse, StarkProof};
 use thiserror::Error;
 use uuid::Uuid;
 
@@ -18,15 +20,15 @@ use super::constants::{
     JOB_PROCESS_ATTEMPT_METADATA_KEY,
 };
 use super::{JobError, OtherError};
-use crate::config::Config;
-use crate::constants::{ON_CHAIN_DATA_FILE_NAME, PROGRAM_OUTPUT_FILE_NAME, SNOS_OUTPUT_FILE_NAME, PROOF_FILE_NAME, PROOF_PART2_FILE_NAME};
+use crate::config::{self, Config};
+use crate::constants::{
+    ON_CHAIN_DATA_FILE_NAME, PROGRAM_OUTPUT_FILE_NAME, PROOF_FILE_NAME, PROOF_PART2_FILE_NAME, SNOS_OUTPUT_FILE_NAME,
+};
 use crate::jobs::constants::JOB_METADATA_STATE_UPDATE_BLOCKS_TO_SETTLE_KEY;
 use crate::jobs::snos_job::fact_info::OnChainData;
 use crate::jobs::state_update_job::utils::fetch_blob_data_for_block;
 use crate::jobs::types::{JobItem, JobStatus, JobType, JobVerificationStatus};
 use crate::jobs::Job;
-use swiftness_proof_parser::{parse, StarkProof};
-use starknet::core::types::Felt;
 
 #[derive(Error, Debug, PartialEq)]
 pub enum StateUpdateError {
@@ -134,7 +136,7 @@ impl Job for StateUpdateJob {
         for block_no in block_numbers.iter() {
             tracing::debug!(job_id = %job.internal_id, block_no = %block_no, "Processing block");
 
-            let snos = self.fetch_snos_for_block(*block_no, config.clone()).await;
+            let snos = self.fetch_snos_for_block(*block_no, config.clone()).await?;
             let txn_hash = self
                 .update_state_for_block(config.clone(), *block_no, snos, nonce)
                 .await
@@ -262,6 +264,13 @@ impl Job for StateUpdateJob {
     fn verification_polling_delay_seconds(&self) -> u64 {
         60
     }
+
+    fn job_processing_lock(
+        &self,
+        _config: Arc<Config>,
+    ) -> std::option::Option<std::sync::Arc<config::JobProcessingState>> {
+        None
+    }
 }
 
 impl StateUpdateJob {
@@ -326,46 +335,43 @@ impl StateUpdateJob {
 
         let last_tx_hash_executed = if snos.use_kzg_da == Felt252::ZERO {
             let proof_key = format!("{block_no}/{PROOF_FILE_NAME}");
-        // tracing::debug!(job_id = %job.internal_id, %proof_key, "Fetching snos proof file");
-        
-        let proof_file = config.storage().get_data(&proof_key).await.map_err(|e| {
-            // tracing::error!(job_id = %job.internal_id, error = %e, "Failed to fetch proof file");
-            JobError::Other(OtherError(e))
-        })?;
+            // tracing::debug!(job_id = %job.internal_id, %proof_key, "Fetching snos proof file");
 
-        let snos_proof = String::from_utf8(proof_file.to_vec()).map_err(|e| {
-            // tracing::error!(job_id = %job.internal_id, error = %e, "Failed to parse proof file as UTF-8");
-            JobError::Other(OtherError(eyre!("{}", e)))
-        })?;
+            let proof_file = config.storage().get_data(&proof_key).await.map_err(|e| {
+                // tracing::error!(job_id = %job.internal_id, error = %e, "Failed to fetch proof file");
+                JobError::Other(OtherError(e))
+            })?;
 
-        let parsed_snos_proof: StarkProof = parse(snos_proof.clone())
-            .map_err(|e| {
+            let snos_proof = String::from_utf8(proof_file.to_vec()).map_err(|e| {
+                // tracing::error!(job_id = %job.internal_id, error = %e, "Failed to parse proof file as UTF-8");
+                JobError::Other(OtherError(eyre!("{}", e)))
+            })?;
+
+            let parsed_snos_proof: StarkProof = parse(snos_proof.clone()).map_err(|e| {
                 // tracing::error!(job_id = %job.internal_id, error = %e, "Failed to parse proof file as UTF-8");
                 JobError::Other(OtherError(eyre!("{}", e)))
             })?;
 
             let proof_key = format!("{block_no}/{PROOF_PART2_FILE_NAME}");
-        // tracing::debug!(job_id = %job.internal_id, %proof_key, "Fetching 2nd proof file");
-        
-        let proof_file = config.storage().get_data(&proof_key).await.map_err(|e| {
-            // tracing::error!(job_id = %job.internal_id, error = %e, "Failed to fetch 2nd proof file");
-            JobError::Other(OtherError(e))
-        })?;
+            // tracing::debug!(job_id = %job.internal_id, %proof_key, "Fetching 2nd proof file");
 
-        let second_proof = String::from_utf8(proof_file.to_vec()).map_err(|e| {
-            // tracing::error!(job_id = %job.internal_id, error = %e, "Failed to parse proof file as UTF-8");
-            JobError::Other(OtherError(eyre!("{}", e)))
-        })?;
+            let proof_file = config.storage().get_data(&proof_key).await.map_err(|e| {
+                // tracing::error!(job_id = %job.internal_id, error = %e, "Failed to fetch 2nd proof file");
+                JobError::Other(OtherError(e))
+            })?;
 
-        let parsed_bridge_proof: StarkProof = parse(second_proof.clone())
-            .map_err(|e| {
+            let second_proof = String::from_utf8(proof_file.to_vec()).map_err(|e| {
+                // tracing::error!(job_id = %job.internal_id, error = %e, "Failed to parse proof file as UTF-8");
+                JobError::Other(OtherError(eyre!("{}", e)))
+            })?;
+
+            let parsed_bridge_proof: StarkProof = parse(second_proof.clone()).map_err(|e| {
                 // tracing::error!(job_id = %job.internal_id, error = %e, "Failed to parse proof file as UTF-8");
                 JobError::Other(OtherError(eyre!("{}", e)))
             })?;
 
             let snos_output = vec_felt_to_vec_bytes32(calculate_output(parsed_snos_proof));
             let program_output = vec_felt_to_vec_bytes32(calculate_output(parsed_bridge_proof));
-
 
             // let program_output = self.fetch_program_output_for_block(block_no, config.clone()).await;
             let onchain_data = self.fetch_onchain_data_for_block(block_no, config.clone()).await;
@@ -383,7 +389,7 @@ impl StateUpdateJob {
                 .await
                 .map_err(|e| JobError::Other(OtherError(e)))?;
 
-            let program_output = self.fetch_program_output_for_block(block_no, config.clone()).await;
+            let program_output = self.fetch_program_output_for_block(block_no, config.clone()).await?;
 
             // TODO :
             // Fetching nonce before the transaction is run
@@ -399,22 +405,31 @@ impl StateUpdateJob {
     }
 
     /// Retrieves the SNOS output for the corresponding block.
-    async fn fetch_snos_for_block(&self, block_no: u64, config: Arc<Config>) -> StarknetOsOutput {
+    async fn fetch_snos_for_block(&self, block_no: u64, config: Arc<Config>) -> Result<StarknetOsOutput, JobError> {
         let storage_client = config.storage();
         let key = block_no.to_string() + "/" + SNOS_OUTPUT_FILE_NAME;
-        let snos_output_bytes = storage_client.get_data(&key).await.expect("Unable to fetch snos output for block");
-        serde_json::from_slice(snos_output_bytes.iter().as_slice())
-            .expect("Unable to convert the data into snos output")
+
+        let snos_output_bytes = storage_client.get_data(&key).await.map_err(|e| JobError::Other(OtherError(e)))?;
+
+        serde_json::from_slice(snos_output_bytes.iter().as_slice()).map_err(|e| {
+            JobError::Other(OtherError(eyre!("Failed to deserialize SNOS output for block {}: {}", block_no, e)))
+        })
     }
 
     /// Retrieves the Program output for the corresponding block.
-    async fn fetch_program_output_for_block(&self, block_number: u64, config: Arc<Config>) -> Vec<[u8; 32]> {
+    async fn fetch_program_output_for_block(
+        &self,
+        block_number: u64,
+        config: Arc<Config>,
+    ) -> Result<Vec<[u8; 32]>, JobError> {
         let storage_client = config.storage();
         let key = block_number.to_string() + "/" + PROGRAM_OUTPUT_FILE_NAME;
-        let program_output = storage_client.get_data(&key).await.expect("Unable to fetch snos output for block");
-        let decode_data: Vec<[u8; 32]> =
-            bincode::deserialize(&program_output).expect("Unable to decode the fetched data from storage provider.");
-        decode_data
+
+        let program_output = storage_client.get_data(&key).await.map_err(|e| JobError::Other(OtherError(e)))?;
+
+        bincode::deserialize(&program_output).map_err(|e| {
+            JobError::Other(OtherError(eyre!("Failed to deserialize program output for block {}: {}", block_number, e)))
+        })
     }
 
     /// Retrieves the OnChain data for the corresponding block.
@@ -439,10 +454,8 @@ pub fn calculate_output(proof: StarkProof) -> Vec<Felt> {
     let output_len = output_segment.stop_ptr - output_segment.begin_addr;
     let start = proof.public_input.main_page.len() - output_len as usize;
     let end = proof.public_input.main_page.len();
-    let program_output = proof.public_input.main_page[start..end]
-        .iter()
-        .map(|cell| cell.value.clone())
-        .collect::<Vec<_>>();
+    let program_output =
+        proof.public_input.main_page[start..end].iter().map(|cell| cell.value.clone()).collect::<Vec<_>>();
     let mut felts = vec![];
     for elem in &program_output {
         felts.push(Felt::from_dec_str(&elem.to_string()).unwrap());

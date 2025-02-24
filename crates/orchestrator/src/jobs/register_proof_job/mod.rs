@@ -1,20 +1,21 @@
 use std::collections::HashMap;
+use std::fs::File;
+use std::io::Write;
 use std::sync::Arc;
 
 use async_trait::async_trait;
 use chrono::{SubsecRound, Utc};
-use color_eyre::Result;
-use uuid::Uuid;
 use color_eyre::eyre::{eyre, WrapErr};
-use std::fs::File;
-use std::io::Write;
-use crate::config::Config;
+use color_eyre::Result;
 use prover_client_interface::{Task, TaskStatus};
-use crate::jobs::types::{JobItem, JobStatus, JobType, JobVerificationStatus};
-use crate::constants::{PROOF_PART2_FILE_NAME, PROOF_FILE_NAME};
-use crate::jobs::constants::JOB_METADATA_SNOS_FACT;
-use super::{Job, JobError, OtherError};
 use swiftness_proof_parser::{parse, StarkProof};
+use uuid::Uuid;
+
+use super::{Job, JobError, OtherError};
+use crate::config::{self, Config};
+use crate::constants::{PROOF_FILE_NAME, PROOF_PART2_FILE_NAME};
+use crate::jobs::constants::JOB_METADATA_SNOS_FACT;
+use crate::jobs::types::{JobItem, JobStatus, JobType, JobVerificationStatus};
 
 pub struct RegisterProofJob;
 
@@ -60,7 +61,7 @@ impl Job for RegisterProofJob {
         // Get proof from storage
         let proof_key = format!("{internal_id}/{PROOF_FILE_NAME}");
         tracing::debug!(job_id = %job.internal_id, %proof_key, "Fetching proof file");
-        
+
         let proof_file = config.storage().get_data(&proof_key).await.map_err(|e| {
             tracing::error!(job_id = %job.internal_id, error = %e, "Failed to fetch proof file");
             JobError::Other(OtherError(e))
@@ -71,19 +72,18 @@ impl Job for RegisterProofJob {
             JobError::Other(OtherError(eyre!("{}", e)))
         })?;
 
-        let _: StarkProof = parse(proof.clone())
-            .map_err(|e| {
-                tracing::error!(job_id = %job.internal_id, error = %e, "Failed to parse proof file as UTF-8");
-                JobError::Other(OtherError(eyre!("{}", e)))
-            })?;
-        
+        let _: StarkProof = parse(proof.clone()).map_err(|e| {
+            tracing::error!(job_id = %job.internal_id, error = %e, "Failed to parse proof file as UTF-8");
+            JobError::Other(OtherError(eyre!("{}", e)))
+        })?;
+
         // save the proof to a file
         let mut file = File::create("proof2.json").unwrap();
         file.write_all(proof.as_bytes()).unwrap();
 
         // Format proof for submission
         let formatted_proof = format!("{{\n\t\"proof\": {}\n}}", proof);
-        
+
         let task_id = job.internal_id.clone();
 
         // Submit proof for L2 verification
@@ -113,11 +113,11 @@ impl Job for RegisterProofJob {
     async fn verify_job(&self, config: Arc<Config>, job: &mut JobItem) -> Result<JobVerificationStatus, JobError> {
         let internal_id = job.internal_id.clone();
         tracing::info!(
-            log_type = "starting", 
-            category = "proof_registry", 
-            function_type = "verify_job", 
-            job_id = ?job.id,  
-            block_no = %internal_id, 
+            log_type = "starting",
+            category = "proof_registry",
+            function_type = "verify_job",
+            job_id = ?job.id,
+            block_no = %internal_id,
             "Proof registration job verification started."
         );
 
@@ -149,11 +149,11 @@ impl Job for RegisterProofJob {
         match task_status {
             TaskStatus::Processing => {
                 tracing::info!(
-                    log_type = "pending", 
-                    category = "proof_registry", 
-                    function_type = "verify_job", 
-                    job_id = ?job.id,  
-                    block_no = %internal_id,   
+                    log_type = "pending",
+                    category = "proof_registry",
+                    function_type = "verify_job",
+                    job_id = ?job.id,
+                    block_no = %internal_id,
                     "Proof registration job verification pending."
                 );
                 Ok(JobVerificationStatus::Pending)
@@ -169,27 +169,29 @@ impl Job for RegisterProofJob {
                 })?;
 
                 let proof_key = format!("{internal_id}/{PROOF_PART2_FILE_NAME}");
-                config.storage().put_data(bytes::Bytes::from(fetched_proof.into_bytes()), &proof_key).await.map_err(|e| {
-                    tracing::error!(job_id = %job.internal_id, error = %e, "Failed to store proof in S3");
-                    JobError::Other(OtherError(e))
-                })?;
+                config.storage().put_data(bytes::Bytes::from(fetched_proof.into_bytes()), &proof_key).await.map_err(
+                    |e| {
+                        tracing::error!(job_id = %job.internal_id, error = %e, "Failed to store proof in S3");
+                        JobError::Other(OtherError(e))
+                    },
+                )?;
                 tracing::info!(
-                    log_type = "completed", 
-                    category = "proof_registry", 
-                    function_type = "verify_job", 
-                    job_id = ?job.id,  
-                    block_no = %internal_id,     
+                    log_type = "completed",
+                    category = "proof_registry",
+                    function_type = "verify_job",
+                    job_id = ?job.id,
+                    block_no = %internal_id,
                     "Proof registration job verification completed."
                 );
                 Ok(JobVerificationStatus::Verified)
             }
             TaskStatus::Failed(err) => {
                 tracing::info!(
-                    log_type = "failed", 
-                    category = "proof_registry", 
-                    function_type = "verify_job", 
-                    job_id = ?job.id,  
-                    block_no = %internal_id,     
+                    log_type = "failed",
+                    category = "proof_registry",
+                    function_type = "verify_job",
+                    job_id = ?job.id,
+                    block_no = %internal_id,
                     "Proof registration job verification failed."
                 );
                 Ok(JobVerificationStatus::Rejected(format!(
@@ -210,5 +212,12 @@ impl Job for RegisterProofJob {
 
     fn verification_polling_delay_seconds(&self) -> u64 {
         300
+    }
+
+    fn job_processing_lock(
+        &self,
+        _config: Arc<Config>,
+    ) -> std::option::Option<std::sync::Arc<config::JobProcessingState>> {
+        None
     }
 }

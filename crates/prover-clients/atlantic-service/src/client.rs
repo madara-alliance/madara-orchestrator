@@ -48,6 +48,7 @@ impl AtlanticClient {
         let prover_type = atlantic_params.atlantic_prover_type.clone();
 
         let client = HttpClient::builder(url.as_str())
+            .expect("Failed to create HTTP client builder")
             .default_form_data("mockFactHash", &mock_fact_hash)
             .build()
             .expect("Failed to build HTTP client");
@@ -55,7 +56,7 @@ impl AtlanticClient {
         let proving_layer: Box<dyn ProvingLayer> = match atlantic_params.atlantic_settlement_layer.as_str() {
             "ethereum" => Box::new(EthereumLayer),
             "starknet" => Box::new(StarknetLayer),
-            _ => panic!("proving layer not correct"),
+            _ => panic!("Invalid settlement layer: {}", atlantic_params.atlantic_settlement_layer),
         };
 
         Self { client, proving_layer }
@@ -65,7 +66,7 @@ impl AtlanticClient {
         &self,
         pie_file: &Path,
         proof_layout: LayoutName,
-        atlantic_api_key: String,
+        atlantic_api_key: impl AsRef<str>,
     ) -> Result<AtlanticAddJobResponse, AtlanticError> {
         let proof_layout = match proof_layout {
             LayoutName::dynamic => "dynamic",
@@ -77,7 +78,7 @@ impl AtlanticClient {
             .customize_request(
                 self.client.request().method(Method::POST).query_param("apiKey", atlantic_api_key.as_ref()),
             )
-            .form_file("pieFile", pie_file, "pie.zip")
+            .form_file("pieFile", pie_file, "pie.zip")?
             .form_text("layout", proof_layout)
             .send()
             .await
@@ -91,7 +92,12 @@ impl AtlanticClient {
         }
     }
 
-    pub async fn submit_l2_query(&self, task_id: &str, proof: &str, atlantic_api_key: &str) -> Result<AtlanticAddJobResponse, AtlanticError> {
+    pub async fn submit_l2_query(
+        &self,
+        task_id: &str,
+        proof: &str,
+        atlantic_api_key: &str,
+    ) -> Result<AtlanticAddJobResponse, AtlanticError> {
         tracing::info!(">>>>>>> task_id: {:?}", task_id);
         let response = self
             .client
