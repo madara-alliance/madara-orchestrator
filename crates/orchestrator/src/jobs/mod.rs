@@ -306,14 +306,6 @@ pub async fn process_job(id: Uuid, config: Arc<Config>) -> Result<(), JobError> 
     let start = Instant::now();
     let job = get_job(id, config.clone()).await?;
     let internal_id = job.internal_id.clone();
-    let job_handler = factory::get_job_handler(&job.job_type).await;
-    let job_processing_locks = job_handler.job_processing_lock(config.clone());
-
-    let permit = if let Some(ref processing_locks) = job_processing_locks {
-        Some(processing_locks.try_acquire_lock(&job, config.clone()).await?)
-    } else {
-        None
-    };
 
     tracing::info!(log_type = "starting", category = "general", function_type = "process_job", block_no = %internal_id, "General process job started for block");
 
@@ -334,6 +326,15 @@ pub async fn process_job(id: Uuid, config: Arc<Config>) -> Result<(), JobError> 
             return Err(JobError::InvalidStatus { id, job_status: job.status });
         }
     }
+
+    let job_handler = factory::get_job_handler(&job.job_type).await;
+    let job_processing_locks = job_handler.job_processing_lock(config.clone());
+
+    let permit = if let Some(ref processing_locks) = job_processing_locks {
+        Some(processing_locks.try_acquire_lock(&job, config.clone()).await?)
+    } else {
+        None
+    };
 
     let mut metadata = job.metadata.clone();
     metadata.insert(JOB_METADATA_PROCESSING_STARTED_AT.to_string(), Utc::now().timestamp_millis().to_string());
