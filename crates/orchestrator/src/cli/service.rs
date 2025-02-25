@@ -3,7 +3,8 @@ use clap::Args;
 #[derive(Debug, Clone, Args)]
 pub struct ServiceCliArgs {
     /// The maximum block to process.
-    #[arg(env = "MADARA_ORCHESTRATOR_MAX_BLOCK_NO_TO_PROCESS", long, default_value = Some("1000"))]
+    /// The default value is u64::MAX.
+    #[arg(env = "MADARA_ORCHESTRATOR_MAX_BLOCK_NO_TO_PROCESS", long, default_value = Some("18446744073709551615"))]
     pub max_block_to_process: Option<u64>,
 
     /// The minimum block to process.

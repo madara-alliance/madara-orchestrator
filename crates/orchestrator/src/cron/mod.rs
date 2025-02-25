@@ -33,8 +33,8 @@ pub trait Cron {
     ) -> color_eyre::Result<()>;
     async fn setup(&self) -> color_eyre::Result<()> {
         let trigger_arns = self.create_cron().await?;
+        sleep(Duration::from_secs(15)).await;
         for trigger in WORKER_TRIGGERS.iter() {
-            sleep(Duration::from_secs(15)).await;
             self.add_cron_target_queue(trigger, &trigger_arns).await?;
         }
         Ok(())
