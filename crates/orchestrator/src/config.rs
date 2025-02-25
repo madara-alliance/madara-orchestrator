@@ -73,29 +73,22 @@ impl JobProcessingState {
         config: Arc<Config>,
     ) -> Result<SemaphorePermit<'a>, JobError> {
         // Trying to acquire permit with a timeout.
-        let permit = match tokio::time::timeout(Duration::from_millis(100), self.semaphore.acquire()).await {
+        match tokio::time::timeout(Duration::from_millis(100), self.semaphore.acquire()).await {
             Ok(Ok(permit)) => {
                 {
                     let mut active_jobs = self.active_jobs.lock().await;
                     active_jobs.insert(job.id);
                     drop(active_jobs);
                 }
-                Ok(Some(permit))
+                tracing::info!(job_id = %job.id, "Job {} acquired lock", job.id);
+                Ok(permit)
             }
-            Ok(Err(e)) => Err(JobError::LockError(e.to_string())),
             Err(_) => {
                 tracing::error!(job_id = %job.id, "Job {} waiting - at max capacity ({} available permits)", job.id, self.get_available_permits());
-                Ok(None)
+                add_job_to_process_queue(job.id, &job.job_type, config.clone()).await?;
+                Err(JobError::MaxCapacityReached)
             }
-        }?;
-
-        if permit.is_none() {
-            // add job back to queue
-            add_job_to_process_queue(job.id, &job.job_type, config.clone()).await?;
-            Err(JobError::MaxCapacityReached)
-        } else {
-            tracing::info!(job_id = %job.id, "Job {} acquired lock", job.id);
-            Ok(permit.unwrap())
+            Ok(Err(e)) => Err(JobError::LockError(e.to_string())),
         }
     }
 

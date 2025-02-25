@@ -521,8 +521,7 @@ pub async fn verify_job(id: Uuid, config: Arc<Config>) -> Result<(), JobError> {
                     .record(time_taken as f64, &[KeyValue::new("operation_job_type", format!("{:?}", job.job_type))]),
                 None => tracing::warn!("Failed to calculate verification time: Invalid or missing processing time"),
             }
-            let mut metadata = job.metadata.clone();
-            metadata.remove("processing_finished_at");
+            let metadata = job.metadata.clone();
             config
                 .database()
                 .update_job(
