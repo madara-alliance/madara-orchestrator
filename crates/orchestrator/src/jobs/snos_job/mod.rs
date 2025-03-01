@@ -1,4 +1,5 @@
 use std::collections::HashMap;
+use std::io::Read;
 use std::sync::Arc;
 
 use async_trait::async_trait;
@@ -224,7 +225,7 @@ impl SnosJob {
         let mut cairo_pie_zipfile = NamedTempFile::new()?;
         cairo_pie.write_zip_file(cairo_pie_zipfile.path())?;
         drop(cairo_pie); // Drop cairo_pie to release the memory
-        let cairo_pie_zip_bytes = self.tempfile_to_bytes_streaming(&mut cairo_pie_zipfile).await?;
+        let cairo_pie_zip_bytes = self.tempfile_to_bytes(&mut cairo_pie_zipfile)?;
         cairo_pie_zipfile.close()?;
         Ok(cairo_pie_zip_bytes)
     }
@@ -232,24 +233,9 @@ impl SnosJob {
     /// Converts a [NamedTempFile] to [Bytes].
     /// This function reads the file in chunks and appends them to the buffer.
     /// This is useful when the file is too large to be read in one go.
-    async fn tempfile_to_bytes_streaming(&self, tmp_file: &mut NamedTempFile) -> Result<Bytes> {
-        use tokio::io::AsyncReadExt;
-
-        let file_size = tmp_file.as_file().metadata()?.len() as usize;
-        let mut buffer = Vec::with_capacity(file_size);
-
-        const CHUNK_SIZE: usize = 8192; // 8KB chunks
-        let mut chunk = vec![0; CHUNK_SIZE];
-
-        let mut file = tokio::fs::File::from_std(tmp_file.as_file().try_clone()?);
-
-        while let Ok(n) = file.read(&mut chunk).await {
-            if n == 0 {
-                break;
-            }
-            buffer.extend_from_slice(&chunk[..n]);
-        }
-
+    fn tempfile_to_bytes(&self, tmp_file: &mut NamedTempFile) -> Result<Bytes> {
+        let mut buffer = Vec::new();
+        tmp_file.as_file_mut().read_to_end(&mut buffer)?;
         Ok(Bytes::from(buffer))
     }
 }
