@@ -2,6 +2,7 @@ pub mod utils;
 
 use std::collections::HashMap;
 use std::sync::Arc;
+use std::time::Duration;
 
 use ::utils::collections::{has_dup, is_sorted};
 use async_trait::async_trait;
@@ -11,6 +12,7 @@ use color_eyre::eyre::eyre;
 use settlement_client_interface::SettlementVerificationStatus;
 use starknet_os::io::output::StarknetOsOutput;
 use thiserror::Error;
+use tokio::time::sleep;
 use uuid::Uuid;
 
 use super::constants::{
@@ -126,9 +128,10 @@ impl Job for StateUpdateJob {
             block_numbers = block_numbers.into_iter().filter(|&block| block >= last_failed_block).collect::<Vec<u64>>();
         }
 
-        let mut nonce = config.settlement_client().get_nonce().await.map_err(|e| JobError::Other(OtherError(e)))?;
         let mut sent_tx_hashes: Vec<String> = Vec::with_capacity(block_numbers.len());
         for block_no in block_numbers.iter() {
+            sleep(Duration::from_secs(20)).await;
+            let nonce = config.settlement_client().get_nonce().await.map_err(|e| JobError::Other(OtherError(e)))?;
             tracing::debug!(job_id = %job.internal_id, block_no = %block_no, "Processing block");
 
             let snos = self.fetch_snos_for_block(*block_no, config.clone()).await?;
@@ -136,14 +139,13 @@ impl Job for StateUpdateJob {
                 .update_state_for_block(config.clone(), *block_no, snos, nonce)
                 .await
                 .map_err(|e| {
-                    tracing::error!(job_id = %job.internal_id, block_no = %block_no, error = %e, "Error updating state for block");
+                    tracing::error!(job_id = %job.internal_id, block_no = %block_no, nonce = &nonce, error = %e, "Error updating state for block");
                     job.metadata.insert(JOB_METADATA_STATE_UPDATE_LAST_FAILED_BLOCK_NO.into(), block_no.to_string());
                     self.insert_attempts_into_metadata(job, &attempt_no, &sent_tx_hashes);
                     OtherError(eyre!("Block #{block_no} - Error occurred during the state update: {e}"));
                 })
                 .unwrap();
             sent_tx_hashes.push(txn_hash);
-            nonce += 1;
         }
 
         self.insert_attempts_into_metadata(job, &attempt_no, &sent_tx_hashes);
