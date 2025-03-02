@@ -11,8 +11,9 @@ use uuid::Uuid;
 
 use super::types::{JobItem, JobStatus, JobType, JobVerificationStatus};
 use super::{Job, JobError, OtherError};
-use crate::config::{self, Config};
+use crate::config::Config;
 use crate::constants::CAIRO_PIE_FILE_NAME;
+use crate::helpers;
 use crate::jobs::constants::JOB_METADATA_SNOS_FACT;
 
 #[derive(Error, Debug, PartialEq)]
@@ -159,7 +160,7 @@ impl Job for ProvingJob {
     fn job_processing_lock(
         &self,
         _config: Arc<Config>,
-    ) -> std::option::Option<std::sync::Arc<config::JobProcessingState>> {
+    ) -> std::option::Option<std::sync::Arc<helpers::JobProcessingState>> {
         None
     }
 }

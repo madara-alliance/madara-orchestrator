@@ -7,7 +7,8 @@ use color_eyre::Result;
 use uuid::Uuid;
 
 use super::JobError;
-use crate::config::{self, Config};
+use crate::config::Config;
+use crate::helpers;
 use crate::jobs::types::{JobItem, JobStatus, JobType, JobVerificationStatus};
 use crate::jobs::Job;
 
@@ -72,7 +73,7 @@ impl Job for RegisterProofJob {
     fn job_processing_lock(
         &self,
         _config: Arc<Config>,
-    ) -> std::option::Option<std::sync::Arc<config::JobProcessingState>> {
+    ) -> std::option::Option<std::sync::Arc<helpers::JobProcessingState>> {
         None
     }
 }

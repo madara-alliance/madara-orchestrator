@@ -20,8 +20,9 @@ use super::constants::{
     JOB_PROCESS_ATTEMPT_METADATA_KEY,
 };
 use super::{JobError, OtherError};
-use crate::config::{self, Config};
+use crate::config::Config;
 use crate::constants::{PROGRAM_OUTPUT_FILE_NAME, SNOS_OUTPUT_FILE_NAME};
+use crate::helpers;
 use crate::jobs::constants::JOB_METADATA_STATE_UPDATE_BLOCKS_TO_SETTLE_KEY;
 use crate::jobs::state_update_job::utils::fetch_blob_data_for_block;
 use crate::jobs::types::{JobItem, JobStatus, JobType, JobVerificationStatus};
@@ -265,7 +266,7 @@ impl Job for StateUpdateJob {
     fn job_processing_lock(
         &self,
         _config: Arc<Config>,
-    ) -> std::option::Option<std::sync::Arc<config::JobProcessingState>> {
+    ) -> std::option::Option<std::sync::Arc<helpers::JobProcessingState>> {
         None
     }
 }

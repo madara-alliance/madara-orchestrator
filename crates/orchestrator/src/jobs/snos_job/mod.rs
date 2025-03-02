@@ -17,9 +17,10 @@ use uuid::Uuid;
 
 use super::constants::{JOB_METADATA_SNOS_BLOCK, JOB_METADATA_SNOS_FACT};
 use super::{JobError, OtherError};
-use crate::config::{self, Config};
+use crate::config::Config;
 use crate::constants::{CAIRO_PIE_FILE_NAME, PROGRAM_OUTPUT_FILE_NAME, SNOS_OUTPUT_FILE_NAME};
 use crate::data_storage::DataStorage;
+use crate::helpers;
 use crate::jobs::snos_job::error::FactError;
 use crate::jobs::snos_job::fact_info::get_fact_info;
 use crate::jobs::types::{JobItem, JobStatus, JobType, JobVerificationStatus};
@@ -148,7 +149,7 @@ impl Job for SnosJob {
         1
     }
 
-    fn job_processing_lock(&self, config: Arc<Config>) -> std::option::Option<Arc<config::JobProcessingState>> {
+    fn job_processing_lock(&self, config: Arc<Config>) -> std::option::Option<Arc<helpers::JobProcessingState>> {
         Some(config.processing_locks().snos_job_processing_lock.clone())
     }
 }

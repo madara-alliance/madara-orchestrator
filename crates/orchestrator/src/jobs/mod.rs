@@ -24,7 +24,8 @@ use state_update_job::StateUpdateError;
 use types::{ExternalId, JobItemUpdates};
 use uuid::Uuid;
 
-use crate::config::{Config, JobProcessingState};
+use crate::config::Config;
+use crate::helpers::JobProcessingState;
 use crate::jobs::constants::{
     JOB_PROCESS_ATTEMPT_METADATA_KEY, JOB_PROCESS_RETRY_ATTEMPT_METADATA_KEY, JOB_VERIFICATION_ATTEMPT_METADATA_KEY,
     JOB_VERIFICATION_RETRY_ATTEMPT_METADATA_KEY,
@@ -355,7 +356,6 @@ pub async fn process_job(id: Uuid, config: Arc<Config>) -> Result<(), JobError> 
         })?;
 
     tracing::debug!(job_id = ?id, job_type = ?job.job_type, "Getting job handler");
-    let metadata = job.metadata.clone();
     let external_id = match AssertUnwindSafe(job_handler.process_job(config.clone(), &mut job)).catch_unwind().await {
         Ok(Ok(external_id)) => {
             tracing::debug!(job_id = ?id, "Successfully processed job");

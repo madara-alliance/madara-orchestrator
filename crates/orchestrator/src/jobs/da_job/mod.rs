@@ -18,8 +18,9 @@ use uuid::Uuid;
 
 use super::types::{JobItem, JobStatus, JobType, JobVerificationStatus};
 use super::{Job, JobError, OtherError};
-use crate::config::{self, Config};
+use crate::config::Config;
 use crate::constants::BLOB_DATA_FILE_NAME;
+use crate::helpers;
 use crate::jobs::state_update_job::utils::biguint_vec_to_u8_vec;
 
 lazy_static! {
@@ -209,7 +210,7 @@ impl Job for DaJob {
     fn job_processing_lock(
         &self,
         _config: Arc<Config>,
-    ) -> std::option::Option<std::sync::Arc<config::JobProcessingState>> {
+    ) -> std::option::Option<std::sync::Arc<helpers::JobProcessingState>> {
         None
     }
 }
