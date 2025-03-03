@@ -20,6 +20,7 @@ use super::{JobError, OtherError};
 use crate::config::Config;
 use crate::constants::{CAIRO_PIE_FILE_NAME, PROGRAM_OUTPUT_FILE_NAME, SNOS_OUTPUT_FILE_NAME};
 use crate::data_storage::DataStorage;
+use crate::helpers;
 use crate::jobs::snos_job::error::FactError;
 use crate::jobs::snos_job::fact_info::get_fact_info;
 use crate::jobs::types::{JobItem, JobStatus, JobType, JobVerificationStatus};
@@ -147,6 +148,10 @@ impl Job for SnosJob {
     fn verification_polling_delay_seconds(&self) -> u64 {
         1
     }
+
+    fn job_processing_lock(&self, config: Arc<Config>) -> std::option::Option<Arc<helpers::JobProcessingState>> {
+        Some(config.processing_locks().snos_job_processing_lock.clone())
+    }
 }
 
 impl SnosJob {
@@ -179,33 +184,40 @@ impl SnosJob {
         snos_output: StarknetOsOutput,
         program_output: Vec<Felt252>,
     ) -> Result<(), SnosError> {
-        let cairo_pie_key = format!("{block_number}/{CAIRO_PIE_FILE_NAME}");
-        let cairo_pie_zip_bytes = self.cairo_pie_to_zip_bytes(cairo_pie).await.map_err(|e| {
-            SnosError::CairoPieUnserializable { internal_id: internal_id.to_string(), message: e.to_string() }
-        })?;
-        data_storage.put_data(cairo_pie_zip_bytes, &cairo_pie_key).await.map_err(|e| {
-            SnosError::CairoPieUnstorable { internal_id: internal_id.to_string(), message: e.to_string() }
-        })?;
+        // Process and store cairo_pie first, then drop it
+        {
+            let cairo_pie_key = format!("{block_number}/{CAIRO_PIE_FILE_NAME}");
+            let cairo_pie_zip_bytes = self.cairo_pie_to_zip_bytes(cairo_pie).await.map_err(|e| {
+                SnosError::CairoPieUnserializable { internal_id: internal_id.to_string(), message: e.to_string() }
+            })?;
+            data_storage.put_data(cairo_pie_zip_bytes, &cairo_pie_key).await.map_err(|e| {
+                SnosError::CairoPieUnstorable { internal_id: internal_id.to_string(), message: e.to_string() }
+            })?;
+        } // cairo_pie_zip_bytes is dropped here
 
-        let snos_output_key = format!("{block_number}/{SNOS_OUTPUT_FILE_NAME}");
-        let snos_output_json = serde_json::to_vec(&snos_output).map_err(|e| SnosError::SnosOutputUnserializable {
-            internal_id: internal_id.to_string(),
-            message: e.to_string(),
-        })?;
-        data_storage.put_data(snos_output_json.into(), &snos_output_key).await.map_err(|e| {
-            SnosError::SnosOutputUnstorable { internal_id: internal_id.to_string(), message: e.to_string() }
-        })?;
+        // Process and store snos_output
+        {
+            let snos_output_key = format!("{block_number}/{SNOS_OUTPUT_FILE_NAME}");
+            let snos_output_json = serde_json::to_vec(&snos_output).map_err(|e| {
+                SnosError::SnosOutputUnserializable { internal_id: internal_id.to_string(), message: e.to_string() }
+            })?;
+            data_storage.put_data(snos_output_json.into(), &snos_output_key).await.map_err(|e| {
+                SnosError::SnosOutputUnstorable { internal_id: internal_id.to_string(), message: e.to_string() }
+            })?;
+        }
 
-        let program_output: Vec<[u8; 32]> = program_output.iter().map(|f| f.to_bytes_be()).collect();
-        let encoded_data = bincode::serialize(&program_output).map_err(|e| SnosError::ProgramOutputUnserializable {
-            internal_id: internal_id.to_string(),
-            message: e.to_string(),
-        })?;
-        let program_output_key = format!("{block_number}/{PROGRAM_OUTPUT_FILE_NAME}");
-        data_storage.put_data(encoded_data.into(), &program_output_key).await.map_err(|e| {
-            SnosError::ProgramOutputUnstorable { internal_id: internal_id.to_string(), message: e.to_string() }
-        })?;
-
+        // Process and store program_output in chunks if needed
+        {
+            let program_output_key = format!("{block_number}/{PROGRAM_OUTPUT_FILE_NAME}");
+            // TODO: Consider processing in chunks if program_output is very large
+            let program_output: Vec<[u8; 32]> = program_output.iter().map(|f| f.to_bytes_be()).collect();
+            let encoded_data = bincode::serialize(&program_output).map_err(|e| {
+                SnosError::ProgramOutputUnserializable { internal_id: internal_id.to_string(), message: e.to_string() }
+            })?;
+            data_storage.put_data(encoded_data.into(), &program_output_key).await.map_err(|e| {
+                SnosError::ProgramOutputUnstorable { internal_id: internal_id.to_string(), message: e.to_string() }
+            })?;
+        }
         Ok(())
     }
 
@@ -213,12 +225,15 @@ impl SnosJob {
     async fn cairo_pie_to_zip_bytes(&self, cairo_pie: CairoPie) -> Result<Bytes> {
         let mut cairo_pie_zipfile = NamedTempFile::new()?;
         cairo_pie.write_zip_file(cairo_pie_zipfile.path())?;
+        drop(cairo_pie); // Drop cairo_pie to release the memory
         let cairo_pie_zip_bytes = self.tempfile_to_bytes(&mut cairo_pie_zipfile)?;
         cairo_pie_zipfile.close()?;
         Ok(cairo_pie_zip_bytes)
     }
 
     /// Converts a [NamedTempFile] to [Bytes].
+    /// This function reads the file in chunks and appends them to the buffer.
+    /// This is useful when the file is too large to be read in one go.
     fn tempfile_to_bytes(&self, tmp_file: &mut NamedTempFile) -> Result<Bytes> {
         let mut buffer = Vec::new();
         tmp_file.as_file_mut().read_to_end(&mut buffer)?;

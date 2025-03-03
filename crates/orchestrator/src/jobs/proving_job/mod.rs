@@ -13,6 +13,7 @@ use super::types::{JobItem, JobStatus, JobType, JobVerificationStatus};
 use super::{Job, JobError, OtherError};
 use crate::config::Config;
 use crate::constants::CAIRO_PIE_FILE_NAME;
+use crate::helpers;
 use crate::jobs::constants::JOB_METADATA_SNOS_FACT;
 
 #[derive(Error, Debug, PartialEq)]
@@ -154,5 +155,12 @@ impl Job for ProvingJob {
 
     fn verification_polling_delay_seconds(&self) -> u64 {
         300
+    }
+
+    fn job_processing_lock(
+        &self,
+        _config: Arc<Config>,
+    ) -> std::option::Option<std::sync::Arc<helpers::JobProcessingState>> {
+        None
     }
 }
