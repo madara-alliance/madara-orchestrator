@@ -7,6 +7,7 @@ use std::time::{Duration, Instant};
 use async_trait::async_trait;
 use chrono::Utc;
 use color_eyre::eyre::{eyre, Context};
+
 use conversion::parse_string;
 use da_job::DaError;
 use futures::FutureExt;
@@ -21,6 +22,12 @@ use types::{ExternalId, JobItemUpdates};
 use uuid::Uuid;
 
 use crate::config::Config;
+
+use crate::helpers::JobProcessingState;
+use crate::jobs::constants::{
+    JOB_PROCESS_ATTEMPT_METADATA_KEY, JOB_PROCESS_RETRY_ATTEMPT_METADATA_KEY, JOB_VERIFICATION_ATTEMPT_METADATA_KEY,
+    JOB_VERIFICATION_RETRY_ATTEMPT_METADATA_KEY,
+};
 #[double]
 use crate::jobs::job_handler_factory::factory;
 use crate::jobs::metadata::JobMetadata;
@@ -90,6 +97,14 @@ pub enum JobError {
     /// Wraps general errors that don't fit other categories
     #[error("Other error: {0}")]
     Other(#[from] OtherError),
+
+    /// Indicates that the maximum capacity of jobs currently being processed has been reached
+    #[error("Max Capacity Reached, Already processing")]
+    MaxCapacityReached,
+
+    /// Indicates an error occurred while extracting the processing lock
+    #[error("Error extracting processing lock: {0}")]
+    LockError(String),
 }
 
 /// Wrapper Type for Other(<>) job type
@@ -192,6 +207,8 @@ pub trait Job: Send + Sync {
 
     /// Should return the number of seconds to wait before polling for verification
     fn verification_polling_delay_seconds(&self) -> u64;
+
+    fn job_processing_lock(&self, config: Arc<Config>) -> Option<Arc<JobProcessingState>>;
 }
 
 /// Creates the job in the DB in the created state and adds it to the process queue
@@ -312,6 +329,7 @@ pub async fn process_job(id: Uuid, config: Arc<Config>) -> Result<(), JobError> 
         "General process job started for block"
     );
 
+
     tracing::Span::current().record("job", format!("{:?}", job.clone()));
     tracing::Span::current().record("job_type", format!("{:?}", job.job_type));
     tracing::Span::current().record("internal_id", job.internal_id.clone());
@@ -329,6 +347,18 @@ pub async fn process_job(id: Uuid, config: Arc<Config>) -> Result<(), JobError> 
             return Err(JobError::InvalidStatus { id, job_status: job.status });
         }
     }
+
+    let job_handler = factory::get_job_handler(&job.job_type).await;
+    let job_processing_locks = job_handler.job_processing_lock(config.clone());
+
+    let permit = if let Some(ref processing_locks) = job_processing_locks {
+        Some(processing_locks.try_acquire_lock(&job, config.clone()).await?)
+    } else {
+        None
+    };
+
+    let mut metadata = job.metadata.clone();
+    metadata.insert(JOB_METADATA_PROCESSING_STARTED_AT.to_string(), Utc::now().timestamp_millis().to_string());
     // this updates the version of the job. this ensures that if another thread was about to process
     // the same job, it would fail to update the job in the database because the version would be
     // outdated
@@ -350,12 +380,12 @@ pub async fn process_job(id: Uuid, config: Arc<Config>) -> Result<(), JobError> 
         })?;
 
     tracing::debug!(job_id = ?id, job_type = ?job.job_type, "Getting job handler");
-    let job_handler = factory::get_job_handler(&job.job_type).await;
     let external_id = match AssertUnwindSafe(job_handler.process_job(config.clone(), &mut job)).catch_unwind().await {
         Ok(Ok(external_id)) => {
             tracing::debug!(job_id = ?id, "Successfully processed job");
             // Add the time of processing to the metadata.
             job.metadata.common.process_completed_at = Some(Utc::now());
+
             external_id
         }
         Ok(Err(e)) => {
@@ -434,6 +464,13 @@ pub async fn process_job(id: Uuid, config: Arc<Config>) -> Result<(), JobError> 
     ORCHESTRATOR_METRICS.successful_job_operations.add(1.0, &attributes);
     ORCHESTRATOR_METRICS.jobs_response_time.record(duration.as_secs_f64(), &attributes);
     register_block_gauge(job.job_type, &job.internal_id, external_id.into(), &attributes)?;
+
+    if let Some(permit) = permit {
+        if let Some(ref processing_locks) = job_processing_locks {
+            processing_locks.try_release_lock(permit, &job.id).await?;
+        }
+    }
+
     Ok(())
 }
 
@@ -464,7 +501,7 @@ pub async fn process_job(id: Uuid, config: Arc<Config>) -> Result<(), JobError> 
 /// # Notes
 /// * Only jobs in `PendingVerification` or `VerificationTimeout` status can be verified
 /// * Automatically retries processing if verification fails and max attempts not reached
-/// * Removes processing_completed_at from metadata upon successful verification
+/// * Removes processing_finished_at from metadata upon successful verification
 #[tracing::instrument(
     skip(config),
     fields(category = "general", job, job_type, internal_id, verification_status),
@@ -518,7 +555,6 @@ pub async fn verify_job(id: Uuid, config: Arc<Config>) -> Result<(), JobError> {
     match verification_status {
         JobVerificationStatus::Verified => {
             tracing::info!(job_id = ?id, "Job verified successfully");
-
             // Calculate verification time if processing completion timestamp exists
             if let Some(verification_time) = job.metadata.common.verification_started_at {
                 let time_taken = (Utc::now() - verification_time).num_milliseconds();

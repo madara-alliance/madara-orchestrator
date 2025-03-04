@@ -13,6 +13,7 @@ use super::{Job, JobError, OtherError};
 use crate::config::Config;
 use crate::jobs::metadata::{JobMetadata, ProvingInputType, ProvingMetadata};
 
+
 #[derive(Error, Debug, PartialEq)]
 pub enum ProvingError {
     #[error("Cairo PIE path is not specified - prover job #{internal_id:?}")]
@@ -225,5 +226,12 @@ impl Job for ProvingJob {
 
     fn verification_polling_delay_seconds(&self) -> u64 {
         30
+    }
+
+    fn job_processing_lock(
+        &self,
+        _config: Arc<Config>,
+    ) -> std::option::Option<std::sync::Arc<helpers::JobProcessingState>> {
+        None
     }
 }
