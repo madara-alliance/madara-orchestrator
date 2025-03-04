@@ -101,7 +101,6 @@ pub async fn delete_storage(
             // this is necessary for it to work with localstack in test cases
             s3_config_builder.set_force_path_style(Some(true));
             let client = S3Client::from_conf(s3_config_builder.build());
-
             // Check if bucket exists
             match client.head_bucket().bucket(&bucket_name).send().await {
                 Ok(_) => {
@@ -179,7 +178,7 @@ pub async fn get_sqs_client(provider_config: Arc<ProviderConfig>) -> aws_sdk_sqs
 
 #[derive(Deserialize, Debug)]
 pub struct MessagePayloadType {
-    pub(crate) _id: Uuid,
+    pub(crate) id: Uuid,
 }
 
 pub async fn get_storage_client(

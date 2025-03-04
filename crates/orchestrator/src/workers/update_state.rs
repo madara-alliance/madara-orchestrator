@@ -21,7 +21,6 @@ impl Worker for UpdateStateWorker {
         tracing::trace!(log_type = "starting", category = "UpdateStateWorker", "UpdateStateWorker started.");
 
         let latest_job = config.database().get_latest_job_by_type(JobType::StateTransition).await?;
-
         let (completed_da_jobs, last_block_processed_in_last_job) = match latest_job {
             Some(job) => {
                 if job.status != JobStatus::Completed {
@@ -128,7 +127,6 @@ impl Worker for UpdateStateWorker {
                 .get_job_by_internal_id_and_type(&block_number.to_string(), &JobType::SnosRun)
                 .await?
                 .ok_or_else(|| eyre!("SNOS job not found for block {}", block_number))?;
-
             let snos_metadata: SnosMetadata = snos_job.metadata.specific.try_into().map_err(|e| {
                 tracing::error!(job_id = %snos_job.internal_id, error = %e, "Invalid metadata type for SNOS job");
                 e
@@ -157,7 +155,6 @@ impl Worker for UpdateStateWorker {
                 state_metadata.blob_data_paths.push(blob_path.clone());
             }
         }
-
         // Create job metadata
         let metadata = JobMetadata {
             common: CommonMetadata::default(),

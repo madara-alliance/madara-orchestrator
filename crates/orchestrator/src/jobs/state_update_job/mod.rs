@@ -15,7 +15,9 @@ use uuid::Uuid;
 use super::{JobError, OtherError};
 use crate::config::Config;
 use crate::jobs::metadata::{JobMetadata, JobSpecificMetadata, StateUpdateMetadata};
-use crate::jobs::state_update_job::utils::fetch_blob_data_for_block;
+use crate::jobs::state_update_job::utils::{
+    fetch_blob_data_for_block, fetch_program_output_for_block, fetch_snos_for_block,
+};
 use crate::jobs::types::{JobItem, JobStatus, JobType, JobVerificationStatus};
 use crate::jobs::Job;
 
@@ -143,35 +145,36 @@ impl Job for StateUpdateJob {
 
         // Filter block numbers if there was a previous failure
         let last_failed_block = state_metadata.last_failed_block_no.unwrap_or(0);
-        let block_numbers: Vec<u64> =
-            state_metadata.blocks_to_settle.clone().into_iter().filter(|&block| block >= last_failed_block).collect();
+        let filtered_indices: Vec<usize> = state_metadata
+            .blocks_to_settle
+            .iter()
+            .enumerate()
+            .filter(|(_, &block)| block >= last_failed_block)
+            .map(|(i, _)| i)
+            .collect();
+
         let snos_output_paths = state_metadata.snos_output_paths.clone();
         let program_output_paths = state_metadata.program_output_paths.clone();
         let blob_data_paths = state_metadata.blob_data_paths.clone();
 
         let mut nonce = config.settlement_client().get_nonce().await.map_err(|e| JobError::Other(OtherError(e)))?;
 
-        let mut sent_tx_hashes: Vec<String> = Vec::with_capacity(block_numbers.len());
+        let mut sent_tx_hashes: Vec<String> = Vec::with_capacity(filtered_indices.len());
 
-        for (i, block_no) in block_numbers.iter().enumerate() {
+        for &i in &filtered_indices {
+            let block_no = state_metadata.blocks_to_settle[i];
             tracing::debug!(job_id = %job.internal_id, block_no = %block_no, "Processing block");
-            let snos = self.fetch_snos_for_block(internal_id.clone(), i, config.clone(), &snos_output_paths).await?;
+            let snos = fetch_snos_for_block(internal_id.clone(), i, config.clone(), &snos_output_paths).await?;
+            let program_output = fetch_program_output_for_block(i, config.clone(), &program_output_paths).await?;
+            let blob_data = fetch_blob_data_for_block(i, config.clone(), &blob_data_paths).await?;
             let txn_hash = match self
-                .update_state_for_block(
-                    config.clone(),
-                    *block_no,
-                    i,
-                    snos,
-                    nonce,
-                    &program_output_paths,
-                    &blob_data_paths,
-                )
+                .update_state_for_block(config.clone(), block_no, snos, nonce, program_output, blob_data)
                 .await
             {
                 Ok(hash) => hash,
                 Err(e) => {
                     tracing::error!(job_id = %job.internal_id, block_no = %block_no, error = %e, "Error updating state for block");
-                    state_metadata.last_failed_block_no = Some(*block_no);
+                    state_metadata.last_failed_block_no = Some(block_no);
                     state_metadata.tx_hashes = sent_tx_hashes.clone();
                     job.metadata.specific = JobSpecificMetadata::StateUpdate(state_metadata.clone());
 
@@ -187,7 +190,7 @@ impl Job for StateUpdateJob {
             nonce += 1;
         }
 
-        let val = block_numbers.last().ok_or_else(|| StateUpdateError::LastNumberReturnedError)?;
+        let val = state_metadata.blocks_to_settle.last().ok_or_else(|| StateUpdateError::LastNumberReturnedError)?;
 
         tracing::info!(
             log_type = "completed",
@@ -384,23 +387,15 @@ impl StateUpdateJob {
         &self,
         config: Arc<Config>,
         block_no: u64,
-        block_index: usize,
         snos: StarknetOsOutput,
         nonce: u64,
-        program_output_paths: &[String],
-        blob_data_paths: &[String],
+        program_output: Vec<[u8; 32]>,
+        blob_data: Vec<Vec<u8>>,
     ) -> Result<String, JobError> {
         let settlement_client = config.settlement_client();
         let last_tx_hash_executed = if snos.use_kzg_da == Felt252::ZERO {
             unimplemented!("update_state_for_block not implemented as of now for calldata DA.")
         } else if snos.use_kzg_da == Felt252::ONE {
-            let blob_data = fetch_blob_data_for_block(block_index, config.clone(), blob_data_paths)
-                .await
-                .map_err(|e| JobError::Other(OtherError(e)))?;
-
-            let program_output =
-                self.fetch_program_output_for_block(block_index, config.clone(), program_output_paths).await?;
-
             settlement_client
                 .update_state_with_blobs(program_output, blob_data, nonce)
                 .await
@@ -409,47 +404,5 @@ impl StateUpdateJob {
             Err(StateUpdateError::UseKZGDaError { block_no })?
         };
         Ok(last_tx_hash_executed)
-    }
-
-    /// Retrieves the SNOS output for the corresponding block.
-    async fn fetch_snos_for_block(
-        &self,
-        internal_id: String,
-        index: usize,
-        config: Arc<Config>,
-        snos_output_paths: &[String],
-    ) -> Result<StarknetOsOutput, JobError> {
-        let storage_client = config.storage();
-
-        let snos_path = snos_output_paths.get(index).ok_or_else(|| {
-            tracing::error!(job_id = %internal_id, "SNOS path not found for index {}", index);
-            JobError::Other(OtherError(eyre!("Failed to get the snos path of the id {}", internal_id)))
-        })?;
-
-        let snos_output_bytes = storage_client.get_data(snos_path).await.map_err(|e| JobError::Other(OtherError(e)))?;
-
-        serde_json::from_slice(snos_output_bytes.iter().as_slice()).map_err(|e| {
-            JobError::Other(OtherError(eyre!("Failed to deserialize SNOS output from path {}: {}", snos_path, e)))
-        })
-    }
-
-    async fn fetch_program_output_for_block(
-        &self,
-        block_index: usize,
-        config: Arc<Config>,
-        program_output_paths: &[String],
-    ) -> Result<Vec<[u8; 32]>, JobError> {
-        let storage_client = config.storage();
-
-        // Get the path for this block
-        let path = program_output_paths.get(block_index).ok_or_else(|| {
-            JobError::Other(OtherError(eyre!("Program output path not found for index {}", block_index)))
-        })?;
-
-        let program_output = storage_client.get_data(path).await.map_err(|e| JobError::Other(OtherError(e)))?;
-
-        bincode::deserialize(&program_output).map_err(|e| {
-            JobError::Other(OtherError(eyre!("Failed to deserialize program output from path {}: {}", path, e)))
-        })
     }
 }
