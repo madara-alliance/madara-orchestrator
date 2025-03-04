@@ -160,7 +160,7 @@ impl Job for SnosJob {
             category = "snos",
             function_type = "process_job",
             job_id = ?job.id,
-            block_no = %internal_id,
+            block_no = %block_number,
             "SNOS job processed successfully."
         );
 

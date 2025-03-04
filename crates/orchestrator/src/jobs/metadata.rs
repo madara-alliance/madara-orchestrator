@@ -117,9 +117,15 @@ pub struct CommonMetadata {
     pub verification_attempt_no: u64,
     /// Number of times the job has been retried after verification failures
     pub verification_retry_attempt_no: u64,
+    /// Timestamp when job processing started
+    #[serde(with = "chrono::serde::ts_seconds_option")]
+    pub process_started_at: Option<DateTime<Utc>>,
     /// Timestamp when job processing completed
     #[serde(with = "chrono::serde::ts_seconds_option")]
     pub process_completed_at: Option<DateTime<Utc>>,
+    /// Timestamp when job verification started
+    #[serde(with = "chrono::serde::ts_seconds_option")]
+    pub verification_started_at: Option<DateTime<Utc>>,
     /// Timestamp when job verification completed
     #[serde(with = "chrono::serde::ts_seconds_option")]
     pub verification_completed_at: Option<DateTime<Utc>>,
@@ -238,50 +244,27 @@ pub enum JobSpecificMetadata {
     Da(DaMetadata),
 }
 
-// Implementation of TryInto for converting JobSpecificMetadata into specific types
-impl TryInto<SnosMetadata> for JobSpecificMetadata {
-    type Error = eyre::Error;
+/// Macro to implement TryInto for JobSpecificMetadata variants
+macro_rules! impl_try_into_metadata {
+    ($variant:ident, $type:ident) => {
+        impl TryInto<$type> for JobSpecificMetadata {
+            type Error = eyre::Error;
 
-    fn try_into(self) -> Result<SnosMetadata, Self::Error> {
-        match self {
-            JobSpecificMetadata::Snos(metadata) => Ok(metadata.clone()),
-            _ => Err(eyre!("Invalid metadata type: expected SNOS metadata")),
+            fn try_into(self) -> Result<$type, Self::Error> {
+                match self {
+                    JobSpecificMetadata::$variant(metadata) => Ok(metadata.clone()),
+                    _ => Err(eyre!(concat!("Invalid metadata type: expected ", stringify!($variant), " metadata"))),
+                }
+            }
         }
-    }
+    };
 }
 
-impl TryInto<ProvingMetadata> for JobSpecificMetadata {
-    type Error = eyre::Error;
-
-    fn try_into(self) -> Result<ProvingMetadata, Self::Error> {
-        match self {
-            JobSpecificMetadata::Proving(metadata) => Ok(metadata.clone()),
-            _ => Err(eyre!("Invalid metadata type: expected Proving metadata")),
-        }
-    }
-}
-
-impl TryInto<DaMetadata> for JobSpecificMetadata {
-    type Error = eyre::Error;
-
-    fn try_into(self) -> Result<DaMetadata, Self::Error> {
-        match self {
-            JobSpecificMetadata::Da(metadata) => Ok(metadata.clone()),
-            _ => Err(eyre!("Invalid metadata type: expected DA metadata")),
-        }
-    }
-}
-
-impl TryInto<StateUpdateMetadata> for JobSpecificMetadata {
-    type Error = eyre::Error;
-
-    fn try_into(self) -> Result<StateUpdateMetadata, Self::Error> {
-        match self {
-            JobSpecificMetadata::StateUpdate(metadata) => Ok(metadata.clone()),
-            _ => Err(eyre!("Invalid metadata type: expected State Update metadata")),
-        }
-    }
-}
+// Implement TryInto for all metadata types
+impl_try_into_metadata!(Snos, SnosMetadata);
+impl_try_into_metadata!(Proving, ProvingMetadata);
+impl_try_into_metadata!(Da, DaMetadata);
+impl_try_into_metadata!(StateUpdate, StateUpdateMetadata);
 
 /// Complete job metadata containing both common and job-specific fields.
 ///

@@ -74,31 +74,36 @@ impl ProverClient for AtlanticProverService {
         cross_verify: bool,
     ) -> Result<TaskStatus, ProverClientError> {
         let res = self.atlantic_client.get_job_status(job_key).await?;
+
         match res.atlantic_query.status {
             AtlanticQueryStatus::InProgress => Ok(TaskStatus::Processing),
+
             AtlanticQueryStatus::Done => {
-                if cross_verify {
-                    match fact {
-                        Some(fact_str) => {
-                            let fact = B256::from_str(&fact_str)
-                                .map_err(|e| ProverClientError::FailedToConvertFact(e.to_string()))?;
-                            tracing::debug!(fact = %hex::encode(fact), "Cross-verifying fact on chain");
-                            if self.fact_checker.is_valid(&fact).await? {
-                                Ok(TaskStatus::Succeeded)
-                            } else {
-                                Ok(TaskStatus::Failed(format!(
-                                    "Fact {} is not valid or not registered",
-                                    hex::encode(fact)
-                                )))
-                            }
-                        }
-                        None => Ok(TaskStatus::Failed("Cross verification enabled but no fact provided".to_string())),
-                    }
-                } else {
+                if !cross_verify {
                     tracing::debug!("Skipping cross-verification as it's disabled");
+                    return Ok(TaskStatus::Succeeded);
+                }
+
+                // Cross verification is enabled
+                let fact_str = match fact {
+                    Some(f) => f,
+                    None => {
+                        return Ok(TaskStatus::Failed("Cross verification enabled but no fact provided".to_string()));
+                    }
+                };
+
+                let fact =
+                    B256::from_str(&fact_str).map_err(|e| ProverClientError::FailedToConvertFact(e.to_string()))?;
+
+                tracing::debug!(fact = %hex::encode(fact), "Cross-verifying fact on chain");
+
+                if self.fact_checker.is_valid(&fact).await? {
                     Ok(TaskStatus::Succeeded)
+                } else {
+                    Ok(TaskStatus::Failed(format!("Fact {} is not valid or not registered", hex::encode(fact))))
                 }
             }
+
             AtlanticQueryStatus::Failed => {
                 Ok(TaskStatus::Failed("Task failed while processing on Atlantic side".to_string()))
             }

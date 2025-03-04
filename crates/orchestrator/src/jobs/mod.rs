@@ -217,7 +217,7 @@ pub trait Job: Send + Sync {
 pub async fn create_job(
     job_type: JobType,
     internal_id: String,
-    mut metadata: JobMetadata,
+    metadata: JobMetadata,
     config: Arc<Config>,
 ) -> Result<(), JobError> {
     let start = Instant::now();
@@ -229,15 +229,6 @@ pub async fn create_job(
         block_no = %internal_id,
         "General create job started for block"
     );
-
-    // Set common metadata fields
-    metadata.common.process_attempt_no = 0;
-    metadata.common.process_retry_attempt_no = 0;
-    metadata.common.verification_attempt_no = 0;
-    metadata.common.verification_retry_attempt_no = 0;
-    metadata.common.failure_reason = None;
-    metadata.common.process_completed_at = None;
-    metadata.common.verification_completed_at = None;
 
     tracing::debug!(
         job_type = ?job_type,
@@ -311,7 +302,7 @@ pub async fn create_job(
 #[tracing::instrument(skip(config), fields(category = "general", job, job_type, internal_id), ret, err)]
 pub async fn process_job(id: Uuid, config: Arc<Config>) -> Result<(), JobError> {
     let start = Instant::now();
-    let job = get_job(id, config.clone()).await?;
+    let mut job = get_job(id, config.clone()).await?;
     let internal_id = job.internal_id.clone();
     tracing::info!(
         log_type = "starting",
@@ -342,9 +333,16 @@ pub async fn process_job(id: Uuid, config: Arc<Config>) -> Result<(), JobError> 
     // the same job, it would fail to update the job in the database because the version would be
     // outdated
     tracing::debug!(job_id = ?id, "Updating job status to LockedForProcessing");
+    job.metadata.common.process_started_at = Some(Utc::now());
     let mut job = config
         .database()
-        .update_job(&job, JobItemUpdates::new().update_status(JobStatus::LockedForProcessing).build())
+        .update_job(
+            &job,
+            JobItemUpdates::new()
+                .update_status(JobStatus::LockedForProcessing)
+                .update_metadata(job.metadata.clone())
+                .build(),
+        )
         .await
         .map_err(|e| {
             tracing::error!(job_id = ?id, error = ?e, "Failed to update job status");
@@ -496,6 +494,17 @@ pub async fn verify_job(id: Uuid, config: Arc<Config>) -> Result<(), JobError> {
 
     let job_handler = factory::get_job_handler(&job.job_type).await;
     tracing::debug!(job_id = ?id, "Verifying job with handler");
+
+    job.metadata.common.verification_started_at = Some(Utc::now());
+    let mut job = config
+        .database()
+        .update_job(&job, JobItemUpdates::new().update_metadata(job.metadata.clone()).build())
+        .await
+        .map_err(|e| {
+            tracing::error!(job_id = ?id, error = ?e, "Failed to update job status");
+            JobError::Other(OtherError(e))
+        })?;
+
     let verification_status = job_handler.verify_job(config.clone(), &mut job).await?;
     tracing::Span::current().record("verification_status", format!("{:?}", &verification_status));
 
@@ -511,8 +520,8 @@ pub async fn verify_job(id: Uuid, config: Arc<Config>) -> Result<(), JobError> {
             tracing::info!(job_id = ?id, "Job verified successfully");
 
             // Calculate verification time if processing completion timestamp exists
-            if let Some(processing_time) = job.metadata.common.process_completed_at {
-                let time_taken = (Utc::now() - processing_time).num_milliseconds();
+            if let Some(verification_time) = job.metadata.common.verification_started_at {
+                let time_taken = (Utc::now() - verification_time).num_milliseconds();
                 ORCHESTRATOR_METRICS
                     .verification_time
                     .record(time_taken as f64, &[KeyValue::new("operation_job_type", format!("{:?}", job.job_type))]);
@@ -520,7 +529,7 @@ pub async fn verify_job(id: Uuid, config: Arc<Config>) -> Result<(), JobError> {
                 tracing::warn!("Failed to calculate verification time: Missing processing completion timestamp");
             }
 
-            // Clear processing timestamp and update status
+            // Update verification completed timestamp and update status
             job.metadata.common.verification_completed_at = Some(Utc::now());
             config
                 .database()

@@ -179,7 +179,7 @@ impl Job for DaJob {
 
         // Check blob limit
         if current_blob_length > max_blob_per_txn {
-            tracing::warn!(
+            tracing::error!(
                 job_id = ?job.id,
                 current_blob_length = current_blob_length,
                 max_blob_per_txn = max_blob_per_txn,
