@@ -35,12 +35,14 @@ jobs:
           sudo apt update
           sudo apt-get install -y clang llvm libudev-dev protobuf-compiler gcc g++ build-essential libssl-dev pkg-config curl wget git libclang-dev
 
-      - name: Install Rust toolchain
-        uses: actions-rs/toolchain@v1
-        with:
-          profile: minimal
-          toolchain: nightly-2024-09-05
-          override: true
+      - name: Install Rust toolchain using rustup
+        run: |
+          curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y
+          source "$HOME/.cargo/env"
+          rustup toolchain install nightly-2024-09-05 --profile minimal
+          rustup default nightly-2024-09-05
+          rustup override set nightly-2024-09-05
+          rustup show
 
       - name: Rust Cache
         uses: Swatinem/rust-cache@v2
