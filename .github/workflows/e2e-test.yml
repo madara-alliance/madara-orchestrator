@@ -34,11 +34,9 @@ jobs:
           sudo apt-get install -y clang llvm libudev-dev protobuf-compiler gcc g++ build-essential libssl-dev pkg-config curl wget git libclang-dev
 
       - name: Install Rust toolchain
-        uses: actions-rs/toolchain@v1
+        uses: dtolnay/rust-toolchain@master
         with:
-          profile: minimal
-          toolchain: stable
-          override: true
+          toolchain: nightly
           components: rustfmt, clippy
 
       - name: Show Rust version
