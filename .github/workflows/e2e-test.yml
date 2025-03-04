@@ -39,9 +39,6 @@ jobs:
           toolchain: nightly
           components: rustfmt, clippy
 
-      - name: Show Rust version
-        run: rustup show
-
       - name: Rust Cache
         uses: Swatinem/rust-cache@v2
 
