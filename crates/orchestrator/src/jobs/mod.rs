@@ -7,7 +7,6 @@ use std::time::{Duration, Instant};
 use async_trait::async_trait;
 use chrono::Utc;
 use color_eyre::eyre::{eyre, Context};
-
 use conversion::parse_string;
 use da_job::DaError;
 use futures::FutureExt;
@@ -22,12 +21,7 @@ use types::{ExternalId, JobItemUpdates};
 use uuid::Uuid;
 
 use crate::config::Config;
-
 use crate::helpers::JobProcessingState;
-use crate::jobs::constants::{
-    JOB_PROCESS_ATTEMPT_METADATA_KEY, JOB_PROCESS_RETRY_ATTEMPT_METADATA_KEY, JOB_VERIFICATION_ATTEMPT_METADATA_KEY,
-    JOB_VERIFICATION_RETRY_ATTEMPT_METADATA_KEY,
-};
 #[double]
 use crate::jobs::job_handler_factory::factory;
 use crate::jobs::metadata::JobMetadata;
@@ -329,7 +323,6 @@ pub async fn process_job(id: Uuid, config: Arc<Config>) -> Result<(), JobError> 
         "General process job started for block"
     );
 
-
     tracing::Span::current().record("job", format!("{:?}", job.clone()));
     tracing::Span::current().record("job_type", format!("{:?}", job.job_type));
     tracing::Span::current().record("internal_id", job.internal_id.clone());
@@ -357,8 +350,6 @@ pub async fn process_job(id: Uuid, config: Arc<Config>) -> Result<(), JobError> 
         None
     };
 
-    let mut metadata = job.metadata.clone();
-    metadata.insert(JOB_METADATA_PROCESSING_STARTED_AT.to_string(), Utc::now().timestamp_millis().to_string());
     // this updates the version of the job. this ensures that if another thread was about to process
     // the same job, it would fail to update the job in the database because the version would be
     // outdated

@@ -18,8 +18,8 @@ use uuid::Uuid;
 use super::{JobError, OtherError};
 use crate::config::Config;
 use crate::data_storage::DataStorage;
+use crate::helpers;
 use crate::jobs::metadata::{JobMetadata, JobSpecificMetadata, SnosMetadata};
-
 use crate::jobs::snos_job::error::FactError;
 use crate::jobs::snos_job::fact_info::get_fact_info;
 use crate::jobs::types::{JobItem, JobStatus, JobType, JobVerificationStatus};
@@ -226,56 +226,36 @@ impl SnosJob {
             .ok_or_else(|| SnosError::Other(OtherError(eyre!("Program output path not found in metadata"))))?;
 
         // Store Cairo Pie
-        let cairo_pie_zip_bytes = self.cairo_pie_to_zip_bytes(cairo_pie).await.map_err(|e| {
-            SnosError::CairoPieUnserializable { internal_id: internal_id.clone(), message: e.to_string() }
-        })?;
-        data_storage
-            .put_data(cairo_pie_zip_bytes, cairo_pie_key)
-            .await
-            .map_err(|e| SnosError::CairoPieUnstorable { internal_id: internal_id.clone(), message: e.to_string() })?;
+        {
+            let cairo_pie_zip_bytes = self.cairo_pie_to_zip_bytes(cairo_pie).await.map_err(|e| {
+                SnosError::CairoPieUnserializable { internal_id: internal_id.clone(), message: e.to_string() }
+            })?;
+            data_storage.put_data(cairo_pie_zip_bytes, cairo_pie_key).await.map_err(|e| {
+                SnosError::CairoPieUnstorable { internal_id: internal_id.clone(), message: e.to_string() }
+            })?;
+        }
 
         // Store SNOS Output
-        let snos_output_json = serde_json::to_vec(&snos_output).map_err(|e| SnosError::SnosOutputUnserializable {
-            internal_id: internal_id.clone(),
-            message: e.to_string(),
-        })?;
-        data_storage.put_data(snos_output_json.into(), snos_output_key).await.map_err(|e| {
-            SnosError::SnosOutputUnstorable { internal_id: internal_id.clone(), message: e.to_string() }
-        })?;
+        {
+            let snos_output_json = serde_json::to_vec(&snos_output).map_err(|e| {
+                SnosError::SnosOutputUnserializable { internal_id: internal_id.clone(), message: e.to_string() }
+            })?;
+            data_storage.put_data(snos_output_json.into(), snos_output_key).await.map_err(|e| {
+                SnosError::SnosOutputUnstorable { internal_id: internal_id.clone(), message: e.to_string() }
+            })?;
+        }
 
         // Store Program Output
-        let program_output: Vec<[u8; 32]> = program_output.iter().map(|f| f.to_bytes_be()).collect();
-        let encoded_data = bincode::serialize(&program_output).map_err(|e| SnosError::ProgramOutputUnserializable {
-            internal_id: internal_id.clone(),
-            message: e.to_string(),
-        })?;
-        data_storage.put_data(encoded_data.into(), program_output_key).await.map_err(|e| {
-            SnosError::ProgramOutputUnstorable { internal_id: internal_id.clone(), message: e.to_string() }
-        })?;
-
-        // Process and store snos_output
         {
-            let snos_output_key = format!("{block_number}/{SNOS_OUTPUT_FILE_NAME}");
-            let snos_output_json = serde_json::to_vec(&snos_output).map_err(|e| {
-                SnosError::SnosOutputUnserializable { internal_id: internal_id.to_string(), message: e.to_string() }
-            })?;
-            data_storage.put_data(snos_output_json.into(), &snos_output_key).await.map_err(|e| {
-                SnosError::SnosOutputUnstorable { internal_id: internal_id.to_string(), message: e.to_string() }
-            })?;
-        }
-
-        // Process and store program_output in chunks if needed
-        {
-            let program_output_key = format!("{block_number}/{PROGRAM_OUTPUT_FILE_NAME}");
-            // TODO: Consider processing in chunks if program_output is very large
             let program_output: Vec<[u8; 32]> = program_output.iter().map(|f| f.to_bytes_be()).collect();
             let encoded_data = bincode::serialize(&program_output).map_err(|e| {
-                SnosError::ProgramOutputUnserializable { internal_id: internal_id.to_string(), message: e.to_string() }
+                SnosError::ProgramOutputUnserializable { internal_id: internal_id.clone(), message: e.to_string() }
             })?;
-            data_storage.put_data(encoded_data.into(), &program_output_key).await.map_err(|e| {
-                SnosError::ProgramOutputUnstorable { internal_id: internal_id.to_string(), message: e.to_string() }
+            data_storage.put_data(encoded_data.into(), program_output_key).await.map_err(|e| {
+                SnosError::ProgramOutputUnstorable { internal_id: internal_id.clone(), message: e.to_string() }
             })?;
         }
+
         Ok(())
     }
 

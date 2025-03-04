@@ -7,8 +7,8 @@ use uuid::Uuid;
 
 use super::JobError;
 use crate::config::Config;
+use crate::helpers;
 use crate::jobs::metadata::JobMetadata;
-
 use crate::jobs::types::{JobItem, JobStatus, JobType, JobVerificationStatus};
 use crate::jobs::Job;
 

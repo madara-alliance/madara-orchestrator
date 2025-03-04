@@ -1,7 +1,6 @@
 pub mod utils;
 
 use std::sync::Arc;
-use std::time::Duration;
 
 use ::utils::collections::{has_dup, is_sorted};
 use async_trait::async_trait;
@@ -11,16 +10,15 @@ use color_eyre::eyre::eyre;
 use settlement_client_interface::SettlementVerificationStatus;
 use starknet_os::io::output::StarknetOsOutput;
 use thiserror::Error;
-use tokio::time::sleep;
 use uuid::Uuid;
 
 use super::{JobError, OtherError};
 use crate::config::Config;
+use crate::helpers;
 use crate::jobs::metadata::{JobMetadata, JobSpecificMetadata, StateUpdateMetadata};
 use crate::jobs::state_update_job::utils::{
     fetch_blob_data_for_block, fetch_program_output_for_block, fetch_snos_for_block,
 };
-
 use crate::jobs::types::{JobItem, JobStatus, JobType, JobVerificationStatus};
 use crate::jobs::Job;
 
@@ -172,7 +170,8 @@ impl Job for StateUpdateJob {
             let blob_data = fetch_blob_data_for_block(i, config.clone(), &blob_data_paths).await?;
             let txn_hash = match self
                 .update_state_for_block(config.clone(), block_no, snos, nonce, program_output, blob_data)
-                .await{
+                .await
+            {
                 Ok(hash) => hash,
                 Err(e) => {
                     tracing::error!(job_id = %job.internal_id, block_no = %block_no, error = %e, "Error updating state for block");

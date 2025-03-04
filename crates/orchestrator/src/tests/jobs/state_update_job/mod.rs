@@ -10,7 +10,6 @@ use lazy_static::lazy_static;
 use mockall::predicate::{always, eq};
 use num_bigint::BigUint;
 use rstest::*;
-use serde_json;
 use settlement_client_interface::MockSettlementClient;
 use starknet::providers::jsonrpc::HttpTransport;
 use starknet::providers::JsonRpcClient;
@@ -18,7 +17,6 @@ use url::Url;
 
 use crate::constants::{BLOB_DATA_FILE_NAME, PROGRAM_OUTPUT_FILE_NAME, SNOS_OUTPUT_FILE_NAME};
 use crate::data_storage::MockDataStorage;
-use crate::jobs::constants::{JOB_METADATA_STATE_UPDATE_FETCH_FROM_TESTS, JOB_PROCESS_ATTEMPT_METADATA_KEY};
 use crate::jobs::metadata::{CommonMetadata, JobMetadata, JobSpecificMetadata, StateUpdateMetadata};
 use crate::jobs::state_update_job::utils::hex_string_to_u8_vec;
 use crate::jobs::state_update_job::{StateUpdateError, StateUpdateJob};
