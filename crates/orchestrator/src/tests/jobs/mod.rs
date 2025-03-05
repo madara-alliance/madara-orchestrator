@@ -9,6 +9,7 @@ use tokio::time::sleep;
 use uuid::Uuid;
 
 use super::database::build_job_item;
+use crate::constants::{BLOB_DATA_FILE_NAME, CAIRO_PIE_FILE_NAME, PROGRAM_OUTPUT_FILE_NAME, SNOS_OUTPUT_FILE_NAME};
 use crate::jobs::job_handler_factory::mock_factory;
 use crate::jobs::metadata::{
     CommonMetadata, DaMetadata, JobMetadata, JobSpecificMetadata, ProvingInputType, ProvingMetadata, SnosMetadata,
@@ -109,7 +110,7 @@ async fn create_job_job_exists_in_db_works() {
         common: CommonMetadata::default(),
         specific: JobSpecificMetadata::Proving(ProvingMetadata {
             block_number: 0,
-            input_path: Some(ProvingInputType::CairoPie("0/cairo_pie.zip".to_string())),
+            input_path: Some(ProvingInputType::CairoPie(format!("{}/{}", "0", CAIRO_PIE_FILE_NAME))),
             ensure_on_chain_registration: None,
             download_proof: None,
         }),
@@ -153,7 +154,7 @@ async fn create_job_job_handler_is_not_implemented_panics() {
         common: CommonMetadata::default(),
         specific: JobSpecificMetadata::Proving(ProvingMetadata {
             block_number: 0,
-            input_path: Some(ProvingInputType::CairoPie("0/cairo_pie.zip".to_string())),
+            input_path: Some(ProvingInputType::CairoPie(format!("{}/{}", "0", CAIRO_PIE_FILE_NAME))),
             ensure_on_chain_registration: None,
             download_proof: None,
         }),
@@ -691,27 +692,27 @@ fn build_job_item_by_type_and_status(job_type: JobType, job_status: JobStatus, i
         JobType::SnosRun => JobSpecificMetadata::Snos(SnosMetadata {
             block_number,
             full_output: false,
-            cairo_pie_path: Some(format!("{}/cairo_pie.zip", block_number)),
-            snos_output_path: Some(format!("{}/snos_output.json", block_number)),
-            program_output_path: Some(format!("{}/program_output.txt", block_number)),
+            cairo_pie_path: Some(format!("{}/{}", block_number, CAIRO_PIE_FILE_NAME)),
+            snos_output_path: Some(format!("{}/{}", block_number, SNOS_OUTPUT_FILE_NAME)),
+            program_output_path: Some(format!("{}/{}", block_number, PROGRAM_OUTPUT_FILE_NAME)),
             snos_fact: None,
         }),
         JobType::DataSubmission => JobSpecificMetadata::Da(DaMetadata {
             block_number,
-            blob_data_path: Some(format!("{}/blob_data.txt", block_number)),
+            blob_data_path: Some(format!("{}/{}", block_number, BLOB_DATA_FILE_NAME)),
             tx_hash: None,
         }),
         JobType::ProofCreation => JobSpecificMetadata::Proving(ProvingMetadata {
             block_number,
-            input_path: Some(ProvingInputType::CairoPie(format!("{}/cairo_pie.zip", block_number))),
+            input_path: Some(ProvingInputType::CairoPie(format!("{}/{}", block_number, CAIRO_PIE_FILE_NAME))),
             ensure_on_chain_registration: None,
             download_proof: None,
         }),
         JobType::StateTransition => JobSpecificMetadata::StateUpdate(StateUpdateMetadata {
             blocks_to_settle: vec![block_number],
-            snos_output_paths: vec![format!("{}/snos_output.json", block_number)],
-            program_output_paths: vec![format!("{}/program_output.txt", block_number)],
-            blob_data_paths: vec![format!("{}/blob_data.txt", block_number)],
+            snos_output_paths: vec![format!("{}/{}", block_number, SNOS_OUTPUT_FILE_NAME)],
+            program_output_paths: vec![format!("{}/{}", block_number, PROGRAM_OUTPUT_FILE_NAME)],
+            blob_data_paths: vec![format!("{}/{}", block_number, BLOB_DATA_FILE_NAME)],
             last_failed_block_no: None,
             tx_hashes: Vec::new(),
         }),

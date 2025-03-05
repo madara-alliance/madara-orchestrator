@@ -29,7 +29,6 @@ use crate::jobs::types::{JobItem, JobStatus, JobType, JobVerificationStatus};
 use crate::metrics::ORCHESTRATOR_METRICS;
 use crate::queue::job_queue::{add_job_to_process_queue, add_job_to_verification_queue, ConsumptionError};
 
-pub mod constants;
 pub mod conversion;
 pub mod da_job;
 pub mod job_handler_factory;

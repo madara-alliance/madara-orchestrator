@@ -2,6 +2,7 @@ use chrono::{SubsecRound, Utc};
 use rstest::*;
 use uuid::Uuid;
 
+use crate::constants::{BLOB_DATA_FILE_NAME, CAIRO_PIE_FILE_NAME, PROGRAM_OUTPUT_FILE_NAME, SNOS_OUTPUT_FILE_NAME};
 use crate::jobs::metadata::{
     CommonMetadata, DaMetadata, JobMetadata, JobSpecificMetadata, ProvingInputType, ProvingMetadata, SnosMetadata,
     StateUpdateMetadata,
@@ -254,9 +255,9 @@ pub fn build_job_item(job_type: JobType, job_status: JobStatus, internal_id: u64
             common: CommonMetadata::default(),
             specific: JobSpecificMetadata::StateUpdate(StateUpdateMetadata {
                 blocks_to_settle: vec![internal_id],
-                snos_output_paths: vec![format!("{}/snos_output.json", internal_id)],
-                program_output_paths: vec![format!("{}/program_output.txt", internal_id)],
-                blob_data_paths: vec![format!("{}/blob_data.txt", internal_id)],
+                snos_output_paths: vec![format!("{}/{}", internal_id, SNOS_OUTPUT_FILE_NAME)],
+                program_output_paths: vec![format!("{}/{}", internal_id, PROGRAM_OUTPUT_FILE_NAME)],
+                blob_data_paths: vec![format!("{}/{}", internal_id, BLOB_DATA_FILE_NAME)],
                 last_failed_block_no: None,
                 tx_hashes: Vec::new(),
             }),
@@ -266,9 +267,9 @@ pub fn build_job_item(job_type: JobType, job_status: JobStatus, internal_id: u64
             specific: JobSpecificMetadata::Snos(SnosMetadata {
                 block_number: internal_id,
                 full_output: false,
-                cairo_pie_path: Some(format!("{}/cairo_pie.zip", internal_id)),
-                snos_output_path: Some(format!("{}/snos_output.json", internal_id)),
-                program_output_path: Some(format!("{}/program_output.txt", internal_id)),
+                cairo_pie_path: Some(format!("{}/{}", internal_id, CAIRO_PIE_FILE_NAME)),
+                snos_output_path: Some(format!("{}/{}", internal_id, SNOS_OUTPUT_FILE_NAME)),
+                program_output_path: Some(format!("{}/{}", internal_id, PROGRAM_OUTPUT_FILE_NAME)),
                 snos_fact: None,
             }),
         },
@@ -276,7 +277,7 @@ pub fn build_job_item(job_type: JobType, job_status: JobStatus, internal_id: u64
             common: CommonMetadata::default(),
             specific: JobSpecificMetadata::Proving(ProvingMetadata {
                 block_number: internal_id,
-                input_path: Some(ProvingInputType::CairoPie(format!("{}/cairo_pie.zip", internal_id))),
+                input_path: Some(ProvingInputType::CairoPie(format!("{}/{}", internal_id, CAIRO_PIE_FILE_NAME))),
                 ensure_on_chain_registration: None,
                 download_proof: None,
             }),
@@ -285,7 +286,7 @@ pub fn build_job_item(job_type: JobType, job_status: JobStatus, internal_id: u64
             common: CommonMetadata::default(),
             specific: JobSpecificMetadata::Da(DaMetadata {
                 block_number: internal_id,
-                blob_data_path: Some(format!("{}/blob_data.txt", internal_id)),
+                blob_data_path: Some(format!("{}/{}", internal_id, BLOB_DATA_FILE_NAME)),
                 tx_hash: None,
             }),
         },

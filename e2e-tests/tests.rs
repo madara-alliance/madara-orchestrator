@@ -13,6 +13,9 @@ use e2e_tests::utils::{get_mongo_db_client, read_state_update_from_file, vec_u8_
 use e2e_tests::{MongoDbServer, Orchestrator};
 use mongodb::bson::doc;
 use orchestrator::cli::database::DatabaseValidatedArgs;
+use orchestrator::constants::{
+    BLOB_DATA_FILE_NAME, CAIRO_PIE_FILE_NAME, PROGRAM_OUTPUT_FILE_NAME, SNOS_OUTPUT_FILE_NAME,
+};
 use orchestrator::data_storage::DataStorage;
 use orchestrator::database::mongodb::MongoDBValidatedArgs;
 use orchestrator::jobs::metadata::{
@@ -282,9 +285,9 @@ pub async fn put_job_data_in_db_snos(mongo_db: &MongoDbServer, l2_block_number: 
     let snos_metadata = SnosMetadata {
         block_number: l2_block_number.parse().expect("Invalid block number"),
         full_output: false,
-        cairo_pie_path: Some(format!("{}/cairo_pie.zip", l2_block_number.clone())),
-        snos_output_path: Some(format!("{}/snos_output.json", l2_block_number.clone())),
-        program_output_path: Some(format!("{}/program_output.txt", l2_block_number.clone())),
+        cairo_pie_path: Some(format!("{}/{}", l2_block_number.clone(), CAIRO_PIE_FILE_NAME)),
+        snos_output_path: Some(format!("{}/{}", l2_block_number.clone(), SNOS_OUTPUT_FILE_NAME)),
+        program_output_path: Some(format!("{}/{}", l2_block_number.clone(), PROGRAM_OUTPUT_FILE_NAME)),
         snos_fact: None,
     };
 
@@ -378,7 +381,7 @@ pub async fn put_job_data_in_db_da(mongo_db: &MongoDbServer, l2_block_number: St
     // Create the DA-specific metadata
     let da_metadata = DaMetadata {
         block_number: l2_block_number.parse::<u64>().unwrap() - 1,
-        blob_data_path: Some(format!("{}/blob_data.txt", l2_block_number.clone())),
+        blob_data_path: Some(format!("{}/{}", l2_block_number.clone(), BLOB_DATA_FILE_NAME)),
         tx_hash: None,
     };
 
@@ -469,9 +472,9 @@ pub async fn put_job_data_in_db_update_state(mongo_db: &MongoDbServer, l2_block_
     // Create the StateUpdate-specific metadata
     let state_update_metadata = StateUpdateMetadata {
         blocks_to_settle: vec![block_number],
-        snos_output_paths: vec![format!("{}/snos_output.json", block_number)],
-        program_output_paths: vec![format!("{}/program_output.txt", block_number)],
-        blob_data_paths: vec![format!("{}/blob_data.txt", block_number)],
+        snos_output_paths: vec![format!("{}/{}", block_number, SNOS_OUTPUT_FILE_NAME)],
+        program_output_paths: vec![format!("{}/{}", block_number, PROGRAM_OUTPUT_FILE_NAME)],
+        blob_data_paths: vec![format!("{}/{}", block_number, BLOB_DATA_FILE_NAME)],
         last_failed_block_no: None,
         tx_hashes: Vec::new(),
     };

@@ -397,19 +397,19 @@ async fn process_job_invalid_input_gap_panics() {
         specific: JobSpecificMetadata::StateUpdate(StateUpdateMetadata {
             blocks_to_settle: vec![6, 7, 8], // Gap between 4 and 6
             snos_output_paths: vec![
-                "6/snos_output.json".to_string(),
-                "7/snos_output.json".to_string(),
-                "8/snos_output.json".to_string(),
+                format!("{}/{}", 6, SNOS_OUTPUT_FILE_NAME),
+                format!("{}/{}", 7, SNOS_OUTPUT_FILE_NAME),
+                format!("{}/{}", 8, SNOS_OUTPUT_FILE_NAME),
             ],
             program_output_paths: vec![
-                "6/program_output.txt".to_string(),
-                "7/program_output.txt".to_string(),
-                "8/program_output.txt".to_string(),
+                format!("{}/{}", 6, PROGRAM_OUTPUT_FILE_NAME),
+                format!("{}/{}", 7, PROGRAM_OUTPUT_FILE_NAME),
+                format!("{}/{}", 8, PROGRAM_OUTPUT_FILE_NAME),
             ],
             blob_data_paths: vec![
-                "6/blob_data.txt".to_string(),
-                "7/blob_data.txt".to_string(),
-                "8/blob_data.txt".to_string(),
+                format!("{}/{}", 6, BLOB_DATA_FILE_NAME),
+                format!("{}/{}", 7, BLOB_DATA_FILE_NAME),
+                format!("{}/{}", 8, BLOB_DATA_FILE_NAME),
             ],
             last_failed_block_no: None,
             tx_hashes: vec![],

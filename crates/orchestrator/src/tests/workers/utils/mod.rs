@@ -5,6 +5,7 @@ use mockall::predicate::eq;
 use uuid::Uuid;
 
 use crate::config::Config;
+use crate::constants::{BLOB_DATA_FILE_NAME, CAIRO_PIE_FILE_NAME, PROGRAM_OUTPUT_FILE_NAME, SNOS_OUTPUT_FILE_NAME};
 use crate::database::MockDatabase;
 use crate::jobs::metadata::{
     CommonMetadata, DaMetadata, JobMetadata, JobSpecificMetadata, ProvingInputType, ProvingMetadata, SnosMetadata,
@@ -23,9 +24,9 @@ pub fn get_job_item_mock_by_id(id: String, uuid: Uuid) -> JobItem {
         specific: JobSpecificMetadata::Snos(SnosMetadata {
             block_number,
             full_output: false,
-            cairo_pie_path: Some(format!("{}/cairo_pie.zip", block_number)),
-            snos_output_path: Some(format!("{}/snos_output.json", block_number)),
-            program_output_path: Some(format!("{}/program_output.txt", block_number)),
+            cairo_pie_path: Some(format!("{}/{}", block_number, CAIRO_PIE_FILE_NAME)),
+            snos_output_path: Some(format!("{}/{}", block_number, SNOS_OUTPUT_FILE_NAME)),
+            program_output_path: Some(format!("{}/{}", block_number, PROGRAM_OUTPUT_FILE_NAME)),
             snos_fact: None,
         }),
     };
@@ -92,9 +93,9 @@ fn create_metadata_for_job_type(job_type: JobType, block_number: u64) -> JobMeta
             specific: JobSpecificMetadata::Snos(SnosMetadata {
                 block_number,
                 full_output: false,
-                cairo_pie_path: Some(format!("{}/cairo_pie.zip", block_number)),
-                snos_output_path: Some(format!("{}/snos_output.json", block_number)),
-                program_output_path: Some(format!("{}/program_output.txt", block_number)),
+                cairo_pie_path: Some(format!("{}/{}", block_number, CAIRO_PIE_FILE_NAME)),
+                snos_output_path: Some(format!("{}/{}", block_number, SNOS_OUTPUT_FILE_NAME)),
+                program_output_path: Some(format!("{}/{}", block_number, PROGRAM_OUTPUT_FILE_NAME)),
                 snos_fact: Some(String::from("0xdeadbeef")),
             }),
         },
@@ -102,7 +103,7 @@ fn create_metadata_for_job_type(job_type: JobType, block_number: u64) -> JobMeta
             common: CommonMetadata::default(),
             specific: JobSpecificMetadata::Da(DaMetadata {
                 block_number,
-                blob_data_path: Some(format!("{}/blob_data.txt", block_number)),
+                blob_data_path: Some(format!("{}/{}", block_number, BLOB_DATA_FILE_NAME)),
                 tx_hash: None,
             }),
         },
@@ -110,7 +111,7 @@ fn create_metadata_for_job_type(job_type: JobType, block_number: u64) -> JobMeta
             common: CommonMetadata::default(),
             specific: JobSpecificMetadata::Proving(ProvingMetadata {
                 block_number,
-                input_path: Some(ProvingInputType::CairoPie(format!("{}/cairo_pie.zip", block_number))),
+                input_path: Some(ProvingInputType::CairoPie(format!("{}/{}", block_number, CAIRO_PIE_FILE_NAME))),
                 ensure_on_chain_registration: None,
                 download_proof: None,
             }),
@@ -119,9 +120,9 @@ fn create_metadata_for_job_type(job_type: JobType, block_number: u64) -> JobMeta
             common: CommonMetadata::default(),
             specific: JobSpecificMetadata::StateUpdate(StateUpdateMetadata {
                 blocks_to_settle: vec![block_number],
-                snos_output_paths: vec![format!("{}/snos_output.json", block_number)],
-                program_output_paths: vec![format!("{}/program_output.txt", block_number)],
-                blob_data_paths: vec![format!("{}/blob_data.txt", block_number)],
+                snos_output_paths: vec![format!("{}/{}", block_number, SNOS_OUTPUT_FILE_NAME)],
+                program_output_paths: vec![format!("{}/{}", block_number, PROGRAM_OUTPUT_FILE_NAME)],
+                blob_data_paths: vec![format!("{}/{}", block_number, BLOB_DATA_FILE_NAME)],
                 last_failed_block_no: None,
                 tx_hashes: Vec::new(),
             }),
@@ -202,7 +203,7 @@ pub fn db_checks_proving_worker(id: i32, db: &mut MockDatabase, mock_job: &mut M
         common: CommonMetadata::default(),
         specific: JobSpecificMetadata::Proving(ProvingMetadata {
             block_number,
-            input_path: Some(ProvingInputType::CairoPie(format!("{}/cairo_pie.zip", block_number))),
+            input_path: Some(ProvingInputType::CairoPie(format!("{}/{}", block_number, CAIRO_PIE_FILE_NAME))),
             ensure_on_chain_registration: Some(format!("0x{:064x}", block_number)), // Add the SNOS fact
             download_proof: None,
         }),

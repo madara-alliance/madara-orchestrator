@@ -4,6 +4,7 @@ use mockall::predicate::eq;
 use rstest::*;
 use uuid::Uuid;
 
+use crate::constants::{BLOB_DATA_FILE_NAME, PROGRAM_OUTPUT_FILE_NAME, SNOS_OUTPUT_FILE_NAME};
 use crate::jobs::job_handler_factory::mock_factory;
 use crate::jobs::metadata::{CommonMetadata, JobMetadata, JobSpecificMetadata, StateUpdateMetadata};
 use crate::jobs::state_update_job::StateUpdateJob;
@@ -141,25 +142,25 @@ async fn update_state_worker_continues_from_previous_state_update() {
     let state_metadata = StateUpdateMetadata {
         blocks_to_settle: vec![0, 1, 2, 3, 4],
         snos_output_paths: vec![
-            "0/snos_output.json".to_string(),
-            "1/snos_output.json".to_string(),
-            "2/snos_output.json".to_string(),
-            "3/snos_output.json".to_string(),
-            "4/snos_output.json".to_string(),
+            format!("{}/{}", 0, SNOS_OUTPUT_FILE_NAME),
+            format!("{}/{}", 1, SNOS_OUTPUT_FILE_NAME),
+            format!("{}/{}", 2, SNOS_OUTPUT_FILE_NAME),
+            format!("{}/{}", 3, SNOS_OUTPUT_FILE_NAME),
+            format!("{}/{}", 4, SNOS_OUTPUT_FILE_NAME),
         ],
         program_output_paths: vec![
-            "0/program_output.txt".to_string(),
-            "1/program_output.txt".to_string(),
-            "2/program_output.txt".to_string(),
-            "3/program_output.txt".to_string(),
-            "4/program_output.txt".to_string(),
+            format!("{}/{}", 0, PROGRAM_OUTPUT_FILE_NAME),
+            format!("{}/{}", 1, PROGRAM_OUTPUT_FILE_NAME),
+            format!("{}/{}", 2, PROGRAM_OUTPUT_FILE_NAME),
+            format!("{}/{}", 3, PROGRAM_OUTPUT_FILE_NAME),
+            format!("{}/{}", 4, PROGRAM_OUTPUT_FILE_NAME),
         ],
         blob_data_paths: vec![
-            "0/blob_data.txt".to_string(),
-            "1/blob_data.txt".to_string(),
-            "2/blob_data.txt".to_string(),
-            "3/blob_data.txt".to_string(),
-            "4/blob_data.txt".to_string(),
+            format!("{}/{}", 0, BLOB_DATA_FILE_NAME),
+            format!("{}/{}", 1, BLOB_DATA_FILE_NAME),
+            format!("{}/{}", 2, BLOB_DATA_FILE_NAME),
+            format!("{}/{}", 3, BLOB_DATA_FILE_NAME),
+            format!("{}/{}", 4, BLOB_DATA_FILE_NAME),
         ],
         last_failed_block_no: None,
         tx_hashes: Vec::new(),
@@ -210,25 +211,25 @@ async fn update_state_worker_next_block_missing() {
     let state_metadata = StateUpdateMetadata {
         blocks_to_settle: vec![0, 1, 2, 3, 4],
         snos_output_paths: vec![
-            "0/snos_output.json".to_string(),
-            "1/snos_output.json".to_string(),
-            "2/snos_output.json".to_string(),
-            "3/snos_output.json".to_string(),
-            "4/snos_output.json".to_string(),
+            format!("{}/{}", 0, SNOS_OUTPUT_FILE_NAME),
+            format!("{}/{}", 1, SNOS_OUTPUT_FILE_NAME),
+            format!("{}/{}", 2, SNOS_OUTPUT_FILE_NAME),
+            format!("{}/{}", 3, SNOS_OUTPUT_FILE_NAME),
+            format!("{}/{}", 4, SNOS_OUTPUT_FILE_NAME),
         ],
         program_output_paths: vec![
-            "0/program_output.txt".to_string(),
-            "1/program_output.txt".to_string(),
-            "2/program_output.txt".to_string(),
-            "3/program_output.txt".to_string(),
-            "4/program_output.txt".to_string(),
+            format!("{}/{}", 0, PROGRAM_OUTPUT_FILE_NAME),
+            format!("{}/{}", 1, PROGRAM_OUTPUT_FILE_NAME),
+            format!("{}/{}", 2, PROGRAM_OUTPUT_FILE_NAME),
+            format!("{}/{}", 3, PROGRAM_OUTPUT_FILE_NAME),
+            format!("{}/{}", 4, PROGRAM_OUTPUT_FILE_NAME),
         ],
         blob_data_paths: vec![
-            "0/blob_data.txt".to_string(),
-            "1/blob_data.txt".to_string(),
-            "2/blob_data.txt".to_string(),
-            "3/blob_data.txt".to_string(),
-            "4/blob_data.txt".to_string(),
+            format!("{}/{}", 0, BLOB_DATA_FILE_NAME),
+            format!("{}/{}", 1, BLOB_DATA_FILE_NAME),
+            format!("{}/{}", 2, BLOB_DATA_FILE_NAME),
+            format!("{}/{}", 3, BLOB_DATA_FILE_NAME),
+            format!("{}/{}", 4, BLOB_DATA_FILE_NAME),
         ],
         last_failed_block_no: None,
         tx_hashes: Vec::new(),

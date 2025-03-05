@@ -8,13 +8,13 @@ use serde_json::json;
 use starknet::core::types::{Felt, MaybePendingStateUpdate, PendingStateUpdate, StateDiff};
 use uuid::Uuid;
 
+use crate::constants::BLOB_DATA_FILE_NAME;
 use crate::jobs::da_job::test::{get_nonce_attached, read_state_update_from_file};
 use crate::jobs::da_job::{DaError, DaJob};
 use crate::jobs::metadata::{CommonMetadata, DaMetadata, JobMetadata, JobSpecificMetadata};
 use crate::jobs::types::{ExternalId, JobItem, JobStatus, JobType};
 use crate::jobs::{Job, JobError};
 use crate::tests::config::{ConfigType, TestConfigBuilder};
-
 /// Tests the DA Job's handling of a blob length exceeding the supported size.
 /// It mocks the DA client to simulate the environment and expects an error on job processing.
 /// Validates the error message for exceeding blob limits against the expected output.
@@ -64,7 +64,7 @@ async fn test_da_job_process_job_failure_on_small_blob_size(
         common: CommonMetadata::default(),
         specific: JobSpecificMetadata::Da(DaMetadata {
             block_number,
-            blob_data_path: Some(format!("{}/blob_data.txt", block_number)),
+            blob_data_path: Some(format!("{}/{}", block_number, BLOB_DATA_FILE_NAME)),
             tx_hash: None,
         }),
     };
@@ -138,7 +138,7 @@ async fn test_da_job_process_job_failure_on_pending_block() {
         common: CommonMetadata::default(),
         specific: JobSpecificMetadata::Da(DaMetadata {
             block_number,
-            blob_data_path: Some(format!("{}/blob_data.txt", block_number)),
+            blob_data_path: Some(format!("{}/{}", block_number, BLOB_DATA_FILE_NAME)),
             tx_hash: None,
         }),
     };
@@ -232,7 +232,7 @@ async fn test_da_job_process_job_success(
         common: CommonMetadata::default(),
         specific: JobSpecificMetadata::Da(DaMetadata {
             block_number,
-            blob_data_path: Some(format!("{}/blob_data.txt", block_number)),
+            blob_data_path: Some(format!("{}/{}", block_number, BLOB_DATA_FILE_NAME)),
             tx_hash: None,
         }),
     };
