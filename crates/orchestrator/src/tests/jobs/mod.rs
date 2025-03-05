@@ -6,21 +6,19 @@ use mongodb::bson::doc;
 use omniqueue::QueueError;
 use rstest::rstest;
 use tokio::time::sleep;
-use uuid::Uuid;
 
-use super::database::build_job_item;
-use crate::constants::{BLOB_DATA_FILE_NAME, CAIRO_PIE_FILE_NAME, PROGRAM_OUTPUT_FILE_NAME, SNOS_OUTPUT_FILE_NAME};
+use crate::constants::CAIRO_PIE_FILE_NAME;
 use crate::jobs::job_handler_factory::mock_factory;
 use crate::jobs::metadata::{
-    CommonMetadata, DaMetadata, JobMetadata, JobSpecificMetadata, ProvingInputType, ProvingMetadata, SnosMetadata,
-    StateUpdateMetadata,
+    CommonMetadata, JobMetadata, JobSpecificMetadata, ProvingInputType, ProvingMetadata, SnosMetadata,
 };
-use crate::jobs::types::{ExternalId, JobItem, JobStatus, JobType, JobVerificationStatus};
+use crate::jobs::types::{ExternalId, JobStatus, JobType, JobVerificationStatus};
 use crate::jobs::{create_job, handle_job_failure, process_job, retry_job, verify_job, Job, JobError, MockJob};
 use crate::queue::job_queue::QueueNameForJobType;
 use crate::queue::QueueType;
 use crate::tests::common::MessagePayloadType;
 use crate::tests::config::{ConfigType, TestConfigBuilder};
+use crate::tests::utils::build_job_item;
 
 #[cfg(test)]
 pub mod da_job;
@@ -35,13 +33,12 @@ pub mod state_update_job;
 pub mod snos_job;
 
 use assert_matches::assert_matches;
-use chrono::{SubsecRound, Utc};
 
 /// Tests `create_job` function when job is not existing in the db.
 #[rstest]
 #[tokio::test]
 async fn create_job_job_does_not_exists_in_db_works() {
-    let job_item = build_job_item_by_type_and_status(JobType::SnosRun, JobStatus::Created, "0".to_string());
+    let job_item = build_job_item(JobType::SnosRun, JobStatus::Created, 0);
     let mut job_handler = MockJob::new();
 
     // Adding expectation for creation of new job.
@@ -94,7 +91,7 @@ async fn create_job_job_does_not_exists_in_db_works() {
 #[rstest]
 #[tokio::test]
 async fn create_job_job_exists_in_db_works() {
-    let job_item = build_job_item_by_type_and_status(JobType::ProofCreation, JobStatus::Created, "0".to_string());
+    let job_item = build_job_item(JobType::ProofCreation, JobStatus::Created, 0);
 
     let services = TestConfigBuilder::new()
         .configure_database(ConfigType::Actual)
@@ -190,7 +187,7 @@ async fn process_job_with_job_exists_in_db_and_valid_job_processing_status_works
     let database_client = services.config.database();
 
     // Create a job with proper metadata structure
-    let job_item = build_job_item_by_type_and_status(job_type.clone(), job_status.clone(), "1".to_string());
+    let job_item = build_job_item(job_type.clone(), job_status.clone(), 1);
 
     let mut job_handler = MockJob::new();
 
@@ -244,7 +241,7 @@ async fn process_job_handles_panic() {
     let database_client = services.config.database();
 
     // Create a job with proper metadata structure
-    let job_item = build_job_item_by_type_and_status(JobType::SnosRun, JobStatus::Created, "1".to_string());
+    let job_item = build_job_item(JobType::SnosRun, JobStatus::Created, 1);
 
     // Creating job in database
     database_client.create_job(job_item.clone()).await.unwrap();
@@ -286,7 +283,7 @@ async fn process_job_handles_panic() {
 #[tokio::test]
 async fn process_job_with_job_exists_in_db_with_invalid_job_processing_status_errors() {
     // Creating a job with Completed status which is invalid processing.
-    let job_item = build_job_item_by_type_and_status(JobType::SnosRun, JobStatus::Completed, "1".to_string());
+    let job_item = build_job_item(JobType::SnosRun, JobStatus::Completed, 1);
 
     // building config
     let services = TestConfigBuilder::new()
@@ -320,7 +317,7 @@ async fn process_job_with_job_exists_in_db_with_invalid_job_processing_status_er
 #[tokio::test]
 async fn process_job_job_does_not_exists_in_db_works() {
     // Creating a valid job which is not existing in the db.
-    let job_item = build_job_item_by_type_and_status(JobType::SnosRun, JobStatus::Created, "1".to_string());
+    let job_item = build_job_item(JobType::SnosRun, JobStatus::Created, 1);
 
     // building config
     let services = TestConfigBuilder::new()
@@ -366,7 +363,7 @@ async fn process_job_two_workers_process_same_job_works() {
         .await;
     let db_client = services.config.database();
 
-    let job_item = build_job_item_by_type_and_status(JobType::SnosRun, JobStatus::Created, "1".to_string());
+    let job_item = build_job_item(JobType::SnosRun, JobStatus::Created, 1);
 
     // Creating the job in the db
     db_client.create_job(job_item.clone()).await.unwrap();
@@ -422,7 +419,7 @@ async fn process_job_job_handler_returns_error_works() {
         .await;
     let db_client = services.config.database();
 
-    let job_item = build_job_item_by_type_and_status(JobType::SnosRun, JobStatus::Created, "1".to_string());
+    let job_item = build_job_item(JobType::SnosRun, JobStatus::Created, 1);
 
     // Creating the job in the db
     db_client.create_job(job_item.clone()).await.unwrap();
@@ -439,8 +436,7 @@ async fn process_job_job_handler_returns_error_works() {
 #[rstest]
 #[tokio::test]
 async fn verify_job_with_verified_status_works() {
-    let job_item =
-        build_job_item_by_type_and_status(JobType::DataSubmission, JobStatus::PendingVerification, "1".to_string());
+    let job_item = build_job_item(JobType::DataSubmission, JobStatus::PendingVerification, 1);
 
     // building config
     let services = TestConfigBuilder::new()
@@ -486,8 +482,7 @@ async fn verify_job_with_verified_status_works() {
 #[rstest]
 #[tokio::test]
 async fn verify_job_with_rejected_status_adds_to_queue_works() {
-    let job_item =
-        build_job_item_by_type_and_status(JobType::DataSubmission, JobStatus::PendingVerification, "1".to_string());
+    let job_item = build_job_item(JobType::DataSubmission, JobStatus::PendingVerification, 1);
 
     // building config
     let services = TestConfigBuilder::new()
@@ -541,8 +536,7 @@ async fn verify_job_with_rejected_status_works() {
     let database_client = services.config.database();
 
     // Create a job with proper metadata structure
-    let mut job_item =
-        build_job_item_by_type_and_status(JobType::DataSubmission, JobStatus::PendingVerification, "1".to_string());
+    let mut job_item = build_job_item(JobType::DataSubmission, JobStatus::PendingVerification, 1);
 
     // Set process_attempt_no to 1 to simulate max attempts reached
     job_item.metadata.common.process_attempt_no = 1;
@@ -593,8 +587,7 @@ async fn verify_job_with_pending_status_adds_to_queue_works() {
     let database_client = services.config.database();
 
     // Create a job with proper metadata structure
-    let job_item =
-        build_job_item_by_type_and_status(JobType::DataSubmission, JobStatus::PendingVerification, "1".to_string());
+    let job_item = build_job_item(JobType::DataSubmission, JobStatus::PendingVerification, 1);
 
     // Creating job in database
     database_client.create_job(job_item.clone()).await.unwrap();
@@ -646,8 +639,7 @@ async fn verify_job_with_pending_status_works() {
     let database_client = services.config.database();
 
     // Create a job with proper metadata structure
-    let mut job_item =
-        build_job_item_by_type_and_status(JobType::DataSubmission, JobStatus::PendingVerification, "1".to_string());
+    let mut job_item = build_job_item(JobType::DataSubmission, JobStatus::PendingVerification, 1);
 
     // Set verification_attempt_no to 1 to simulate max attempts reached
     job_item.metadata.common.verification_attempt_no = 1;
@@ -682,54 +674,6 @@ async fn verify_job_with_pending_status_works() {
     let consumed_messages_verification_queue =
         services.config.queue().consume_message_from_queue(job_item.job_type.verify_queue_name()).await.unwrap_err();
     assert_matches!(consumed_messages_verification_queue, QueueError::NoData);
-}
-
-fn build_job_item_by_type_and_status(job_type: JobType, job_status: JobStatus, internal_id: String) -> JobItem {
-    let block_number = internal_id.parse::<u64>().unwrap_or(0);
-
-    // Create appropriate specific metadata based on job type
-    let specific_metadata = match job_type {
-        JobType::SnosRun => JobSpecificMetadata::Snos(SnosMetadata {
-            block_number,
-            full_output: false,
-            cairo_pie_path: Some(format!("{}/{}", block_number, CAIRO_PIE_FILE_NAME)),
-            snos_output_path: Some(format!("{}/{}", block_number, SNOS_OUTPUT_FILE_NAME)),
-            program_output_path: Some(format!("{}/{}", block_number, PROGRAM_OUTPUT_FILE_NAME)),
-            snos_fact: None,
-        }),
-        JobType::DataSubmission => JobSpecificMetadata::Da(DaMetadata {
-            block_number,
-            blob_data_path: Some(format!("{}/{}", block_number, BLOB_DATA_FILE_NAME)),
-            tx_hash: None,
-        }),
-        JobType::ProofCreation => JobSpecificMetadata::Proving(ProvingMetadata {
-            block_number,
-            input_path: Some(ProvingInputType::CairoPie(format!("{}/{}", block_number, CAIRO_PIE_FILE_NAME))),
-            ensure_on_chain_registration: None,
-            download_proof: None,
-        }),
-        JobType::StateTransition => JobSpecificMetadata::StateUpdate(StateUpdateMetadata {
-            blocks_to_settle: vec![block_number],
-            snos_output_paths: vec![format!("{}/{}", block_number, SNOS_OUTPUT_FILE_NAME)],
-            program_output_paths: vec![format!("{}/{}", block_number, PROGRAM_OUTPUT_FILE_NAME)],
-            blob_data_paths: vec![format!("{}/{}", block_number, BLOB_DATA_FILE_NAME)],
-            last_failed_block_no: None,
-            tx_hashes: Vec::new(),
-        }),
-        _ => panic!("Unsupported job type: {:?}", job_type),
-    };
-
-    JobItem {
-        id: Uuid::new_v4(),
-        internal_id,
-        job_type,
-        status: job_status,
-        external_id: ExternalId::Number(0),
-        metadata: JobMetadata { common: CommonMetadata::default(), specific: specific_metadata },
-        version: 0,
-        created_at: Utc::now().round_subsecs(0),
-        updated_at: Utc::now().round_subsecs(0),
-    }
 }
 
 #[rstest]

@@ -3,7 +3,6 @@ use std::net::SocketAddr;
 use std::sync::Arc;
 use std::time::Duration;
 
-use chrono::{SubsecRound as _, Utc};
 use hyper::{Body, Request};
 use mockall::predicate::eq;
 use rstest::*;
@@ -11,19 +10,16 @@ use starknet::providers::jsonrpc::HttpTransport;
 use starknet::providers::JsonRpcClient;
 use url::Url;
 use utils::env_utils::get_env_var_or_panic;
-use uuid::Uuid;
 
 use crate::config::Config;
 use crate::jobs::job_handler_factory::mock_factory;
-use crate::jobs::metadata::{
-    CommonMetadata, DaMetadata, JobMetadata, JobSpecificMetadata, ProvingMetadata, SnosMetadata, StateUpdateMetadata,
-};
-use crate::jobs::types::{ExternalId, JobItem, JobStatus, JobType};
+use crate::jobs::types::{JobStatus, JobType};
 use crate::jobs::{Job, MockJob};
 use crate::queue::init_consumers;
 use crate::queue::job_queue::{JobQueueMessage, QueueNameForJobType};
 use crate::routes::types::ApiResponse;
 use crate::tests::config::{ConfigType, TestConfigBuilder};
+use crate::tests::utils::build_job_item;
 
 #[fixture]
 async fn setup_trigger() -> (SocketAddr, Arc<Config>) {
@@ -215,56 +211,4 @@ async fn test_trigger_retry_job_not_allowed(
 async fn test_init_consumer() {
     let services = TestConfigBuilder::new().build().await;
     assert!(init_consumers(services.config).await.is_ok());
-}
-
-// Test Util Functions
-// ==========================================
-
-pub fn build_job_item(job_type: JobType, job_status: JobStatus, internal_id: u64) -> JobItem {
-    // Create appropriate job-specific metadata based on job type
-    let specific_metadata = match job_type {
-        JobType::DataSubmission => {
-            JobSpecificMetadata::Da(DaMetadata { block_number: internal_id, blob_data_path: None, tx_hash: None })
-        }
-        JobType::SnosRun => JobSpecificMetadata::Snos(SnosMetadata {
-            block_number: internal_id,
-            full_output: false,
-            cairo_pie_path: None,
-            snos_output_path: None,
-            program_output_path: None,
-            snos_fact: None,
-        }),
-        JobType::ProofCreation => JobSpecificMetadata::Proving(ProvingMetadata {
-            block_number: internal_id,
-            input_path: None,
-            ensure_on_chain_registration: None,
-            download_proof: None,
-        }),
-        JobType::StateTransition => JobSpecificMetadata::StateUpdate(StateUpdateMetadata {
-            blocks_to_settle: vec![internal_id],
-            snos_output_paths: vec![],
-            program_output_paths: vec![],
-            blob_data_paths: vec![],
-            last_failed_block_no: None,
-            tx_hashes: vec![],
-        }),
-        JobType::ProofRegistration => JobSpecificMetadata::Proving(ProvingMetadata {
-            block_number: internal_id,
-            input_path: None,
-            ensure_on_chain_registration: None,
-            download_proof: None,
-        }),
-    };
-
-    JobItem {
-        id: Uuid::new_v4(),
-        internal_id: internal_id.to_string(),
-        job_type,
-        status: job_status,
-        external_id: ExternalId::Number(0),
-        metadata: JobMetadata { common: CommonMetadata::default(), specific: specific_metadata },
-        version: 0,
-        created_at: Utc::now().round_subsecs(0),
-        updated_at: Utc::now().round_subsecs(0),
-    }
 }
