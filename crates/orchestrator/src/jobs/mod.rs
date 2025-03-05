@@ -386,8 +386,10 @@ pub async fn process_job(id: Uuid, config: Arc<Config>) -> Result<(), JobError> 
             .await;
         }
     };
+    // Add the time of processing to the metadata.
     tracing::debug!(job_id = ?id, "Incrementing process attempt count in metadata");
-    metadata = increment_key_in_metadata(&metadata, JOB_PROCESS_ATTEMPT_METADATA_KEY)?;
+    let mut metadata = increment_key_in_metadata(&job.metadata, JOB_PROCESS_ATTEMPT_METADATA_KEY)?;
+    metadata.insert(JOB_METADATA_PROCESSING_FINISHED_AT.to_string(), Utc::now().timestamp_millis().to_string());
 
     // Fetching the job again because update status above will update the job version
     tracing::debug!(job_id = ?id, "Updating job status to PendingVerification");

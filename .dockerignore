@@ -1,5 +1,5 @@
 # Ignore target directory
-target/
+
 
 # Ignore version control files
 .gitignore
