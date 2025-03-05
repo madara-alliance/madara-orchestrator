@@ -193,10 +193,10 @@ async fn create_job_works() {
     let metadata = JobMetadata {
         common: CommonMetadata::default(),
         specific: JobSpecificMetadata::StateUpdate(StateUpdateMetadata {
-            blocks_to_settle: vec![],
-            snos_output_paths: vec![],
-            program_output_paths: vec![],
-            blob_data_paths: vec![],
+            blocks_to_settle: vec![1],
+            snos_output_paths: vec![format!("1/{}", SNOS_OUTPUT_FILE_NAME)],
+            program_output_paths: vec![format!("1/{}", PROGRAM_OUTPUT_FILE_NAME)],
+            blob_data_paths: vec![format!("1/{}", BLOB_DATA_FILE_NAME)],
             last_failed_block_no: None,
             tx_hashes: vec![],
         }),
