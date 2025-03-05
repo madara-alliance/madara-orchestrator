@@ -129,7 +129,9 @@ jobs:
           make snos
 
       - name: Check rust version
-        run: rustup show
+        run: |
+          source "$HOME/.cargo/env"
+          rustup show
 
       - name: Run llvm-cov tests
         env:
