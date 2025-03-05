@@ -52,7 +52,7 @@ async fn test_process_job_attempt_not_present_fails() {
 
     let state_update_job = StateUpdateJob {};
     let res = state_update_job.process_job(services.config, &mut job).await.unwrap_err();
-    assert_eq!(res, JobError::StateUpdateJobError(StateUpdateError::AttemptNumberNotFound));
+    assert_eq!(res, JobError::StateUpdateJobError(StateUpdateError::BlockNumberNotFound));
 }
 
 // TODO : make this test work

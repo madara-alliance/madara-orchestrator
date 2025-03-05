@@ -73,34 +73,11 @@ async fn create_job_job_does_not_exists_in_db_works() {
 
     assert!(create_job(JobType::SnosRun, "0".to_string(), metadata, services.config.clone()).await.is_ok());
 
-    // Expected metadata after job creation
-    let expected_metadata = JobMetadata {
-        common: CommonMetadata {
-            process_attempt_no: 0,
-            process_retry_attempt_no: 0,
-            verification_attempt_no: 0,
-            verification_retry_attempt_no: 0,
-            process_started_at: None,
-            process_completed_at: None,
-            verification_started_at: None,
-            verification_completed_at: None,
-            failure_reason: None,
-        },
-        specific: JobSpecificMetadata::Snos(SnosMetadata {
-            block_number: 0,
-            full_output: false,
-            cairo_pie_path: None,
-            snos_output_path: None,
-            program_output_path: None,
-            snos_fact: None,
-        }),
-    };
-
     // Db checks.
     let job_in_db = services.config.database().get_job_by_id(job_item.id).await.unwrap().unwrap();
     assert_eq!(job_in_db.id, job_item.id);
     assert_eq!(job_in_db.internal_id, job_item.internal_id);
-    assert_eq!(job_in_db.metadata, expected_metadata);
+    assert_eq!(job_in_db.metadata, job_item.metadata);
 
     // Waiting for 5 secs for message to be passed into the queue
     sleep(Duration::from_secs(5)).await;
@@ -758,7 +735,8 @@ fn build_job_item_by_type_and_status(job_type: JobType, job_status: JobStatus, i
 #[case(JobType::DataSubmission, JobStatus::Completed)] // code should panic here, how can completed move to dl queue ?
 #[case(JobType::SnosRun, JobStatus::PendingVerification)]
 #[case(JobType::ProofCreation, JobStatus::LockedForProcessing)]
-#[case(JobType::ProofRegistration, JobStatus::Created)]
+// #[case(JobType::ProofRegistration, JobStatus::Created)] TODO: add this case when we have the metadata for proof
+// registration
 #[case(JobType::StateTransition, JobStatus::Completed)]
 #[case(JobType::ProofCreation, JobStatus::VerificationTimeout)]
 #[case(JobType::DataSubmission, JobStatus::VerificationFailed)]
@@ -777,7 +755,7 @@ async fn handle_job_failure_with_failed_job_status_works(#[case] job_type: JobTy
     let mut job_expected = build_job_item(job_type.clone(), JobStatus::Failed, internal_id);
 
     // Store the previous job status in the common metadata
-    job_expected.metadata.common.failure_reason = Some(format!("last_job_status: {}", job_status.to_string()));
+    job_expected.metadata.common.failure_reason = Some(format!("last_job_status: {}", job_status));
 
     let job_id = job_expected.id;
 

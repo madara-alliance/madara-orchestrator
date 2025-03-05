@@ -7,7 +7,7 @@ use starknet_os::io::output::StarknetOsOutput;
 use url::Url;
 use uuid::Uuid;
 
-use crate::constants::{CAIRO_PIE_FILE_NAME, SNOS_OUTPUT_FILE_NAME};
+use crate::constants::{CAIRO_PIE_FILE_NAME, PROGRAM_OUTPUT_FILE_NAME, SNOS_OUTPUT_FILE_NAME};
 use crate::jobs::metadata::{CommonMetadata, JobMetadata, JobSpecificMetadata, SnosMetadata};
 use crate::jobs::snos_job::SnosJob;
 use crate::jobs::types::{JobItem, JobStatus, JobType, JobVerificationStatus};
@@ -93,14 +93,15 @@ async fn test_process_job() -> color_eyre::Result<()> {
     let storage_client = services.config.storage();
 
     // Create proper metadata structure
+    let block_number = 76793;
     let metadata = JobMetadata {
         common: CommonMetadata::default(),
         specific: JobSpecificMetadata::Snos(SnosMetadata {
-            block_number: 76793,
+            block_number,
             full_output: false,
-            cairo_pie_path: None,
-            snos_output_path: None,
-            program_output_path: None,
+            cairo_pie_path: Some(format!("{}/{}", block_number, CAIRO_PIE_FILE_NAME)),
+            snos_output_path: Some(format!("{}/{}", block_number, SNOS_OUTPUT_FILE_NAME)),
+            program_output_path: Some(format!("{}/{}", block_number, PROGRAM_OUTPUT_FILE_NAME)),
             snos_fact: None,
         }),
     };

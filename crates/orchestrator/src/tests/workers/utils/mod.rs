@@ -95,7 +95,7 @@ fn create_metadata_for_job_type(job_type: JobType, block_number: u64) -> JobMeta
                 cairo_pie_path: Some(format!("{}/cairo_pie.zip", block_number)),
                 snos_output_path: Some(format!("{}/snos_output.json", block_number)),
                 program_output_path: Some(format!("{}/program_output.txt", block_number)),
-                snos_fact: None,
+                snos_fact: Some(String::from("0xdeadbeef")),
             }),
         },
         JobType::DataSubmission => JobMetadata {
@@ -197,12 +197,13 @@ pub fn db_checks_proving_worker(id: i32, db: &mut MockDatabase, mock_job: &mut M
     let uuid = Uuid::new_v4();
     let block_number = id as u64;
 
+    // Create proving metadata with the SNOS fact
     let metadata = JobMetadata {
         common: CommonMetadata::default(),
         specific: JobSpecificMetadata::Proving(ProvingMetadata {
             block_number,
             input_path: Some(ProvingInputType::CairoPie(format!("{}/cairo_pie.zip", block_number))),
-            ensure_on_chain_registration: None,
+            ensure_on_chain_registration: Some(format!("0x{:064x}", block_number)), // Add the SNOS fact
             download_proof: None,
         }),
     };
@@ -221,13 +222,16 @@ pub fn db_checks_proving_worker(id: i32, db: &mut MockDatabase, mock_job: &mut M
 
     let job_item_cloned = job_item.clone();
 
+    // Check if a proving job already exists for this SNOS job
     db.expect_get_job_by_internal_id_and_type()
         .times(1)
         .with(eq(id.clone().to_string()), eq(JobType::ProofCreation))
         .returning(|_, _| Ok(None));
 
+    // Create the proving job
     mock_job.expect_create_job().times(1).returning(move |_, _, _| Ok(job_item.clone()));
 
+    // Store the job in the database
     db.expect_create_job()
         .times(1)
         .withf(move |item| item.internal_id == id.clone().to_string())
