@@ -183,10 +183,10 @@ async fn test_orchestrator_workflow(#[case] l2_block_number: String) {
         internal_id: l2_block_number.clone(),
         job_type: JobType::ProofCreation,
         job_status: JobStatus::Completed,
-        version: 3,
+        version: 4,
     };
     let test_result = wait_for_db_state(
-        Duration::from_secs(1500),
+        Duration::from_secs(900),
         l2_block_number.clone(),
         setup_config.mongo_db_instance(),
         expected_state_after_proving_job,
@@ -199,7 +199,7 @@ async fn test_orchestrator_workflow(#[case] l2_block_number: String) {
         internal_id: l2_block_number.clone(),
         job_type: JobType::DataSubmission,
         job_status: JobStatus::Completed,
-        version: 3,
+        version: 4,
     };
     let test_result = wait_for_db_state(
         Duration::from_secs(300),
@@ -215,7 +215,7 @@ async fn test_orchestrator_workflow(#[case] l2_block_number: String) {
         internal_id: l2_block_number.clone(),
         job_type: JobType::StateTransition,
         job_status: JobStatus::Completed,
-        version: 3,
+        version: 4,
     };
     let test_result = wait_for_db_state(
         Duration::from_secs(300),
