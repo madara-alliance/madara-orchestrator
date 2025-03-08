@@ -6,6 +6,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ## Added
 
+- added metadata serialization and deserialization
 - Limits on SNOS job concurrency
 - Added JOB_METADATA_PROCESSING_STARTED_AT
 - Added retry job endpoint for failed jobs
@@ -53,6 +54,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ## Changed
 
+- refactor: job isolation added, each job will have needed information from it's worker
 - Increased interval time for spawn_consumer
 - verify_job now handles VerificationTimeout status
 - refactor: expect removed and added error wraps

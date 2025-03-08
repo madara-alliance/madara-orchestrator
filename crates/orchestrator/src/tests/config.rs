@@ -231,20 +231,15 @@ impl TestConfigBuilder {
             implement_client::init_settlement_client(settlement_client_type, &params.settlement_params).await;
 
         let prover_client = implement_client::init_prover_client(prover_client_type, &params.prover_params).await;
-
         // Delete the Storage before use
         delete_storage(provider_config.clone(), &params.storage_params).await.expect("Could not delete storage");
-
         // External Dependencies
         let storage =
             implement_client::init_storage_client(storage_type, &params.storage_params, provider_config.clone()).await;
-
         let database = implement_client::init_database(database_type, &params.db_params).await;
-
         let queue =
             implement_client::init_queue_client(queue_type, params.queue_params.clone(), provider_config.clone()).await;
         // Deleting and Creating the queues in sqs.
-
         create_queues(provider_config.clone(), &params.queue_params)
             .await
             .expect("Not able to delete and create the queues.");

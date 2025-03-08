@@ -1,10 +1,8 @@
 use core::panic;
-use std::collections::HashMap;
 use std::net::SocketAddr;
 use std::sync::Arc;
 use std::time::Duration;
 
-use chrono::{SubsecRound as _, Utc};
 use hyper::{Body, Request};
 use mockall::predicate::eq;
 use rstest::*;
@@ -12,20 +10,16 @@ use starknet::providers::jsonrpc::HttpTransport;
 use starknet::providers::JsonRpcClient;
 use url::Url;
 use utils::env_utils::get_env_var_or_panic;
-use uuid::Uuid;
 
 use crate::config::Config;
-use crate::jobs::constants::{
-    JOB_PROCESS_RETRY_ATTEMPT_METADATA_KEY, JOB_VERIFICATION_ATTEMPT_METADATA_KEY,
-    JOB_VERIFICATION_RETRY_ATTEMPT_METADATA_KEY,
-};
 use crate::jobs::job_handler_factory::mock_factory;
-use crate::jobs::types::{ExternalId, JobItem, JobStatus, JobType};
-use crate::jobs::{get_u64_from_metadata, Job, MockJob};
+use crate::jobs::types::{JobStatus, JobType};
+use crate::jobs::{Job, MockJob};
 use crate::queue::init_consumers;
 use crate::queue::job_queue::{JobQueueMessage, QueueNameForJobType};
 use crate::routes::types::ApiResponse;
 use crate::tests::config::{ConfigType, TestConfigBuilder};
+use crate::tests::utils::build_job_item;
 
 #[fixture]
 async fn setup_trigger() -> (SocketAddr, Arc<Config>) {
@@ -94,14 +88,12 @@ async fn test_trigger_verify_job(#[future] setup_trigger: (SocketAddr, Arc<Confi
     let (addr, config) = setup_trigger.await;
     let job_type = JobType::DataSubmission;
 
-    // Create a simple job without initial metadata
+    // Create a job with initial metadata
     let mut job_item = build_job_item(job_type.clone(), JobStatus::PendingVerification, 1);
 
-    // Initialize metadata with verification counters
-    let mut metadata = HashMap::new();
-    metadata.insert(JOB_VERIFICATION_RETRY_ATTEMPT_METADATA_KEY.to_string(), "0".to_string());
-    metadata.insert(JOB_VERIFICATION_ATTEMPT_METADATA_KEY.to_string(), "10".to_string());
-    job_item.metadata = metadata;
+    // Set verification counters in common metadata
+    job_item.metadata.common.verification_retry_attempt_no = 0;
+    job_item.metadata.common.verification_attempt_no = 10;
 
     config.database().create_job(job_item.clone()).await.unwrap();
     let job_id = job_item.clone().id;
@@ -139,13 +131,10 @@ async fn test_trigger_verify_job(#[future] setup_trigger: (SocketAddr, Arc<Confi
     assert_eq!(job_fetched.status, JobStatus::PendingVerification);
 
     // Verify verification attempt was reset
-    let verify_attempts = get_u64_from_metadata(&job_fetched.metadata, JOB_VERIFICATION_ATTEMPT_METADATA_KEY).unwrap();
-    assert_eq!(verify_attempts, 0);
+    assert_eq!(job_fetched.metadata.common.verification_attempt_no, 0);
 
     // Verify retry attempt was incremented
-    let retry_attempts =
-        get_u64_from_metadata(&job_fetched.metadata, JOB_VERIFICATION_RETRY_ATTEMPT_METADATA_KEY).unwrap();
-    assert_eq!(retry_attempts, 1);
+    assert_eq!(job_fetched.metadata.common.verification_retry_attempt_no, 1);
 }
 
 #[tokio::test]
@@ -179,9 +168,7 @@ async fn test_trigger_retry_job_when_failed(#[future] setup_trigger: (SocketAddr
     // Verify job status changed to PendingRetry
     let job_fetched = config.database().get_job_by_id(job_id).await.unwrap().expect("Could not get job from database");
     assert_eq!(job_fetched.id, job_item.id);
-    let process_attempts =
-        get_u64_from_metadata(&job_fetched.metadata, JOB_PROCESS_RETRY_ATTEMPT_METADATA_KEY).unwrap();
-    assert_eq!(process_attempts, 1);
+    assert_eq!(job_fetched.metadata.common.process_retry_attempt_no, 1);
     assert_eq!(job_fetched.status, JobStatus::PendingRetry);
 }
 
@@ -224,21 +211,4 @@ async fn test_trigger_retry_job_not_allowed(
 async fn test_init_consumer() {
     let services = TestConfigBuilder::new().build().await;
     assert!(init_consumers(services.config).await.is_ok());
-}
-
-// Test Util Functions
-// ==========================================
-
-pub fn build_job_item(job_type: JobType, job_status: JobStatus, internal_id: u64) -> JobItem {
-    JobItem {
-        id: Uuid::new_v4(),
-        internal_id: internal_id.to_string(),
-        job_type,
-        status: job_status,
-        external_id: ExternalId::Number(0),
-        metadata: Default::default(),
-        version: 0,
-        created_at: Utc::now().round_subsecs(0),
-        updated_at: Utc::now().round_subsecs(0),
-    }
 }
