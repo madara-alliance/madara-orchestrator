@@ -24,14 +24,14 @@ trait ProvingLayer: Send + Sync {
 struct EthereumLayer;
 impl ProvingLayer for EthereumLayer {
     fn customize_request<'a>(&self, request: RequestBuilder<'a>) -> RequestBuilder<'a> {
-        request.path("v1").path("l1/atlantic-query/proof-generation-verification")
+        request.path("/atlantic-query")
     }
 }
 
 struct StarknetLayer;
 impl ProvingLayer for StarknetLayer {
     fn customize_request<'a>(&self, request: RequestBuilder<'a>) -> RequestBuilder<'a> {
-        request.path("v1").path("proof-generation")
+        request.path("/atlantic-query")
     }
 }
 
@@ -73,6 +73,7 @@ impl AtlanticClient {
             _ => proof_layout.to_str(),
         };
 
+        println!("About to send request to Atlantic for proof generation #1");
         let response = self
             .proving_layer
             .customize_request(
@@ -80,6 +81,10 @@ impl AtlanticClient {
             )
             .form_file("pieFile", pie_file, "pie.zip")?
             .form_text("layout", proof_layout)
+            .form_text("declaredJobSize", "L")
+            .form_text("result", "PROOF_GENERATION")
+            // unsure about this
+            .form_text("cairoVersion", "cairo0")
             .send()
             .await
             .map_err(AtlanticError::AddJobFailure)?;
@@ -99,18 +104,29 @@ impl AtlanticClient {
         atlantic_api_key: &str,
     ) -> Result<AtlanticAddJobResponse, AtlanticError> {
         tracing::info!(">>>>>>> task_id: {:?}", task_id);
+
+        // read a file from path build/cairo_verifier.json
+
+        let cairo_verifier = match tokio::fs::read_to_string("build/cairo_verifier.json").await {
+            Ok(content) => content,
+            Err(e) => return Err(AtlanticError::FileReadError(e)),
+        };
+
         let response = self
-            .client
-            .request()
-            .method(Method::POST)
-            .path("v1")
-            .path("l2/atlantic-query")
-            .query_param("apiKey", atlantic_api_key.as_ref())
-            .form_text("programHash", "0x193641eb151b0f41674641089952e60bc3aded26e3cf42793655c562b8c3aa0")
-            .form_text("prover", "starkware_sharp")
-            .form_text("cairoVersion", "0")
-            .form_text("layout", "recursive_with_poseidon")
+            .proving_layer
+            .customize_request(
+                self.client.request().method(Method::POST).query_param("apiKey", atlantic_api_key.as_ref()),
+            )
+            // doesn't seem like a valid input
+            // .form_text("programHash", "0x193641eb151b0f41674641089952e60bc3aded26e3cf42793655c562b8c3aa0")
+            // .form_text("prover", "starkware_sharp")
             .form_file_bytes("inputFile", proof.as_bytes().to_vec(), "proof.json")
+            .form_file_bytes("programFile", cairo_verifier.as_bytes().to_vec(), "cairo_verifier.json")
+            .form_text("layout", "recursive_with_poseidon")
+            .form_text("declaredJobSize", "L")
+            .form_text("result", "PROOF_VERIFICATION_ON_L2")
+            .form_text("cairoVm", "python")
+            .form_text("cairoVersion", "cairo0")
             .send()
             .await
             .map_err(AtlanticError::SubmitL2QueryFailure)?;
@@ -128,7 +144,6 @@ impl AtlanticClient {
             .client
             .request()
             .method(Method::GET)
-            .path("v1")
             .path("atlantic-query")
             .path(job_key)
             .send()

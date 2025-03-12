@@ -12,27 +12,46 @@ pub struct AtlanticGetProofResponse {
 
 #[derive(Debug, Clone, Deserialize)]
 #[serde(rename_all = "camelCase")]
-pub struct AtlanticGetStatusResponse {
-    pub atlantic_query: AtlanticQuery,
+pub struct AtlanticQuery {
+    pub id: String,
+    pub external_id: Option<String>,
+    pub transaction_id: String,
+    pub status: AtlanticQueryStatus,
+    pub step: Option<String>,
+    pub program_hash: String,
+    pub integrity_fact_hash: String,
+    pub sharp_fact_hash: String,
+    pub layout: String,
+    pub is_fact_mocked: Option<bool>,
+    pub chain: String,
+    pub job_size: String,
+    pub declared_job_size: String,
+    pub cairo_vm: String,
+    pub cairo_version: String,
+    pub steps: Vec<String>,
+    pub error_reason: Option<String>,
+    pub submitted_by_client: String,
+    pub project_id: String,
+    pub created_at: String,
+    pub completed_at: String,
+    pub client: Client,
 }
 
 #[derive(Debug, Clone, Deserialize)]
 #[serde(rename_all = "camelCase")]
-pub struct AtlanticQuery {
-    pub id: String,
-    pub external_id: String,
-    pub submitted_by_client: String,
-    pub status: AtlanticQueryStatus,
-    pub step: Option<AtlanticQueryStep>,
-    pub program_hash: Option<String>,
-    pub layout: Option<String>,
-    pub program_fact_hash: Option<String>,
-    pub price: String,
-    pub trace_credits_used: u64,
-    pub is_fact_mocked: Option<bool>,
-    pub chain: Option<String>,
-    pub prover: String,
-    pub steps: Vec<AtlanticQueryStep>,
+pub struct Client {
+    pub client_id: String,
+    pub name: String,
+    pub email: String,
+    pub is_email_verified: bool,
+    pub image: String,
+}
+
+#[derive(Debug, Clone, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct AtlanticGetStatusResponse {
+    pub atlantic_query: AtlanticQuery,
+    pub metadata_urls: Vec<String>,
 }
 
 #[derive(Debug, Clone, Deserialize)]

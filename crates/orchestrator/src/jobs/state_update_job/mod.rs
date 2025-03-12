@@ -133,7 +133,7 @@ impl Job for StateUpdateJob {
             block_numbers = block_numbers.into_iter().filter(|&block| block >= last_failed_block).collect::<Vec<u64>>();
         }
 
-        let mut nonce = config.settlement_client().get_nonce().await.map_err(|e| JobError::Other(OtherError(e)))?;
+        let nonce = config.settlement_client().get_nonce().await.map_err(|e| JobError::Other(OtherError(e)))?;
         let mut sent_tx_hashes: Vec<String> = Vec::with_capacity(block_numbers.len());
         for block_no in block_numbers.iter() {
             sleep(Duration::from_secs(20)).await;

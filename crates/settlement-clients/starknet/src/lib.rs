@@ -8,20 +8,19 @@ use std::sync::Arc;
 use appchain_core_contract_client::clients::StarknetCoreContractClient;
 use appchain_core_contract_client::interfaces::core_contract::CoreContract;
 use async_trait::async_trait;
-use color_eyre::eyre::{eyre, WrapErr};
+use color_eyre::eyre::eyre;
 use color_eyre::Result;
 use lazy_static::lazy_static;
 use mockall::automock;
 use mockall::predicate::*;
 use settlement_client_interface::{SettlementClient, SettlementVerificationStatus};
 use starknet::accounts::{ConnectedAccount, ExecutionEncoding, SingleOwnerAccount};
-use starknet::core::types::{BlockId, BlockTag, Felt, FunctionCall, TransactionExecutionStatus};
+use starknet::core::types::{BlockId, BlockTag, Felt, FunctionCall, TransactionExecutionStatus, U256};
 use starknet::core::utils::get_selector_from_name;
 use starknet::providers::jsonrpc::HttpTransport;
 use starknet::providers::{JsonRpcClient, Provider};
 use starknet::signers::{LocalWallet, SigningKey};
 use tokio::time::{sleep, Duration};
-use starknet::core::types::U256;
 
 use crate::conversion::{slice_slice_u8_to_vec_field, slice_u8_to_field, u64_from_felt};
 
@@ -63,24 +62,19 @@ impl StarknetSettlementClient {
         let signing_key = SigningKey::from_secret_scalar(private_key);
         let signer = LocalWallet::from(signing_key);
 
-        let core_contract_address = Felt::from_hex(&settlement_cfg.starknet_cairo_core_contract_address).expect("Invalid core contract address");
+        let core_contract_address = Felt::from_hex(&settlement_cfg.starknet_cairo_core_contract_address)
+            .expect("Invalid core contract address");
 
         let chain_id = provider.chain_id().await.expect("Failed to get chain id");
 
-        let mut account = SingleOwnerAccount::new(
-            provider.clone(),
-            signer,
-            signer_address,
-            chain_id,
-            ExecutionEncoding::New,
-        );
+        let mut account =
+            SingleOwnerAccount::new(provider.clone(), signer, signer_address, chain_id, ExecutionEncoding::New);
 
         // Set block ID to Pending like in the reference implementation
         account.set_block_id(BlockId::Tag(BlockTag::Pending));
         let account = Arc::new(account);
 
-        let starknet_core_contract_client = 
-            StarknetCoreContractClient::new(core_contract_address, account.clone());
+        let starknet_core_contract_client = StarknetCoreContractClient::new(core_contract_address, account.clone());
 
         StarknetSettlementClient {
             account,
@@ -141,18 +135,13 @@ impl SettlementClient for StarknetSettlementClient {
         println!(">>>>>>>>>>> snos_output: {:?}", snos_output);
         println!(">>>>>>>>>>> program_output: {:?}", program_output);
         println!(">>>>>>>>>>> onchain_data_hash: {:?}", onchain_data_hash);
-        
+
         let low = u128::from_be_bytes(onchain_data_size[16..32].try_into().unwrap());
         let high = u128::from_be_bytes(onchain_data_size[0..16].try_into().unwrap());
         let size = U256::from_words(low, high);
-        
+
         let invoke_result = core_contract
-            .update_state(
-                snos_output,
-                program_output,
-                onchain_data_hash,
-                size,
-            )
+            .update_state(snos_output, program_output, onchain_data_hash, size)
             .await
             .map_err(|e| eyre!("Failed to update state with calldata: {:?}", e))?;
 

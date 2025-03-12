@@ -1,11 +1,10 @@
-use std::str::FromStr as _;
+use std::str::{FromStr as _, FromStr};
 
 use alloy::primitives::{Address, B256};
 use alloy::providers::{ProviderBuilder, RootProvider};
 use alloy::sol;
 use alloy::transports::http::{Client, Http};
 use url::Url;
-use std::str::FromStr;
 
 sol!(
     #[allow(missing_docs)]
@@ -48,8 +47,7 @@ type ProviderT = RootProvider<TransportT>;
 
 impl FactChecker {
     pub fn new(sharp_rpc_node_url: Url, gps_verifier_contract_address: String, settlement_layer: String) -> Self {
-        let settlement_layer = SettlementLayer::from_str(&settlement_layer)
-            .expect("Invalid settlement layer");
+        let settlement_layer = SettlementLayer::from_str(&settlement_layer).expect("Invalid settlement layer");
 
         match settlement_layer {
             SettlementLayer::Ethereum => {
@@ -59,28 +57,19 @@ impl FactChecker {
                         .expect("Invalid GPS verifier contract address"),
                     provider,
                 );
-                Self {
-                    fact_registry: Some(fact_registry),
-                    settlement_layer,
-                }
+                Self { fact_registry: Some(fact_registry), settlement_layer }
             }
-            SettlementLayer::Starknet => Self {
-                fact_registry: None,
-                settlement_layer,
-            },
+            SettlementLayer::Starknet => Self { fact_registry: None, settlement_layer },
         }
     }
 
     pub async fn is_valid(&self, fact: &B256) -> Result<bool, FactCheckerError> {
         match self.settlement_layer {
             SettlementLayer::Ethereum => {
-                let fact_registry = self.fact_registry.as_ref()
-                    .expect("Fact registry should be initialized for Ethereum");
-                let FactRegistry::isValidReturn { _0 } = fact_registry
-                    .isValid(*fact)
-                    .call()
-                    .await
-                    .map_err(FactCheckerError::InvalidFact)?;
+                let fact_registry =
+                    self.fact_registry.as_ref().expect("Fact registry should be initialized for Ethereum");
+                let FactRegistry::isValidReturn { _0 } =
+                    fact_registry.isValid(*fact).call().await.map_err(FactCheckerError::InvalidFact)?;
                 Ok(_0)
             }
             SettlementLayer::Starknet => {
@@ -98,14 +87,8 @@ mod tests {
 
     #[test]
     fn test_settlement_layer_from_str() {
-        assert_eq!(
-            SettlementLayer::from_str("ethereum").unwrap(),
-            SettlementLayer::Ethereum
-        );
-        assert_eq!(
-            SettlementLayer::from_str("starknet").unwrap(),
-            SettlementLayer::Starknet
-        );
+        assert_eq!(SettlementLayer::from_str("ethereum").unwrap(), SettlementLayer::Ethereum);
+        assert_eq!(SettlementLayer::from_str("starknet").unwrap(), SettlementLayer::Starknet);
         assert!(SettlementLayer::from_str("invalid").is_err());
     }
 }

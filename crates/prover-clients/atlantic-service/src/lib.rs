@@ -90,7 +90,7 @@ impl ProverClient for AtlanticProverService {
 
     async fn get_proof(&self, task_id: &str, _fact: &str) -> Result<String, ProverClientError> {
         let proof_path =
-            format!("https://atlantic-queries.s3.nl-ams.scw.cloud/sharp_queries/query_{}/proof.json", task_id);
+            format!("https://s3.pl-waw.scw.cloud/atlantic-k8s-experimental/queries/{}/proof.json", task_id);
         let client = reqwest::Client::new();
         let response =
             client.get(&proof_path).send().await.map_err(|e| ProverClientError::NetworkError(e.to_string()))?;

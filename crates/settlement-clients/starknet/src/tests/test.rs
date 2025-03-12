@@ -217,19 +217,20 @@ async fn test_get_nonce_works(#[future] setup: (LocalWalletSignerMiddleware, Mad
 }
 
 use color_eyre::Result;
-use settlement_client_interface::{SettlementVerificationStatus};
-
+use settlement_client_interface::SettlementVerificationStatus;
 
 #[rstest]
 #[tokio::test]
 async fn test_update_state_calldata() -> Result<()> {
     // Create settlement client configuration using the running Madara instance
     let starknet_settlement_params = StarknetSettlementValidatedArgs {
-        starknet_rpc_url: Url::parse("https://starknet-sepolia.g.alchemy.com/v2/gbyYKt74AtTbRcgTSFP45xXuFUFdTH3D").expect("Invalid URL"),
+        starknet_rpc_url: Url::parse("https://starknet-sepolia.g.alchemy.com/v2/gbyYKt74AtTbRcgTSFP45xXuFUFdTH3D")
+            .expect("Invalid URL"),
         // These values should match your running Madara instance configuration
-        starknet_private_key: "0x041072ab6356e28dcbd2ab0b3b5534e46a9406243250d8601ae06b96ae682820".to_string(), // Replace with actual test private key
+        starknet_private_key: "0x041072ab6356e28dcbd2ab0b3b5534e46a9406243250d8601ae06b96ae682820".to_string(), /* Replace with actual test private key */
         starknet_account_address: "0x068d686c69596839803cbf60ce2f8a2368d3ba3e66a20c00b11ddfb6ada810fb".to_string(),
-        starknet_cairo_core_contract_address: "0x1efeb838a88f57ea8ea7e9d4b89ff5e238e18d0ddac7d733509ea6e1432dd76".to_string(),
+        starknet_cairo_core_contract_address: "0x1efeb838a88f57ea8ea7e9d4b89ff5e238e18d0ddac7d733509ea6e1432dd76"
+            .to_string(),
         starknet_finality_retry_wait_in_secs: 10,
     };
 
@@ -266,7 +267,7 @@ async fn test_update_state_calldata() -> Result<()> {
     match verification_status {
         SettlementVerificationStatus::Verified => {
             println!("Transaction verified successfully!");
-            
+
             // Wait for finality and get block number
             let block_number = settlement_client.wait_for_tx_finality(&tx_hash).await?;
             println!("Transaction included in block: {:?}", block_number);
@@ -280,8 +281,6 @@ async fn test_update_state_calldata() -> Result<()> {
         SettlementVerificationStatus::Rejected(reason) => {
             Err(color_eyre::eyre::eyre!("Transaction was rejected: {}", reason))
         }
-        SettlementVerificationStatus::Pending => {
-            Err(color_eyre::eyre::eyre!("Transaction verification timed out"))
-        }
+        SettlementVerificationStatus::Pending => Err(color_eyre::eyre::eyre!("Transaction verification timed out")),
     }
 }

@@ -7,7 +7,7 @@ use async_trait::async_trait;
 use chrono::{SubsecRound, Utc};
 use color_eyre::eyre::{eyre, WrapErr};
 use color_eyre::Result;
-use prover_client_interface::{Task, TaskStatus};
+use prover_client_interface::TaskStatus;
 use swiftness_proof_parser::{parse, StarkProof};
 use uuid::Uuid;
 
