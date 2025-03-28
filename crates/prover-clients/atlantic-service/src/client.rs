@@ -73,8 +73,10 @@ impl AtlanticClient {
             _ => proof_layout.to_str(),
         };
 
-        println!("About to send request to Atlantic for proof generation #1");
-        let response = self
+        tracing::info!("About to send request to Atlantic for proof generation #1");
+
+        let network = utils::env_utils::get_env_var_or_default("MADARA_ORCHESTRATOR_ATLANTIC_NETWORK", "TESTNET");
+        let reqq = self
             .proving_layer
             .customize_request(
                 self.client.request().method(Method::POST).query_param("apiKey", atlantic_api_key.as_ref()),
@@ -83,8 +85,16 @@ impl AtlanticClient {
             .form_text("layout", proof_layout)
             .form_text("declaredJobSize", "L")
             .form_text("result", "PROOF_GENERATION")
-            // unsure about this
+            .form_text("network", network.as_str())
             .form_text("cairoVersion", "cairo0")
+            .form_text("cairoVm", "rust")
+            // unsure about this
+            // network + cairoVm
+            .form_text("cairoVersion", "cairo0");
+
+      tracing::info!("About to send request to Atlantic for proof generation #2 {:?}", reqq);
+
+      let response = reqq
             .send()
             .await
             .map_err(AtlanticError::AddJobFailure)?;

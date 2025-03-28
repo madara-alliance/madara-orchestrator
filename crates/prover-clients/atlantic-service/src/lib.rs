@@ -73,6 +73,7 @@ impl ProverClient for AtlanticProverService {
     async fn get_task_status(&self, job_key: &str, fact: &str) -> Result<TaskStatus, ProverClientError> {
         let res = self.atlantic_client.get_job_status(job_key).await?;
         match res.atlantic_query.status {
+            AtlanticQueryStatus::Received => Ok(TaskStatus::Processing),
             AtlanticQueryStatus::InProgress => Ok(TaskStatus::Processing),
             AtlanticQueryStatus::Done => {
                 let fact = B256::from_str(fact).map_err(|e| ProverClientError::FailedToConvertFact(e.to_string()))?;

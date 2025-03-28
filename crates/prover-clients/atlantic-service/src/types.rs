@@ -17,29 +17,31 @@ pub struct AtlanticQuery {
     pub external_id: Option<String>,
     pub transaction_id: String,
     pub status: AtlanticQueryStatus,
-    pub step: Option<String>,
+    pub step: AtlanticQueryStep,
     pub program_hash: String,
     pub integrity_fact_hash: String,
     pub sharp_fact_hash: String,
     pub layout: String,
-    pub is_fact_mocked: Option<bool>,
+    pub is_fact_mocked: bool,
     pub chain: String,
     pub job_size: String,
     pub declared_job_size: String,
     pub cairo_vm: String,
     pub cairo_version: String,
-    pub steps: Vec<String>,
+    pub steps: Vec<AtlanticQueryStep>,
+    pub result: String,
+    pub network: String,
     pub error_reason: Option<String>,
     pub submitted_by_client: String,
     pub project_id: String,
     pub created_at: String,
     pub completed_at: String,
-    pub client: Client,
+    pub client: AtlanticClient,
 }
 
 #[derive(Debug, Clone, Deserialize)]
 #[serde(rename_all = "camelCase")]
-pub struct Client {
+pub struct AtlanticClient {
     pub client_id: String,
     pub name: String,
     pub email: String,
@@ -57,6 +59,7 @@ pub struct AtlanticGetStatusResponse {
 #[derive(Debug, Clone, Deserialize)]
 #[serde(rename_all = "SCREAMING_SNAKE_CASE")]
 pub enum AtlanticQueryStatus {
+    Received,
     InProgress,
     Done,
     Failed,
@@ -65,9 +68,10 @@ pub enum AtlanticQueryStatus {
 #[derive(Debug, Clone, Deserialize)]
 #[serde(rename_all = "SCREAMING_SNAKE_CASE")]
 pub enum AtlanticQueryStep {
-    TraceGeneration,
-    ProofGeneration,
-    FactHashGeneration,
-    FactHashRegistration,
-    ProofVerification,
+  TraceGeneration,
+  ProofVerification,
+  ProofGeneration,
+  ProofVerificationOnL1,
+  ProofVerificationOnL2,
+  ProofGenerationAndVerification,
 }

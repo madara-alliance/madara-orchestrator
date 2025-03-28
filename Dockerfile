@@ -26,6 +26,10 @@ RUN mkdir -p /home/ubuntu/.cargo/git/checkouts/snos-59fe8329bb16fe65/2c47281/cra
 
 COPY ./crates/da-clients/ethereum/trusted_setup.txt /home/ubuntu/.cargo/git/checkouts/snos-59fe8329bb16fe65/2c47281/crates/starknet-os/kzg/trusted_setup.txt
 
+# Create build directory and copy cairo_verifier.json file
+RUN mkdir -p build
+COPY build/cairo_verifier.json build/
+
 # Make sure the binary is executable
 RUN chmod +x orchestrator
 # Set the entrypoint to the binary
