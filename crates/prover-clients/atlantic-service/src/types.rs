@@ -22,7 +22,7 @@ pub struct AtlanticQuery {
     pub integrity_fact_hash: String,
     pub sharp_fact_hash: String,
     pub layout: String,
-    pub is_fact_mocked: bool,
+    pub is_fact_mocked: Option<bool>,
     pub chain: String,
     pub job_size: String,
     pub declared_job_size: String,
@@ -68,10 +68,10 @@ pub enum AtlanticQueryStatus {
 #[derive(Debug, Clone, Deserialize)]
 #[serde(rename_all = "SCREAMING_SNAKE_CASE")]
 pub enum AtlanticQueryStep {
-  TraceGeneration,
-  ProofVerification,
-  ProofGeneration,
-  ProofVerificationOnL1,
-  ProofVerificationOnL2,
-  ProofGenerationAndVerification,
+    TraceGeneration,
+    ProofGeneration,
+    ProofVerification,
+    ProofVerificationOnL1,
+    ProofVerificationOnL2,
+    ProofGenerationAndVerification,
 }
