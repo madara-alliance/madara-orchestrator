@@ -171,7 +171,7 @@ impl Job for ProvingJob {
         300
     }
 
-    fn job_processing_lock(&self, _config: Arc<Config>) -> std::option::Option<std::sync::Arc<JobProcessingState>> {
-        None
+    fn job_processing_lock(&self, config: Arc<Config>) -> std::option::Option<std::sync::Arc<JobProcessingState>> {
+      Some(config.processing_locks().proving_job_processing_lock.clone())
     }
 }
