@@ -92,12 +92,9 @@ impl AtlanticClient {
             // network + cairoVm
             .form_text("cairoVersion", "cairo0");
 
-      tracing::info!("About to send request to Atlantic for proof generation #2 {:?}", reqq);
+        tracing::info!("About to send request to Atlantic for proof generation #2 {:?}", reqq);
 
-      let response = reqq
-            .send()
-            .await
-            .map_err(AtlanticError::AddJobFailure)?;
+        let response = reqq.send().await.map_err(AtlanticError::AddJobFailure)?;
 
         tracing::info!(">>>>>>> response: {:?}", response);
         if response.status().is_success() {

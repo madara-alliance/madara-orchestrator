@@ -50,6 +50,7 @@ use crate::routes::ServerParams;
 pub struct ProcessingLocks {
     pub snos_job_processing_lock: Arc<JobProcessingState>,
     pub proving_job_processing_lock: Arc<JobProcessingState>,
+    pub proof_registration_job_processing_lock: Arc<JobProcessingState>,
 }
 
 pub struct JobProcessingState {
@@ -134,6 +135,7 @@ pub struct ServiceParams {
     pub min_block_to_process: Option<u64>,
     pub max_concurrent_snos_jobs: Option<usize>,
     pub max_concurrent_proving_jobs: Option<usize>,
+    pub max_concurrent_proof_registration_jobs: Option<usize>,
 }
 
 pub struct OrchestratorParams {
@@ -234,9 +236,12 @@ pub async fn init_config(run_cmd: &RunCmd) -> color_eyre::Result<Arc<Config>> {
         JobProcessingState::new(orchestrator_params.service_config.max_concurrent_snos_jobs.unwrap_or(1));
     let proving_processing_lock =
         JobProcessingState::new(orchestrator_params.service_config.max_concurrent_proving_jobs.unwrap_or(1));
+    let proof_registration_processing_lock =
+        JobProcessingState::new(orchestrator_params.service_config.max_concurrent_proof_registration_jobs.unwrap_or(1));
     let processing_locks = ProcessingLocks {
         snos_job_processing_lock: Arc::new(snos_processing_lock),
         proving_job_processing_lock: Arc::new(proving_processing_lock),
+        proof_registration_job_processing_lock: Arc::new(proof_registration_processing_lock),
     };
 
     Ok(Arc::new(Config::new(

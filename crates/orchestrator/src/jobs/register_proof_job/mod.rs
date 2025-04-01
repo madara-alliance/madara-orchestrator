@@ -216,8 +216,8 @@ impl Job for RegisterProofJob {
 
     fn job_processing_lock(
         &self,
-        _config: Arc<Config>,
+        config: Arc<Config>,
     ) -> std::option::Option<std::sync::Arc<config::JobProcessingState>> {
-        None
+        Some(config.processing_locks().proof_registration_job_processing_lock.clone())
     }
 }
