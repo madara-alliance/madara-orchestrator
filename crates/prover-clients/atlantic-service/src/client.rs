@@ -96,7 +96,7 @@ impl AtlanticClient {
 
         let response = reqq.send().await.map_err(AtlanticError::AddJobFailure)?;
 
-        tracing::info!(">>>>>>> response: {:?}", response);
+        tracing::info!(">>>>>>> response for add_job : {:?}", response);
         if response.status().is_success() {
             response.json().await.map_err(AtlanticError::AddJobFailure)
         } else {
@@ -138,7 +138,7 @@ impl AtlanticClient {
             .await
             .map_err(AtlanticError::SubmitL2QueryFailure)?;
 
-        tracing::info!(">>>>>>> response: {:?}", response);
+        tracing::info!(">>>>>>> response for submit_l2_query : {:?}", response);
         if response.status().is_success() {
             response.json().await.map_err(AtlanticError::AddJobFailure)
         } else {
@@ -157,12 +157,24 @@ impl AtlanticClient {
             .await
             .map_err(AtlanticError::GetJobStatusFailure)?;
 
-        tracing::info!(">>>>>>> response: {:?}", response);
+        // Log basic response info
+        let response_status = response.status();
+        tracing::info!(">>>>>>> response status: {:?}", response_status);
 
-        if response.status().is_success() {
-            response.json().await.map_err(AtlanticError::GetJobStatusFailure)
+        // Clone the response body for logging
+        let response_bytes = response.bytes().await.map_err(AtlanticError::GetJobStatusFailure)?;
+        let response_text = String::from_utf8_lossy(&response_bytes);
+        tracing::info!(">>>>>>> raw response body: {}", response_text);
+
+        if response_status.is_success() {
+            // Convert serde_json::Error to color_eyre::eyre::Error
+            serde_json::from_slice(&response_bytes)
+                .map_err(|e| {
+                    tracing::error!("JSON parse error: {:?}", e);
+                    AtlanticError::Other(color_eyre::eyre::eyre!(e))
+                })
         } else {
-            Err(AtlanticError::SharpService(response.status()))
+            Err(AtlanticError::SharpService(response_status))
         }
     }
 }
