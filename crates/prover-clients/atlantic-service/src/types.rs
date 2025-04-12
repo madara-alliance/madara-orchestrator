@@ -85,4 +85,8 @@ pub enum AtlanticQueryStep {
     ProofVerificationOnL2,
     #[serde(rename = "PROOF_GENERATION_AND_VERIFICATION")]
     ProofGenerationAndVerification,
+    #[serde(rename = "TRACE_AND_METADATA_GENERATION")]
+    TraceAndMetadataGeneration,
+    #[serde(rename = "FACT_HASH_REGISTRATION")]
+    FactHashRegistration
 }
