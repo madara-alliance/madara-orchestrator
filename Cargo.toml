@@ -95,7 +95,7 @@ mockall_double = "0.3.1"
 hyper = { version = "0.14", features = ["full"] }
 mockall = "0.13.0"
 testcontainers = "0.18.0"
-once_cell = "1.8"
+once_cell = "1.21.3"
 appchain-core-contract-client = { git = "https://github.com/Mohiiit/zaun", rev="878cf6fac215c260858b070f72fb52a70bf5e460" }
 crypto-bigint = { version = "0.5.5" }
 env_logger = "0.11.5"
@@ -132,8 +132,8 @@ cairo-vm = { git = "https://github.com/Mohiiit/cairo-vm", branch = "tmp/mohit/pa
 ] }
 # Snos & Sharp (Starkware)
 # TODO: need to update this once the updated PR merges
-starknet-os = { git = "https://github.com/Mohiiit/snos", rev = "cad469b0650eed7763e8eedaba5c445fdfd7cfa1" }
-prove_block = { git = "https://github.com/Mohiiit/snos", rev = "cad469b0650eed7763e8eedaba5c445fdfd7cfa1" }
+starknet-os = { git = "https://github.com/heemankv/snos", rev = "5d53051dbe5551f26e40e5a7dcfa43b5bef786da" }
+prove_block = { git = "https://github.com/heemankv/snos", rev = "5d53051dbe5551f26e40e5a7dcfa43b5bef786da" }
 
 jemallocator = "0.5.4"
 # Madara prover API
