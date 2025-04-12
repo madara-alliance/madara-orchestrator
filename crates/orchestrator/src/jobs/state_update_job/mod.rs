@@ -506,14 +506,18 @@ fn convert_snos_output_into_bytes_vec(snos: StarknetOsOutput) -> Vec<[u8; 32]> {
         snos_vec.push(messages.to_bytes_be());
     }
 
+    let state_diff = snos.state_diff.unwrap();
+    let classes = state_diff.classes;
+    let contract_changes = state_diff.contract_changes;
+
     // Processing Contract Changes
-    snos_vec.push(usize_to_bytes(snos.contracts.len()));
-    for contract in snos.contracts {
+    snos_vec.push(usize_to_bytes(contract_changes.len()));
+    for contract in contract_changes {
         snos_vec.extend(convert_contract_changes_into_vec(contract));
     }
 
     // Processing Class Changes
-    snos_vec.extend(convert_class_changes_into_vec(snos.classes, snos.full_output));
+    snos_vec.extend(convert_class_changes_into_vec(classes, snos.full_output));
 
     snos_vec
 }
