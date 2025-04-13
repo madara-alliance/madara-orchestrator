@@ -119,6 +119,8 @@ impl AtlanticClient {
             Err(e) => return Err(AtlanticError::FileReadError(e)),
         };
 
+        let network = utils::env_utils::get_env_var_or_default("MADARA_ORCHESTRATOR_ATLANTIC_NETWORK", "TESTNET");
+
         let response = self
             .proving_layer
             .customize_request(
@@ -131,6 +133,7 @@ impl AtlanticClient {
             .form_file_bytes("programFile", cairo_verifier.as_bytes().to_vec(), "cairo_verifier.json")
             .form_text("layout", "recursive_with_poseidon")
             .form_text("declaredJobSize", "L")
+            .form_text("network", network.as_str())
             .form_text("result", "PROOF_VERIFICATION_ON_L2")
             .form_text("cairoVm", "python")
             .form_text("cairoVersion", "cairo0")
