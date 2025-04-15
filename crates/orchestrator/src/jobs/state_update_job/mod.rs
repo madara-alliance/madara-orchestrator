@@ -316,7 +316,7 @@ impl StateUpdateJob {
 
         tracing::info!("HEEMANK block_numbers: {:?}", block_numbers);
         tracing::info!("HEEMANK last_settled_block: {}", last_settled_block);
-        if last_settled_block + 1 != block_numbers[0] {
+        if !(last_settled_block == 0 && block_numbers[0] == 0) && last_settled_block + 1 != block_numbers[0] {
             Err(StateUpdateError::GapBetweenFirstAndLastBlock)?;
         }
         Ok(())
