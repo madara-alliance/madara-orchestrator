@@ -76,6 +76,8 @@ impl AtlanticClient {
         tracing::info!("About to send request to Atlantic for proof generation #1");
 
         let network = utils::env_utils::get_env_var_or_default("MADARA_ORCHESTRATOR_ATLANTIC_NETWORK", "TESTNET");
+        let job_size = utils::env_utils::get_env_var_or_default("MADARA_ORCHESTRATOR_ATLANTIC_JOB_SIZE", "M");
+
         let reqq = self
             .proving_layer
             .customize_request(
@@ -83,7 +85,7 @@ impl AtlanticClient {
             )
             .form_file("pieFile", pie_file, "pie.zip")?
             .form_text("layout", proof_layout)
-            .form_text("declaredJobSize", "L")
+            .form_text("declaredJobSize", job_size.as_str())
             .form_text("result", "PROOF_GENERATION")
             .form_text("network", network.as_str())
             .form_text("cairoVersion", "cairo0")
@@ -120,6 +122,7 @@ impl AtlanticClient {
         };
 
         let network = utils::env_utils::get_env_var_or_default("MADARA_ORCHESTRATOR_ATLANTIC_NETWORK", "TESTNET");
+        let job_size = utils::env_utils::get_env_var_or_default("MADARA_ORCHESTRATOR_ATLANTIC_JOB_SIZE", "M");
 
         let response = self
             .proving_layer
@@ -132,7 +135,7 @@ impl AtlanticClient {
             .form_file_bytes("inputFile", proof.as_bytes().to_vec(), "proof.json")
             .form_file_bytes("programFile", cairo_verifier.as_bytes().to_vec(), "cairo_verifier.json")
             .form_text("layout", "recursive_with_poseidon")
-            .form_text("declaredJobSize", "L")
+            .form_text("declaredJobSize", job_size.as_str())
             .form_text("network", network.as_str())
             .form_text("result", "PROOF_VERIFICATION_ON_L2")
             .form_text("cairoVm", "python")
