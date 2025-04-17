@@ -76,7 +76,7 @@ impl AtlanticClient {
         tracing::info!("About to send request to Atlantic for proof generation #1");
 
         let network = utils::env_utils::get_env_var_or_default("MADARA_ORCHESTRATOR_ATLANTIC_NETWORK", "TESTNET");
-        let job_size = utils::env_utils::get_env_var_or_default("MADARA_ORCHESTRATOR_ATLANTIC_JOB_SIZE", "M");
+        let job_size = utils::env_utils::get_env_var_or_default("MADARA_ORCHESTRATOR_ATLANTIC_PROVING_JOB_SIZE", "M");
 
         let reqq = self
             .proving_layer
@@ -122,7 +122,7 @@ impl AtlanticClient {
         };
 
         let network = utils::env_utils::get_env_var_or_default("MADARA_ORCHESTRATOR_ATLANTIC_NETWORK", "TESTNET");
-        let job_size = utils::env_utils::get_env_var_or_default("MADARA_ORCHESTRATOR_ATLANTIC_JOB_SIZE", "M");
+        let job_size = utils::env_utils::get_env_var_or_default("MADARA_ORCHESTRATOR_ATLANTIC_PROOF_REGISTRATION_JOB_SIZE", "M");
 
         let response = self
             .proving_layer
