@@ -25,23 +25,32 @@ impl Worker for ProofRegistrationWorker {
             .get_jobs_without_successor(JobType::ProofCreation, JobStatus::Completed, JobType::ProofRegistration)
             .await?;
 
-        tracing::debug!(
+        tracing::info!(
             "Found {} successful proving jobs without proof registration jobs",
             successful_proving_jobs.len()
         );
 
         // get the max number of proof registration jobs that can be currently created because of max capacity.
-        let max_cap = utils::env_utils::get_env_var_or_default("MADARA_ORCHESTRATOR_MAX_CONCURRENT_PROOF_REGISTRATION_JOBS", "50");
+        let max_cap = utils::env_utils::get_env_var_or_default("MADARA_ORCHESTRATOR_MAX_PARALLEL_PROOF_REGISTRATION_JOBS", "8");
+
+        tracing::info!("Max capacity for proof registration jobs is {}", max_cap);
+
 
         let job_type = JobType::ProofRegistration;
         let statuses = vec![JobStatus::Created, JobStatus::LockedForProcessing, JobStatus::PendingVerification, JobStatus::PendingRetry];
 
         let current_jobs = config.database().get_jobs_by_type_and_statuses(job_type, statuses).await?;
 
+
         let current_jobs_count = current_jobs.len();
+        tracing::info!("Current jobs count: {}", current_jobs_count);
 
         let max_jobs = max_cap.parse::<usize>().unwrap_or(50);
         let remaining_capacity = max_jobs.saturating_sub(current_jobs_count);
+
+        tracing::info!("max_jobs {}", max_jobs);
+
+        tracing::info!("Remaining capacity for proof registration jobs is {}", remaining_capacity);
 
         // get the first remaining_capacity jobs from successful_proving_jobs
         let remaining_jobs = successful_proving_jobs.into_iter().take(remaining_capacity);
