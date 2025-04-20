@@ -30,7 +30,25 @@ impl Worker for ProofRegistrationWorker {
             successful_proving_jobs.len()
         );
 
-        for job in successful_proving_jobs {
+        // get the max number of proof registration jobs that can be currently created because of max capacity.
+        let max_cap = utils::env_utils::get_env_var_or_default("MADARA_ORCHESTRATOR_MAX_CONCURRENT_PROOF_REGISTRATION_JOBS", "50");
+
+        let job_type = JobType::ProofRegistration;
+        let statuses = vec![JobStatus::Created, JobStatus::LockedForProcessing, JobStatus::PendingVerification, JobStatus::PendingRetry];
+
+        let current_jobs = config.database().get_jobs_by_type_and_statuses(job_type, statuses).await?;
+
+        let current_jobs_count = current_jobs.len();
+
+        let max_jobs = max_cap.parse::<usize>().unwrap_or(50);
+        let remaining_capacity = max_jobs.saturating_sub(current_jobs_count);
+
+        // get the first remaining_capacity jobs from successful_proving_jobs
+        let remaining_jobs = successful_proving_jobs.into_iter().take(remaining_capacity);
+
+        tracing::info!("Creating jobs for {} proof registration jobs", remaining_jobs.len());
+
+        for job in remaining_jobs {
             tracing::debug!(job_id = %job.internal_id, "Creating proof registration job for proving job");
             match create_job(JobType::ProofRegistration, job.internal_id.to_string(), job.metadata, config.clone())
                 .await

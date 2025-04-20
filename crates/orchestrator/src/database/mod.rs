@@ -48,4 +48,6 @@ pub trait Database: Send + Sync {
     ) -> Result<Vec<JobItem>>;
 
     async fn get_jobs_by_statuses(&self, status: Vec<JobStatus>, limit: Option<i64>) -> Result<Vec<JobItem>>;
+
+    async fn get_jobs_by_type_and_statuses(&self, job_type: JobType, job_statuses: Vec<JobStatus>) -> Result<Vec<JobItem>>;
 }
