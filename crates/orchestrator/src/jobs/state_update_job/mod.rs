@@ -136,7 +136,7 @@ impl Job for StateUpdateJob {
         let nonce = config.settlement_client().get_nonce().await.map_err(|e| JobError::Other(OtherError(e)))?;
         let mut sent_tx_hashes: Vec<String> = Vec::with_capacity(block_numbers.len());
         for block_no in block_numbers.iter() {
-            sleep(Duration::from_secs(20)).await;
+            sleep(Duration::from_secs(1)).await;
             let nonce = config.settlement_client().get_nonce().await.map_err(|e| JobError::Other(OtherError(e)))?;
             tracing::debug!(job_id = %job.internal_id, block_no = %block_no, "Processing block");
 
