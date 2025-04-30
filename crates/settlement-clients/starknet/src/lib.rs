@@ -156,7 +156,7 @@ impl SettlementClient for StarknetSettlementClient {
 
     /// Should verify the inclusion of a tx in the settlement layer
     async fn verify_tx_inclusion(&self, tx_hash: &str) -> Result<SettlementVerificationStatus> {
-        println!(" ############# inside the verify tx inclusion #############");
+        println!(" ############# inside the verify tx inclusion #############, {:?}", tx_hash);
         tracing::info!(
             log_type = "starting",
             category = "verify_tx",

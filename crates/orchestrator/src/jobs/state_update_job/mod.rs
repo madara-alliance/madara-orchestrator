@@ -133,12 +133,11 @@ impl Job for StateUpdateJob {
             block_numbers = block_numbers.into_iter().filter(|&block| block >= last_failed_block).collect::<Vec<u64>>();
         }
 
-        let nonce = config.settlement_client().get_nonce().await.map_err(|e| JobError::Other(OtherError(e)))?;
+        let mut nonce = config.settlement_client().get_nonce().await.map_err(|e| JobError::Other(OtherError(e)))?;
         let mut sent_tx_hashes: Vec<String> = Vec::with_capacity(block_numbers.len());
         for block_no in block_numbers.iter() {
-            sleep(Duration::from_secs(1)).await;
-            let nonce = config.settlement_client().get_nonce().await.map_err(|e| JobError::Other(OtherError(e)))?;
-            tracing::debug!(job_id = %job.internal_id, block_no = %block_no, "Processing block");
+            sleep(Duration::from_secs(10)).await;
+            tracing::info!(job_id = %job.internal_id, block_no = %block_no,  nonce = %nonce, "Processing block with nonce");
 
             let snos = self.fetch_snos_for_block(*block_no, config.clone()).await?;
             let txn_hash = self
@@ -151,6 +150,7 @@ impl Job for StateUpdateJob {
                     OtherError(eyre!("Block #{block_no} - Error occurred during the state update: {e}"));
                 })
                 .unwrap();
+            nonce = nonce+1;
             sent_tx_hashes.push(txn_hash);
         }
 
@@ -197,18 +197,18 @@ impl Job for StateUpdateJob {
         let settlement_client = config.settlement_client();
 
         for (tx_hash, block_no) in tx_hashes.iter().zip(block_numbers.iter()) {
-            tracing::trace!(job_id = %job.internal_id, tx_hash = %tx_hash, block_no = %block_no, "Verifying transaction inclusion");
+            tracing::info!(job_id = %job.internal_id, tx_hash = %tx_hash, block_no = %block_no, "Verifying transaction inclusion");
             let tx_inclusion_status =
                 settlement_client.verify_tx_inclusion(tx_hash).await.map_err(|e| JobError::Other(OtherError(e)))?;
             match tx_inclusion_status {
                 SettlementVerificationStatus::Rejected(_) => {
-                    tracing::warn!(job_id = %job.internal_id, tx_hash = %tx_hash, block_no = %block_no, "Transaction rejected");
+                    tracing::info!(job_id = %job.internal_id, tx_hash = %tx_hash, block_no = %block_no, "Transaction rejected");
                     job.metadata.insert(JOB_METADATA_STATE_UPDATE_LAST_FAILED_BLOCK_NO.into(), block_no.to_string());
                     return Ok(tx_inclusion_status.into());
                 }
                 // If the tx is still pending, we wait for it to be finalized and check again the status.
                 SettlementVerificationStatus::Pending => {
-                    tracing::debug!(job_id = %job.internal_id, tx_hash = %tx_hash, "Transaction pending, waiting for finality");
+                    tracing::info!(job_id = %job.internal_id, tx_hash = %tx_hash, "Transaction pending, waiting for finality");
                     settlement_client
                         .wait_for_tx_finality(tx_hash)
                         .await
@@ -219,22 +219,22 @@ impl Job for StateUpdateJob {
                         .map_err(|e| JobError::Other(OtherError(e)))?;
                     match new_status {
                         SettlementVerificationStatus::Rejected(_) => {
-                            tracing::warn!(job_id = %job.internal_id, tx_hash = %tx_hash, block_no = %block_no, "Transaction rejected after finality");
+                            tracing::info!(job_id = %job.internal_id, tx_hash = %tx_hash, block_no = %block_no, "Transaction rejected after finality");
                             job.metadata
                                 .insert(JOB_METADATA_STATE_UPDATE_LAST_FAILED_BLOCK_NO.into(), block_no.to_string());
                             return Ok(new_status.into());
                         }
                         SettlementVerificationStatus::Pending => {
-                            tracing::error!(job_id = %job.internal_id, tx_hash = %tx_hash, "Transaction still pending after finality check");
+                            tracing::info!(job_id = %job.internal_id, tx_hash = %tx_hash, "Transaction still pending after finality check");
                             Err(StateUpdateError::TxnShouldNotBePending { tx_hash: tx_hash.to_string() })?
                         }
                         SettlementVerificationStatus::Verified => {
-                            tracing::debug!(job_id = %job.internal_id, tx_hash = %tx_hash, "Transaction verified after finality");
+                            tracing::info!(job_id = %job.internal_id, tx_hash = %tx_hash, "Transaction verified after finality");
                         }
                     }
                 }
                 SettlementVerificationStatus::Verified => {
-                    tracing::debug!(job_id = %job.internal_id, tx_hash = %tx_hash, "Transaction verified");
+                    tracing::info!(job_id = %job.internal_id, tx_hash = %tx_hash, "Transaction verified");
                 }
             }
         }
@@ -257,15 +257,15 @@ impl Job for StateUpdateJob {
     }
 
     fn max_process_attempts(&self) -> u64 {
-        1
+        3
     }
 
     fn max_verification_attempts(&self) -> u64 {
-        10
+        100
     }
 
     fn verification_polling_delay_seconds(&self) -> u64 {
-        60
+        1
     }
 
     fn job_processing_lock(

@@ -106,9 +106,10 @@ impl Worker for UpdateStateWorker {
 
         let mut blocks_to_process: Vec<u64> = find_successive_blocks_in_vector(blocks_to_process);
 
-        if blocks_to_process.len() > 10 {
-            blocks_to_process = blocks_to_process.into_iter().take(10).collect();
+        if blocks_to_process.len() > 30 {
+            blocks_to_process = blocks_to_process.into_iter().take(30).collect();
         }
+        tracing::info!("Blocks to process length: {}", blocks_to_process.len());
 
         let mut metadata = HashMap::new();
         metadata.insert(
