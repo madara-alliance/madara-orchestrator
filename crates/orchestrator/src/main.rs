@@ -34,7 +34,7 @@ async fn run_orchestrator(run_cmd: &RunCmd) -> color_eyre::Result<()> {
     // Analytics Setup
     let instrumentation_params = run_cmd.validate_instrumentation_params().expect("Invalid instrumentation params");
     let meter_provider = setup_analytics(&instrumentation_params);
-    tracing::info!(service = "orchestrator", "Starting orchestrator service with new bro 2 ?");
+    tracing::info!(service = "orchestrator", "Starting orchestrator service with new bro log");
 
     color_eyre::install().expect("Unable to install color_eyre");
 
