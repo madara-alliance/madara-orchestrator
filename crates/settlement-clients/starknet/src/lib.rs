@@ -131,7 +131,7 @@ impl SettlementClient for StarknetSettlementClient {
         let onchain_data_hash = slice_u8_to_field(&onchain_data_hash);
         let core_contract: &CoreContract = self.starknet_core_contract_client.as_ref();
 
-        println!(">>>>>>>>>>> onchain_data_size: {:?}", onchain_data_size);
+        println!(">>>>>>>>>>> snos_output length: {:?}", snos_output.len());
         println!(">>>>>>>>>>> snos_output: {:?}", snos_output);
         println!(">>>>>>>>>>> program_output: {:?}", program_output);
         println!(">>>>>>>>>>> onchain_data_hash: {:?}", onchain_data_hash);
@@ -139,6 +139,9 @@ impl SettlementClient for StarknetSettlementClient {
         let low = u128::from_be_bytes(onchain_data_size[16..32].try_into().unwrap());
         let high = u128::from_be_bytes(onchain_data_size[0..16].try_into().unwrap());
         let size = U256::from_words(low, high);
+
+        println!(">>>>>>>>>>> onchain_data_size: {:?}", size);
+
 
         let invoke_result = core_contract
             .update_state(snos_output, program_output, onchain_data_hash, size)
