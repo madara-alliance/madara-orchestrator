@@ -142,7 +142,6 @@ impl SettlementClient for StarknetSettlementClient {
 
         println!(">>>>>>>>>>> onchain_data_size: {:?}", size);
 
-
         let invoke_result = core_contract
             .update_state(snos_output, program_output, onchain_data_hash, size)
             .await
@@ -251,7 +250,7 @@ impl SettlementClient for StarknetSettlementClient {
     }
 
     /// Returns the last block settled from the core contract.
-    async fn get_last_settled_block(&self) -> Result<u64> {
+    async fn get_last_settled_block(&self) -> Result<Option<u64>> {
         let block_number = self
             .account
             .provider()
@@ -269,9 +268,16 @@ impl SettlementClient for StarknetSettlementClient {
             return Err(eyre!("Could not fetch last block number from core contract."));
         }
 
-        Ok(u64_from_felt(block_number[1]).expect("Failed to convert to u64"))
-    }
+        let special_number =
+            Felt::from_hex("0x800000000000011000000000000000000000000000000000000000000000000").unwrap();
 
+        let last_block_number = block_number[1];
+        if last_block_number == special_number {
+            return Ok(None);
+        }
+
+        Ok(Some(u64_from_felt(block_number[1]).expect("Failed to convert to u64")))
+    }
     /// Returns the nonce for the wallet in use.
     async fn get_nonce(&self) -> Result<u64> {
         let nonce = self.account.get_nonce().await?;
